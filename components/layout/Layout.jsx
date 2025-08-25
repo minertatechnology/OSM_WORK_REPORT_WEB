@@ -1,21 +1,88 @@
 import React, { useState, useEffect } from "react";
 import SideMenuComp from "@components/SideMenuComp/SideMenuComp";
-import { Menu } from "lucide-react";
+import {
+  Menu,
+  Home,
+  Users,
+  Database,
+  FileText,
+  BarChart2,
+  UserCheck,
+  Activity,
+  FileCheck,
+  ClipboardList,
+  FileSearch,
+  Bell,
+  Gift,
+} from "lucide-react";
 import { useLoading } from "@context/LoadingProvider";
-import Image from "next/image";
-
-/*
-  Layout + Navbar (เวอร์ชัน title คงที่ "ข้อมูล Smart อสม.")
-  เพิ่มไอคอน icon1.png (จาก public/icon1.png) ด้านหน้าข้อความ title
-*/
 
 const PRIMARY = "#6E28B7";
+
+// Mapping sidebar menu name to nav icon
+const MENU_ICON_MAP = {
+  หน้าหลัก: <Home className="w-5 h-5" />,
+  รายชื่อผู้ใช้งานแอปพลิเคชัน: <Users className="w-5 h-5" />,
+  "ข้อมูล อสม. Thai Phc": <Database className="w-5 h-5" />,
+  "รายงาน อสม.1": <FileText className="w-5 h-5" />,
+  "รายงาน ลูกน้ำยุงลาย": <BarChart2 className="w-5 h-5" />,
+  คัดกรองผู้สูงอายุในชุมชน: <UserCheck className="w-5 h-5" />,
+  "คัดกรองโรคไม่ติดต่อเรื้อรัง NCDs": <Activity className="w-5 h-5" />,
+  รายงานประเมินหญิงตั้งครรภ์: <FileCheck className="w-5 h-5" />,
+  "จัดการคะแนนสะสม อสม.": <Gift className="w-5 h-5" />,
+  "ผลตรวจสุขภาพ อสม.": <BarChart2 className="w-5 h-5" />,
+  "รายงานผลตรวจ ATK": <FileSearch className="w-5 h-5" />,
+  ประกาศข่าวสาร: <Bell className="w-5 h-5" />,
+  กำหนดสิทธิ์การเข้าถึง: <Users className="w-5 h-5" />,
+  // Submenu or fallback
+  "ข้อมูลรายงาน อสม.1": <FileText className="w-5 h-5" />,
+  "GIS รายงาน อสม.1": <FileText className="w-5 h-5" />,
+  "ข้อมูลรายงาน ลูกน้ำยุงลาย": <BarChart2 className="w-5 h-5" />,
+  "GIS รายงาน ลูกน้ำยุงลาย": <BarChart2 className="w-5 h-5" />,
+  กำหนดการแลกของรางวัล: <Gift className="w-5 h-5" />,
+  การขนส่งของรางวัล: <Gift className="w-5 h-5" />,
+};
+
+const roleDisplayName = (roles) => {
+  if (!roles || !roles.length) return "";
+  switch (roles[0]) {
+    case "สบส.":
+      return "สบส.";
+    case "เขต":
+      return "เขต";
+    case "จังหวัด":
+      return "จังหวัด";
+    case "อำเภอ":
+      return "อำเภอ";
+    case "ตำบล":
+      return "ตำบล";
+    case "รพสต.":
+      return "รพสต.";
+    default:
+      return roles[0];
+  }
+};
+
+const getUserInfoFromSession = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    const data = sessionStorage.getItem("userInfo");
+    if (!data) return {};
+    const parsed = JSON.parse(data);
+    return parsed || {};
+  } catch {
+    return {};
+  }
+};
 
 const Navbar = ({
   onToggleSidebar,
   isMobile,
-  userName = "นาย เกษตร รุ่งเรือง",
-  userProvince = "จังหวัด นนทบุรี",
+  userName,
+  userProvince,
+  userRole,
+  navTitle,
+  navIcon,
 }) => {
   return (
     <div
@@ -23,7 +90,7 @@ const Navbar = ({
         isMobile ? "h-11" : "h-14"
       } bg-white border-b border-gray-200 flex items-center justify-between px-3 lg:px-6`}
     >
-      {/* Left: ICON + FIXED TITLE */}
+      {/* Left: ICON + DYNAMIC TITLE */}
       <div className="flex items-center gap-2 lg:gap-3 min-w-0">
         {isMobile && (
           <button
@@ -35,25 +102,13 @@ const Navbar = ({
           </button>
         )}
 
-        {/* ไอคอนจาก public/icon1.png */}
-        <div className="flex items-center">
-          <Image
-            src="/icon1.png"
-            alt="icon"
-            width={isMobile ? 18 : 20}
-            height={isMobile ? 18 : 20}
-            priority
-            className="object-contain select-none"
-          />
-        </div>
-
         <span
           className={`font-medium ${
             isMobile ? "text-[13px]" : "text-[14px]"
           } tracking-[0.2px]`}
           style={{ color: PRIMARY }}
         >
-          ข้อมูล Smart อสม.
+          {navTitle || "หน้าแรก"}
         </span>
       </div>
 
@@ -65,6 +120,7 @@ const Navbar = ({
               isMobile ? "text-[11px]" : "text-[13px]"
             } text-[#1a1230] tracking-[0.2px]`}
           >
+            {userRole ? `[${userRole}] ` : ""}
             {userName}
           </div>
           <div
@@ -86,6 +142,19 @@ const Layout = ({ children }) => {
   const [isMobile, setIsMobile] = useState(false);
   const { setLoading } = useLoading();
 
+  // user info from sessionStorage
+  const [user, setUser] = useState({
+    name: "",
+    province: "",
+    role: "",
+  });
+
+  // state for nav title/icon
+  const [navInfo, setNavInfo] = useState({
+    title: "หน้าแรก",
+    icon: null,
+  });
+
   useEffect(() => {
     const checkIfMobile = () => {
       const mobile = window.innerWidth < 1024;
@@ -97,8 +166,40 @@ const Layout = ({ children }) => {
     return () => window.removeEventListener("resize", checkIfMobile);
   }, []);
 
-  const handleMenuClick = () => {
+  useEffect(() => {
+    // Only run on client
+    const info = getUserInfoFromSession();
+    // ชื่อ
+    let name = info?.user?.name || "ไม่ทราบชื่อ";
+    // role
+    let role = info?.auth?.roles ? roleDisplayName(info.auth.roles) : "";
+    // province (แสดงจังหวัดถ้ามี, fallback เป็นเขต, ตำบล, รพสต.)
+    let province =
+      info?.auth?.province ||
+      info?.auth?.zone ||
+      info?.auth?.district ||
+      info?.auth?.subdistrict ||
+      info?.auth?.unit ||
+      "";
+    if (province && !province.startsWith("จังหวัด") && role === "จังหวัด") {
+      province = `จังหวัด ${province}`;
+    }
+    if (!province) province = "-";
+    setUser({
+      name,
+      province,
+      role,
+    });
+  }, []);
+
+  // รับ callback จาก SideMenuComp
+  const handleMenuClick = (menuName) => {
     setLoading(true);
+    // ถ้า menuName เป็น string
+    setNavInfo({
+      title: menuName || "หน้าแรก",
+      icon: MENU_ICON_MAP[menuName] || null,
+    });
     if (isMobile) setIsSidebarOpen(false);
     setTimeout(() => setLoading(false), 700);
   };
@@ -134,8 +235,11 @@ const Layout = ({ children }) => {
         <Navbar
           onToggleSidebar={toggleSidebar}
           isMobile={isMobile}
-          userName="นาย เกษตร รุ่งเรือง"
-          userProvince="จังหวัด นนทบุรี"
+          userName={user.name}
+          userProvince={user.province}
+          userRole={user.role}
+          navTitle={navInfo.title}
+          navIcon={navInfo.icon}
         />
         <main className="flex-1 p-3 lg:p-6 overflow-y-auto">{children}</main>
       </div>

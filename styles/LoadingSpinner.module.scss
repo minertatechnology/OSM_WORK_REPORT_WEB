@@ -1,7 +1,10 @@
+@use "sass:color";
+
 /* -------- Color Setup (Purple Theme) -------- */
-$base: #6e28b7;
-$base-mid: lighten($base, 12%);
-$base-light: lighten($base, 26%);
+$base: #0c8ce9;
+// เดิม: lighten($base, 12%) และ lighten($base, 26%) -> ใช้ color.mix เพื่อคงผลเดิม
+$base-mid: color.mix(white, $base, 12%);
+$base-light: color.mix(white, $base, 26%);
 
 .loadingOverlay {
   position: fixed;
@@ -10,7 +13,6 @@ $base-light: lighten($base, 26%);
   display: flex;
   align-items: center;
   justify-content: center;
-  /* พื้นหลังใส */
   background: transparent;
   backdrop-filter: none;
 }
@@ -59,7 +61,7 @@ $base-light: lighten($base, 26%);
   box-shadow: 0 0 22px 4px rgba($base, 0.1), 0 0 50px 12px rgba($base, 0.08);
 }
 
-/* LOGO กลาง (ไม่ขยับขึ้น) */
+/* LOGO กลาง */
 .logoContainer {
   position: absolute;
   inset: 0;
@@ -75,12 +77,10 @@ $base-light: lighten($base, 26%);
   height: 2rem;
   object-fit: contain;
   user-select: none;
-  /* ยกเลิก animation เดิม */
   animation: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.28))
     drop-shadow(0 0 6px rgba($base, 0.55))
     drop-shadow(0 0 14px rgba($base-mid, 0.35));
-  /* ถ้าอยากให้หมุนช้า ๆ คอมเมนต์ข้างล่างออก */
   // animation: logoSlowSpin 9s linear infinite;
 }
 
@@ -103,19 +103,16 @@ $base-light: lighten($base, 26%);
 
 /* ---------- Animations ---------- */
 @keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
+  to {
     transform: rotate(360deg);
   }
 }
 
 @keyframes spinReverse {
-  0% {
+  from {
     transform: rotate(360deg);
   }
-  100% {
+  to {
     transform: rotate(0deg);
   }
 }
@@ -143,15 +140,8 @@ $base-light: lighten($base, 26%);
   }
 }
 
-/* Optional (ถ้าเปิดใน .logoImage) */
 @keyframes logoSlowSpin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
+  to {
     transform: rotate(360deg);
   }
 }
-
-/* (ลบของเก่าที่เกี่ยวกับข้อความถ้าไม่ได้ใช้แล้ว) */
-/* .loadingText / gradientFlow ถูกตัดออก */
