@@ -1,0 +1,499 @@
+/* ThreeDocComp.module.scss */
+/* ========== Tokens ========== */
+// /src/styles/_tokens.scss
+$bg: #ffffff;
+$surface: #ffffff;
+$border: #e9ecf3;
+$shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+
+$primary-900: #212584;
+$primary-800: #2b2f9c;
+$primary-700: #6E28B7;
+$primary-600: #7f3bc9;
+$primary-500: #8B5CF6;
+$primary-300: #D9C6FF;
+$primary-200: #F1E8FF;
+$primary-150: #EEE7FF;
+$primary-100: #F7F3FF;
+
+$accent-600: #FF59A2;
+$text: #111827;
+$text-dim: #6b7280;
+
+$radius-xl: 18px;
+$radius-lg: 16px;
+$radius-md: 12px;
+$radius-sm: 10px;
+
+$space-1: 6px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+
+
+.cardHeader {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: #6E28B7; // ปรับสีตรงนี้
+}
+
+/* ========== Layout ========== */
+.wrap {
+  padding: $space-4;
+  background: $bg;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-bottom: $space-3;
+
+  &Title {
+    font-size: clamp(18px, 1.6vw, 20px);
+    font-weight: 900;
+    letter-spacing: .2px;
+    color: $text;
+  }
+
+  &Right {
+    display: flex;
+    gap: 10px;
+  }
+
+  .printBtn {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: $radius-sm;
+    padding: 10px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(108, 73, 217, .2);
+    }
+
+    &--primary {
+      color: #6E28B7;       // ← เปลี่ยนตรงนี้
+      background: #fff;
+      border-color: #6E28B7; // ← และตรงนี้
+
+      &:hover {
+        background: #f1ecff;
+        box-shadow: 0 2px 8px rgba(108, 73, 217, .15);
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 4px rgba(108, 73, 217, .12);
+      }
+    }
+  }
+}
+/* 12-col grid */
+.row {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: $space-4;
+
+  @media (max-width: 1024px) { gap: $space-3; }
+  @media (max-width: 768px)  { grid-template-columns: 1fr; }
+}
+@for $i from 1 through 12 { .col-#{$i} { grid-column: span #{$i}; } }
+
+/* ========== Card ========== */
+.card {
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow;
+  overflow: hidden;
+
+  &Header {
+    padding: 14px 16px;
+    border-bottom: 1px solid $border;
+    font-weight: 900;
+    color: $primary-900;
+    background: linear-gradient(180deg, #faf6ff, #fff);
+  }
+
+  &Content {
+    padding: $space-4;
+    min-width: 0; /* ป้องกันเนื้อหาล้น */
+  }
+}
+
+/* เวอร์ชันกรอบบาง ๆ สำหรับการ์ดโดนัท/เลเจนด์ */
+.cardMuted {
+  border-color: #efe9ff;
+}
+
+/* ========== Filter Bar ========== */
+.filters {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: $space-4;
+
+  .field {
+    grid-column: span 3;
+    @media (max-width: 1280px) { grid-column: span 4; }
+    @media (max-width: 768px)  { grid-column: span 12; }
+  }
+
+  .label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: $text; // คงเดิมได้
+  }
+
+  /* << ปรับสไตล์ select เป็นเส้นขอบเทา + ตัวอักษรเทา >> */
+  .select {
+    width: 100%;
+    border: 1px solid #d1d5db;            /* เทาจางชัดขึ้น */
+    border-radius: $radius-sm;
+    padding: 10px 12px;
+    outline: none;
+    background: #fff;
+    color: $text-dim;                      /* ตัวอักษรเทา */
+    transition: border-color .12s ease, box-shadow .12s ease;
+
+    &:hover {
+      border-color: #cbd5e1;               /* hover เทาอ่อน */
+    }
+
+    &:focus {
+      border-color: $primary-700;          /* โฟกัสเป็นม่วงตามธีม */
+      box-shadow: 0 0 0 3px rgba(110, 40, 183, .12);
+    }
+
+    &:disabled {
+      background: #f9fafb;                 /* พื้นหลังซีดเมื่อล็อก */
+      color: #9ca3af;                      /* ตัวอักษรเทาจางเมื่อ disabled */
+      border-color: #e5e7eb;
+      cursor: not-allowed;
+    }
+
+    /* ให้ option เป็นสีเทาด้วย (บางเบราว์เซอร์ใช้สีของระบบ) */
+    option {
+      color: #6b7280;
+    }
+  }
+}
+.icon {
+  vertical-align: middle;
+  display: inline-block;
+}
+
+
+/* ========== KPI Badges (4 กล่อง) ========== */
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: $space-4;
+}
+.kpi {
+  grid-column: span 3;
+  @media (max-width: 1024px) { grid-column: span 6; }
+  @media (max-width: 640px)  { grid-column: span 12; }
+
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow;
+  padding: 14px 16px;
+
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+
+  &Icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    color: $primary-700;
+    background: #F5E6FF;
+    border: 1px solid #EAD9FF;
+    font-weight: 900;
+  }
+
+  &Title {
+    grid-column: 2 / span 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: $text-dim;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+
+  &Value {
+    grid-column: 2 / span 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+
+    &Num {
+      font-size: clamp(20px, 2.4vw, 26px);
+      font-weight: 900;
+      color: $primary-700;
+      line-height: 1;
+    }
+  }
+
+  &ValueUnit {
+    grid-column: 3 / span 1;
+    align-self: end;
+    color: $text-dim;
+    font-weight: 700;
+  }
+}
+
+/* ========== NCD Sections (BMI / BP / Sugar) ========== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: $primary-200;
+  color: $primary-900;
+  font-weight: 900;
+}
+
+/* เม็ดหัวเรื่องโทนม่วงเข้ม (ตรงกับภาพ) */
+.pillSolid {
+  background: $primary-700;
+  color: #fff;
+  border: 1px solid transparent;
+  font-weight: 900;
+  padding: 8px 14px;
+  border-radius: 10px;
+}
+
+.ncdBar {
+  background: #E2D4F1;
+  border: 1px solid #E2D4F1;
+  border-radius: $radius-lg;
+  box-shadow: $shadow;
+  padding: 12px;
+}
+
+.ncdLine {
+  display: grid;
+  grid-template-columns: 160px repeat(5, 1fr);
+  gap: 10px;
+
+  @media (max-width: 1024px) { grid-template-columns: 140px repeat(5, 1fr); }
+  @media (max-width: 900px)  { grid-template-columns: 1fr; }
+
+  .head {
+    @extend .pillSolid;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .box {
+    background: #E2D4F1;
+    // border: 1px solid $border;
+    border-radius: $radius-sm;
+    padding: 10px 12px;
+    display: grid;
+    grid-template-rows: auto auto;
+    row-gap: 4px;
+    min-width: 0; /* ป้องกันล้น */
+
+    .label {
+      color: #6E28B7;
+      font-weight: 700;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+    .val {
+      color: #6E28B7;
+      font-weight: 900;
+      text-align: center;
+      font-size: 18px;
+    }
+  }
+}
+
+/* ========== Table ========== */
+.tableWrap {
+  overflow-x: auto;
+
+  /* scrollbar สวยงาม */
+  &::-webkit-scrollbar { height: 8px; }
+  &::-webkit-scrollbar-track { background: #f5f7fb; border-radius: 10px; }
+  &::-webkit-scrollbar-thumb {
+    background: #d6d9e0; border-radius: 10px;
+    &:hover { background: #c4c8d1; }
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 860px; /* ป้องกันบีบจนพัง */
+  overflow: hidden;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow;
+
+  thead {
+    tr {
+      background: #ead5ff;
+      color: $primary-700;
+    }
+    th {
+      padding: 12px 14px;
+      font-weight: 900;
+      font-size: 14px;
+      white-space: nowrap;
+      text-align: center; /* ค่าเริ่มต้น: กลางทุกคอลัมน์ */
+      border-bottom: 1px solid $border;
+    }
+    /* มุมบนของหัวตารางมน */
+    th:first-child { border-top-left-radius: $radius-lg; }
+    th:last-child  { border-top-right-radius: $radius-lg; }
+
+    /* ความกว้างคร่าว ๆ ของแต่ละคอลัมน์ */
+    th:nth-child(1) { width: 80px; }   /* ลำดับ */
+    th:nth-child(3),
+    th:nth-child(4),
+    th:nth-child(5) { width: 140px; }  /* ปกติ/เสี่ยง/รวม */
+    /* คอลัมน์ 2 แคบลง + ชิดซ้าย */
+    th:nth-child(2) {
+      width: 200px;         /* ปรับได้ตามต้องการ (แคบลงจากเดิม) */
+      max-width: 220px;
+      text-align: left;
+    }
+  }
+
+  tbody {
+    tr:nth-child(even) { background: #fcfaff; }
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f1f1;
+    white-space: nowrap;
+    text-align: center; /* ค่าเริ่มต้น: กลางทุกคอลัมน์ */
+    vertical-align: middle;
+  }
+
+  /* คอลัมน์ที่ 2: ชิดซ้าย + กันล้นด้วย ellipsis */
+  td:nth-child(2) {
+    text-align: left;
+    max-width: 220px;   /* ให้สัมพันธ์กับหัวตาราง */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+
+/* ========== Donut Card / Legend ========== */
+.donutCard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.donutWrap {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+.donutSummary {
+  margin-top: 6px;
+  font-size: clamp(16px, 1.4vw, 18px);
+  font-weight: 900;
+  color: #6E28B7;
+}
+
+/* รูปแบบเลเจนด์แบบลิสต์ (ให้ค่าชิดขวาเหมือนภาพ) */
+.legendList {
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 10px;
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dot {
+    --size: 14px;
+    width: var(--size);
+    height: var(--size);
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 1px rgba(0,0,0,.06);
+    flex: 0 0 var(--size);
+  }
+  .name { color: $text-dim; font-weight: 700; }
+  .value { margin-left: auto; white-space: nowrap; font-weight: 900; color: $text; }
+}
+
+/* legacy legend (ยังคงเผื่อไว้ถ้ามีใช้ที่อื่น) */
+.legend {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+
+  &Item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #6b6b6b;
+    font-weight: 700;
+
+    &Swatch {
+      --size: 14px;
+      width: var(--size);
+      height: var(--size);
+      border-radius: 999px;
+      display: inline-block;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 1px rgba(0,0,0,.08);
+      flex: 0 0 var(--size);
+    }
+
+    &Value {
+      margin-left: auto;
+      white-space: nowrap;
+      font-weight: 900;
+      color: #111827;
+    }
+  }
+}
+
+/* ========== Utilities ========== */
+.sectionTitle {
+  font-weight: 900;
+  color: $primary-900;
+  margin-bottom: 8px;
+}
+.textDim { color: $text-dim; }
+.textPrimary { color: $primary-900; }
+
+/* print */
+@media print {
+  .wrap { padding: 0 !important; }
+  .header { display: none !important; }
+  .card { box-shadow: none !important; border-color: #ddd !important; }
+  .tableWrap { overflow: visible !important; }
+}

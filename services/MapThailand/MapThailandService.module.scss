@@ -1,0 +1,96 @@
+.mapWrap {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px dashed #d8c8ff;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(145deg, #f6f3ff, #ffe6f5);
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.zoneCircle {
+  filter:
+    drop-shadow(0 1px 0 rgba(0,0,0,.05))
+    drop-shadow(0 2px 6px rgba(0,0,0,.08));
+  transition: transform .12s ease, opacity .12s ease;
+}
+
+.zoneCircle:hover {
+  transform: scale(1.06);
+}
+
+.zoneLabel {
+  fill: #1f1f1f;
+  font-weight: 800;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.tooltip {
+  position: absolute;
+  background: #ffffff;
+  border: 1px solid #ece8ff;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+  padding: 8px 10px;
+  transform: translate(4px, -4px);
+  z-index: 5;
+  min-width: 140px;
+}
+
+.tooltipTitle {
+  font-size: 12px;
+  color: #6b6b6b;
+  margin-bottom: 2px;
+}
+
+.tooltipValue {
+  font-size: 14px;
+  font-weight: 800;
+  color: #212584;
+}
+
+.legend {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  display: grid;
+  row-gap: 6px;
+  justify-items: center;
+  pointer-events: none;
+}
+
+.legendBar {
+  display: grid;
+  grid-auto-flow: column;
+  width: min(360px, 80%);
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+}
+
+.legendBar > span {
+  display: block;
+  height: 100%;
+}
+
+.legendScale {
+  display: flex;
+  width: min(360px, 80%);
+  justify-content: space-between;
+  font-size: 11px;
+  color: #6b6b6b;
+}

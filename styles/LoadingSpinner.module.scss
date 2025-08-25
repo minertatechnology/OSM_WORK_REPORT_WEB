@@ -1,0 +1,157 @@
+/* -------- Color Setup (Purple Theme) -------- */
+$base: #6e28b7;
+$base-mid: lighten($base, 12%);
+$base-light: lighten($base, 26%);
+
+.loadingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* พื้นหลังใส */
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.spinnerContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* วงหลัก (ตัววิ่งข้าง ๆ) */
+.spinner {
+  height: 4rem;
+  width: 4rem;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: $base;
+  border-right-color: $base-mid;
+  border-bottom-color: $base-light;
+  animation: spin 1.4s cubic-bezier(0.55, 0.25, 0.3, 0.9) infinite;
+  box-shadow: 0 0 20px rgba($base, 0.3), inset 0 0 18px rgba($base, 0.12);
+}
+
+/* วงหมุนรอบนอก (หมุนสวน) */
+.spinnerOuter {
+  height: 5rem;
+  width: 5rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: rgba($base, 0.25);
+  border-left-color: rgba($base-mid, 0.25);
+  animation: spinReverse 2.2s linear infinite;
+  position: absolute;
+  box-shadow: 0 0 10px rgba($base, 0.2), inset 0 0 8px rgba($base, 0.08);
+}
+
+/* Pulse ring นอกสุด */
+.pulseRing {
+  position: absolute;
+  height: 6rem;
+  width: 6rem;
+  border-radius: 50%;
+  border: 1px solid rgba($base, 0.14);
+  animation: pulse 2.1s ease-in-out infinite;
+  box-shadow: 0 0 22px 4px rgba($base, 0.1), 0 0 50px 12px rgba($base, 0.08);
+}
+
+/* LOGO กลาง (ไม่ขยับขึ้น) */
+.logoContainer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.logoImage {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  user-select: none;
+  /* ยกเลิก animation เดิม */
+  animation: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.28))
+    drop-shadow(0 0 6px rgba($base, 0.55))
+    drop-shadow(0 0 14px rgba($base-mid, 0.35));
+  /* ถ้าอยากให้หมุนช้า ๆ คอมเมนต์ข้างล่างออก */
+  // animation: logoSlowSpin 9s linear infinite;
+}
+
+/* เอฟเฟกต์พื้นหลังเรืองเบา */
+.spinnerContainer::before {
+  content: "";
+  position: absolute;
+  height: 3.2rem;
+  width: 3.2rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba($base, 0.18) 0%,
+    rgba($base, 0.05) 45%,
+    transparent 75%
+  );
+  animation: breathe 2.6s ease-in-out infinite alternate;
+  filter: blur(1px);
+}
+
+/* ---------- Animations ---------- */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinReverse {
+  0% {
+    transform: rotate(360deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.32;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.12;
+  }
+}
+
+@keyframes breathe {
+  0% {
+    transform: scale(0.78);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0.25;
+  }
+}
+
+/* Optional (ถ้าเปิดใน .logoImage) */
+@keyframes logoSlowSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* (ลบของเก่าที่เกี่ยวกับข้อความถ้าไม่ได้ใช้แล้ว) */
+/* .loadingText / gradientFlow ถูกตัดออก */

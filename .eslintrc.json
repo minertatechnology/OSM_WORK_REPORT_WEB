@@ -1,0 +1,26 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "react/jsx-key": "warn",
+    "no-unused-vars": "warn",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn"
+  },
+  "settings": {
+    "import/resolver": {
+      "alias": {
+        "map": [
+          ["@services", "./services"],
+          ["@utils", "./utils"],
+          ["@context", "./context"],
+          ["@styles", "./styles"],
+          ["@pages", "./pages"],
+          ["@hooks", "./hooks"],
+          ["@styles", "./styles"],
+          ["@components", "./components"]
+        ],
+        "extensions": [".js", ".jsx", ".ts", ".tsx"]
+      }
+    }
+  }
+}

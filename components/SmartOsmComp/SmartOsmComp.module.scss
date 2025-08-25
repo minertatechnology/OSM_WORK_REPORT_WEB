@@ -1,0 +1,564 @@
+/* /src/styles/_tokens.scss */
+
+/* ============================= */
+/* ========== Tokens =========== */
+/* ============================= */
+$bg: #ffffff;
+$surface: #ffffff;
+$border: #e9ecf3;
+$shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+
+$primary-900: #212584;
+$primary-800: #2b2f9c;
+$primary-700: #6E28B7;
+$primary-600: #7f3bc9;
+$primary-500: #8B5CF6;
+$primary-300: #D9C6FF;
+$primary-200: #F1E8FF;
+$primary-150: #EEE7FF;
+$primary-100: #F7F3FF;
+
+$accent-600: #FF59A2;
+$text: #111827;
+$text-dim: #6b7280;
+
+$radius-xl: 18px;
+$radius-lg: 16px;
+$radius-md: 12px;
+$radius-sm: 10px;
+
+$space-1: 6px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+
+/* ชุดชื่อสีที่ใช้ใน component */
+$clr-bg: #ffffff;
+$clr-surface: #ffffff;
+$clr-border: #f1f3f4;
+$clr-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+
+$clr-primary-900: #3d0a77;
+$clr-primary-700: #5a2ba6;
+$clr-primary-600: #6c49d9;
+$clr-primary-200: #f5e6ff;
+
+$clr-accent-600: #ff4db3;
+$clr-accent-700: #ff59a2;
+
+$clr-text: #1f2937;
+$clr-text-dim: #6b7280;
+
+/* ============================= */
+/* ===== SmartOSM Layout ====== */
+/* ============================= */
+.smart-osm {
+  padding: $space-4;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+    margin-bottom: $space-3;
+
+    &-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #7A1679;
+    }
+  }
+}
+
+/* ============================= */
+/* ========= Grid ============== */
+/* ============================= */
+.osm-row {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: $space-4;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@for $i from 1 through 12 {
+  .osm-col-#{$i} { grid-column: span #{$i}; }
+}
+
+/* ใหม่: ใช้กับ CSS Grid จริง ๆ ให้กินเต็มแถว */
+.osm-col-full {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ============================= */
+/* ========= Card ============== */
+/* ============================= */
+.osm-card {
+  background: $clr-surface;
+  border-radius: $radius-lg;
+  box-shadow: $clr-shadow;
+  border: 1px solid $clr-border;
+  overflow: hidden;
+
+  &__header {
+    padding: 10px 16px;
+    border-bottom: 1px solid $clr-border;
+    font-weight: 700;
+    color: #6E28B7;
+    font-size: 20px;
+  }
+
+  &__content {
+    padding: $space-4;
+  }
+}
+
+/* ============================= */
+/* ========= Button ============ */
+/* ============================= */
+.osm-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: $radius-sm;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(108, 73, 217, .2);
+  }
+
+  &--primary {
+    color: #6E28B7;
+    background: #fff;
+    border-color: #6E28B7;
+
+    &:hover {
+      background: #f1ecff;
+      box-shadow: 0 2px 8px rgba(108, 73, 217, .15);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 4px rgba(108, 73, 217, .12);
+    }
+  }
+}
+
+/* ============================= */
+/* ========= Form ============== */
+/* ============================= */
+.osm-form {
+  &__label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: $clr-text;
+    font-size: 14px;
+  }
+
+  &__select {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #d1d5db;
+    border-radius: $radius-sm;
+    padding: 8px 12px;
+    background: #fff;
+    color: $clr-text-dim;
+    outline: none;
+    font-size: 14px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, #9ca3af 50%),
+      linear-gradient(135deg, #9ca3af 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) 16px,
+      calc(100% - 12px) 16px;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+
+    &:hover { border-color: #cbd5e1; }
+    &:focus {
+      border-color: $clr-primary-600;
+      box-shadow: 0 0 0 3px rgba(110, 40, 183, .12);
+    }
+    &:disabled {
+      background: #f9fafb;
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
+  }
+}
+
+/* ============================= */
+/* ========= KPI =============== */
+/* ============================= */
+.kpi {
+  &__title {
+    color: $clr-text-dim;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  &__value {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+
+    &-num {
+      font-size: 30px;
+      font-weight: 900;
+      color: #6E28B7;
+      line-height: 1;
+    }
+    &-unit {
+      color: $clr-text-dim;
+      font-weight: 600;
+    }
+  }
+}
+
+/* ============================= */
+/* ===== Map Placeholder ======= */
+/* ============================= */
+.map-placeholder {
+  height: 340px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #f6f3ff, #ffe6f5);
+  border: 1px dashed #d8c8ff;
+  color: #7A1679;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+/* ============================= */
+/* ===== Donut Chart =========== */
+/* ============================= */
+.donut {
+  &__wrap {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  &__summary {
+    margin-top: 20px;
+    font-size: clamp(18px, 1.8vw, 20px);
+    font-weight: 900;
+    color: #6E28B7;
+    justify-self: end;
+    text-align: left;
+    width: 100%;
+  }
+
+  &__legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+    row-gap: 8px;
+    margin-top: 12px;
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+
+    &-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #6b6b6b;
+
+      &-swatch {
+        --swatch-size: 18px;
+        width: var(--swatch-size);
+        height: var(--swatch-size);
+        border-radius: 9999px;
+        display: inline-block;
+        flex: 0 0 var(--swatch-size);
+        box-shadow:
+          0 0 0 2px #fff,
+          0 0 0 1px rgba(0,0,0,.08);
+      }
+
+      span:nth-child(2) {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      &-value {
+        margin-left: auto;
+        white-space: nowrap;
+        font-weight: 700;
+        color: #111827;
+      }
+    }
+  }
+}
+
+/* ============================= */
+/* ========= Table ============= */
+/* ============================= */
+.osm-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 800px;
+
+  thead tr { background: #EAD5FF; }
+
+  th {
+    text-align: center;
+    vertical-align: middle;
+    padding: 12px 14px;
+    font-weight: 700;
+    font-size: 14px;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+  }
+
+  thead th:first-child { border-top-left-radius: 12px; }
+  thead th:last-child  { border-top-right-radius: 12px; }
+
+  td {
+    text-align: center;
+    vertical-align: middle;
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f1f1;
+    white-space: nowrap;
+  }
+
+  tbody tr:nth-child(even) { background: #FCFAFF; }
+}
+
+/* จัดกึ่งกลางทุกคอลัมน์ */
+.osm-table--center {
+  th, td {
+    text-align: center !important;
+    vertical-align: middle;
+  }
+}
+
+/* Scrollbar สวย */
+.table-scroll {
+  overflow-x: auto;
+
+  &::-webkit-scrollbar { height: 8px; }
+  &::-webkit-scrollbar-track { background: #f5f7fb; border-radius: 10px; }
+  &::-webkit-scrollbar-thumb {
+    background: #d6d9e0; border-radius: 10px;
+    &:hover { background: #c4c8d1; }
+  }
+}
+
+/* ============================= */
+/* ========= Filters =========== */
+/* ============================= */
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+.field { min-width: 0; }
+.label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #111827;
+  font-size: 14px;
+}
+
+.select {
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #6b7280;
+  outline: none;
+  font-size: 14px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #9ca3af 50%),
+    linear-gradient(135deg, #9ca3af 50%, transparent 50%);
+  background-position: calc(100% - 18px) 16px, calc(100% - 12px) 16px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+
+  &:focus {
+    border-color: #6E28B7;
+    box-shadow: 0 0 0 3px rgba(110, 40, 183, .12);
+  }
+  &:disabled {
+    background: #f9fafb;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+}
+
+/* ============================= */
+/* ========== Print ============ */
+/* ============================= */
+@media print {
+  .smart-osm { padding: 0 !important; }
+  .smart-osm__header { display: none !important; }
+  .osm-card { box-shadow: none !important; border-color: #ddd !important; }
+  .table-scroll { overflow: visible !important; }
+}
+
+/* ===== Filter layout: 4 คอลัมน์, responsive ===== */
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 16px;
+  align-items: end;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.filter-item { min-width: 0; }
+
+.osm-form__select {
+  width: 100%;
+  height: 40px;
+  padding: 8px 44px 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #6b7280;
+  outline: none;
+  font-size: 14px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+  appearance: none;
+
+  &:hover { border-color: #cbd5e1; }
+  &:focus { border-color: #6E28B7; box-shadow: 0 0 0 3px rgba(110, 40, 183, .12); }
+  &:disabled { background-color: #f9fafb; color: #9ca3af; cursor: not-allowed; }
+}
+
+.osm-form__select--caret {
+  background-image:
+    linear-gradient(45deg, transparent 50%, #9ca3af 50%),
+    linear-gradient(135deg, #9ca3af 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 16px,
+    calc(100% - 12px) 16px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.osm-form__select--calendar {
+  background-image: url("data:image/svg+xml;utf8,\
+    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>\
+      <rect x='3' y='4' width='18' height='18' rx='2' ry='2'/>\
+      <line x1='16' y1='2' x2='16' y2='6'/>\
+      <line x1='8' y1='2' x2='8' y2='6'/>\
+      <line x1='3' y1='10' x2='21' y2='10'/>\
+    </svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 20px 20px;
+}
+
+.icon { vertical-align: middle; display: inline-block; }
+
+/* ============================= */
+/* === No-map donut layout ==== */
+/* ============================= */
+/* โหมดไม่มีแผนที่: โดนัทซ้าย + รายละเอียดขวา */
+.noMapRow {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  width: 100%;
+}
+
+.noMapLeft {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;   /* กัน SVG/overlay ล้นไปทับฝั่งขวา */
+  position: relative;
+  z-index: 0;
+}
+
+.noMapRight {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;       /* ให้หดได้ ไม่ดันไปทับซ้าย */
+  position: relative;
+  z-index: 1;
+}
+
+/* หัวข้อสรุปทางขวา */
+.donut__summaryRight {
+  font-weight: 700;
+  color: #6E28B7;
+  margin-bottom: 8px;
+}
+
+/* รายการ legend แบบสองฝั่ง: ชื่อซ้าย / ตัวเลขขวา */
+.donut__legendGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.donut__legendItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.donut__legendName {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.donut__legendValue {
+  text-align: right;
+  font-weight: 800;
+  color: #111827;
+  min-width: 92px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+  .noMapRow { grid-template-columns: 1fr; }
+}

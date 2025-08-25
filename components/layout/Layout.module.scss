@@ -1,0 +1,56 @@
+.layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* ป้องกันไม่ให้ overflow */
+}
+
+.navbar {
+  height: 4rem;
+  background: var(--Color-Blackground-Surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 30;
+}
+
+.main-content {
+  flex: 1;
+  padding: 1.5rem;
+  background: #ffff;
+  overflow-y: auto;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1023px) {
+  .layout {
+    position: relative;
+  }
+
+  .content {
+    width: 100%;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 0.75rem;
+  }
+
+  .navbar {
+    padding: 0 1rem;
+  }
+}
