@@ -1,9 +1,9 @@
 import Layout from "@components/layout/layout";
-import ElderlyScreeningComp from "@components/ElderlyScreeningComp/ElderlyScreeningComp";
+import OsmPointsComp from "@components/OsmPointsComp/OsmPointsComp";
 import { useEffect, useLayoutEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
-const ElderlyScreening = () => {
+const OsmPoints = () => {
   const { setLoading } = useLoading();
 
   useLayoutEffect(() => {
@@ -25,8 +25,8 @@ const ElderlyScreening = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return <ElderlyScreeningComp triggerLoading={triggerLoading} />;
+  return <OsmPointsComp triggerLoading={triggerLoading} />;
 };
 
-ElderlyScreening.getLayout = (page) => <Layout>{page}</Layout>;
-export default ElderlyScreening;
+OsmPoints.getLayout = (page) => <Layout>{page}</Layout>;
+export default OsmPoints;

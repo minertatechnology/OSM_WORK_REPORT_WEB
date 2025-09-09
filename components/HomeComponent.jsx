@@ -7,21 +7,37 @@ import alertService from "@services/alertService/alertService";
 
 // ฟังก์ชันจำลอง login (รองรับ 6 roles)
 function fakeLoginRequest({ username, password }) {
+  // สิทธิ์ภาษาอังกฤษสำหรับ zone และ province
+  const ZONE_PERMISSIONS = {};
+  for (let i = 1; i <= 13; i++) {
+    ZONE_PERMISSIONS[`zone${i}`] = `ZONE_${i}`;
+  }
+
+  const PROVINCE_PERMISSIONS = {
+    กรุงเทพมหานคร: "PROVINCE_BANGKOK",
+    นนทบุรี: "PROVINCE_NONTHABURI",
+    ปทุมธานี: "PROVINCE_PATHUMTHANI",
+    // ... เพิ่มจังหวัดอื่นๆตามต้องการ
+  };
+
   const USERS = {
     admin: {
       displayName: "ผู้ดูแล สบส.",
-      roles: ["สบส."],
+      roles: ["สบส.", "ADMIN"],
       scope: {},
+      permissions: ["ADMIN"],
     },
     zone1: {
       displayName: "เจ้าหน้าที่ เขตสุขภาพที่ 1",
       roles: ["เขต"],
       scope: { zone: "เขตสุขภาพที่ 1" },
+      permissions: [ZONE_PERMISSIONS.zone1],
     },
     provnon: {
       displayName: "เจ้าหน้าที่ จังหวัดนนทบุรี",
       roles: ["จังหวัด"],
       scope: { zone: "เขตสุขภาพที่ 4", province: "นนทบุรี" },
+      permissions: [ZONE_PERMISSIONS.zone4, PROVINCE_PERMISSIONS["นนทบุรี"]],
     },
     distklong: {
       displayName: "เจ้าหน้าที่ อำเภอคลองหลวง",
@@ -31,6 +47,7 @@ function fakeLoginRequest({ username, password }) {
         province: "ปทุมธานี",
         district: "คลองหลวง",
       },
+      permissions: [ZONE_PERMISSIONS.zone4, PROVINCE_PERMISSIONS["ปทุมธานี"]],
     },
     subbangkrasor: {
       displayName: "เจ้าหน้าที่ ตำบลบางกระสอ",
@@ -41,6 +58,7 @@ function fakeLoginRequest({ username, password }) {
         district: "เมือง",
         subdistrict: "บางกระสอ",
       },
+      permissions: [ZONE_PERMISSIONS.zone4, PROVINCE_PERMISSIONS["นนทบุรี"]],
     },
     unitrph1: {
       displayName: "เจ้าหน้าที่ รพสต.ทดสอบ 1",
@@ -52,8 +70,10 @@ function fakeLoginRequest({ username, password }) {
         subdistrict: "บางกระสอ",
         unit: "รพสต.ทดสอบ 1",
       },
+      permissions: [ZONE_PERMISSIONS.zone4, PROVINCE_PERMISSIONS["นนทบุรี"]],
     },
   };
+
   return new Promise((resolve) => {
     setTimeout(() => {
       const acct = USERS[username?.toLowerCase?.()];
@@ -63,18 +83,32 @@ function fakeLoginRequest({ username, password }) {
           message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
         });
       }
-      return resolve({
+      const loginResult = {
         success: true,
         user: { name: acct.displayName || username },
         auth: {
           roles: acct.roles,
           ...acct.scope,
+          permissions: acct.permissions,
         },
-      });
+      };
+      // --- บันทึกลง sessionStorage ---
+      try {
+        sessionStorage.setItem("user", JSON.stringify(loginResult));
+        console.log(
+          "[fakeLoginRequest] Saved login info to sessionStorage:",
+          loginResult
+        );
+      } catch (err) {
+        console.error(
+          "[fakeLoginRequest] Failed to save to sessionStorage:",
+          err
+        );
+      }
+      return resolve(loginResult);
     }, 600);
   });
 }
-
 // Thai ID Modal
 function ThaiIdModal({ open, onClose }) {
   if (!open) return null;

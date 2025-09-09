@@ -579,6 +579,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                             onClick={() => {
                               router.push(sub.url);
                               setOsm1Open(true);
+                              onMenuClick(sub.name); // <--- ส่งชื่อ submenu
                               if (isMobile && onClose) onClose();
                             }}
                           >
@@ -666,6 +667,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                             onClick={() => {
                               router.push(sub.url);
                               setMosquitoOpen(true);
+                              onMenuClick(sub.name); // <--- ส่งชื่อ submenu
                               if (isMobile && onClose) onClose();
                             }}
                           >
@@ -748,6 +750,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                             onClick={() => {
                               router.push(sub.url);
                               setPointsOpen(true);
+                              onMenuClick(sub.name); // <--- ส่งชื่อ submenu
                               if (isMobile && onClose) onClose();
                             }}
                           >

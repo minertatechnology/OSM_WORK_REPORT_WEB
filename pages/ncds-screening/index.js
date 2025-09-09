@@ -1,9 +1,9 @@
 import Layout from "@components/layout/layout";
-import ElderlyScreeningComp from "@components/ElderlyScreeningComp/ElderlyScreeningComp";
+import NcdsScreeningComp from "@components/NcdsScreeningComp/NcdsScreeningComp";
 import { useEffect, useLayoutEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
-const ElderlyScreening = () => {
+const NcdsScreening = () => {
   const { setLoading } = useLoading();
 
   useLayoutEffect(() => {
@@ -25,8 +25,8 @@ const ElderlyScreening = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return <ElderlyScreeningComp triggerLoading={triggerLoading} />;
+  return <NcdsScreeningComp triggerLoading={triggerLoading} />;
 };
 
-ElderlyScreening.getLayout = (page) => <Layout>{page}</Layout>;
-export default ElderlyScreening;
+NcdsScreening.getLayout = (page) => <Layout>{page}</Layout>;
+export default NcdsScreening;
