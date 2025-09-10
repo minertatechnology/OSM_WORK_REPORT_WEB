@@ -6,7 +6,6 @@ const purple_light = "#EAD5FF";
 const border = "#D3D4DD";
 const text_gray = "#231d37";
 
-// รับ props: rows (array), onDetail (callback)
 const NewsCompService = ({ rows = [], onDetail }) => {
   return (
     <div
@@ -40,7 +39,7 @@ const NewsCompService = ({ rows = [], onDetail }) => {
       {/* Table Body */}
       {rows.map((item, idx) => (
         <div
-          key={idx}
+          key={item.id || idx}
           style={{
             display: "grid",
             gridTemplateColumns: "1.2fr 2fr 1.3fr",

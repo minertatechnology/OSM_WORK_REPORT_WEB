@@ -3,6 +3,10 @@ import { Plus, Calendar, Search, ChevronsLeft, ChevronLeft, ChevronsRight, Chevr
 import InputService from "@services/inputService/inputService";
 import ButtonService from "@services/buttonService/buttonService";
 import NewsCompService from "@services/Table/NewsCompService";
+import NewsAddPopup from "@components/NewsComp/NewsAddPopup";
+
+// Dummy auth สำหรับตัวอย่าง
+const dummyAuth = { roles: ["สบส."] };
 
 const purple = "#9327e2";
 const border = "#c9b7f7";
@@ -30,19 +34,150 @@ const weeks = [
 ];
 
 // mock ข่าวสาร
-const rawNewsList = [
-  { date: "25 มิถุนายน 2568", title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป", year: "2568", month: "มิถุนายน", week: "สัปดาห์ 4 (22/6/68-28/6/68)" },
-  { date: "20 กรกฎาคม 2567", title: "อัพเดตเวอร์ชั่นใหม่", year: "2567", month: "กรกฎาคม", week: "สัปดาห์ 2 (8/6/68-14/6/68)" },
-  { date: "12 มีนาคม 2569", title: "ระบบแจ้งเตือนใหม่", year: "2569", month: "มีนาคม", week: "สัปดาห์ 1 (1/6/68-7/6/68)" },
-  { date: "15 มิถุนายน 2570", title: "คู่มือการใช้งานแอป", year: "2570", month: "มิถุนายน", week: "สัปดาห์ 3 (15/6/68-21/6/68)" },
-  { date: "25 มิถุนายน 2568", title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป", year: "2568", month: "มิถุนายน", week: "สัปดาห์ 4 (22/6/68-28/6/68)" },
-  { date: "25 มิถุนายน 2568", title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป", year: "2568", month: "มิถุนายน", week: "สัปดาห์ 4 (22/6/68-28/6/68)" },
-  { date: "25 มิถุนายน 2568", title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป", year: "2568", month: "มิถุนายน", week: "สัปดาห์ 4 (22/6/68-28/6/68)" },
-  { date: "25 มิถุนายน 2568", title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป", year: "2568", month: "มิถุนายน", week: "สัปดาห์ 4 (22/6/68-28/6/68)" },
-  { date: "25 มิถุนายน 2568", title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป", year: "2568", month: "มิถุนายน", week: "สัปดาห์ 4 (22/6/68-28/6/68)" },
+export const rawNewsListOrigin = [
+  {
+    id: 1,
+    date: "25 มิถุนายน 2568",
+    title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป",
+    year: "2568",
+    month: "มิถุนายน",
+    week: "สัปดาห์ 4 (22/6/68-28/6/68)",
+    healthZone: "zone1",
+    province: "เชียงใหม่",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "รายละเอียดเกี่ยวกับการยืนยันตัวตนหลังสมัครใช้งานแอป"
+  },
+  {
+    id: 2,
+    date: "20 กรกฎาคม 2567",
+    title: "อัพเดตเวอร์ชั่นใหม่",
+    year: "2567",
+    month: "กรกฎาคม",
+    week: "สัปดาห์ 2 (8/6/68-14/6/68)",
+    healthZone: "zone2",
+    province: "กรุงเทพ",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "เวอร์ชั่นใหม่ มาพร้อมฟีเจอร์พิเศษ"
+  },
+  {
+    id: 3,
+    date: "12 มีนาคม 2569",
+    title: "ระบบแจ้งเตือนใหม่",
+    year: "2569",
+    month: "มีนาคม",
+    week: "สัปดาห์ 1 (1/6/68-7/6/68)",
+    healthZone: "zone1",
+    province: "เชียงใหม่",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "แจ้งเตือนกิจกรรมจากระบบใหม่"
+  },
+  {
+    id: 4,
+    date: "15 มิถุนายน 2570",
+    title: "คู่มือการใช้งานแอป",
+    year: "2570",
+    month: "มิถุนายน",
+    week: "สัปดาห์ 3 (15/6/68-21/6/68)",
+    healthZone: "zone2",
+    province: "กรุงเทพ",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "คู่มือสำหรับผู้ใช้งานแอปเวอร์ชั่นล่าสุด"
+  },
+  {
+    id: 5,
+    date: "10 พฤษภาคม 2568",
+    title: "เพิ่มระบบแสดงผลกราฟ",
+    year: "2568",
+    month: "พฤษภาคม",
+    week: "สัปดาห์ 1 (1/6/68-7/6/68)",
+    healthZone: "zone1",
+    province: "เชียงใหม่",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "ระบบกราฟช่วยวิเคราะห์ข้อมูลได้สะดวกขึ้น"
+  },
+  {
+    id: 6,
+    date: "30 เมษายน 2567",
+    title: "แจ้งปิดปรับปรุงระบบ",
+    year: "2567",
+    month: "เมษายน",
+    week: "สัปดาห์ 3 (15/6/68-21/6/68)",
+    healthZone: "zone2",
+    province: "กรุงเทพ",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "ระบบจะปิดปรับปรุงชั่วคราวในวันจันทร์"
+  },
+  {
+    id: 7,
+    date: "18 สิงหาคม 2569",
+    title: "เพิ่มระบบสมาชิก",
+    year: "2569",
+    month: "สิงหาคม",
+    week: "สัปดาห์ 2 (8/6/68-14/6/68)",
+    healthZone: "zone2",
+    province: "กรุงเทพ",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "สมาชิกสามารถลงทะเบียนและแก้ไขโปรไฟล์"
+  },
+  {
+    id: 8,
+    date: "5 กันยายน 2570",
+    title: "อัพเดตระบบความปลอดภัย",
+    year: "2570",
+    month: "กันยายน",
+    week: "สัปดาห์ 1 (1/6/68-7/6/68)",
+    healthZone: "zone1",
+    province: "เชียงใหม่",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "เพิ่มมาตรการความปลอดภัยขั้นสูง"
+  },
+  {
+    id: 9,
+    date: "14 ตุลาคม 2568",
+    title: "แจ้งเตือนการประชุม",
+    year: "2568",
+    month: "ตุลาคม",
+    week: "สัปดาห์ 3 (15/6/68-21/6/68)",
+    healthZone: "zone1",
+    province: "เชียงใหม่",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "ประชุมประจำเดือนจะจัดที่ห้องประชุมใหญ่"
+  },
+  {
+    id: 10,
+    date: "22 ธันวาคม 2567",
+    title: "ระบบแจ้งเตือนวันหยุด",
+    year: "2567",
+    month: "ธันวาคม",
+    week: "สัปดาห์ 4 (22/6/68-28/6/68)",
+    healthZone: "zone2",
+    province: "กรุงเทพ",
+    amphur: "เมือง",
+    subdistrict: "บางรัก",
+    hospital: "รพ.สต.1",
+    detail: "แจ้งเตือนวันหยุดประจำปีล่วงหน้า"
+  }
 ];
 
-// Custom Radio Button
+
 function MyRadio({ checked, onChange, children }) {
   return (
     <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 500, fontSize: 16 }}>
@@ -80,7 +215,7 @@ function MyRadio({ checked, onChange, children }) {
   );
 }
 
-// Pagination Table
+// Table with Pagination
 function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(defaultItemsPerPage);
@@ -129,9 +264,7 @@ function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) 
 
   return (
     <div style={{ width: "100%" }}>
-      {/* Table */}
       <NewsCompService rows={paginatedData} onDetail={onDetail} />
-      {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginTop: 32, paddingTop: 16, borderTop: "1px solid #f0ebff" }}>
           <div style={{ fontSize: 15, color: "#555" }}>
@@ -204,17 +337,52 @@ function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) 
   );
 }
 
-// NewsComp ประกาศหลัง TableWithPagination
 const NewsComp = () => {
   const [searchType, setSearchType] = useState("yearly");
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
   const [week, setWeek] = useState("");
-  const [filteredNews, setFilteredNews] = useState(rawNewsList);
+  const [rawNewsList, setRawNewsList] = useState(rawNewsListOrigin);
+  const [filteredNews, setFilteredNews] = useState(rawNewsListOrigin);
+  const [showAddPopup, setShowAddPopup] = useState(false);
+  const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [detailData, setDetailData] = useState(null);
 
-  // สำหรับ detail
+  // ดูรายละเอียดข่าวสาร
   const handleDetail = (item) => {
-    alert("ดูรายละเอียด: " + item.title);
+    setDetailData(item);
+    setShowDetailPopup(true);
+  };
+
+  // เพิ่มข่าวสาร
+  const handleAddNews = () => {
+    setShowAddPopup(true);
+  };
+  const handleClosePopup = () => {
+    setShowAddPopup(false);
+  };
+  const handleSubmitPopup = (data) => {
+    // เพิ่มข้อมูลใหม่เข้า list (mock เพิ่ม date/id)
+    const newId = rawNewsList.length ? Math.max(...rawNewsList.map(n => n.id || 0)) + 1 : 1;
+    const now = new Date();
+    const dateStr = `${now.getDate()} ${months[now.getMonth() + 1] || ""} ${now.getFullYear() + 543}`;
+    const newData = { ...data, id: newId, date: dateStr };
+    setRawNewsList(prev => [newData, ...prev]);
+    setFilteredNews(prev => [newData, ...prev]);
+    setShowAddPopup(false);
+  };
+
+  // ปิด popup ดูรายละเอียด
+  const handleCloseDetailPopup = () => {
+    setShowDetailPopup(false);
+    setDetailData(null);
+  };
+  // ลบข้อมูล
+  const handleDeleteDetail = (item) => {
+    setRawNewsList(prev => prev.filter(n => n.id !== item.id));
+    setFilteredNews(prev => prev.filter(n => n.id !== item.id));
+    setShowDetailPopup(false);
+    setDetailData(null);
   };
 
   // ล้างข้อมูลค้นหา
@@ -223,7 +391,7 @@ const NewsComp = () => {
     setMonth("");
     setWeek("");
     setSearchType("yearly");
-    setFilteredNews(rawNewsList);
+    setFilteredNews(rawNewsListOrigin);
   };
 
   // Handle search submit
@@ -269,6 +437,7 @@ const NewsComp = () => {
               transition: "all .18s",
               cursor: "pointer"
             }}
+            onClick={handleAddNews}
           >
             เพิ่มข่าวสาร
           </ButtonService>
@@ -447,6 +616,15 @@ const NewsComp = () => {
         {/* Table with Pagination */}
         <TableWithPagination data={filteredNews} defaultItemsPerPage={10} onDetail={handleDetail} />
       </div>
+      <NewsAddPopup open={showAddPopup} onClose={handleClosePopup} onSubmit={handleSubmitPopup} auth={dummyAuth} />
+      <NewsAddPopup
+        open={showDetailPopup}
+        onClose={handleCloseDetailPopup}
+        mode="detail"
+        data={detailData}
+        onDelete={handleDeleteDetail}
+        auth={dummyAuth}
+      />
     </div>
   );
 };
