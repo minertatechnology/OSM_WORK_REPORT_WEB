@@ -12,6 +12,7 @@ import React from "react";
  * @param {boolean} disabled - Optional disabled attribute
  * @param {boolean} optionWithIcon - If true, use custom dropdown with icon support (default: false)
  * @param {boolean} clearable - If true, show clear (x) button for select/input when value is selected
+ * @param {object} style - Custom style object
  */
 const InputService = ({
   placeholder = "",
@@ -24,8 +25,10 @@ const InputService = ({
   disabled,
   optionWithIcon = false,
   clearable = true,
+  style = {},
   ...props
 }) => {
+  // เพิ่ม class สำหรับ disabled
   const baseClass =
     "w-full border border-[#2991e8] rounded-lg px-3 py-2 text-[15px] md:text-[16px] bg-white focus:outline-none transition placeholder:text-[#b9b9b9]";
   const inputClass = `${baseClass} h-11 text-[18px]`;
@@ -80,10 +83,21 @@ const InputService = ({
     setShowDropdown(false);
   };
 
+  // สไตล์สำหรับ disabled
+  const disabledStyle = disabled
+    ? {
+        background: "#f3f4f6",
+        color: "#a3a3a3 !important", // <<--- เพิ่ม !important
+      }
+    : {};
+
+  // เพิ่ม class สำหรับ disabled
+  const disabledClass = disabled ? " opacity-60" : "";
+
   if (multiline) {
     return (
       <textarea
-        className={textareaClass}
+        className={textareaClass + disabledClass}
         rows={rows}
         placeholder={placeholder}
         value={value}
@@ -92,7 +106,8 @@ const InputService = ({
         disabled={disabled}
         {...props}
         style={{
-          ...props.style,
+          ...disabledStyle,
+          ...style,
           boxSizing: "border-box",
         }}
       />
@@ -112,18 +127,23 @@ const InputService = ({
 
     // ใช้ flex และ absolute arrow ขวาสุด, x icon ชิด arrow
     return (
-      <div className="relative select-none" tabIndex={0} ref={selectRef}>
+      <div
+        className={"relative select-none" + disabledClass}
+        tabIndex={0}
+        ref={selectRef}
+      >
         <button
           type="button"
           className={
             selectClass +
-            " flex items-center !text-[#111] cursor-pointer relative pr-12"
+            " flex items-center !text-[#111] cursor-pointer relative pr-12" +
+            disabledClass
           }
           onClick={() => setShowDropdown((s) => !s)}
           disabled={disabled}
           style={{
-            background: "none",
-            ...props.style,
+            ...disabledStyle,
+            ...style,
           }}
         >
           {/* Content row: [label, icon, x, arrow] */}
@@ -165,7 +185,7 @@ const InputService = ({
             }}
           />
         </button>
-        {showDropdown && (
+        {showDropdown && !disabled && (
           <ul className={dropdownListClass}>
             {options.map((opt, idx) => {
               const isObj = typeof opt === "object";
@@ -211,9 +231,9 @@ const InputService = ({
     clearable && typeof onChange === "function" && value !== "" && !disabled;
 
   return (
-    <div className="relative w-full">
+    <div className={"relative w-full" + disabledClass}>
       <input
-        className={inputClass}
+        className={inputClass + disabledClass}
         type="text"
         placeholder={placeholder}
         value={value}
@@ -221,6 +241,10 @@ const InputService = ({
         name={name}
         disabled={disabled}
         {...props}
+        style={{
+          ...disabledStyle,
+          ...style,
+        }}
       />
       {isClearableInput && (
         <span

@@ -38,8 +38,5 @@ next-env.d.ts
 #yarn
 yarn.lock
 
+# claude files
 .claude
-
-#Docker
-.dockerignore
-Dockerfile

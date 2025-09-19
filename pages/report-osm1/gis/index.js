@@ -1,12 +1,12 @@
 import Layout from "@components/layout/layout";
 import GisComp from "@components/Reportosm1Comp/GisComp/GisComp";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
 const Gis = () => {
   const { setLoading } = useLoading();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     // Show loading when page starts loading
     setLoading(true);
   }, [setLoading]);

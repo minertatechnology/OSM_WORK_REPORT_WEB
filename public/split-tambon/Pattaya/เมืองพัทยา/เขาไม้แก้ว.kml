@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="root_doc">
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string"/>
+      <SimpleField name="ADM3_TH" type="string"/>
+      <SimpleField name="ADM2_EN" type="string"/>
+      <SimpleField name="ADM2_TH" type="string"/>
+      <SimpleField name="ADM1_EN" type="string"/>
+      <SimpleField name="ADM1_TH" type="string"/>
+      <SimpleField name="ADM3_PCODE" type="string"/>
+    </Schema>
+    <Document id="tambon">
+        <name>tambon</name>
+        <Placemark id="tambon.เขาไม้แก้ว">
+        <ExtendedData >
+          <SchemaData schemaUrl="#tambon.schema">
+            <SimpleData name="ADM3_EN">Khao Mai Kaew</SimpleData>
+            <SimpleData name="ADM3_TH">เขาไม้แก้ว (บางส่วน)</SimpleData>
+            <SimpleData name="ADM2_EN">Pattaya City</SimpleData>
+            <SimpleData name="ADM2_TH">เมืองพัทยา</SimpleData>
+            <SimpleData name="ADM1_EN">Pattaya</SimpleData>
+            <SimpleData name="ADM1_TH">เมืองพัทยา</SimpleData>
+            <SimpleData name="ADM3_PCODE">TH200104</SimpleData>
+          </SchemaData>
+        </ExtendedData>
+
+        <MultiGeometry >
+          <Polygon>
+            <outerBoundaryIs>
+              <LinearRing>
+                <coordinates>
+                  100.8930,12.9100,0
+                  100.8950,12.9200,0
+                  100.9000,12.9180,0
+                  100.9020,12.9120,0
+                  100.9000,12.9080,0
+                  100.8970,12.9060,0
+                  100.8950,12.9070,0
+                  100.8930,12.9100,0
+                </coordinates>
+              </LinearRing>
+            </outerBoundaryIs>
+          </Polygon>
+        </MultiGeometry>
+
+        </Placemark>
+    </Document>
+  </Document>
+</kml>

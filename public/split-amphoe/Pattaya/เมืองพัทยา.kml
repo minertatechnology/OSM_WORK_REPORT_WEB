@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="root_doc">
+    <Schema id="amphoe.schema">
+      <SimpleField name="ADM2_EN" type="string"/>
+      <SimpleField name="ADM2_TH" type="string"/>
+      <SimpleField name="ADM1_EN" type="string"/>
+      <SimpleField name="ADM1_TH" type="string"/>
+      <SimpleField name="ADM0_EN" type="string"/>
+      <SimpleField name="ADM0_TH" type="string"/>
+      <SimpleField name="ADM2_PCODE" type="string"/>
+    </Schema>
+    <Document id="amphoe">
+        <name>amphoe</name>
+        <Placemark id="amphoe.เมืองพัทยา">
+        <ExtendedData >
+          <SchemaData schemaUrl="#amphoe.schema">
+            <SimpleData name="ADM2_EN">Pattaya City</SimpleData>
+            <SimpleData name="ADM2_TH">เมืองพัทยา</SimpleData>
+            <SimpleData name="ADM1_EN">Pattaya</SimpleData>
+            <SimpleData name="ADM1_TH">เมืองพัทยา</SimpleData>
+            <SimpleData name="ADM0_EN">Thailand</SimpleData>
+            <SimpleData name="ADM0_TH">ประเทศไทย</SimpleData>
+            <SimpleData name="ADM2_PCODE">TH2001</SimpleData>
+          </SchemaData>
+        </ExtendedData>
+
+        <MultiGeometry >
+          <Polygon>
+            <outerBoundaryIs>
+              <LinearRing>
+                <coordinates>
+                  100.7485453253714,12.99891248412899,0
+                  100.9292807864037,12.99922346970162,0
+                  100.9366348262318,12.99687156284898,0
+                  100.9359535208658,12.99547941828798,0
+                  100.9370302892531,12.99382759740678,0
+                  100.9386673788013,12.9922963554386,0
+                  100.9270520375927,12.97104289806806,0
+                  100.925284402112,12.96607781638665,0
+                  100.9112432772277,12.92662884903541,0
+                  100.9077298404257,12.91364997410645,0
+                  100.9082098476102,12.89748925333622,0
+                  100.9130169464018,12.87579639644629,0
+                  100.913833099005,12.86764235163551,0
+                  100.7488328458657,12.86734188223356,0
+                  100.7485453253714,12.99891248412899,0
+                </coordinates>
+              </LinearRing>
+            </outerBoundaryIs>
+          </Polygon>
+        </MultiGeometry>
+
+        </Placemark>
+    </Document>
+  </Document>
+</kml>

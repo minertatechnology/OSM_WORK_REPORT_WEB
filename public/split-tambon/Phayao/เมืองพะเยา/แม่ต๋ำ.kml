@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>แม่ต๋ำ, เมืองพะเยา, Phayao</name>
+    <description>ข้อมูลขอบเขตตำบลแม่ต๋ำ อำเภอเมืองพะเยา จังหวัดPhayao</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Phayao.2">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.0912627721542</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                0.000430243134641</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Mae Tam</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                แม่ต๋ำ</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH560102</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Mueang Phayao</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                เมืองพะเยา</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH5601</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Phayao</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                พะเยา</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH56</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                99.9178626010001,19.157177346,0
+                99.918042502,19.1572592950001,0
+                99.9182300580001,19.157345434,0
+                99.9183564080001,19.1574101100001,0
+                99.918486396,19.157442114,0
+                99.9186967840001,19.157513626,0
+                99.9188154990001,19.15757834,0
+                99.9188692700001,19.157636122,0
+                99.918930979,19.1577482930001,0
+                99.9189698810001,19.1578787130001,0
+                99.9189860160001,19.158034645,0
+                99.919041436,19.158389936,0
+                99.9190890190001,19.158708984,0
+                99.9190995100001,19.1588783500001,0
+                99.9191016030001,19.1589121000001,0
+                99.919121396,19.1590389880001,0
+                99.91915642,19.159158543,0
+                99.9192315160001,19.159275264,0
+                99.9191013920001,19.1511644010001,0
+                99.9192634360001,19.14737946,0
+                99.919085055,19.1449991430001,0
+                99.91911328,19.1420531210001,0
+                99.9190069380001,19.140122014,0
+                99.9190584830001,19.137946178,0
+                99.919014276,19.134462854,0
+                99.9191510090001,19.1315862160001,0
+                99.9189519330001,19.1268474610001,0
+                99.9178048200001,19.126789945,0
+                99.9170433830001,19.1267530860001,0
+                99.9155094330001,19.126704257,0
+                99.9131533550001,19.126702419,0
+                99.91071306,19.126825191,0
+                99.9077282980001,19.1271652880001,0
+                99.904543543,19.127205819,0
+                99.904526848,19.127205901,0
+                99.904450749,19.129587497,0
+                99.9045210460001,19.1310375140001,0
+                99.9045784630001,19.1333031660001,0
+                99.9045636210001,19.135155737,0
+                99.9044635710001,19.1377316960001,0
+                99.9044720210001,19.1402618560001,0
+                99.904612682,19.1431845590001,0
+                99.9048004030001,19.147417352,0
+                99.9048189040001,19.1511425840001,0
+                99.9135943860001,19.1597451060001,0
+                99.915228755,19.1595851230001,0
+                99.9153049000001,19.159546044,0
+                99.9154775150001,19.159371396,0
+                99.9155883970001,19.1592592100001,0
+                99.9160994970001,19.1587051700001,0
+                99.9167067260001,19.1580442210001,0
+                99.9171519670001,19.1575485590001,0
+                99.9174049900001,19.157276387,0
+                99.9175776930001,19.157207795,0
+                99.917658874,19.157159016,0
+                99.9177351770001,19.1571489570001,0
+                99.9178626010001,19.157177346,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>
