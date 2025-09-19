@@ -1,0 +1,694 @@
+import React, { useState, useEffect } from "react";
+import InputService from "@services/inputService/inputService";
+import ButtonService from "@services/buttonService/buttonService";
+
+const purple = "#9327e2";
+const border = "#c9b7f7";
+const text_gray = "#231d37";
+const gray_placeholder = "#b3b3b3";
+const red = "#ff4158";
+
+const healthZones = [
+  { value: "", label: "เลือกเขตสุขภาพ" },
+  { value: "all", label: "ทั้งหมด" },
+  { value: "zone1", label: "เขต 1" },
+  { value: "zone2", label: "เขต 2" },
+];
+
+const provinces = [
+  { value: "", label: "เลือกจังหวัด" },
+  { value: "all", label: "ทั้งหมด" },
+  { value: "เชียงใหม่", label: "เชียงใหม่" },
+  { value: "กรุงเทพ", label: "กรุงเทพ" },
+];
+
+const amphurs = [
+  { value: "", label: "เลือกอำเภอ" },
+  { value: "all", label: "ทั้งหมด" },
+  { value: "เมือง", label: "เมือง" },
+];
+
+const subdistricts = [
+  { value: "", label: "เลือกตำบล" },
+  { value: "all", label: "ทั้งหมด" },
+  { value: "บางรัก", label: "บางรัก" },
+];
+
+const hospitals = [
+  { value: "", label: "เลือก รพ.สต." },
+  { value: "all", label: "ทั้งหมด" },
+  { value: "รพ.สต.1", label: "รพ.สต.1" },
+];
+
+const getRoleType = (auth) => {
+  if (!auth || !auth.roles || !auth.roles.length) return "sobos";
+  const role = auth.roles[0];
+  if (role === "สบส.") return "sobos";
+  if (role === "เขต") return "zone";
+  if (role === "จังหวัด") return "province";
+  if (role === "อำเภอ") return "district";
+  if (role === "ตำบล") return "subdistrict";
+  if (role === "รพสต.") return "hospital";
+  return "sobos";
+};
+
+function getStyledOptions(options) {
+  return options.map(opt => ({
+    ...opt,
+    style: opt.value === "" ? { color: gray_placeholder } : { color: text_gray }
+  }));
+}
+
+function getInitialState(auth) {
+  const roleType = getRoleType(auth);
+  let healthZone = "", province = "", amphur = "", subdistrict = "", hospital = "";
+  if (auth) {
+    if (roleType === "zone") healthZone = auth.zone || "";
+    if (roleType === "province") {
+      healthZone = auth.zone || "";
+      province = auth.province || "";
+    }
+    if (roleType === "district") {
+      healthZone = auth.zone || "";
+      province = auth.province || "";
+      amphur = auth.amphur || "";
+    }
+    if (roleType === "subdistrict") {
+      healthZone = auth.zone || "";
+      province = auth.province || "";
+      amphur = auth.amphur || "";
+      subdistrict = auth.subdistrict || "";
+    }
+    if (roleType === "hospital") {
+      healthZone = auth.zone || "";
+      province = auth.province || "";
+      amphur = auth.amphur || "";
+      subdistrict = auth.subdistrict || "";
+      hospital = auth.hospital || "";
+    }
+  }
+  return {
+    healthZone,
+    province,
+    amphur,
+    subdistrict,
+    hospital,
+    title: "",
+    detail: "",
+    validate: false,
+  };
+}
+
+export default function NewsAddPopup({
+  open,
+  onClose,
+  onSubmit,
+  mode = "add",
+  data = null,
+  onDelete,
+  auth
+}) {
+  const [roleType, setRoleType] = useState(getRoleType(auth));
+  const [form, setForm] = useState(mode === "detail" && data
+    ? {
+      healthZone: data.healthZone || "",
+      province: data.province || "",
+      amphur: data.amphur || "",
+      subdistrict: data.subdistrict || "",
+      hospital: data.hospital || "",
+      title: data.title || "",
+      detail: data.detail || "",
+      validate: false,
+    }
+    : getInitialState(auth)
+  );
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    setRoleType(getRoleType(auth));
+    if (mode === "detail" && data) {
+      setForm({
+        healthZone: data.healthZone || "",
+        province: data.province || "",
+        amphur: data.amphur || "",
+        subdistrict: data.subdistrict || "",
+        hospital: data.hospital || "",
+        title: data.title || "",
+        detail: data.detail || "",
+        validate: false,
+      });
+    } else {
+      setForm(getInitialState(auth));
+    }
+    setShowConfirm(false); // reset confirm on open/close/change
+  }, [auth, open, mode, data]);
+
+  const {
+    healthZone,
+    province,
+    amphur,
+    subdistrict,
+    hospital,
+    title,
+    detail,
+    validate,
+  } = form;
+
+  // เงื่อนไข disabled
+  const isSobos = roleType === "sobos";
+  const isHealthZoneNotSelected = isSobos && (!healthZone || healthZone === "");
+  const isAllZone = healthZone === "all";
+  const forceDisableAll = isAllZone;
+
+  const isDisableProvince =
+    forceDisableAll ||
+    ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType) ||
+    (isSobos && isHealthZoneNotSelected);
+
+  const isDisableAmphur =
+    forceDisableAll ||
+    ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType) ||
+    !province ||
+    province === "all" ||
+    (isSobos && isHealthZoneNotSelected);
+
+  const isDisableSubdistrict =
+    forceDisableAll ||
+    ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType) ||
+    !amphur ||
+    amphur === "all" ||
+    (isSobos && isHealthZoneNotSelected);
+
+  const isDisableHospital =
+    forceDisableAll ||
+    ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType) ||
+    !subdistrict ||
+    subdistrict === "all" ||
+    (isSobos && isHealthZoneNotSelected);
+
+  const isDisableTitle = forceDisableAll || (isSobos && isHealthZoneNotSelected);
+
+  // เมื่อเป็นโหมด detail ทุกช่อง disabled
+  const allDisabled = mode === "detail";
+
+  // เงื่อนไข required สำหรับแต่ละ field
+  const isRequiredProvince = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
+  const isRequiredAmphur = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
+  const isRequiredSubdistrict = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
+  const isRequiredHospital = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
+  const isRequiredTitle = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
+
+  // error สีแดง (เฉพาะโหมดเพิ่ม)
+  const errorProvince = !allDisabled && validate && (!province || province === "");
+  const errorAmphur = !allDisabled && validate && (!amphur || amphur === "");
+  const errorSubdistrict = !allDisabled && validate && (!subdistrict || subdistrict === "");
+  const errorHospital = !allDisabled && validate && (!hospital || hospital === "");
+  const errorTitle = !allDisabled && validate && (!title || title === "");
+
+  // สี label
+  function labelColor(val, disabled, error) {
+    if (error) return red;
+    if (disabled) return gray_placeholder;
+    return text_gray;
+  }
+  // สี input border
+  function inputBorder(val, disabled, error) {
+    if (error) return `2px solid ${red}`;
+    if (disabled) return `1.5px solid #ececec`;
+    return `1.5px solid ${border}`;
+  }
+
+  function isCanSubmit() {
+    if (mode === "detail") return false;
+    if (isSobos && (!healthZone || healthZone === "")) return false;
+    if (healthZone === "all") return true;
+    if (province === "all") return true;
+    if (amphur === "all") return true;
+    if (subdistrict === "all") return true;
+    if (hospital === "all") return true;
+    if (
+      [healthZone, province, amphur, subdistrict, hospital, title].every(
+        v => v && v !== ""
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function handleClose() {
+    setForm(getInitialState(auth));
+    setRoleType(getRoleType(auth));
+    setShowConfirm(false);
+    if (onClose) onClose();
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setForm(f => ({ ...f, validate: true }));
+    if (!isCanSubmit()) {
+      return;
+    }
+    if (onSubmit) onSubmit({ healthZone, province, amphur, subdistrict, hospital, title, detail });
+    setTimeout(() => {
+      setForm(getInitialState(auth));
+      setRoleType(getRoleType(auth));
+    }, 0);
+  }
+
+  // เพิ่ม popup confirm ลบ
+  function handleDelete() {
+    setShowConfirm(true);
+  }
+  function handleConfirmDelete() {
+    setShowConfirm(false);
+    if (onDelete) onDelete(data);
+    handleClose();
+  }
+  function handleCancelDelete() {
+    setShowConfirm(false);
+  }
+
+  if (!open) return null;
+
+  return (
+    <div style={{
+      position: "fixed",
+      zIndex: 9999,
+      left: 0,
+      top: 0,
+      width: "100vw",
+      height: "100vh",
+      background: "rgba(30, 20, 40, 0.18)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}>
+      {/* Confirm Delete Popup */}
+      {showConfirm && (
+        <div style={{
+          position: "fixed",
+          left: 0, top: 0,
+          width: "100vw", height: "100vh",
+          background: "rgba(30, 20, 40, 0.25)",
+          zIndex: 10001,
+          display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: 16,
+            boxShadow: "0 8px 32px #ffd2d8",
+            minWidth: 340,
+            maxWidth: 400,
+            padding: "36px 32px 24px 32px",
+            textAlign: "center",
+            border: `2px solid ${red}`,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}>
+            <div style={{ marginBottom: 18 }}>
+              <span style={{
+                display: "inline-block",
+                background: "#fff",
+                borderRadius: "50%",
+                border: `4px solid ${red}`,
+                width: 64,
+                height: 64,
+                marginBottom: 10,
+                lineHeight: "64px",
+              }}>
+                <span style={{
+                  display: "inline-block",
+                  fontSize: 36,
+                  color: red,
+                  verticalAlign: "middle",
+                  marginTop: 8,
+                  fontWeight: "bold"
+                }}>!</span>
+              </span>
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: red, marginBottom: 8 }}>
+              คุณต้องการลบข้อมูลหรือไม่?
+            </div>
+            <div style={{ fontWeight: 500, fontSize: 15, color: "#a72a2a", marginBottom: 16 }}>
+              ข้อมูลนี้จะถูกลบอย่างถาวรและไม่สามารถกู้คืนได้
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 10 }}>
+              <ButtonService
+                type="button"
+                variant="secondary"
+                size="md"
+                style={{
+                  background: "#fff",
+                  color: red,
+                  fontWeight: 600,
+                  fontSize: 17,
+                  borderRadius: 10,
+                  border: `1.5px solid #dadada`,
+                  padding: "8px 32px",
+                  boxShadow: "0 2px 8px #ffd2d8",
+                  cursor: "pointer"
+                }}
+                onClick={handleCancelDelete}
+              >
+                ปิด
+              </ButtonService>
+              <ButtonService
+                type="button"
+                variant="danger"
+                size="md"
+                style={{
+                  background: red,
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 17,
+                  borderRadius: 10,
+                  border: "none",
+                  padding: "8px 32px",
+                  boxShadow: "0 2px 8px #ffd2d8",
+                  cursor: "pointer"
+                }}
+                onClick={handleConfirmDelete}
+              >
+                ยืนยันการลบ
+              </ButtonService>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Main Popup */}
+      <form
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          boxShadow: "0 8px 32px #d1c7ee",
+          padding: "36px 44px 30px 44px",
+          minWidth: 440,
+          maxWidth: 520,
+          width: "100%",
+          fontFamily: "Prompt, 'Kanit', 'Roboto', sans-serif"
+        }}
+        onSubmit={mode === "add" ? handleSubmit : e => e.preventDefault()}
+      >
+        <div style={{
+          fontWeight: 800,
+          fontSize: 24,
+          color: purple,
+          marginBottom: 28,
+          textAlign: "left",
+          letterSpacing: "0.5px"
+        }}>
+          {mode === "add" ? "เพิ่มข่าวสาร" : "รายละเอียดข่าวสาร"}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 18px", marginBottom: 0 }}>
+          {/* เขตสุขภาพ */}
+          <div style={{ gridColumn: "1 / 3" }}>
+            <div style={{
+              fontWeight: 600, fontSize: 16, marginBottom: 6,
+              color: labelColor(healthZone, allDisabled || ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType), false)
+            }}>
+              เขตสุขภาพ
+            </div>
+            <InputService
+              type="select"
+              options={getStyledOptions(healthZones)}
+              value={healthZone}
+              onChange={e => !allDisabled && setForm(f => ({ ...f, healthZone: e.value || e.target.value }))}
+              disabled={allDisabled || ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType)}
+              style={{
+                width: "100%",
+                border: inputBorder(healthZone, allDisabled || ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType), false),
+                borderRadius: 10,
+                fontSize: 17,
+                padding: "12px 20px",
+                fontWeight: 500,
+                color: (!healthZone || healthZone === "") ? gray_placeholder : text_gray,
+                background: "#f6f2ff",
+                transition: "border-color .2s"
+              }}
+            />
+          </div>
+          {/* จังหวัด */}
+          <div>
+            <div style={{
+              fontWeight: 600, fontSize: 16, marginBottom: 6,
+              color: labelColor(province, allDisabled || isDisableProvince, errorProvince)
+            }}>
+              จังหวัด {errorProvince && <span style={{ color: red, fontSize: 13 }}> * ต้องกรอก</span>}
+            </div>
+            <InputService
+              type="select"
+              options={getStyledOptions(provinces)}
+              value={province}
+              onChange={e => !allDisabled && setForm(f => ({ ...f, province: e.value || e.target.value }))}
+              disabled={allDisabled || isDisableProvince}
+              required={isRequiredProvince}
+              style={{
+                width: "100%",
+                border: inputBorder(province, allDisabled || isDisableProvince, errorProvince),
+                borderRadius: 10,
+                fontSize: 17,
+                padding: "12px 20px",
+                fontWeight: 500,
+                color: (!province || province === "") ? gray_placeholder : text_gray,
+                background: "#f6f2ff",
+                transition: "border-color .2s"
+              }}
+            />
+          </div>
+          {/* อำเภอ */}
+          <div>
+            <div style={{
+              fontWeight: 600, fontSize: 16, marginBottom: 6,
+              color: labelColor(amphur, allDisabled || isDisableAmphur, errorAmphur)
+            }}>
+              อำเภอ {errorAmphur && <span style={{ color: red, fontSize: 13 }}> * ต้องกรอก</span>}
+            </div>
+            <InputService
+              type="select"
+              options={getStyledOptions(amphurs)}
+              value={amphur}
+              onChange={e => !allDisabled && setForm(f => ({ ...f, amphur: e.value || e.target.value }))}
+              disabled={allDisabled || isDisableAmphur}
+              required={isRequiredAmphur}
+              style={{
+                width: "100%",
+                border: inputBorder(amphur, allDisabled || isDisableAmphur, errorAmphur),
+                borderRadius: 10,
+                fontSize: 17,
+                padding: "12px 20px",
+                fontWeight: 500,
+                color: (!amphur || amphur === "") ? gray_placeholder : text_gray,
+                background: "#f6f2ff",
+                transition: "border-color .2s"
+              }}
+            />
+          </div>
+          {/* ตำบล */}
+          <div>
+            <div style={{
+              fontWeight: 600, fontSize: 16, marginBottom: 6,
+              color: labelColor(subdistrict, allDisabled || isDisableSubdistrict, errorSubdistrict)
+            }}>
+              ตำบล {errorSubdistrict && <span style={{ color: red, fontSize: 13 }}> * ต้องกรอก</span>}
+            </div>
+            <InputService
+              type="select"
+              options={getStyledOptions(subdistricts)}
+              value={subdistrict}
+              onChange={e => !allDisabled && setForm(f => ({ ...f, subdistrict: e.value || e.target.value }))}
+              disabled={allDisabled || isDisableSubdistrict}
+              required={isRequiredSubdistrict}
+              style={{
+                width: "100%",
+                border: inputBorder(subdistrict, allDisabled || isDisableSubdistrict, errorSubdistrict),
+                borderRadius: 10,
+                fontSize: 17,
+                padding: "12px 20px",
+                fontWeight: 500,
+                color: (!subdistrict || subdistrict === "") ? gray_placeholder : text_gray,
+                background: "#f6f2ff",
+                transition: "border-color .2s"
+              }}
+            />
+          </div>
+          {/* รพ.สต. */}
+          <div>
+            <div style={{
+              fontWeight: 600, fontSize: 16, marginBottom: 6,
+              color: labelColor(hospital, allDisabled || isDisableHospital, errorHospital)
+            }}>
+              รพ.สต. {errorHospital && <span style={{ color: red, fontSize: 13 }}> * ต้องกรอก</span>}
+            </div>
+            <InputService
+              type="select"
+              options={getStyledOptions(hospitals)}
+              value={hospital}
+              onChange={e => !allDisabled && setForm(f => ({ ...f, hospital: e.value || e.target.value }))}
+              disabled={allDisabled || isDisableHospital}
+              required={isRequiredHospital}
+              style={{
+                width: "100%",
+                border: inputBorder(hospital, allDisabled || isDisableHospital, errorHospital),
+                borderRadius: 10,
+                fontSize: 17,
+                padding: "12px 20px",
+                fontWeight: 500,
+                color: (!hospital || hospital === "") ? gray_placeholder : text_gray,
+                background: "#f6f2ff",
+                transition: "border-color .2s"
+              }}
+            />
+          </div>
+        </div>
+        {/* หัวข้อ */}
+        <div style={{ marginTop: 22 }}>
+          <div style={{
+            fontWeight: 600, fontSize: 16, marginBottom: 6,
+            color: labelColor(title, allDisabled || isDisableTitle, errorTitle)
+          }}>
+            หัวข้อ {errorTitle && <span style={{ color: red, fontSize: 13 }}> * ต้องกรอก</span>}
+          </div>
+          <InputService
+            type="text"
+            value={title}
+            onChange={e => !allDisabled && setForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="ระบุข้อมูล"
+            disabled={allDisabled || isDisableTitle}
+            required={isRequiredTitle}
+            style={{
+              width: "100%",
+              border: inputBorder(title, allDisabled || isDisableTitle, errorTitle),
+              borderRadius: 10,
+              fontSize: 17,
+              padding: "12px 20px",
+              fontWeight: 500,
+              color: (!title || title === "") ? gray_placeholder : text_gray,
+              background: "#f6f2ff",
+              transition: "border-color .2s"
+            }}
+          />
+        </div>
+        {/* รายละเอียด */}
+        <div style={{ marginTop: 22 }}>
+          <div style={{
+            fontWeight: 600, fontSize: 16, marginBottom: 6,
+            color: labelColor(detail, false, false)
+          }}>
+            รายละเอียด
+          </div>
+          <InputService
+            type="text"
+            value={detail}
+            onChange={e => !allDisabled && setForm(f => ({ ...f, detail: e.target.value }))}
+            placeholder="ระบุข้อมูล"
+            disabled={allDisabled}
+            style={{
+              width: "100%",
+              border: inputBorder(detail, false, false),
+              borderRadius: 10,
+              fontSize: 17,
+              padding: "12px 20px",
+              fontWeight: 500,
+              color: (!detail || detail === "") ? gray_placeholder : text_gray,
+              background: "#f6f2ff",
+              transition: "border-color .2s"
+            }}
+          />
+        </div>
+        {/* ปุ่ม */}
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: 24,
+          marginTop: 38,
+        }}>
+          {mode === "add" ? (
+            <>
+              <ButtonService
+                type="button"
+                variant="secondary"
+                size="md"
+                style={{
+                  background: "#fff",
+                  color: purple,
+                  fontWeight: 700,
+                  fontSize: 19,
+                  borderRadius: 12,
+                  border: `1.5px solid ${purple}`,
+                  padding: "10px 44px",
+                  boxShadow: "0 2px 8px #e3d7fa",
+                  cursor: "pointer"
+                }}
+                onClick={handleClose}
+              >
+                ปิด
+              </ButtonService>
+              <ButtonService
+                type="submit"
+                variant="primary"
+                size="md"
+                disabled={!isCanSubmit()}
+                style={{
+                  background: !isCanSubmit() ? "#eee" : purple,
+                  color: !isCanSubmit() ? "#aaa" : "#fff",
+                  fontWeight: 700,
+                  fontSize: 19,
+                  borderRadius: 12,
+                  border: "none",
+                  padding: "10px 44px",
+                  boxShadow: "0 2px 8px #e3d7fa",
+                  cursor: !isCanSubmit() ? "not-allowed" : "pointer"
+                }}
+              >
+                เพิ่มข่าวสาร
+              </ButtonService>
+            </>
+          ) : (
+            <>
+              <ButtonService
+                type="button"
+                variant="danger"
+                size="md"
+                style={{
+                  background: "#fff",
+                  color: red,
+                  fontWeight: 700,
+                  fontSize: 19,
+                  borderRadius: 12,
+                  border: `1.5px solid ${red}`,
+                  padding: "10px 44px",
+                  boxShadow: "0 2px 8px #ffd2d8",
+                  cursor: "pointer"
+                }}
+                onClick={handleDelete}
+              >
+                ลบข้อมูล
+              </ButtonService>
+              <ButtonService
+                type="button"
+                variant="secondary"
+                size="md"
+                style={{
+                  background: "#fff",
+                  color: purple,
+                  fontWeight: 700,
+                  fontSize: 19,
+                  borderRadius: 12,
+                  border: `1.5px solid ${purple}`,
+                  padding: "10px 44px",
+                  boxShadow: "0 2px 8px #e3d7fa",
+                  cursor: "pointer"
+                }}
+                onClick={handleClose}
+              >
+                ปิด
+              </ButtonService>
+            </>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
