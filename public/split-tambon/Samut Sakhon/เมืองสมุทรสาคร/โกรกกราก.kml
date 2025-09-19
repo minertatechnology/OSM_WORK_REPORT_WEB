@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>โกรกกราก, เมืองสมุทรสาคร, Samut Sakhon</name>
+    <description>ข้อมูลขอบเขตตำบลโกรกกราก อำเภอเมืองสมุทรสาคร จังหวัดSamut Sakhon</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Samut_Sakhon.3">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.0486395411881</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                6.23105654631e-05</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Krok Krak</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                โกรกกราก</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH740103</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Mueang Samut Sakhon</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                เมืองสมุทรสาคร</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH7401</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Samut Sakhon</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                สมุทรสาคร</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH74</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                100.271849974,13.5278279020001,0
+                100.271805591,13.527798693,0
+                100.271251184,13.527843224,0
+                100.270756844,13.527882929,0
+                100.265616206,13.5282957590001,0
+                100.265849346,13.528735511,0
+                100.265868394,13.5287714400001,0
+                100.26615736,13.5291990150001,0
+                100.266480059,13.5296264250001,0
+                100.266802407,13.529987831,0
+                100.267209165,13.530365304,0
+                100.267852124,13.530758088,0
+                100.268461089,13.5311015360001,0
+                100.269255135,13.531361534,0
+                100.270283813,13.5316703440001,0
+                100.270876779,13.531848348,0
+                100.272194599,13.532287195,0
+                100.273241979,13.5326118990001,0
+                100.274238497,13.532887352,0
+                100.275065926,13.533081152,0
+                100.275995255,13.533406445,0
+                100.276705427,13.533749357,0
+                100.277162542,13.534077054,0
+                100.277620622,13.5345862620001,0
+                100.277841894,13.5349646670001,0
+                100.278047,13.535475166,0
+                100.27816814,13.5360521000001,0
+                100.278204952,13.5366294620001,0
+                100.278191789,13.5373225910001,0
+                100.278144981,13.5380323960001,0
+                100.278063734,13.538610367,0
+                100.277948851,13.539205007,0
+                100.277680286,13.539977369,0
+                100.280203216,13.5421645710001,0
+                100.281459035,13.534505358,0
+                100.278132875,13.531962317,0
+                100.271849974,13.5278279020001,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>

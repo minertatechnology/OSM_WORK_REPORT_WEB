@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>หัวเดียด, เมืองตาก, Tak</name>
+    <description>ข้อมูลขอบเขตตำบลหัวเดียด อำเภอเมืองตาก จังหวัดTak</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Tak.4">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.0522923896682</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                0.000126625173017</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Hua Diat</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                หัวเดียด</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH630104</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Mueang Tak</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                เมืองตาก</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH6301</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Tak</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                ตาก</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH63</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                99.114231814,16.8955690710001,0
+                99.1140946670001,16.895527741,0
+                99.11391367,16.895480633,0
+                99.1138097450001,16.8954615850001,0
+                99.1137653800001,16.8954604850001,0
+                99.1137070090001,16.8954785010001,0
+                99.1136358140001,16.8955167600001,0
+                99.1135891220001,16.895534771,0
+                99.1135657660001,16.8955269150001,0
+                99.112829849,16.8949854680001,0
+                99.1125502,16.894767143,0
+                99.1115321340001,16.8941355370001,0
+                99.1111159220001,16.893919322,0
+                99.1098775720001,16.890406023,0
+                99.106935719,16.8933758900001,0
+                99.1064322180001,16.89379545,0
+                99.105451642,16.8946125470001,0
+                99.1030398990001,16.8964899420001,0
+                99.0989585920001,16.900066431,0
+                99.096772608,16.9027924260001,0
+                99.1000675780001,16.909146075,0
+                99.1000803680001,16.9091906100001,0
+                99.1042882070001,16.9051406460001,0
+                99.114231814,16.8955690710001,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>

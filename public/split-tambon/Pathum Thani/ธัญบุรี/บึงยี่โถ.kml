@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>บึงยี่โถ, ธัญบุรี, Pathum Thani</name>
+    <description>ข้อมูลขอบเขตตำบลบึงยี่โถ อำเภอธัญบุรี จังหวัดPathum Thani</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Pathum_Thani.23">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.156141630265</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                0.00126314927462</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Bueng Yi Tho</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                บึงยี่โถ</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH130302</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Thanyaburi</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                ธัญบุรี</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH1303</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Pathum Thani</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                ปทุมธานี</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH13</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                100.709894147,14.0086422040001,0
+                100.709283087,14.0066376500001,0
+                100.708543839,14.004175785,0
+                100.707746024,14.001480707,0
+                100.706994833,13.9989363240001,0
+                100.706901693,13.998643809,0
+                100.706873611,13.9985374030001,0
+                100.706850082,13.9984309600001,0
+                100.706826188,13.9982756630001,0
+                100.706728557,13.997374635,0
+                100.706709349,13.99723707,0
+                100.706523715,13.996123449,0
+                100.706222369,13.9938741780001,0
+                100.706029249,13.993869246,0
+                100.705390289,13.9936981070001,0
+                100.704013802,13.993292648,0
+                100.70176899,13.992653778,0
+                100.699753448,13.9920611750001,0
+                100.697160741,13.991319345,0
+                100.697088025,13.9875772350001,0
+                100.696087868,13.987201027,0
+                100.695629858,13.987001584,0
+                100.695427534,13.986896249,0
+                100.691764792,13.9852976190001,0
+                100.691165062,13.985157444,0
+                100.690041636,13.98491162,0
+                100.689814509,13.984875059,0
+                100.685880634,13.984241739,0
+                100.685311035,13.984115925,0
+                100.683993462,13.983810862,0
+                100.681670114,13.983288314,0
+                100.679095261,13.982701886,0
+                100.676782567,13.982182672,0
+                100.674753208,13.9817270830001,0
+                100.672706249,13.9812819650001,0
+                100.672295487,13.98119847,0
+                100.670457343,13.980779511,0
+                100.669821993,13.980639339,0
+                100.666417525,13.980015171,0
+                100.664836385,13.9797294790001,0
+                100.663483674,13.979450355,0
+                100.663469755,13.9808228540001,0
+                100.663556821,13.9824395200001,0
+                100.663558963,13.9824884350001,0
+                100.663675135,13.9845612930001,0
+                100.66368399,13.984774083,0
+                100.663849707,13.9887556740001,0
+                100.664040375,13.9937507720001,0
+                100.664065717,13.9944053680001,0
+                100.664094548,13.994828254,0
+                100.664016147,13.9976623420001,0
+                100.664027002,13.9991525940001,0
+                100.66402902,13.9994329580001,0
+                100.664017995,14.003295366,0
+                100.664037054,14.0065889800001,0
+                100.664024582,14.008168384,0
+                100.665281399,14.008124185,0
+                100.668767845,14.008290221,0
+                100.675243228,14.008856168,0
+                100.676339165,14.009045729,0
+                100.678960689,14.0097396690001,0
+                100.68262478,14.0111703650001,0
+                100.689638452,14.0143431970001,0
+                100.698752848,14.018470522,0
+                100.704077321,14.02080353,0
+                100.709729886,14.023792449,0
+                100.709859769,14.0238611240001,0
+                100.709865417,14.020791984,0
+                100.709871477,14.019043024,0
+                100.709914249,14.017115571,0
+                100.709926003,14.0161352050001,0
+                100.709931885,14.0153888080001,0
+                100.709923164,14.0147242080001,0
+                100.709937236,14.012630072,0
+                100.709981018,14.0096160030001,0
+                100.70998202,14.0095469710001,0
+                100.709969467,14.009483695,0
+                100.709896358,14.0092868260001,0
+                100.709870251,14.009217048,0
+                100.709866673,14.009196972,0
+                100.709866317,14.009185686,0
+                100.709867116,14.0091386130001,0
+                100.709867434,14.009119706,0
+                100.709869771,14.0091020190001,0
+                100.709913038,14.008774497,0
+                100.709910053,14.0087170520001,0
+                100.709894147,14.0086422040001,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>

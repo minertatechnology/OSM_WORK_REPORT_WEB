@@ -1,0 +1,19 @@
+import fs from "fs";
+import path from "path";
+
+export default function handler(req, res) {
+  const { dir } = req.query;
+  if (!dir) {
+    return res.status(400).json({ error: "Missing 'dir' query param" });
+  }
+  // Only allow access to public folder
+  const publicDir = path.join(process.cwd(), "public");
+  const targetDir = path.join(publicDir, dir);
+  try {
+    const files = fs.readdirSync(targetDir);
+    // filter only .kml files or folders
+    res.status(200).json(files);
+  } catch (err) {
+    res.status(404).json({ error: "Directory not found" });
+  }
+}

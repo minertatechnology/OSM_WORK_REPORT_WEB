@@ -1,0 +1,699 @@
+.gisComp {
+  display: flex;
+  flex-direction: column;
+  height: 89vh;
+}
+
+/* Thai Address Selector Styles */
+.thaiAddressSelector {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.formGroup {
+  margin-bottom: 1rem;
+}
+
+.dateSelector {
+  display: flex;
+  gap: 12px;
+}
+
+.dateSelector .formGroup {
+  flex: 1;
+  margin-bottom: 1rem;
+}
+
+.formLabel {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.formSelect {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  background-color: white;
+  font-size: 1rem;
+  color: #374151;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+.formSelect:focus {
+  outline: none;
+  border-color: #6e28b7;
+  box-shadow: 0 0 0 3px rgba(110, 40, 183, 0.1);
+  transform: translateY(-1px);
+}
+
+.formSelect:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.formSelect:disabled {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* เน้นการตกแต่ง dropdown box แทน option */
+.formSelect:focus {
+  outline: none;
+  border-color: #6e28b7;
+  box-shadow: 0 0 0 3px rgba(110, 40, 183, 0.1), 0 10px 25px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+/* ปรับ dropdown arrow ให้เป็นสีม่วง */
+.formSelect {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236E28B7' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+}
+
+/* เมื่อ dropdown เปิด */
+.formSelect:focus {
+  border-color: #6e28b7;
+  box-shadow: 0 0 0 3px rgba(110, 40, 183, 0.1), 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* ปรับแต่งขอบให้นุ่มนวลมากขึ้น */
+.formSelect {
+  border-radius: 16px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid #e2e8f0;
+}
+
+.formSelect:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  background: linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%);
+}
+
+.selectedAddress {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-radius: 0.5rem;
+}
+
+.selectedAddress p {
+  margin: 0;
+  color: #0c4a6e;
+}
+
+/* KML Map Viewer Styles */
+.kmlMapViewer {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  display: flex;
+}
+
+.mapContainer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.controlPanel {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  width: 350px;
+  max-height: 80vh;
+  overflow-y: auto;
+  transition: all 0.3s ease;
+}
+
+.controlPanel.collapsed {
+  height: 65px;
+  overflow: hidden;
+}
+
+.controlPanelContent {
+  padding: 20px;
+}
+
+.controlPanel h3 {
+  margin-top: 0;
+  color: white;
+  font-size: 18px;
+  background: #6e28b7;
+  margin: -20px -20px 15px -20px;
+  padding: 15px 20px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: white;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+}
+
+.toggleBtn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.section {
+  margin: 15px 0;
+  padding: 12px 0;
+}
+
+.section h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.filterStats {
+  padding: 12px;
+  background: #e3f2fd;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #007cad;
+  margin-top: 15px;
+  word-wrap: break-word;
+}
+
+.filterButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.btnPrimary,
+.btnSecondary {
+  border: none;
+  padding: 12px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btnPrimary {
+  background: #6e28b7;
+  color: white;
+}
+
+.btnPrimary:hover {
+  background: #5a1e9a;
+  transform: translateY(-1px);
+}
+
+.btnSecondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btnSecondary:hover {
+  background: #545b62;
+  transform: translateY(-1px);
+}
+
+.status {
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  margin-top: 15px;
+  word-wrap: break-word;
+}
+
+.statusInfo {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.statusSuccess {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.statusError {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.statusWarning {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.loadingOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.loadingSpinner {
+  text-align: center;
+  color: white;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.3);
+  border-top: 5px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+.loadingText {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Right Panel Styles */
+.rightPanel {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 320px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  pointer-events: auto;
+}
+
+.reportCard {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.reportHeader {
+  background: #6e28b7;
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reportHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.reportHeader .downloadBtn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reportHeader .downloadBtn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.chartTitleRow .downloadBtn {
+  background: none;
+  border: none;
+  color: #6e28b7;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chartTitleRow .downloadBtn:hover {
+  background-color: rgba(110, 40, 183, 0.1);
+}
+
+.reportDivider {
+  height: 1px;
+  background: #d3d4dd;
+  margin: 0;
+}
+
+/* Chart Section Styles */
+.chartSection {
+  padding: 20px;
+}
+
+.chartTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: -5px;
+}
+
+.chartTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.chartCard {
+  border: 1px solid #D3D4DD;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+  background: white;
+  min-height: 280px;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+/* Donut Chart Styles */
+.donutChart {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.donutContainer {
+  position: relative;
+  width: 150px;
+  height: 150px;
+}
+
+.donut {
+  transform: rotate(-90deg);
+}
+
+.donutSegment {
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.donutCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.donutValue {
+  font-size: 24px;
+  font-weight: bold;
+  color: #6e28b7;
+}
+
+.donutLabel {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Province List Styles */
+.provinceList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 200px;
+  padding-right: 8px;
+}
+
+.provinceItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.provinceItem:last-child {
+  border-bottom: none;
+}
+
+.provinceName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.colorDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.color1 {
+  background-color: #6e28b7;
+}
+.color2 {
+  background-color: #8b5cf6;
+}
+.color3 {
+  background-color: #a78bfa;
+}
+.color4 {
+  background-color: #c4b5fd;
+}
+.color5 {
+  background-color: #ddd6fe;
+}
+
+.provinceValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.emptyMessage {
+  text-align: center;
+  padding: 20px;
+  color: #6b7280;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* Custom scrollbar for province list */
+.provinceList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.provinceList::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 3px;
+}
+
+.provinceList::-webkit-scrollbar-thumb {
+  background: #D3D4DD;
+  border-radius: 3px;
+  transition: background-color 0.3s;
+}
+
+.provinceList::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Monthly Report Section Styles */
+.monthlyReportSection {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.totalSection {
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #6e28b7 0%, #5a1e9a 100%);
+  border-radius: 8px;
+  color: white;
+}
+
+.totalValue {
+  font-size: 36px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.totalLabel {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.reportItems {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reportItem {
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #374151;
+  border-left: 4px solid #6e28b7;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .thaiAddressSelector {
+    padding: 15px;
+  }
+
+  .mapContainer {
+    right: 0;
+    width: 100%;
+  }
+
+  .rightPanel {
+    position: relative;
+    top: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-height: none;
+    order: 2;
+    margin-top: 15px;
+  }
+
+  .kmlMapViewer {
+    flex-direction: column;
+  }
+
+  .controlPanel {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    max-height: 90vh;
+    height: auto;
+    border-radius: 8px;
+  }
+
+  .controlPanelContent {
+    padding: 16px;
+  }
+
+  .controlPanel h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  .toggleBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .formSelect {
+    padding: 14px 12px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .filterButtons {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .btnPrimary,
+  .btnSecondary {
+    padding: 16px 20px;
+    font-size: 16px;
+    min-height: 52px;
+    border-radius: 6px;
+  }
+}

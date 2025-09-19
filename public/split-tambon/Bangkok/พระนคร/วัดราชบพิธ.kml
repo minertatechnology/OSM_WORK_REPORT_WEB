@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>วัดราชบพิธ, พระนคร, Bangkok</name>
+    <description>ข้อมูลขอบเขตตำบลวัดราชบพิธ อำเภอพระนคร จังหวัดBangkok</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Bangkok.3">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.0172893090991</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                1.76976095826e-05</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Wat Ratchabophit</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                วัดราชบพิธ</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH100103</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Phra Nakhon</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                พระนคร</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH1001</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Bangkok</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                กรุงเทพมหานคร</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH10</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                100.501402324,13.748170069,0
+                100.501307934,13.7480034010001,0
+                100.501144232,13.7480204340001,0
+                100.500603333,13.748087739,0
+                100.500023197,13.748162961,0
+                100.49957732,13.7482074930001,0
+                100.499260038,13.748233762,0
+                100.49922128,13.748236971,0
+                100.498993026,13.7482572870001,0
+                100.498922847,13.748263535,0
+                100.498593862,13.7482911390001,0
+                100.498220387,13.748324988,0
+                100.497771854,13.748363559,0
+                100.497552815,13.7483811060001,0
+                100.497152263,13.748413409,0
+                100.496775264,13.7484430110001,0
+                100.496328834,13.748485214,0
+                100.496370687,13.749887197,0
+                100.49628613,13.7508628520001,0
+                100.496248332,13.751269715,0
+                100.496420801,13.7512852510001,0
+                100.49705353,13.7513544660001,0
+                100.497614667,13.7514115500001,0
+                100.498022816,13.751454064,0
+                100.498106732,13.7514628550001,0
+                100.498211496,13.751473834,0
+                100.498799335,13.751543973,0
+                100.499338549,13.7516158070001,0
+                100.499907209,13.7516742450001,0
+                100.500479778,13.7517351390001,0
+                100.500503514,13.7517377250001,0
+                100.500636047,13.7517521450001,0
+                100.500704309,13.7517671420001,0
+                100.500880324,13.751805813,0
+                100.501338955,13.751761399,0
+                100.501749404,13.7517551130001,0
+                100.501896347,13.751744827,0
+                100.501481073,13.7483050500001,0
+                100.501402324,13.748170069,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>
