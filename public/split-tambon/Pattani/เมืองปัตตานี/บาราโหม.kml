@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>บาราโหม, เมืองปัตตานี, Pattani</name>
+    <description>ข้อมูลขอบเขตตำบลบาราโหม อำเภอเมืองปัตตานี จังหวัดPattani</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Pattani.8">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.0510153989564</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                0.000133099889568</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Bara Hom</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                บาราโหม</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH940108</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Mueang Pattani</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                เมืองปัตตานี</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH9401</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Pattani</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                ปัตตานี</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH94</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                101.318231831,6.87871885100003,0
+                101.318308841,6.87871847700006,0
+                101.318308869,6.87871847700006,0
+                101.318336444,6.87871834300006,0
+                101.318338117,6.87871743200003,0
+                101.318529823,6.87861289200004,0
+                101.318634467,6.87853603400004,0
+                101.31869317,6.87849292100003,0
+                101.319887161,6.87841256900003,0
+                101.319928462,6.87841922500007,0
+                101.319928591,6.87841924700007,0
+                101.320155872,6.87845588300007,0
+                101.320288963,6.87845523800007,0
+                101.320335017,6.87845501400005,0
+                101.32033678,6.87845422100003,0
+                101.320602976,6.87833449300007,0
+                101.32085684,6.87833326400005,0
+                101.321066277,6.87840685100002,0
+                101.321395148,6.87849448300005,0
+                101.321595546,6.87851714500005,0
+                101.321649084,6.87852320000007,0
+                101.321691597,6.87850565400004,0
+                101.321691788,6.87850557600007,0
+                101.322050742,6.87835743000005,0
+                101.322660871,6.87795168400004,0
+                101.323315306,6.87744119300004,0
+                101.323924375,6.87691625300005,0
+                101.324157488,6.87665900700006,0
+                101.32415387,6.87664408300003,0
+                101.323360504,6.87288207700004,0
+                101.322988603,6.87111854100004,0
+                101.322758535,6.86960397300004,0
+                101.322332589,6.86802197000003,0
+                101.321983069,6.86664948500004,0
+                101.321941323,6.86648556100005,0
+                101.32215174,6.86418640700003,0
+                101.32247309,6.86271879300006,0
+                101.322494617,6.86262048600003,0
+                101.322749193,6.86207294700006,0
+                101.323890922,6.85961733900007,0
+                101.323558156,6.85977093200006,0
+                101.321997664,6.85991969300005,0
+                101.321188497,6.86055918200003,0
+                101.320410639,6.86123802400004,0
+                101.319609427,6.86189043100006,0
+                101.318800856,6.86253214000004,0
+                101.318045627,6.86322782300005,0
+                101.31756255,6.86349964900006,0
+                101.316779369,6.86425137600003,0
+                101.316092881,6.86502074000003,0
+                101.315413835,6.86579910000006,0
+                101.314689363,6.86653532500003,0
+                101.313979594,6.86728050900007,0
+                101.313384511,6.86812455600005,0
+                101.313053774,6.86881481900002,0
+                101.31256086,6.86975100200004,0
+                101.312675419,6.87099668300004,0
+                101.313438436,6.87203076700007,0
+                101.314078803,6.87283611200007,0
+                101.31455183,6.87374729400005,0
+                101.31497917,6.87468529000006,0
+                101.315543555,6.87555027200005,0
+                101.316146244,6.87639026700003,0
+                101.316703264,6.87725642700002,0
+                101.317359406,6.87805036300006,0
+                101.318050384,6.87879269600006,0
+                101.318059512,6.87880544200004,0
+                101.318059638,6.87880564600005,0
+                101.318077773,6.87879650500003,0
+                101.318077809,6.87879648800003,0
+                101.318231831,6.87871885100003,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>

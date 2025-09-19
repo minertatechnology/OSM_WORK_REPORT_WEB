@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>ดงแดง, จตุรพักตรพิมาน, Roi Et</name>
+    <description>ข้อมูลขอบเขตตำบลดงแดง อำเภอจตุรพักตรพิมาน จังหวัดRoi Et</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Roi_Et.42">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.294334720131</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                0.00448559939536</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Dong Daeng</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                ดงแดง</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH450406</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Chaturaphak Phiman</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                จตุรพักตรพิมาน</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH4504</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Roi Et</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                ร้อยเอ็ด</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH45</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                103.693625767,15.8383939780001,0
+                103.691929275,15.833006739,0
+                103.638006736,15.82885843,0
+                103.635320292,15.8352247500001,0
+                103.633094796,15.8375129410001,0
+                103.631717851,15.8385978060001,0
+                103.629811625,15.839222895,0
+                103.627487723,15.839405173,0
+                103.611745671,15.83669217,0
+                103.605513742,15.8358605380001,0
+                103.602622243,15.836010738,0
+                103.600964825,15.8360459800001,0
+                103.59524228,15.8361675630001,0
+                103.594729031,15.8362237420001,0
+                103.593059815,15.836406432,0
+                103.591660355,15.8366575680001,0
+                103.588366189,15.8372486650001,0
+                103.586722914,15.8378179100001,0
+                103.584551911,15.8386942990001,0
+                103.593837932,15.856125692,0
+                103.600126106,15.8814483,0
+                103.605321133,15.8858477090001,0
+                103.608036113,15.886738091,0
+                103.611472149,15.8870203180001,0
+                103.634147904,15.8823857140001,0
+                103.671852906,15.8729770620001,0
+                103.673405292,15.8715725070001,0
+                103.674835262,15.8704269520001,0
+                103.676008779,15.869909813,0
+                103.677558457,15.869548432,0
+                103.679351162,15.8694440360001,0
+                103.681947991,15.8689615930001,0
+                103.683360713,15.8685375800001,0
+                103.686516314,15.867321767,0
+                103.688594664,15.866391552,0
+                103.691037014,15.8650928180001,0
+                103.691911086,15.864811579,0
+                103.693530647,15.8645469320001,0
+                103.695381844,15.864047763,0
+                103.696853485,15.863869069,0
+                103.695482286,15.86194468,0
+                103.694116514,15.859577659,0
+                103.693491735,15.857758459,0
+                103.69305672,15.8557471570001,0
+                103.693049743,15.8533506100001,0
+                103.69321446,15.852078191,0
+                103.694312664,15.8491877120001,0
+                103.69467038,15.847864112,0
+                103.694708668,15.845325599,0
+                103.69402088,15.840782102,0
+                103.693770468,15.8392685650001,0
+                103.693625767,15.8383939780001,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>ห้วยราชา, ห้วยราช, Buri Ram</name>
+    <description>ข้อมูลขอบเขตตำบลห้วยราชา อำเภอห้วยราช จังหวัดBuri Ram</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Buri_Ram.158">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.15985233705</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                0.0012032121273</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Huai Racha</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                ห้วยราชา</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH311608</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Huai Rat</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                ห้วยราช</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH3116</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Buri Ram</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                บุรีรัมย์</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH31</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                103.20313856,14.9907581950001,0
+                103.204477344,14.9907178890001,0
+                103.205928972,14.9907169890001,0
+                103.206916048,14.990703922,0
+                103.207795917,14.9906668950001,0
+                103.208010205,14.9906497760001,0
+                103.208699139,14.99052806,0
+                103.209006624,14.990491241,0
+                103.209754697,14.9904696190001,0
+                103.210090877,14.990467289,0
+                103.210517007,14.990447945,0
+                103.211326023,14.9903361300001,0
+                103.212114241,14.990252368,0
+                103.212929958,14.990119673,0
+                103.213824873,14.990033926,0
+                103.214557807,14.9900341800001,0
+                103.214949983,14.9900753320001,0
+                103.215205924,14.990063676,0
+                103.215224706,14.9900608830001,0
+                103.215222988,14.9900324810001,0
+                103.217775473,14.9853663700001,0
+                103.213316468,14.971307048,0
+                103.213500012,14.963294653,0
+                103.213579165,14.9631531790001,0
+                103.193416476,14.9713787650001,0
+                103.180554748,14.976624702,0
+                103.1584208,14.9856504250001,0
+                103.166906978,15.0047136540001,0
+                103.187108457,14.9958691740001,0
+                103.188111161,14.995468139,0
+                103.195936793,14.992380219,0
+                103.199279516,14.9910611170001,0
+                103.199402719,14.991038501,0
+                103.199674324,14.991007026,0
+                103.200265717,14.990956994,0
+                103.20313856,14.9907581950001,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>

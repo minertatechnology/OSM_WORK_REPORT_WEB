@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>ตลาด, เมืองสุราษฎร์ธาน, Surat Thani</name>
+    <description>ข้อมูลขอบเขตตำบลตลาด อำเภอเมืองสุราษฎร์ธาน จังหวัดSurat Thani</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Surat_Thani.1">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.109932287173</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                0.00040800579614</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Talat</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                ตลาด</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH840101</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Mueang Surat Thani</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                เมืองสุราษฎร์ธาน</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH8401</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Surat Thani</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                สุราษฎร์ธานี</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH84</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                99.3370680620001,9.13871289800005,0
+                99.3373365620001,9.13851409300003,0
+                99.3375757900001,9.13832046500005,0
+                99.337985986,9.13795438700004,0
+                99.338415292,9.13760529200005,0
+                99.338859019,9.13736293300008,0
+                99.3395031000001,9.13697094700007,0
+                99.3396058750001,9.13688867300004,0
+                99.338970444,9.13648978900005,0
+                99.3386435880001,9.13625503300005,0
+                99.338226563,9.13595319800004,0
+                99.3380124970001,9.13588064100003,0
+                99.3371900970001,9.13568552400005,0
+                99.33666063,9.13557967700007,0
+                99.336480366,9.13551827900005,0
+                99.3363451330001,9.13544004900007,0
+                99.3354604090001,9.13484202400002,0
+                99.3346204030001,9.13410382900003,0
+                99.3067022210001,9.12145386700007,0
+                99.306152092,9.12159610900005,0
+                99.3035061730001,9.12262985400002,0
+                99.3037024920001,9.12291807900004,0
+                99.3045730210001,9.12424876200004,0
+                99.30468769,9.12443666100006,0
+                99.3047883580001,9.12462525500007,0
+                99.3049602550001,9.12498536000004,0
+                99.30501946,9.12514336900006,0
+                99.305079548,9.12537336600008,0
+                99.305132772,9.12581104200007,0
+                99.305165528,9.12619241500005,0
+                99.305200353,9.12713541700003,0
+                99.3052030690001,9.12716482800005,0
+                99.3052354100001,9.12744473700008,0
+                99.3052698160001,9.12760067300007,0
+                99.305377816,9.12793600700007,0
+                99.3054042830001,9.12800692900004,0
+                99.3055723790001,9.12837670800008,0
+                99.3058349120001,9.12886765000007,0
+                99.306015158,9.12918944700004,0
+                99.3060544520001,9.12925401300004,0
+                99.306100513,9.12932558200004,0
+                99.3063090850001,9.12962184000003,0
+                99.3064916820001,9.12985415500003,0
+                99.3085906780001,9.13234985700007,0
+                99.308679146,9.13244854100003,0
+                99.309419017,9.13323458800005,0
+                99.3115837290001,9.13508930400008,0
+                99.3127326490001,9.13498583900002,0
+                99.3128445980001,9.13498094700003,0
+                99.313746526,9.13497537600006,0
+                99.3142197930001,9.13502484500003,0
+                99.3144513230001,9.13505921500007,0
+                99.3147079020001,9.13512626600004,0
+                99.3149548000001,9.13521896300006,0
+                99.315477064,9.13546683000004,0
+                99.3158922870001,9.13567793600004,0
+                99.316152092,9.13582263100005,0
+                99.3164156830001,9.13597949200005,0
+                99.3171207280001,9.13644373600005,0
+                99.3171659710001,9.13647707400003,0
+                99.3176542190001,9.13686934100002,0
+                99.318919388,9.13818005000007,0
+                99.3197182100001,9.13908846500004,0
+                99.3198071100001,9.13919869900008,0
+                99.320752999,9.14043165300006,0
+                99.3210169960001,9.14082095700007,0
+                99.321045725,9.14086482300007,0
+                99.321230594,9.14119875100005,0
+                99.3213881880001,9.14152720800007,0
+                99.3214493830001,9.14166398800006,0
+                99.3226022910001,9.14490515400007,0
+                99.3236383080001,9.14781298000003,0
+                99.328196571,9.15594926800003,0
+                99.3321263610001,9.14715540700007,0
+                99.3301965530001,9.14153794700007,0
+                99.3354627610001,9.13966184900005,0
+                99.3362968700001,9.13917576600005,0
+                99.3370680620001,9.13871289800005,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>

@@ -24,7 +24,7 @@ export const LoadingProvider = ({ children }) => {
             {/* Logo center (no movement) */}
             <div className={styles.logoContainer}>
               <img
-                src="/logodb.png"
+                src="/logoloading.png"
                 alt="Logo"
                 className={styles.logoImage}
                 draggable="false"

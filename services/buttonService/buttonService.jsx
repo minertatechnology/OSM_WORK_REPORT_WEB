@@ -2,7 +2,7 @@ import React from "react";
 
 /**
  * Dynamic ButtonService component
- * @param {string|ReactNode} children - Button label/text (or node)
+ * @param {string} children - Button label/text (or node)
  * @param {string} type - Button type ("button", "submit", "reset")
  * @param {string} variant - Style variant ("primary", "secondary", "danger", etc.)
  * @param {boolean} disabled - Disabled state
@@ -10,7 +10,6 @@ import React from "react";
  * @param {function} onClick - Click handler
  * @param {string} className - Additional className
  * @param {ReactNode} icon - Optional icon node (left side)
- * @param {ReactNode} iconRight - Optional icon node (right side)
  * @param {string} size - Button size ("sm", "md", "lg")
  * @param {object} props - Rest props
  */
@@ -23,7 +22,6 @@ const ButtonService = ({
   onClick,
   className = "",
   icon,
-  iconRight,
   size = "md",
   ...props
 }) => {
@@ -84,9 +82,6 @@ const ButtonService = ({
         <span className="mr-2 flex items-center">{icon}</span>
       ) : null}
       <span>{children}</span>
-      {iconRight ? (
-        <span className="ml-2 flex items-center">{iconRight}</span>
-      ) : null}
     </button>
   );
 };

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document id="tambon_doc">
+    <name>ศรีพนมมาศ, ลับแล, Uttaradit</name>
+    <description>ข้อมูลขอบเขตตำบลศรีพนมมาศ อำเภอลับแล จังหวัดUttaradit</description>
+    
+    <!-- Schema สำหรับข้อมูลตำบล -->
+    <Schema id="tambon.schema">
+      <SimpleField name="ADM3_EN" type="string">
+        <displayName>Subdistrict Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM3_TH" type="string">
+        <displayName>ชื่อตำบล</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_EN" type="string">
+        <displayName>District Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM2_TH" type="string">
+        <displayName>ชื่ออำเภอ</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_EN" type="string">
+        <displayName>Province Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM1_TH" type="string">
+        <displayName>ชื่อจังหวัด</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_EN" type="string">
+        <displayName>Country Name (English)</displayName>
+      </SimpleField>
+      <SimpleField name="ADM0_TH" type="string">
+        <displayName>ชื่อประเทศ</displayName>
+      </SimpleField>
+    </Schema>
+
+    <!-- Style สำหรับตำบล -->
+    <Style id="tambonStyle">
+      <LineStyle>
+        <color>ffff0000</color>
+        <width>1.5</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>33ff0000</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+    </Style>
+
+    <Placemark id="Uttaradit.56">
+        
+        <ExtendedData>
+            
+          <SchemaData schemaUrl="#tambon.schema">
+                
+            <SimpleData name="Shape_Leng">
+                0.0456231125923</SimpleData>
+                
+            <SimpleData name="Shape_Area">
+                0.000128125452796</SimpleData>
+                
+            <SimpleData name="ADM3_EN">
+                Si Phanom Mat</SimpleData>
+                
+            <SimpleData name="ADM3_TH">
+                ศรีพนมมาศ</SimpleData>
+                
+            <SimpleData name="ADM3_PCODE">
+                TH530801</SimpleData>
+                
+            <SimpleData name="ADM2_EN">
+                Laplae</SimpleData>
+                
+            <SimpleData name="ADM2_TH">
+                ลับแล</SimpleData>
+                
+            <SimpleData name="ADM2_PCODE">
+                TH5308</SimpleData>
+                
+            <SimpleData name="ADM1_EN">
+                Uttaradit</SimpleData>
+                
+            <SimpleData name="ADM1_TH">
+                อุตรดิตถ์</SimpleData>
+                
+            <SimpleData name="ADM1_PCODE">
+                TH53</SimpleData>
+                
+            <SimpleData name="ADM0_EN">
+                Thailand</SimpleData>
+                
+            <SimpleData name="ADM0_TH">
+                ประเทศไทย</SimpleData>
+                
+            <SimpleData name="ADM0_PCODE">
+                TH</SimpleData>
+            
+          </SchemaData>
+        
+        </ExtendedData>
+        
+        <Polygon>
+            
+          <outerBoundaryIs>
+                
+            <LinearRing>
+                    
+              <coordinates>
+                    
+                100.044297298,17.6473701800001,0
+                100.035117673,17.6473447990001,0
+                100.035010068,17.6532975160001,0
+                100.034885958,17.6601635540001,0
+                100.035251871,17.6601624670001,0
+                100.044642732,17.6601343310001,0
+                100.044829364,17.660133767,0
+                100.045090629,17.6513676480001,0
+                100.045209693,17.6473726790001,0
+                100.044297298,17.6473701800001,0
+              </coordinates>
+                
+            </LinearRing>
+            
+          </outerBoundaryIs>
+        
+        </Polygon>
+        
+      <styleUrl>
+        #tambonStyle</styleUrl>
+    </Placemark>
+
+  </Document>
+</kml>
