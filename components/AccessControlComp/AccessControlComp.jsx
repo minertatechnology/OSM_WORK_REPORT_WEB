@@ -6,12 +6,12 @@ import {
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
-  Eye,
+  // Eye,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import AccessControlTable from "@services/Table/AccessControlTable"; // ← ใช้ table ตาม path ที่ระบุ
 import InputService from "@services/inputService/inputService";
-import ButtonService from "@services/ButtonService/ButtonService";
+import ButtonService from "@services/buttonService/buttonService";
 // -------------------- MOCK DATA --------------------
 export const mockList = [
   {
@@ -396,21 +396,21 @@ export const mockList = [
   },
 ];
 // -------------------- PAGINATION TABLE COMPONENT --------------------
-const PER_PAGE_OPTIONS = [
-  { label: "5", value: 5 },
-  { label: "10", value: 10 },
-  { label: "20", value: 20 },
-  { label: "50", value: 50 },
-];
+// const PER_PAGE_OPTIONS = [
+//   { label: "5", value: 5 },
+//   { label: "10", value: 10 },
+//   { label: "20", value: 20 },
+//   { label: "50", value: 50 },
+// ];
 
 function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(defaultItemsPerPage);
+  const [itemsPerPage] = useState(defaultItemsPerPage);
 
-  const handleItemsPerPageChange = (newItemsPerPage) => {
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1);
-  };
+  // const handleItemsPerPageChange = (newItemsPerPage) => {
+  //   setItemsPerPage(newItemsPerPage);
+  //   setCurrentPage(1);
+  // };
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -533,8 +533,8 @@ export default function AccessControlComp() {
   const [filteredList, setFilteredList] = useState(mockList);
 
   // สำหรับ modal รายละเอียด
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailData, setDetailData] = useState(null);
+  // const [detailOpen, setDetailOpen] = useState(false);
+  // const [detailData, setDetailData] = useState(null);
 
   // Next.js router
   const router = useRouter();
@@ -689,9 +689,9 @@ export default function AccessControlComp() {
         <TableWithPagination
           data={filteredList}
           defaultItemsPerPage={10}
-          onDetail={row => {
-            setDetailOpen(true);
-            setDetailData(row);
+          onDetail={(row) => {
+            // TODO: Implement detail modal functionality
+            console.log('Detail clicked for:', row);
           }}
         />
       </div>

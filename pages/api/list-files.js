@@ -13,7 +13,7 @@ export default function handler(req, res) {
     const files = fs.readdirSync(targetDir);
     // filter only .kml files or folders
     res.status(200).json(files);
-  } catch (err) {
+  } catch {
     res.status(404).json({ error: "Directory not found" });
   }
 }

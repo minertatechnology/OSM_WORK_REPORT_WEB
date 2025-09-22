@@ -96,6 +96,8 @@ const CustomSelect = ({
           role="combobox"
           aria-expanded={isOpen}
           aria-haspopup="listbox"
+          aria-controls={`${id}-listbox`}
+          aria-activedescendant={highlightedIndex >= 0 ? `${id}-option-${highlightedIndex}` : undefined}
           id={id}
         >
           <span className={styles.selectValue}>
@@ -109,7 +111,7 @@ const CustomSelect = ({
 
         {isOpen && (
           <div className={styles.selectDropdown}>
-            <ul className={styles.optionsList} role="listbox">
+            <ul className={styles.optionsList} role="listbox" id={`${id}-listbox`}>
               {options.map((option, index) => (
                 <li
                   key={option.value}
@@ -119,6 +121,7 @@ const CustomSelect = ({
                   onClick={() => handleSelect(option)}
                   role="option"
                   aria-selected={value === option.value}
+                  id={`${id}-option-${index}`}
                 >
                   {option.label}
                 </li>

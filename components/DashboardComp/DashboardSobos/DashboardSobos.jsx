@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import InputService from "@services/inputService/inputService";
 import ButtonService from "@services/buttonService/buttonService";
 import {
@@ -16,9 +16,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import MapThailandComponent, {
-  MapThailandService,
-} from "@services/MapThailand/MapThailandService";
+import MapThailandComponent from "@services/MapThailand/MapThailandService";
 import { HEALTHZONE_PROVINCES } from "@utils/healthzone-province-data";
 import { Search } from "lucide-react";
 // ปี options (mock)
@@ -60,24 +58,24 @@ const ZONES = HEALTHZONE_PROVINCES.map((zone) => ({
 ZONES.unshift({ label: "ทั้งหมด", value: "" });
 
 // อำเภอ mock data - เพิ่มข้อมูลนี้เพื่อแก้ไขปัญหา DISTRICTS is not defined
-const DISTRICTS = [
-  { label: "เลือกอำเภอ", value: "" },
-  { label: "เมือง", value: "เมือง" },
-  { label: "คลองหลวง", value: "คลองหลวง" },
-  { label: "บางกรวย", value: "บางกรวย" },
-  { label: "บางใหญ่", value: "บางใหญ่" },
-  { label: "ปากเกร็ด", value: "ปากเกร็ด" },
-];
+// const DISTRICTS = [
+//   { label: "เลือกอำเภอ", value: "" },
+//   { label: "เมือง", value: "เมือง" },
+//   { label: "คลองหลวง", value: "คลองหลวง" },
+//   { label: "บางกรวย", value: "บางกรวย" },
+//   { label: "บางใหญ่", value: "บางใหญ่" },
+//   { label: "ปากเกร็ด", value: "ปากเกร็ด" },
+// ];
 
 // ตำบล mock data - เพิ่มข้อมูลนี้เพื่อแก้ไขปัญหา SUBDISTRICTS is not defined
-const SUBDISTRICTS = [
-  { label: "เลือกตำบล", value: "" },
-  { label: "บางกระสอ", value: "บางกระสอ" },
-  { label: "ตลาดขวัญ", value: "ตลาดขวัญ" },
-  { label: "บางเขน", value: "บางเขน" },
-  { label: "ท่าทราย", value: "ท่าทราย" },
-  { label: "บางกร่าง", value: "บางกร่าง" },
-];
+// const SUBDISTRICTS = [
+//   { label: "เลือกตำบล", value: "" },
+//   { label: "บางกระสอ", value: "บางกระสอ" },
+//   { label: "ตลาดขวัญ", value: "ตลาดขวัญ" },
+//   { label: "บางเขน", value: "บางเขน" },
+//   { label: "ท่าทราย", value: "ท่าทราย" },
+//   { label: "บางกร่าง", value: "บางกร่าง" },
+// ];
 
 // MOCK SUMMARY_CARDS (เดิม)
 const SUMMARY_CARDS = [
@@ -585,7 +583,7 @@ const DashboardSobos = () => {
   const [district, setDistrict] = useState("");
   const [subdistrict, setSubdistrict] = useState("");
   const [tabIdx, setTabIdx] = useState(0); // default รายงาน อสม. 1
-  const [mapService, setMapService] = useState(null); // เก็บ instance ของ MapThailandService
+  // const [mapService, setMapService] = useState(null); // เก็บ instance ของ MapThailandService
   const [filteredTable, setFilteredTable] = useState(null);
   const [filteredPie, setFilteredPie] = useState(null);
   const [provinceData, setProvinceData] = useState([]);
@@ -663,7 +661,7 @@ const DashboardSobos = () => {
   };
 
   // กดค้นหา
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     let table = REPORT_TABS[tabIdx].table;
     let pie = REPORT_TABS[tabIdx].pie;
 
@@ -719,14 +717,14 @@ const DashboardSobos = () => {
     }
     setFilteredTable(filtered);
     setFilteredPie(pie13);
-  };
+  }, [tabIdx, zone, province]);
 
   // Handle province click on map
-  const handleProvinceClick = (data) => {
+  const handleProvinceClick = useCallback((data) => {
     setProvince(data.province);
     setZone(`zone${data.zone}`);
     handleSearch();
-  };
+  }, [handleSearch]);
 
   const currentTab = REPORT_TABS[tabIdx];
 
@@ -1120,7 +1118,7 @@ const DashboardSobos = () => {
                 onProvinceClick={handleProvinceClick}
                 onMapReady={(service) => {
                   console.log("Map service ready:", service);
-                  setMapService(service);
+                  // setMapService(service); // Commented out since mapService state is not used
                 }}
                 className="w-full h-full"
               />
@@ -1178,7 +1176,7 @@ const DashboardSobos = () => {
               <div className="flex flex-wrap gap-x-8 gap-y-2">
                 {/* ฝั่งซ้าย */}
                 <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
-                  {chartPieData.slice(0, 7).map((item, idx) => (
+                  {chartPieData.slice(0, 7).map((item) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <span
                         className="inline-block w-3 h-3 rounded-full border border-white"
@@ -1195,7 +1193,7 @@ const DashboardSobos = () => {
                 </div>
                 {/* ฝั่งขวา */}
                 <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
-                  {chartPieData.slice(7).map((item, idx) => (
+                  {chartPieData.slice(7).map((item) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <span
                         className="inline-block w-3 h-3 rounded-full border border-white"

@@ -1,4 +1,5 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
+import Image from "next/image";
 import { Search, Eye, Download, ChevronDown } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
@@ -315,7 +316,7 @@ const OsmThaiPHCComp = () => {
 
   // Download dropdown state
   const [open, setOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  // const dropdownRef = useRef(null);
 
   // Button styles (ใช้เหมือนภาพ ![image7](image7))
   const buttonStyle =
@@ -818,9 +819,11 @@ const OsmThaiPHCComp = () => {
                         // TODO: Add Excel download logic here
                       }}
                     >
-                      <img
+                      <Image
                         src="/xlsx.png"
                         alt="Excel icon"
+                        width={28}
+                        height={28}
                         className="w-7 h-7"
                         style={{ display: "inline-block" }}
                       />
@@ -833,9 +836,11 @@ const OsmThaiPHCComp = () => {
                         // TODO: Add PDF download logic here
                       }}
                     >
-                      <img
+                      <Image
                         src="/pdf.png"
                         alt="PDF icon"
+                        width={28}
+                        height={28}
                         className="w-7 h-7"
                         style={{ display: "inline-block" }}
                       />

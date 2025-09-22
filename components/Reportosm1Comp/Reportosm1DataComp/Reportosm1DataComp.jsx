@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import Image from "next/image";
 import {
   Search,
   Eye,
@@ -245,7 +246,7 @@ const Reportosm1Data = () => {
   // Reset page if filteredRows or itemsPerPage change
   React.useEffect(() => {
     if (page > totalPages) setPage(1);
-  }, [filteredRows.length, totalPages, itemsPerPage]);
+  }, [filteredRows.length, totalPages, itemsPerPage, page]);
 
   // Button styles (ดาวน์โหลด)
   const buttonStyle =
@@ -499,9 +500,11 @@ const Reportosm1Data = () => {
                     setOpen(false);
                   }}
                 >
-                  <img
+                  <Image
                     src="/xlsx.png"
                     alt="Excel icon"
+                    width={28}
+                    height={28}
                     className="w-7 h-7"
                     style={{ display: "inline-block" }}
                   />
@@ -513,9 +516,11 @@ const Reportosm1Data = () => {
                     setOpen(false);
                   }}
                 >
-                  <img
+                  <Image
                     src="/pdf.png"
                     alt="PDF icon"
+                    width={28}
+                    height={28}
                     className="w-7 h-7"
                     style={{ display: "inline-block" }}
                   />

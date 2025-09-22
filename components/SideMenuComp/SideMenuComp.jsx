@@ -13,7 +13,7 @@ import {
   UserCheck,
   Activity,
   FileCheck,
-  ClipboardList,
+  // ClipboardList,
   FileSearch,
   Bell,
   Gift,
@@ -30,7 +30,7 @@ import alertService from "@services/alertService/alertService";
  * - ตำบล = subdistrict
  * - รพสต. = hospital
  */
-const PRIMARY = "#6E28B7";
+// const PRIMARY = "#6E28B7";
 
 // Submenus
 const REPORT_OSM1_SUBMENU = [

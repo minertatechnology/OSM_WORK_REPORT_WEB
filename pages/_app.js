@@ -15,7 +15,7 @@ function MyApp({ Component, pageProps }) {
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <meta httpEquiv="Content-Language" content="th" />
           <meta name="language" content="Thai" />
-          <link rel="icon" href="/logodb.png" />
+          <link rel="icon" href="/logoloading.png" />
         </Head>
         <StoreProvider>
           {getLayout(<Component {...pageProps} />)}

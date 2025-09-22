@@ -1,4 +1,4 @@
-import Layout from "@components/layout/layout";
+import Layout from "@components/layout/Layout";
 import OsmHealthComp from "@components/OsmHealthComp/OsmHealthComp";
 import { useEffect, useLayoutEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";

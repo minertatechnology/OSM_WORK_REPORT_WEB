@@ -1,9 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
+import Image from "next/image";
 import {
   Search,
   Eye,
   Download,
-  ChevronDown,
+  // ChevronDown, // Unused
   ChevronsLeft,
   ChevronsRight,
   ChevronLeft,
@@ -114,11 +115,11 @@ function DetailModal({ open, onClose }) {
             </div>
             <div className="flex gap-2">
               <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#7e32e2] bg-white text-[#d32f2f] font-semibold text-[15px] shadow hover:bg-[#fbe9e7] focus:outline-none">
-                <img src="/pdf.png" alt="pdf" className="w-6 h-6" />
+                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6" />
                 เอกสาร PDF
               </button>
               <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#7e32e2] bg-white text-[#388e3c] font-semibold text-[15px] shadow hover:bg-[#e8f5e9] focus:outline-none">
-                <img src="/xlsx.png" alt="excel" className="w-6 h-6" />
+                <Image src="/xlsx.png" alt="excel" width={24} height={24} className="w-6 h-6" />
                 เอกสาร Excel
               </button>
             </div>
@@ -130,13 +131,15 @@ function DetailModal({ open, onClose }) {
             </div>
             <div className="flex gap-2">
               <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#ece1f7] bg-[#f7f7f7] text-[#bbb] font-semibold text-[15px] shadow cursor-not-allowed">
-                <img src="/pdf.png" alt="pdf" className="w-6 h-6 opacity-50" />
+                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6 opacity-50" />
                 เอกสาร PDF
               </button>
               <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#ece1f7] bg-[#f7f7f7] text-[#bbb] font-semibold text-[15px] shadow cursor-not-allowed">
-                <img
+                <Image
                   src="/xlsx.png"
                   alt="excel"
+                  width={24}
+                  height={24}
                   className="w-6 h-6 opacity-50"
                 />
                 เอกสาร Excel
@@ -150,13 +153,15 @@ function DetailModal({ open, onClose }) {
             </div>
             <div className="flex gap-2">
               <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#ece1f7] bg-[#f7f7f7] text-[#bbb] font-semibold text-[15px] shadow cursor-not-allowed">
-                <img src="/pdf.png" alt="pdf" className="w-6 h-6 opacity-50" />
+                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6 opacity-50" />
                 เอกสาร PDF
               </button>
               <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#ece1f7] bg-[#f7f7f7] text-[#bbb] font-semibold text-[15px] shadow cursor-not-allowed">
-                <img
+                <Image
                   src="/xlsx.png"
                   alt="excel"
+                  width={24}
+                  height={24}
                   className="w-6 h-6 opacity-50"
                 />
                 เอกสาร Excel
@@ -306,7 +311,7 @@ const NcdsScreeningComp = () => {
   const [service, setService] = useState("");
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false); // for modal
-  const dropdownRef = useRef(null);
+  // const dropdownRef = useRef(null); // Unused
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -329,7 +334,7 @@ const NcdsScreeningComp = () => {
   // Reset page if filteredRows or itemsPerPage change
   React.useEffect(() => {
     if (page > totalPages) setPage(1);
-  }, [filteredRows.length, totalPages, itemsPerPage]);
+  }, [filteredRows.length, totalPages, itemsPerPage, page]);
 
   // Button styles (ดาวน์โหลด)
   const buttonStyle =

@@ -1,6 +1,6 @@
 import React from "react";
 import { Eye, User, Phone, BadgePercent, IdCard, Calendar, Home, Locate, Landmark, Building2, MapPin } from "lucide-react";
-import ButtonService from "@services/ButtonService/ButtonService";
+import ButtonService from "@services/buttonService/buttonService";
 
 // MODAL COMPONENT
 export function AccessControlDetailModal({ open, onClose, data }) {

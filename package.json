@@ -15,6 +15,7 @@
     "@highcharts/map-collection": "^2.3.1",
     "@mapbox/togeojson": "^0.16.2",
     "@radix-ui/react-slot": "^1.0.2",
+    "axios": "^1.12.2",
     "chart.js": "^4.5.0",
     "class-variance-authority": "^0.7.0",
     "fast-xml-parser": "^5.2.5",

@@ -201,19 +201,18 @@ $space-6: 24px;
 }
 .kpi {
   grid-column: span 3;
-  @media (max-width: 1024px) { grid-column: span 6; }
-  @media (max-width: 640px)  { grid-column: span 12; }
-
   background: #fff;
   border: 1px solid $border;
   border-radius: $radius-lg;
   box-shadow: $shadow;
   padding: 14px 16px;
-
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   column-gap: 12px;
+
+  @media (max-width: 1024px) { grid-column: span 6; }
+  @media (max-width: 640px)  { grid-column: span 12; }
 
   &Icon {
     width: 36px;

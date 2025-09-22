@@ -1,4 +1,4 @@
-import Layout from "@components/layout/layout";
+import Layout from "@components/layout/Layout";
 import Reportosm1DataComp from "@components/Reportosm1Comp/Reportosm1DataComp/Reportosm1DataComp";
 import { useEffect, useLayoutEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";

@@ -15,7 +15,7 @@ import {
   ChevronLeft,
   CheckCircle
 } from "lucide-react";
-import ButtonService from "@services/ButtonService/ButtonService";
+import ButtonService from "@services/buttonService/buttonService";
 import InputService from "@services/inputService/inputService";
 
 // MOCK DATA ใช้ role สำหรับ dropdown
@@ -43,7 +43,7 @@ export const mockList = [
 ];
 
 const PRIMARY = "#6E28B7";
-const BUTTON_PURPLE = "#6E28B7";
+// const BUTTON_PURPLE = "#6E28B7";
 const BUTTON_BG = "#f9f6ff";
 
 const REPORT_OSM1_SUBMENU = [
@@ -156,20 +156,20 @@ export default function ManageAccess() {
   }
 
   // ฟังก์ชันสำหรับ sidemenucomp: คืนเมนูที่ role นั้นมีสิทธิ์ (ตามที่ติ๊กไว้)
-  function getAllowedSidemenuForRole(roleKey) {
-    const access = menuAccess[roleKey];
-    return SIDEMENU_ITEMS
-      .filter(menu => access[menu.id])
-      .map(menu => {
-        if (menu.children) {
-          const allowedChildren = menu.children.filter(sub => access[sub.id]);
-          if (allowedChildren.length === 0) return null;
-          return { ...menu, children: allowedChildren };
-        }
-        return menu;
-      })
-      .filter(Boolean);
-  }
+  // function getAllowedSidemenuForRole(roleKey) {
+  //   const access = menuAccess[roleKey];
+  //   return SIDEMENU_ITEMS
+  //     .filter(menu => access[menu.id])
+  //     .map(menu => {
+  //       if (menu.children) {
+  //         const allowedChildren = menu.children.filter(sub => access[sub.id]);
+  //         if (allowedChildren.length === 0) return null;
+  //         return { ...menu, children: allowedChildren };
+  //       }
+  //       return menu;
+  //     })
+  //     .filter(Boolean);
+  // }
 
   return (
     <div style={{ padding: 32, background: BUTTON_BG, minHeight: "100vh" }}>

@@ -1,6 +1,7 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import React from "react";
+import Image from "next/image";
 import ShippingList from "./ShippingList/ShippingList";
 
 // Demo data (mock)
@@ -69,9 +70,11 @@ const ShippingComp = () => {
             }}
             onClick={() => handleCardClick(reward.id)}
           >
-            <img
+            <Image
               src={reward.image}
               alt="reward"
+              width={96}
+              height={96}
               className="w-24 h-24 object-contain rounded-xl mr-5"
               style={{ background: "#fff" }}
             />

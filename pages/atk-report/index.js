@@ -1,5 +1,5 @@
-import Layout from "@components/layout/layout";
-import AtkReportComp from "@components/AtkReportComp/AtkReportComp";
+import Layout from "@components/layout/Layout";
+import AtkReportComp from "@components/DashboardComp/DashboardDistrict/AtkReportComp/AtkReportComp";
 import { useEffect, useLayoutEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 

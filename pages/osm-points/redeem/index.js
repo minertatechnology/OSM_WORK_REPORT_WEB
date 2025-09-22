@@ -1,4 +1,4 @@
-import Layout from "@components/layout/layout";
+import Layout from "@components/layout/Layout";
 import RedeemComp from "@components/OsmPointsComp/RedeemComp/RedeemComp";
 import { useEffect, useLayoutEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";

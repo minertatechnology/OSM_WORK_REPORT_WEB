@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import Image from "next/image";
 import {
   ChevronsLeft,
   ChevronsRight,
@@ -145,17 +146,20 @@ function AddRewardModal({ open, onClose, onAdd }) {
                 style={{ overflow: "hidden" }}
               >
                 {imageObj ? (
-                  <img
+                  <Image
                     key={imgKey}
                     src={imageObj.url}
                     alt="preview"
-                    className="object-contain h-full w-full rounded-xl"
+                    fill
+                    className="object-contain rounded-xl"
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center">
-                    <img
+                    <Image
                       src="https://cdn-icons-png.flaticon.com/512/109/109612.png"
                       alt="upload"
+                      width={48}
+                      height={48}
                       className="w-12 h-12 mb-2 opacity-60"
                     />
                     <span className="text-[#888] font-medium text-[16px] text-center">
@@ -525,9 +529,11 @@ const RedeemComp = () => {
                 <tr key={idx} className="bg-white">
                   <td className="py-1 px-2 sm:px-4 text-center align-middle">
                     {reward.image && (
-                      <img
+                      <Image
                         src={reward.image}
                         alt="reward"
+                        width={48}
+                        height={48}
                         className="w-12 h-12 object-contain rounded-lg mx-auto"
                         style={{ background: "#fff" }}
                       />

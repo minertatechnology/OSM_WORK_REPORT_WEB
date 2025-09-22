@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Search, X, Download } from "lucide-react";
 import { useKMLData } from "../../../composables/useKMLData.js";
 import { useMapManager } from "../../../composables/useMapManager.js";
@@ -17,16 +17,7 @@ const GisComp = () => {
   const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
   const [isLoadingSubdistricts, setIsLoadingSubdistricts] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState(
-    "แผนที่พร้อมใช้งาน - ค้นหาพื้นที่เพื่อเริ่มต้น"
-  );
-  const [statusType, setStatusType] = useState("info");
-  const [totalFeatures, setTotalFeatures] = useState(0);
-  const [totalFiles, setTotalFiles] = useState(0);
-  const [loadTime, setLoadTime] = useState(0);
-  const [showStats, setShowStats] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   // States for Health Regions
   const [selectedHealthRegion, setSelectedHealthRegion] = useState("");
@@ -49,13 +40,13 @@ const GisComp = () => {
           "เขตบางซื่อ", "เขตลาดพร้าว", "เขตบางกะปิ", "เขตสะพานเพชร", "เขตดินแดง",
           "เขตมีนบุรี", "เขตบางขุนเทียน", "เขตภาษีเจริญ", "เขตบางนา", "เขตคลองสาน"
         ];
-        return bangkokDistricts.map((district, index) => ({
+        return bangkokDistricts.map((district) => ({
           name: district,
           value: Math.floor(Math.random() * 100) + 20
         }));
       }
 
-      return availableProvincesInRegion.map((province, index) => ({
+      return availableProvincesInRegion.map((province) => ({
         name: province,
         value: Math.floor(Math.random() * 100) + 20 // Mock random values
       }));
@@ -83,7 +74,7 @@ const GisComp = () => {
     getAvailableProvinces,
     getAmphoeListFromFolder,
     getTambonListFromFolder,
-    loadKMLData,
+    // loadKMLData,
     getEnglishProvinceName,
   } = useKMLData();
 
@@ -93,10 +84,10 @@ const GisComp = () => {
     clearAllLayers,
     fitToData,
     cleanup,
-    currentLevel,
+    // currentLevel,
   } = useMapManager();
 
-  const { getHealthRegionsList, getProvincesInRegion, loadHealthRegionData } =
+  const { getHealthRegionsList, getProvincesInRegion /*, loadHealthRegionData */ } =
     useHealthRegions();
 
   // Options data for CustomSelect components
@@ -153,124 +144,15 @@ const GisComp = () => {
   }, []);
 
   // Methods
-  const updateStatus = (message, type = "info") => {
-    setStatusMessage(message);
-    setStatusType(type);
-  };
+  const updateStatus = useCallback((message, type = "info") => {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+  }, []);
 
   const toggleControlPanel = () => {
     setIsCollapsed(!isCollapsed);
   };
 
-  const checkMobile = () => {
-    setIsMobile(window.innerWidth <= 768);
-  };
-
-  // KML Map Viewer handlers
-  const onProvinceChange = async () => {
-    setSelectedDistrict("");
-    setSelectedSubdistrict("");
-    setAvailableDistricts([]);
-    setAvailableSubdistricts([]);
-
-    if (selectedProvince) {
-      try {
-        setIsLoadingDistricts(true);
-        updateStatus(`กำลังโหลดข้อมูลอำเภอใน ${selectedProvince}...`, "info");
-
-        const amphoeList = await getAmphoeListFromFolder(selectedProvince);
-        setAvailableDistricts(amphoeList);
-
-        if (amphoeList.length > 0) {
-          updateStatus(
-            `พบ ${amphoeList.length} อำเภอในจังหวัด ${selectedProvince}`,
-            "success"
-          );
-        } else {
-          updateStatus(
-            `ไม่พบข้อมูลอำเภอในจังหวัด ${selectedProvince}`,
-            "warning"
-          );
-        }
-
-        await loadMapData("province", selectedProvince);
-        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
-      } catch (error) {
-        console.error("Error in onProvinceChange:", error);
-        updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
-      } finally {
-        setIsLoadingDistricts(false);
-      }
-    } else {
-      clearAllLayers();
-      setShowStats(false);
-      updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
-    }
-  };
-
-  const onDistrictChange = async () => {
-    setSelectedSubdistrict("");
-    setAvailableSubdistricts([]);
-
-    if (selectedDistrict) {
-      try {
-        setIsLoadingSubdistricts(true);
-        updateStatus(`กำลังโหลดข้อมูลตำบลใน ${selectedDistrict}...`, "info");
-
-        const tambonList = await getTambonListFromFolder(
-          selectedProvince,
-          selectedDistrict
-        );
-        setAvailableSubdistricts(tambonList);
-
-        if (tambonList.length > 0) {
-          updateStatus(
-            `พบ ${tambonList.length} ตำบลในอำเภอ ${selectedDistrict}`,
-            "success"
-          );
-        } else {
-          updateStatus(`ไม่พบข้อมูลตำบลในอำเภอ ${selectedDistrict}`, "warning");
-        }
-
-        await loadMapData("amphoe", selectedDistrict);
-        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
-      } catch (error) {
-        console.error("Error in onDistrictChange:", error);
-        updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
-      } finally {
-        setIsLoadingSubdistricts(false);
-      }
-    } else if (selectedProvince) {
-      await loadMapData("province", selectedProvince);
-      setTimeout(() => {
-        fitToFiltered();
-      }, 300);
-    }
-  };
-
-  const onSubdistrictChange = async () => {
-    if (selectedSubdistrict) {
-      try {
-        await loadMapData("tambon", selectedSubdistrict);
-        updateStatus(
-          `โหลด polygon ตำบล ${selectedSubdistrict} สำเร็จ`,
-          "success"
-        );
-        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
-      } catch (error) {
-        console.error("Error in onSubdistrictChange:", error);
-        updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
-      }
-    } else if (selectedDistrict) {
-      await loadMapData("amphoe", selectedDistrict);
-      // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
-    } else if (selectedProvince) {
-      await loadMapData("province", selectedProvince);
-      // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
-    }
-  };
-
-  const loadMapData = async (level, name) => {
+  const loadMapData = useCallback(async (level, name) => {
     try {
       setIsLoading(true);
       updateStatus(`กำลังโหลด ${level} - ${name}...`, "info");
@@ -313,11 +195,6 @@ const GisComp = () => {
       const result = await loadAndDisplayKML(geoJsonData, level);
 
       if (result) {
-        setTotalFeatures(result.featureCount);
-        setTotalFiles(1);
-        setLoadTime(result.loadTime);
-        setShowStats(true);
-
         const levelText =
           level === "province"
             ? "จังหวัด"
@@ -336,7 +213,115 @@ const GisComp = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedProvince, selectedDistrict, updateStatus, loadAndDisplayKML, getEnglishProvinceName]);
+
+  const fitToFiltered = useCallback(() => {
+    fitToData();
+  }, [fitToData]);
+
+  // KML Map Viewer handlers
+  const onProvinceChange = useCallback(async () => {
+    setSelectedDistrict("");
+    setSelectedSubdistrict("");
+    setAvailableDistricts([]);
+    setAvailableSubdistricts([]);
+
+    if (selectedProvince) {
+      try {
+        setIsLoadingDistricts(true);
+        updateStatus(`กำลังโหลดข้อมูลอำเภอใน ${selectedProvince}...`, "info");
+
+        const amphoeList = await getAmphoeListFromFolder(selectedProvince);
+        setAvailableDistricts(amphoeList);
+
+        if (amphoeList.length > 0) {
+          updateStatus(
+            `พบ ${amphoeList.length} อำเภอในจังหวัด ${selectedProvince}`,
+            "success"
+          );
+        } else {
+          updateStatus(
+            `ไม่พบข้อมูลอำเภอในจังหวัด ${selectedProvince}`,
+            "warning"
+          );
+        }
+
+        await loadMapData("province", selectedProvince);
+        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
+      } catch (error) {
+        console.error("Error in onProvinceChange:", error);
+        updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
+      } finally {
+        setIsLoadingDistricts(false);
+      }
+    } else {
+      clearAllLayers();
+      updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
+    }
+  }, [selectedProvince, getAmphoeListFromFolder, updateStatus, loadMapData, clearAllLayers]);
+
+  const onDistrictChange = useCallback(async () => {
+    setSelectedSubdistrict("");
+    setAvailableSubdistricts([]);
+
+    if (selectedDistrict) {
+      try {
+        setIsLoadingSubdistricts(true);
+        updateStatus(`กำลังโหลดข้อมูลตำบลใน ${selectedDistrict}...`, "info");
+
+        const tambonList = await getTambonListFromFolder(
+          selectedProvince,
+          selectedDistrict
+        );
+        setAvailableSubdistricts(tambonList);
+
+        if (tambonList.length > 0) {
+          updateStatus(
+            `พบ ${tambonList.length} ตำบลในอำเภอ ${selectedDistrict}`,
+            "success"
+          );
+        } else {
+          updateStatus(`ไม่พบข้อมูลตำบลในอำเภอ ${selectedDistrict}`, "warning");
+        }
+
+        await loadMapData("amphoe", selectedDistrict);
+        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
+      } catch (error) {
+        console.error("Error in onDistrictChange:", error);
+        updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
+      } finally {
+        setIsLoadingSubdistricts(false);
+      }
+    } else if (selectedProvince) {
+      await loadMapData("province", selectedProvince);
+      setTimeout(() => {
+        fitToFiltered();
+      }, 300);
+    }
+  }, [selectedDistrict, selectedProvince, getTambonListFromFolder, updateStatus, loadMapData, fitToFiltered]);
+
+  const onSubdistrictChange = useCallback(async () => {
+    if (selectedSubdistrict) {
+      try {
+        await loadMapData("tambon", selectedSubdistrict);
+        updateStatus(
+          `โหลด polygon ตำบล ${selectedSubdistrict} สำเร็จ`,
+          "success"
+        );
+        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
+      } catch (error) {
+        console.error("Error in onSubdistrictChange:", error);
+        updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
+      }
+    } else if (selectedDistrict) {
+      await loadMapData("amphoe", selectedDistrict);
+      // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
+    } else if (selectedProvince) {
+      await loadMapData("province", selectedProvince);
+      // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
+    }
+  }, [selectedSubdistrict, selectedDistrict, selectedProvince, loadMapData, updateStatus]);
+
 
   const clearFilter = () => {
     setSelectedProvince("");
@@ -345,16 +330,12 @@ const GisComp = () => {
     setAvailableDistricts([]);
     setAvailableSubdistricts([]);
     clearAllLayers();
-    setShowStats(false);
     updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
   };
 
-  const fitToFiltered = () => {
-    fitToData();
-  };
 
   // Health Region handlers
-  const onHealthRegionSelection = async () => {
+  const onHealthRegionSelection = useCallback(async () => {
     if (selectedHealthRegion) {
       try {
         setIsLoading(true);
@@ -417,11 +398,7 @@ const GisComp = () => {
           );
 
           if (result) {
-            setTotalFeatures(result.featureCount);
-            setTotalFiles(validResults.length);
-            setLoadTime(result.loadTime);
-            setShowStats(true);
-
+    
             updateStatus(
               `โหลด ${selectedHealthRegion} สำเร็จ: ${validResults.length} จังหวัด, ${result.featureCount} features (${result.loadTime}s)`,
               "success"
@@ -429,16 +406,14 @@ const GisComp = () => {
           }
         } else {
           updateStatus(`ไม่พบข้อมูลสำหรับ ${selectedHealthRegion}`, "warning");
-          setShowStats(false);
-        }
+            }
       } catch (error) {
         console.error("Error in onHealthRegionSelection:", error);
         updateStatus(
           `ข้อผิดพลาดในการโหลด ${selectedHealthRegion}: ${error}`,
           "error"
         );
-        setShowStats(false);
-      } finally {
+        } finally {
         setIsLoading(false);
       }
     } else {
@@ -449,10 +424,9 @@ const GisComp = () => {
       setAvailableDistricts([]);
       setAvailableSubdistricts([]);
       clearAllLayers();
-      setShowStats(false);
       updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
     }
-  };
+  }, [selectedHealthRegion, getProvincesInRegion, clearAllLayers, updateStatus, loadAndDisplayKML]);
 
   // Initialize map only once
   useEffect(() => {
@@ -491,8 +465,6 @@ const GisComp = () => {
           updateStatus("แผนที่พร้อมใช้งาน - ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
         }
 
-        checkMobile();
-        window.addEventListener("resize", checkMobile);
       } catch (error) {
         console.error("Error initializing component:", error);
         if (isMounted) {
@@ -506,17 +478,15 @@ const GisComp = () => {
     return () => {
       isMounted = false;
       cleanup();
-      if (typeof window !== "undefined") {
-        window.removeEventListener("resize", checkMobile);
-      }
     };
-  }, [initializeMap, getAvailableProvinces, cleanup]);
+  }, [initializeMap, getAvailableProvinces, cleanup, updateStatus]);
 
   // Handle province change for map viewer
   useEffect(() => {
     if (selectedProvince) {
       onProvinceChange();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProvince]);
 
   // Handle district change for map viewer
@@ -524,6 +494,7 @@ const GisComp = () => {
     if (selectedDistrict) {
       onDistrictChange();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDistrict]);
 
   // Handle subdistrict change for map viewer
@@ -531,11 +502,13 @@ const GisComp = () => {
     if (selectedSubdistrict) {
       onSubdistrictChange();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubdistrict]);
 
   // Handle health region change
   useEffect(() => {
     onHealthRegionSelection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedHealthRegion]);
 
   return (

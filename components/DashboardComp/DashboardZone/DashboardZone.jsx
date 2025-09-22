@@ -308,15 +308,15 @@ const TableWithPagination = ({
           </thead>
           <tbody>
             {paginatedData.length > 0 ? (
-              paginatedData.map((row, idx) => (
+              paginatedData.map((row, index) => (
                 <tr
-                  key={isDistrict ? row.district : row.province || idx}
+                  key={isDistrict ? row.district : row.province || index}
                   className={`${
-                    idx % 2 === 0 ? "bg-white" : "bg-[#f9f6ff]"
+                    index % 2 === 0 ? "bg-white" : "bg-[#f9f6ff]"
                   } hover:bg-[#f0ebff] transition-colors duration-200`}
                 >
                   <td className="py-3 px-4 text-center align-middle font-medium">
-                    {startItem + idx}
+                    {startItem + index}
                   </td>
                   <td className="py-3 px-4 text-center align-middle">
                     {isDistrict ? row.district : row.province}
@@ -389,8 +389,8 @@ const TableWithPagination = ({
               <ChevronLeft size={18} />
             </button>
             <div className="flex items-center gap-1 mx-2">
-              {getPageNumbers().map((page, idx) => (
-                <React.Fragment key={idx}>
+              {getPageNumbers().map((page, index) => (
+                <React.Fragment key={index}>
                   {page === "..." ? (
                     <span className="px-3 py-2 text-gray-400">...</span>
                   ) : (
@@ -476,9 +476,9 @@ const DashboardZone = () => {
     if (!provinceData.length) return [{ label: "เลือกจังหวัด", value: "" }];
     const zoneObj = HEALTHZONE_PROVINCES.find((z) => z.zone === zoneNum);
     if (!zoneObj) return [{ label: "เลือกจังหวัด", value: "" }];
-    const zoneProvinces = zoneObj.provinces.map((prov) => prov.trim());
+    const zoneProvincesList = zoneObj.provinces.map((prov) => prov.trim());
     const options = provinceData
-      .filter((p) => zoneProvinces.includes(p.name_th.trim()))
+      .filter((p) => zoneProvincesList.includes(p.name_th.trim()))
       .map((p) => ({
         label: p.name_th,
         value: p.name_th,
@@ -525,25 +525,25 @@ const DashboardZone = () => {
   };
 
   const currentTab = REPORT_TABS[tabIdx];
-  const zoneObj = HEALTHZONE_PROVINCES.find((z) => z.zone === zoneNum);
-  const zoneProvinces = zoneObj
-    ? zoneObj.provinces.map((prov) => prov.trim())
-    : [];
   const tableZone = currentTab.table.find(
     (t) => t.zone === `เขตสุขภาพที่ ${zoneNum}`
   );
 
   // สร้างข้อมูลสำหรับ Pie/Legend/ตาราง แบบจังหวัดหรืออำเภอ
   const provinceChartData = useMemo(() => {
-    return zoneProvinces.map((province, idx) => ({
+    const zoneObj = HEALTHZONE_PROVINCES.find((z) => z.zone === zoneNum);
+    const zoneProvincesList = zoneObj
+      ? zoneObj.provinces.map((prov) => prov.trim())
+      : [];
+    return zoneProvincesList.map((province, index) => ({
       province,
       value: tableZone?.submitted ?? 0,
-      color: ZONE_COLORS[idx % ZONE_COLORS.length],
+      color: ZONE_COLORS[index % ZONE_COLORS.length],
       submitted: tableZone?.submitted ?? 0,
       total: tableZone?.total ?? 0,
       percent: tableZone?.percent ?? 0,
     }));
-  }, [zoneProvinces, tableZone]);
+  }, [zoneNum, tableZone]);
 
   const chartSummaryValue = useMemo(() => {
     return provinceChartData
@@ -556,13 +556,13 @@ const DashboardZone = () => {
     if (province && provinceData.length) {
       const foundProv = provinceData.find((p) => p.name_th === province);
       if (!foundProv || !foundProv.amphure) return [];
-      return foundProv.amphure.map((am, idx) => ({
+      return foundProv.amphure.map((am, index) => ({
         province,
         district: am.name_th,
         total: tableZone?.total ?? 0,
         submitted: tableZone?.submitted ?? 0,
         percent: tableZone?.percent ?? 0,
-        color: ZONE_COLORS[idx % ZONE_COLORS.length],
+        color: ZONE_COLORS[index % ZONE_COLORS.length],
       }));
     } else {
       return provinceChartData;
@@ -574,10 +574,10 @@ const DashboardZone = () => {
     if (province && provinceData.length) {
       const foundProv = provinceData.find((p) => p.name_th === province);
       if (!foundProv || !foundProv.amphure) return [];
-      return foundProv.amphure.map((am, idx) => ({
+      return foundProv.amphure.map((am, index) => ({
         name: am.name_th,
         value: am.name_th,
-        color: ZONE_COLORS[idx % ZONE_COLORS.length],
+        color: ZONE_COLORS[index % ZONE_COLORS.length],
       }));
     } else {
       return provinceChartData.map((item) => ({
@@ -784,9 +784,9 @@ const DashboardZone = () => {
       </div>
       <div className="mt-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {SUMMARY_CARDS.map((card, idx) => (
+          {SUMMARY_CARDS.map((card, index) => (
             <div
-              key={idx}
+              key={index}
               className="relative flex flex-col justify-between bg-white rounded-xl shadow-sm border border-[#eee] p-4 min-h-[110px]"
             >
               <div className="flex items-center gap-2">
@@ -815,12 +815,12 @@ const DashboardZone = () => {
         </div>
       </div>
       <div className="w-full mt-10 mb-6 flex flex-wrap border-b border-[#ece1f7]">
-        {REPORT_TABS.map((tab, idx) => (
+        {REPORT_TABS.map((tab, index) => (
           <button
             key={tab.name}
-            onClick={() => setTabIdx(idx)}
+            onClick={() => setTabIdx(index)}
             className={`px-4 py-2 text-[15px] font-medium ${
-              tabIdx === idx
+              tabIdx === index
                 ? "text-[#7e32e2] border-b-2 border-[#7e32e2] bg-[#f6eeff]"
                 : "text-[#231d37] hover:text-[#7e32e2] hover:bg-[#f6eeff]"
             } transition`}
@@ -850,8 +850,8 @@ const DashboardZone = () => {
                   paddingAngle={2}
                   label={false}
                 >
-                  {provinceChartData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={entry.color} />
+                  {provinceChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
               </PieChart>
@@ -879,7 +879,7 @@ const DashboardZone = () => {
               <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
                 {legendData
                   .slice(0, Math.ceil(legendData.length / 2))
-                  .map((item, idx) => (
+                  .map((item) => (
                     <div
                       key={item.name || item.province}
                       className="flex items-center gap-2"
@@ -897,7 +897,7 @@ const DashboardZone = () => {
               <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
                 {legendData
                   .slice(Math.ceil(legendData.length / 2))
-                  .map((item, idx) => (
+                  .map((item) => (
                     <div
                       key={item.name || item.province}
                       className="flex items-center gap-2"

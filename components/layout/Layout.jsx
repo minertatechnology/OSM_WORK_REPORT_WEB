@@ -10,7 +10,7 @@ import {
   UserCheck,
   Activity,
   FileCheck,
-  ClipboardList,
+  // ClipboardList,
   FileSearch,
   Bell,
   Gift,
@@ -82,7 +82,7 @@ const Navbar = ({
   userProvince,
   userRole,
   navTitle,
-  navIcon,
+  // navIcon,
 }) => {
   return (
     <div

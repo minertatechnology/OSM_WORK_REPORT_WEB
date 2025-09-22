@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import Image from "next/image";
 import ButtonService from "@services/buttonService/buttonService";
 import InputService from "@services/inputService/inputService";
 import {
@@ -510,9 +511,11 @@ const AtkReportComp = () => {
                       // TODO: handle excel download
                     }}
                   >
-                    <img
+                    <Image
                       src="/xlsx.png"
                       alt="Excel icon"
+                      width={28}
+                      height={28}
                       className="w-7 h-7"
                       style={{ display: "inline-block" }}
                     />
@@ -525,9 +528,11 @@ const AtkReportComp = () => {
                       // TODO: handle pdf download
                     }}
                   >
-                    <img
+                    <Image
                       src="/pdf.png"
                       alt="PDF icon"
+                      width={28}
+                      height={28}
                       className="w-7 h-7"
                       style={{ display: "inline-block" }}
                     />

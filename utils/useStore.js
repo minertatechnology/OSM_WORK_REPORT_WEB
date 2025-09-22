@@ -3,6 +3,11 @@ import { useState, useEffect } from "react";
 // Custom hook for sessionStorage with logging
 const useStore = (key) => {
   const [value, setValue] = useState(() => {
+    // Guard against SSR - sessionStorage is only available in browser
+    if (typeof window === "undefined") {
+      return null;
+    }
+
     try {
       const item = sessionStorage.getItem(key);
       console.log(`[useStore] Initial read for key "${key}":`, item);
@@ -14,6 +19,11 @@ const useStore = (key) => {
   });
 
   useEffect(() => {
+    // Guard against SSR
+    if (typeof window === "undefined") {
+      return;
+    }
+
     // Listen for changes to sessionStorage (from other tabs)
     const onStorageChange = (event) => {
       if (event.storageArea === sessionStorage && event.key === key) {
@@ -31,6 +41,12 @@ const useStore = (key) => {
   // Setter with logging
   const setStoreValue = (newValue) => {
     setValue(newValue);
+
+    // Guard against SSR
+    if (typeof window === "undefined") {
+      return;
+    }
+
     try {
       sessionStorage.setItem(key, JSON.stringify(newValue));
       console.log(`[useStore] Set key "${key}":`, newValue);
@@ -42,6 +58,12 @@ const useStore = (key) => {
   // Remover with logging
   const removeStoreValue = () => {
     setValue(null);
+
+    // Guard against SSR
+    if (typeof window === "undefined") {
+      return;
+    }
+
     sessionStorage.removeItem(key);
     console.log(`[useStore] Removed key "${key}" from sessionStorage`);
   };

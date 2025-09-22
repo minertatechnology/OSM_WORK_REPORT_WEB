@@ -28,8 +28,9 @@ export const useMapManager = () => {
   };
 
   // เริ่มต้นแผนที่
-  const initializeMap = useCallback((mapContainer) => {
+  const initializeMap = useCallback(async (mapContainer) => {
     if (!mapContainer) return;
+    if (typeof window === "undefined") return; // Guard for SSR
 
     // ตรวจสอบว่าแผนที่ถูกสร้างแล้วหรือยัง
     if (mapRef.current) {
@@ -37,6 +38,9 @@ export const useMapManager = () => {
       mapRef.current.remove();
       mapRef.current = null;
     }
+
+    // Import Leaflet dynamically
+    const L = await import("leaflet");
 
     // ตั้งค่า Leaflet icons ก่อน
     delete L.Icon.Default.prototype._getIconUrl;

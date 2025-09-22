@@ -1,12 +1,20 @@
-import Layout from "@components/layout/layout";
-import GisComp from "@components/Reportosm1Comp/GisComp/GisComp";
-import { useEffect } from "react";
+import Layout from "@components/layout/Layout";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { useLoading } from "@context/LoadingProvider";
+
+// Dynamically import GisComp with SSR disabled
+const GisComp = dynamic(() => import("@components/Reportosm1Comp/GisComp/GisComp"), {
+  ssr: false,
+  loading: () => <div>Loading map...</div>
+});
 
 const Gis = () => {
   const { setLoading } = useLoading();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     // Show loading when page starts loading
     setLoading(true);
   }, [setLoading]);
@@ -24,6 +32,10 @@ const Gis = () => {
     setLoading(true);
     setTimeout(() => setLoading(false), 2000);
   };
+
+  if (!mounted) {
+    return <div>Loading...</div>;
+  }
 
   return <GisComp triggerLoading={triggerLoading} />;
 };
