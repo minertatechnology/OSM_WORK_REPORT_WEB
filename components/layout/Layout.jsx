@@ -75,6 +75,43 @@ const getUserInfoFromSession = () => {
   }
 };
 
+// Component สำหรับแสดง position_name_th โดยตรงจาก sessionStorage
+const UserPosition = ({ isMobile }) => {
+  const [position, setPosition] = useState("");
+
+  useEffect(() => {
+    const updatePosition = () => {
+      try {
+        const data = sessionStorage.getItem("userInfo");
+        if (data) {
+          const parsed = JSON.parse(data);
+          const pos = parsed?.user?.position_name_th || "";
+          setPosition(pos);
+        }
+      } catch (err) {
+        // Silent error - no need to log
+      }
+    };
+
+    updatePosition();
+    const interval = setInterval(updatePosition, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!position) return null;
+
+  return (
+    <div
+      className={`${
+        isMobile ? "text-[10px]" : "text-[11px]"
+      } font-medium`}
+      style={{ color: PRIMARY }}
+    >
+      {position}
+    </div>
+  );
+};
+
 const Navbar = ({
   onToggleSidebar,
   isMobile,
@@ -84,6 +121,7 @@ const Navbar = ({
   navTitle,
   navIcon,
 }) => {
+
   return (
     <div
       className={`${
@@ -120,17 +158,9 @@ const Navbar = ({
               isMobile ? "text-[11px]" : "text-[13px]"
             } text-[#1a1230] tracking-[0.2px]`}
           >
-            {userRole ? `[${userRole}] ` : ""}
             {userName}
           </div>
-          <div
-            className={`${
-              isMobile ? "text-[10px]" : "text-[11px]"
-            } font-medium`}
-            style={{ color: PRIMARY }}
-          >
-            {userProvince}
-          </div>
+          <UserPosition isMobile={isMobile} />
         </div>
       </div>
     </div>
@@ -167,29 +197,50 @@ const Layout = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Only run on client
-    const info = getUserInfoFromSession();
-    // ชื่อ
-    let name = info?.user?.name || "ไม่ทราบชื่อ";
-    // role
-    let role = info?.auth?.roles ? roleDisplayName(info.auth.roles) : "";
-    // province (แสดงจังหวัดถ้ามี, fallback เป็นเขต, ตำบล, รพสต.)
-    let province =
-      info?.auth?.province ||
-      info?.auth?.zone ||
-      info?.auth?.district ||
-      info?.auth?.subdistrict ||
-      info?.auth?.unit ||
-      "";
-    if (province && !province.startsWith("จังหวัด") && role === "จังหวัด") {
-      province = `จังหวัด ${province}`;
-    }
-    if (!province) province = "-";
-    setUser({
-      name,
-      province,
-      role,
-    });
+    // ฟังก์ชันสำหรับอัปเดตข้อมูล user จาก sessionStorage
+    const updateUserInfo = () => {
+      const info = getUserInfoFromSession();
+
+      // รองรับทั้งโครงสร้างเก่าและใหม่
+      // โครงสร้างใหม่: { user: { name, position_name_th, province_name, ... } }
+      // โครงสร้างเก่า: { user: { name }, auth: { roles, province, ... } }
+
+      // ชื่อ
+      let name = info?.user?.name || "ไม่ทราบชื่อ";
+
+      // ตำแหน่ง - เอาจาก position_name_th
+      let role = info?.user?.position_name_th || "";
+
+      // province (แสดงจังหวัดถ้ามี, fallback เป็นเขต, ตำบล, รพสต.)
+      let province =
+        info?.user?.province_name ||
+        info?.auth?.province ||
+        info?.auth?.zone ||
+        info?.auth?.district ||
+        info?.auth?.subdistrict ||
+        info?.auth?.unit ||
+        "";
+      if (province && !province.startsWith("จังหวัด") && role === "จังหวัด") {
+        province = `จังหวัด ${province}`;
+      }
+      if (!province) province = "-";
+
+      setUser({
+        name,
+        province,
+        role,
+      });
+    };
+
+    // อัปเดตทันทีตอน mount
+    updateUserInfo();
+
+    // ตั้ง interval ให้ตรวจสอบทุก 2 วินาที (เพื่อลด CPU usage)
+    const interval = setInterval(updateUserInfo, 2000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   // รับ callback จาก SideMenuComp

@@ -4,111 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Eye, EyeOff, Lock, User2, X } from "lucide-react";
 import alertService from "@services/alertService/alertService";
-
-// ฟังก์ชันจำลอง login (รองรับ 6 roles)
-function fakeLoginRequest({ username, password }) {
-  // สิทธิ์ภาษาอังกฤษสำหรับ zone และ province
-  const ZONE_PERMISSIONS = {};
-  for (let i = 1; i <= 13; i++) {
-    ZONE_PERMISSIONS[`zone${i}`] = `ZONE_${i}`;
-  }
-
-  const PROVINCE_PERMISSIONS = {
-    กรุงเทพมหานคร: "PROVINCE_BANGKOK",
-    นนทบุรี: "PROVINCE_NONTHABURI",
-    ปทุมธานี: "PROVINCE_PATHUMTHANI",
-    // ... เพิ่มจังหวัดอื่นๆตามต้องการ
-  };
-
-  const USERS = {
-    admin: {
-      displayName: "ผู้ดูแล สบส.",
-      roles: ["สบส.", "ADMIN"],
-      scope: {},
-      permissions: ["ADMIN"],
-    },
-    zone1: {
-      displayName: "เจ้าหน้าที่ เขตสุขภาพที่ 1",
-      roles: ["เขต"],
-      scope: { zone: "เขตสุขภาพที่ 1" },
-      permissions: [ZONE_PERMISSIONS.zone1],
-    },
-    provnon: {
-      displayName: "เจ้าหน้าที่ จังหวัดนนทบุรี",
-      roles: ["จังหวัด"],
-      scope: { zone: "เขตสุขภาพที่ 4", province: "นนทบุรี" },
-      permissions: [ZONE_PERMISSIONS.zone4, PROVINCE_PERMISSIONS["นนทบุรี"]],
-    },
-    distklong: {
-      displayName: "เจ้าหน้าที่ อำเภอคลองหลวง",
-      roles: ["อำเภอ"],
-      scope: {
-        zone: "เขตสุขภาพที่ 4",
-        province: "ปทุมธานี",
-        district: "คลองหลวง",
-      },
-      permissions: [ZONE_PERMISSIONS.zone4, PROVINCE_PERMISSIONS["ปทุมธานี"]],
-    },
-    subbangkrasor: {
-      displayName: "เจ้าหน้าที่ ตำบลบางกระสอ",
-      roles: ["ตำบล"],
-      scope: {
-        zone: "เขตสุขภาพที่ 4",
-        province: "นนทบุรี",
-        district: "เมือง",
-        subdistrict: "บางกระสอ",
-      },
-      permissions: [ZONE_PERMISSIONS.zone4, PROVINCE_PERMISSIONS["นนทบุรี"]],
-    },
-    unitrph1: {
-      displayName: "เจ้าหน้าที่ รพสต.ทดสอบ 1",
-      roles: ["รพสต."],
-      scope: {
-        zone: "เขตสุขภาพที่ 4",
-        province: "นนทบุรี",
-        district: "เมือง",
-        subdistrict: "บางกระสอ",
-        unit: "รพสต.ทดสอบ 1",
-      },
-      permissions: [ZONE_PERMISSIONS.zone4, PROVINCE_PERMISSIONS["นนทบุรี"]],
-    },
-  };
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const acct = USERS[username?.toLowerCase?.()];
-      if (!acct || password !== "1234") {
-        return resolve({
-          success: false,
-          message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
-        });
-      }
-      const loginResult = {
-        success: true,
-        user: { name: acct.displayName || username },
-        auth: {
-          roles: acct.roles,
-          ...acct.scope,
-          permissions: acct.permissions,
-        },
-      };
-      // --- บันทึกลง sessionStorage ---
-      try {
-        sessionStorage.setItem("user", JSON.stringify(loginResult));
-        console.log(
-          "[fakeLoginRequest] Saved login info to sessionStorage:",
-          loginResult
-        );
-      } catch (err) {
-        console.error(
-          "[fakeLoginRequest] Failed to save to sessionStorage:",
-          err
-        );
-      }
-      return resolve(loginResult);
-    }, 600);
-  });
-}
+import { loginUser, fetchUserInfo } from "@pages/api/login/login";
 // Thai ID Modal
 function ThaiIdModal({ open, onClose }) {
   if (!open) return null;
@@ -160,6 +56,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ username: "", password: "" });
   const [showThaiId, setShowThaiId] = useState(false);
+  const [userType, setUserType] = useState("officer");
 
   function validate() {
     let err = { username: "", password: "" };
@@ -178,40 +75,53 @@ export default function LoginPage() {
     try {
       setLoading(true);
       alertService.loading("กำลังเข้าสู่ระบบ...", "กรุณารอสักครู่");
-      const res = await fakeLoginRequest({ username, password });
+
+      // เรียก API login จริงที่ https://thaiphc2dev.minertatech.com/api/v1/auth/login/json
+      await loginUser({
+        username,
+        password,
+        client_id: process.env.NEXT_PUBLIC_CLIENT_ID || "1fb6e163-f9d7-4bc5-8729-f6b97ee89983",
+        user_type: userType,
+        scope: ["openid", "profile"],
+      });
+
+      // ดึงข้อมูล user จาก /auth/me
+      const userInfo = await fetchUserInfo();
+
       alertService.closeLoading();
-      if (res.success) {
-        // เก็บ userInfo และ role ลง sessionStorage
-        sessionStorage.setItem(
-          "userInfo",
-          JSON.stringify({
-            user: res.user,
-            auth: res.auth,
-            username,
-            remember,
-            loginAt: Date.now(),
-          })
-        );
-        alertService.success(
-          "เข้าสู่ระบบสำเร็จ",
-          `ยินดีต้อนรับ ${res.user?.name || username}\n[บทบาท: ${
-            res.auth.roles[0]
-          }]`
-        );
-        setTimeout(() => {
-          window.location.href = "/home"; // ไปหน้า /home หลัง login สำเร็จ
-        }, 1200);
-      } else {
-        alertService.error(
-          "เข้าสู่ระบบไม่สำเร็จ",
-          res.message || "กรุณาลองใหม่อีกครั้ง"
-        );
-      }
+
+      // เก็บ userInfo ลง sessionStorage
+      sessionStorage.setItem(
+        "userInfo",
+        JSON.stringify({
+          user: userInfo,
+          username,
+          remember,
+          loginAt: Date.now(),
+        })
+      );
+
+      // แสดง alert และรอให้ผู้ใช้กดตกลงก่อน redirect (เพื่อเช็ค network)
+      await alertService.success(
+        "เข้าสู่ระบบสำเร็จ",
+        `ยินดีต้อนรับ ${userInfo?.name || userInfo?.username || username}`
+      );
+
+      // redirect หลังจากกดปุ่มตกลง
+      window.location.href = "/home";
+
     } catch (err) {
       alertService.closeLoading();
+      console.error("Login error:", err);
+
+      const errorMessage = err.response?.data?.message
+        || err.response?.data?.detail
+        || err.message
+        || "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์";
+
       alertService.error(
-        "เกิดข้อผิดพลาด",
-        err.message || "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์"
+        "เข้าสู่ระบบไม่สำเร็จ",
+        errorMessage
       );
     } finally {
       setLoading(false);
@@ -243,6 +153,42 @@ export default function LoginPage() {
               priority
               className="w-[528px] h-auto"
             />
+          </div>
+          {/* User Type Selection */}
+          <div className="mb-6">
+            <label className="block font-semibold text-gray-700 mb-3">
+              ประเภทผู้ใช้งาน
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center space-x-2 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="userType"
+                  value="officer"
+                  checked={userType === "officer"}
+                  onChange={(e) => setUserType(e.target.value)}
+                  disabled={loading}
+                  className="w-4 h-4 text-[#7e32e2] border-gray-300 focus:ring-[#7e32e2] focus:ring-2 disabled:opacity-50"
+                />
+                <span className="text-gray-700 group-hover:text-[#7e32e2] transition select-none">
+                  เจ้าหน้าที่ (Officer)
+                </span>
+              </label>
+              <label className="flex items-center space-x-2 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="userType"
+                  value="osm"
+                  checked={userType === "osm"}
+                  onChange={(e) => setUserType(e.target.value)}
+                  disabled={loading}
+                  className="w-4 h-4 text-[#7e32e2] border-gray-300 focus:ring-[#7e32e2] focus:ring-2 disabled:opacity-50"
+                />
+                <span className="text-gray-700 group-hover:text-[#7e32e2] transition select-none">
+                  อสม. (OSM)
+                </span>
+              </label>
+            </div>
           </div>
           {/* Form */}
           <form className="space-y-5" autoComplete="on" onSubmit={handleLogin}>
