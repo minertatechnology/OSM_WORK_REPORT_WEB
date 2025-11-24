@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useHealthRegions } from "./useHealthRegions";
 
 export const useMapManager = () => {
   const [allLayers, setAllLayers] = useState([]);
@@ -7,22 +8,28 @@ export const useMapManager = () => {
   const [loadStartTime, setLoadStartTime] = useState(0);
   const mapRef = useRef(null);
 
+  // Import health regions hook
+  const { getHealthRegionByProvince } = useHealthRegions();
+
+  // สีที่แตกต่างกันชัดเจน - ไม่มีสีซ้ำ และ contrast สูง
+  const PROVINCE_COLORS = [
+    "#E53935", "#1E88E5", "#43A047", "#FB8C00", "#8E24AA",
+    "#00ACC1", "#FFB300", "#5E35B1", "#D81B60", "#00897B",
+    "#F4511E", "#3949AB", "#7CB342", "#C0CA33", "#6D4C41",
+    "#039BE5", "#C62828", "#2E7D32", "#F57C00", "#7B1FA2",
+    "#0097A7", "#FFA000", "#512DA8", "#AD1457", "#00796B",
+    "#EF6C00", "#303F9F", "#689F38", "#9E9D24", "#5D4037",
+    "#0288D1", "#B71C1C", "#1B5E20", "#E65100", "#6A1B9A",
+    "#00838F", "#FF8F00", "#4527A0", "#880E4F", "#004D40",
+    "#D84315", "#283593", "#558B2F", "#827717", "#4E342E",
+    "#0277BD", "#C92A2A", "#2E7D32", "#EF6C00", "#8E24AA",
+    "#006064", "#FFB300", "#5E35B1", "#C2185B", "#00695C",
+    "#F4511E", "#1565C0", "#33691E", "#9E9D24", "#3E2723",
+  ];
+
   // Configuration
   const config = {
-    colors: [
-      "#ff7800",
-      "#00ff78",
-      "#7800ff",
-      "#ff0078",
-      "#78ff00",
-      "#0078ff",
-      "#ff7878",
-      "#78ff78",
-      "#7878ff",
-      "#ffff78",
-      "#ff78ff",
-      "#78ffff",
-    ],
+    colors: PROVINCE_COLORS, // ใช้สีที่หลากหลายสำหรับแต่ละจังหวัด
     defaultCenter: [13.7563, 100.5018],
     defaultZoom: 6,
   };
@@ -87,23 +94,32 @@ export const useMapManager = () => {
     return null;
   }, []);
 
-  // ฟังก์ชันสำหรับสร้าง hash จาก string
+  // ฟังก์ชันสำหรับสร้าง hash จาก string - ใช้ djb2 algorithm ที่กระจายตัวดี
   const hashString = useCallback((str) => {
-    let hash = 0;
+    let hash = 5381;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32bit integer
+      hash = ((hash << 5) + hash) ^ char;
     }
     return Math.abs(hash);
   }, []);
 
-  // กำหนดสีของ feature
+  // สร้างสีจาก HSL โดยใช้ hash โดยตรงเพื่อกระจายสี
+  const generateColor = useCallback((hash) => {
+    // ใช้ส่วนต่างๆ ของ hash เพื่อกำหนด hue, saturation, lightness
+    const hue = hash % 360;
+    const saturation = 55 + ((hash >> 8) % 30); // 55-85%
+    const lightness = 40 + ((hash >> 16) % 20); // 40-60%
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  }, []);
+
+  // กำหนดสีของ feature - แต่ละพื้นที่ใช้สีที่แตกต่างกันชัดเจน
+  // ใช้ hash จากชื่อเพื่อให้สีตรงกับ chart
   const getFeatureColor = useCallback(
     (feature) => {
       const properties = feature.properties || {};
 
-      // ใช้ชื่อจาก properties เพื่อกำหนดสี
+      // หาชื่อพื้นที่จาก properties
       const name = findPropertyValue(properties, [
         "name",
         "Name",
@@ -112,13 +128,20 @@ export const useMapManager = () => {
         "ADM3_TH",
         "AMPHOE_T",
         "TAMBON_T",
+        "ADM1_TH",
+        "prov_name_t",
       ]);
-      const hash = hashString(name || "default");
-      const colorIndex = hash % config.colors.length;
 
-      return config.colors[colorIndex];
+      if (name) {
+        // ใช้ hash จากชื่อพื้นที่เพื่อสร้างสีที่ไม่ซ้ำกัน
+        const hash = hashString(name);
+        return generateColor(hash);
+      }
+
+      // ถ้าไม่เจอชื่อ ใช้สีเทา
+      return "#E5E5E5";
     },
-    [findPropertyValue, hashString]
+    [findPropertyValue, hashString, generateColor]
   );
 
   // กำหนดสไตล์ของ feature

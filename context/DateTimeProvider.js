@@ -9,56 +9,15 @@ export const DateTimeProvider = ({ children }) => {
   useEffect(() => {
     if (typeof window !== "undefined") {
       process.env.TZ = "Asia/Bangkok";
-
-      const originalToLocaleString = Date.prototype.toLocaleString;
-      const originalToLocaleDateString = Date.prototype.toLocaleDateString;
-      const originalToLocaleTimeString = Date.prototype.toLocaleTimeString;
-
-      Date.prototype.toLocaleString = function (
-        locales = "th-TH",
-        options = {}
-      ) {
-        return originalToLocaleString.call(this, locales, {
-          timeZone: "Asia/Bangkok",
-          ...options,
-        });
-      };
-
-      Date.prototype.toLocaleDateString = function (
-        locales = "th-TH",
-        options = {}
-      ) {
-        return originalToLocaleDateString.call(this, locales, {
-          timeZone: "Asia/Bangkok",
-          ...options,
-        });
-      };
-
-      Date.prototype.toLocaleTimeString = function (
-        locales = "th-TH",
-        options = {}
-      ) {
-        return originalToLocaleTimeString.call(this, locales, {
-          timeZone: "Asia/Bangkok",
-          ...options,
-        });
-      };
-
       setIsInitialized(true);
     }
   }, []);
 
+  // ไม่ต้อง update ทุกวินาที - ให้คำนวณตอนเรียกใช้แทน
   useEffect(() => {
     if (!isInitialized) return;
-
-    const updateCurrentTime = () => {
-      setCurrentTime(getCurrentThaiDate());
-    };
-
-    updateCurrentTime();
-    const interval = setInterval(updateCurrentTime, 1000);
-
-    return () => clearInterval(interval);
+    // Set initial time only
+    setCurrentTime(getCurrentThaiDate());
   }, [isInitialized]);
 
   const getCurrentThaiDate = () => {
@@ -67,9 +26,10 @@ export const DateTimeProvider = ({ children }) => {
     );
   };
 
-  // เวลาเป็นภาษาไทย
-  const getThaiDateTime = (date = currentTime) => {
-    if (!date) return "";
+  // เวลาเป็นภาษาไทย - คำนวณ real-time
+  const getThaiDateTime = (date) => {
+    const targetDate = date || getCurrentThaiDate();
+    if (!targetDate) return "";
     return new Intl.DateTimeFormat("th-TH", {
       year: "numeric",
       month: "long",
@@ -79,30 +39,32 @@ export const DateTimeProvider = ({ children }) => {
       second: "2-digit",
       timeZone: "Asia/Bangkok",
       hour12: false,
-    }).format(date);
+    }).format(targetDate);
   };
 
-  // วันที่เป็นภาษาไทย
-  const getThaiDate = (date = currentTime) => {
-    if (!date) return "";
+  // วันที่เป็นภาษาไทย - คำนวณ real-time
+  const getThaiDate = (date) => {
+    const targetDate = date || getCurrentThaiDate();
+    if (!targetDate) return "";
     return new Intl.DateTimeFormat("th-TH", {
       year: "numeric",
       month: "long",
       day: "numeric",
       timeZone: "Asia/Bangkok",
-    }).format(date);
+    }).format(targetDate);
   };
 
-  // เวลาเป็นภาษาไทย
-  const getThaiTime = (date = currentTime) => {
-    if (!date) return "";
+  // เวลาเป็นภาษาไทย - คำนวณ real-time
+  const getThaiTime = (date) => {
+    const targetDate = date || getCurrentThaiDate();
+    if (!targetDate) return "";
     return new Intl.DateTimeFormat("th-TH", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
       timeZone: "Asia/Bangkok",
       hour12: false,
-    }).format(date);
+    }).format(targetDate);
   };
 
   const contextValue = {

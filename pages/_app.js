@@ -3,22 +3,37 @@ import "@styles/globals.css";
 import { LoadingProvider } from "@context/LoadingProvider";
 import { StoreProvider } from "@context/StoreProvider";
 import { DateTimeProvider } from "@context/DateTimeProvider";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 
 function MyApp({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
 
+  // สร้าง QueryClient แค่ครั้งเดียวต่อ app instance
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60 * 5, // cache 5 นาที
+        gcTime: 1000 * 60 * 30, // เก็บไว้ใน memory 30 นาที
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  }));
+
   return (
-    <DateTimeProvider>
-      <LoadingProvider>
-        <Head>
-          <title>{process.env.NEXT_PUBLIC_APP_NAME}</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <meta httpEquiv="Content-Language" content="th" />
-          <meta name="language" content="Thai" />
-          <link rel="icon" href="/logoloading.png" />
-        </Head>
-        <StoreProvider>
-          {getLayout(<Component {...pageProps} />)}
+    <QueryClientProvider client={queryClient}>
+      <DateTimeProvider>
+        <LoadingProvider>
+          <Head>
+            <title>{process.env.NEXT_PUBLIC_APP_NAME}</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <meta httpEquiv="Content-Language" content="th" />
+            <meta name="language" content="Thai" />
+            <link rel="icon" href="/logoloading.png" />
+          </Head>
+          <StoreProvider>
+            {getLayout(<Component {...pageProps} />)}
           <style jsx global>{`
             html,
             body {
@@ -49,6 +64,7 @@ function MyApp({ Component, pageProps }) {
         </StoreProvider>
       </LoadingProvider>
     </DateTimeProvider>
+    </QueryClientProvider>
   );
 }
 

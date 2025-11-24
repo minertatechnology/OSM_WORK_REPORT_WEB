@@ -314,7 +314,17 @@ class MapThailandService {
     const seriesData = this.createSeriesData();
     const dataClasses = this.createDataClasses();
     const zoneBadges = this.createZoneBadges();
-    return {
+
+    // Debug: ดูว่า customOptions มีอะไร
+    console.log('🔧 createMapOptions called with customOptions:', {
+      hasColorAxis: !!customOptions.colorAxis,
+      hasDataClasses: !!customOptions.colorAxis?.dataClasses,
+      dataClassesLength: customOptions.colorAxis?.dataClasses?.length,
+      firstClass: customOptions.colorAxis?.dataClasses?.[0]
+    });
+
+    // Default options
+    const defaultOptions = {
       chart: {
         map: thMapGeoJSON,
         height,
@@ -387,8 +397,30 @@ class MapThailandService {
           },
         },
       ],
-      ...customOptions,
     };
+
+    // Deep merge customOptions - ให้ colorAxis.dataClasses จาก customOptions override ได้
+    if (customOptions.colorAxis?.dataClasses) {
+      console.log('📍 Applying custom dataClasses:', customOptions.colorAxis.dataClasses.length, 'classes');
+      defaultOptions.colorAxis.dataClasses = customOptions.colorAxis.dataClasses;
+      defaultOptions.colorAxis.min = customOptions.colorAxis.min ?? 0;
+      defaultOptions.colorAxis.max = customOptions.colorAxis.max ?? 13;
+    }
+    if (customOptions.tooltip) {
+      defaultOptions.tooltip = { ...defaultOptions.tooltip, ...customOptions.tooltip };
+    }
+    if (customOptions.plotOptions) {
+      defaultOptions.plotOptions = {
+        ...defaultOptions.plotOptions,
+        ...customOptions.plotOptions,
+        series: {
+          ...defaultOptions.plotOptions.series,
+          ...(customOptions.plotOptions.series || {}),
+        },
+      };
+    }
+
+    return defaultOptions;
   }
   getHealthZoneByProvince(provinceName) {
     // ถ้าไม่มี mapping หรือ zone เป็น 0 ให้ return 0

@@ -19,6 +19,10 @@ const GisComp = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Refs for preventing wheel zoom on map
+  const controlPanelRef = useRef(null);
+  const chartCardRef = useRef(null);
+
   // States for Health Regions
   const [selectedHealthRegion, setSelectedHealthRegion] = useState("");
   const [availableProvincesInRegion, setAvailableProvincesInRegion] = useState(
@@ -29,45 +33,67 @@ const GisComp = () => {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
 
-  // Get province data based on selected health region
-  const getProvinceData = () => {
-    if (selectedHealthRegion && availableProvincesInRegion.length > 0) {
-      // Special case for Bangkok - show districts instead of provinces
-      if (selectedHealthRegion === "เขตสุขภาพที่ 13" && selectedProvince === "กรุงเทพมหานคร") {
-        const bangkokDistricts = [
-          "เขตพระนคร", "เขตดุสิต", "เขตหนองจอก", "เขตบางรัก", "เขตยานนาวา",
-          "เขตบางโคล่ง", "เขตพระโขนง", "เขตวัฒนา", "เขตป่าทุ่ม", "เขตจตุจักร",
-          "เขตบางซื่อ", "เขตลาดพร้าว", "เขตบางกะปิ", "เขตสะพานเพชร", "เขตดินแดง",
-          "เขตมีนบุรี", "เขตบางขุนเทียน", "เขตภาษีเจริญ", "เขตบางนา", "เขตคลองสาน"
-        ];
-        return bangkokDistricts.map((district) => ({
-          name: district,
-          value: Math.floor(Math.random() * 100) + 20
-        }));
-      }
+  // Get display data based on selection (tambon, amphoe or province)
+  const getDisplayData = () => {
+    // ถ้าเลือกอำเภอแล้ว (รวมถึงเมื่อเลือกตำบลด้วย) ให้แสดงข้อมูลตำบลทั้งหมด
+    if (selectedDistrict && availableSubdistricts.length > 0) {
+      return availableSubdistricts.map((tambon) => ({
+        name: tambon,
+        value: Math.floor(Math.random() * 100) + 20 // Mock random values
+      }));
+    }
 
+    // ถ้าเลือกจังหวัดแล้ว ให้แสดงข้อมูลอำเภอ
+    if (selectedProvince && availableDistricts.length > 0) {
+      return availableDistricts.map((amphoe) => ({
+        name: amphoe,
+        value: Math.floor(Math.random() * 100) + 20 // Mock random values
+      }));
+    }
+
+    // ถ้ายังไม่ได้เลือกจังหวัด แต่เลือกเขตสุขภาพแล้ว ให้แสดงจังหวัด
+    if (selectedHealthRegion && availableProvincesInRegion.length > 0) {
       return availableProvincesInRegion.map((province) => ({
         name: province,
         value: Math.floor(Math.random() * 100) + 20 // Mock random values
       }));
     }
-    return []; // Empty when no health region selected
+
+    return []; // Empty when no selection
   };
 
-  const provinceData = getProvinceData();
+  const displayData = getDisplayData();
 
   const monthlyReportData = {
     total: 387,
-    items: [
-      "รายงานการเยี่ยมบ้าน",
-      "รายงานกิจกรรมส่งเสริมสุขภาพ",
-      "รายงานการป้องกันโรค",
-      "รายงานการดูแลผู้สูงอายุ",
-      "รายงานการดูแลเด็ก"
-    ]
+    items: []
   };
 
   const mapContainer = useRef(null);
+
+  // ฟังก์ชัน hash string - ใช้ djb2 algorithm (เหมือนกับใน useMapManager)
+  const hashString = (str) => {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) + hash) ^ char;
+    }
+    return Math.abs(hash);
+  };
+
+  // สร้างสีจาก HSL โดยใช้ hash โดยตรง (เหมือนกับใน useMapManager)
+  const generateColor = (hash) => {
+    const hue = hash % 360;
+    const saturation = 55 + ((hash >> 8) % 30); // 55-85%
+    const lightness = 40 + ((hash >> 16) % 20); // 40-60%
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  };
+
+  // ฟังก์ชันหาสีจากชื่อพื้นที่
+  const getProvinceColor = (name) => {
+    const hash = hashString(name);
+    return generateColor(hash);
+  };
 
   // Composables
   const {
@@ -79,6 +105,7 @@ const GisComp = () => {
   } = useKMLData();
 
   const {
+    map,
     initializeMap,
     loadAndDisplayKML,
     clearAllLayers,
@@ -229,6 +256,7 @@ const GisComp = () => {
     if (selectedProvince) {
       try {
         setIsLoadingDistricts(true);
+        setIsLoading(true);
         updateStatus(`กำลังโหลดข้อมูลอำเภอใน ${selectedProvince}...`, "info");
 
         const amphoeList = await getAmphoeListFromFolder(selectedProvince);
@@ -236,29 +264,82 @@ const GisComp = () => {
 
         if (amphoeList.length > 0) {
           updateStatus(
-            `พบ ${amphoeList.length} อำเภอในจังหวัด ${selectedProvince}`,
-            "success"
+            `พบ ${amphoeList.length} อำเภอในจังหวัด ${selectedProvince}, กำลังโหลดแผนที่...`,
+            "info"
           );
+
+          // ล้าง layers เดิม
+          clearAllLayers();
+
+          // โหลด KML ของทุกอำเภอในจังหวัด
+          const englishProvinceName = getEnglishProvinceName(selectedProvince);
+          const loadPromises = amphoeList.map(async (amphoeName) => {
+            try {
+              const filePath = `/split-amphoe/${englishProvinceName}/${amphoeName}.kml`;
+              const response = await fetch(filePath);
+              if (!response.ok) {
+                console.warn(`ไม่พบไฟล์: ${filePath}`);
+                return null;
+              }
+
+              const kmlText = await response.text();
+              const parser = new DOMParser();
+              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
+              const toGeoJSON = await import("@mapbox/togeojson");
+              const geoJsonData = toGeoJSON.kml(kmlDoc);
+
+              if (geoJsonData && geoJsonData.features) {
+                return { amphoeName, geoJsonData };
+              }
+              return null;
+            } catch (error) {
+              console.error(`Error loading ${amphoeName}:`, error);
+              return null;
+            }
+          });
+
+          const results = await Promise.all(loadPromises);
+          const validResults = results.filter((result) => result !== null);
+
+          if (validResults.length > 0) {
+            // รวม features ทั้งหมด
+            const allFeatures = validResults.flatMap(
+              (result) => result.geoJsonData.features
+            );
+            const combinedGeoJSON = {
+              type: "FeatureCollection",
+              features: allFeatures,
+            };
+
+            const result = await loadAndDisplayKML(combinedGeoJSON, "amphoe");
+
+            if (result) {
+              updateStatus(
+                `โหลดแผนที่ ${selectedProvince} สำเร็จ: ${validResults.length} อำเภอ, ${result.featureCount} features`,
+                "success"
+              );
+            }
+          } else {
+            updateStatus(`ไม่พบข้อมูลแผนที่สำหรับ ${selectedProvince}`, "warning");
+          }
         } else {
           updateStatus(
             `ไม่พบข้อมูลอำเภอในจังหวัด ${selectedProvince}`,
             "warning"
           );
         }
-
-        await loadMapData("province", selectedProvince);
-        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
       } catch (error) {
         console.error("Error in onProvinceChange:", error);
         updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
       } finally {
         setIsLoadingDistricts(false);
+        setIsLoading(false);
       }
     } else {
       clearAllLayers();
       updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
     }
-  }, [selectedProvince, getAmphoeListFromFolder, updateStatus, loadMapData, clearAllLayers]);
+  }, [selectedProvince, getAmphoeListFromFolder, getEnglishProvinceName, updateStatus, loadAndDisplayKML, clearAllLayers]);
 
   const onDistrictChange = useCallback(async () => {
     setSelectedSubdistrict("");
@@ -267,6 +348,7 @@ const GisComp = () => {
     if (selectedDistrict) {
       try {
         setIsLoadingSubdistricts(true);
+        setIsLoading(true);
         updateStatus(`กำลังโหลดข้อมูลตำบลใน ${selectedDistrict}...`, "info");
 
         const tambonList = await getTambonListFromFolder(
@@ -276,21 +358,68 @@ const GisComp = () => {
         setAvailableSubdistricts(tambonList);
 
         if (tambonList.length > 0) {
-          updateStatus(
-            `พบ ${tambonList.length} ตำบลในอำเภอ ${selectedDistrict}`,
-            "success"
-          );
+          // ล้าง layers เดิม
+          clearAllLayers();
+
+          // โหลด KML ของทุกตำบลในอำเภอ
+          const englishProvinceName = getEnglishProvinceName(selectedProvince);
+          const loadPromises = tambonList.map(async (tambonName) => {
+            try {
+              const filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${tambonName}.kml`;
+              const response = await fetch(filePath);
+              if (!response.ok) return null;
+
+              const kmlText = await response.text();
+              const parser = new DOMParser();
+              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
+
+              const tj = await import("@mapbox/togeojson");
+              const geoJsonData = tj.kml(kmlDoc);
+
+              return { tambonName, geoJsonData };
+            } catch (error) {
+              console.warn(`ไม่สามารถโหลด ${tambonName}:`, error);
+              return null;
+            }
+          });
+
+          const results = await Promise.all(loadPromises);
+          const validResults = results.filter((result) => result !== null);
+
+          if (validResults.length > 0) {
+            // รวม features ทั้งหมด และเพิ่มชื่อตำบลใน properties
+            const allFeatures = validResults.flatMap((result) =>
+              result.geoJsonData.features.map((feature) => ({
+                ...feature,
+                properties: {
+                  ...feature.properties,
+                  name: result.tambonName,
+                  TAMBON_T: result.tambonName,
+                },
+              }))
+            );
+            const combinedGeoJSON = {
+              type: "FeatureCollection",
+              features: allFeatures,
+            };
+
+            const loadResult = await loadAndDisplayKML(combinedGeoJSON, "tambon");
+            updateStatus(
+              `โหลดแผนที่ ${selectedDistrict} สำเร็จ: ${validResults.length} ตำบล, ${loadResult.featureCount} features`,
+              "success"
+            );
+          } else {
+            updateStatus(`ไม่พบข้อมูลแผนที่สำหรับ ${selectedDistrict}`, "warning");
+          }
         } else {
           updateStatus(`ไม่พบข้อมูลตำบลในอำเภอ ${selectedDistrict}`, "warning");
         }
-
-        await loadMapData("amphoe", selectedDistrict);
-        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
       } catch (error) {
         console.error("Error in onDistrictChange:", error);
         updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
       } finally {
         setIsLoadingSubdistricts(false);
+        setIsLoading(false);
       }
     } else if (selectedProvince) {
       await loadMapData("province", selectedProvince);
@@ -298,40 +427,85 @@ const GisComp = () => {
         fitToFiltered();
       }, 300);
     }
-  }, [selectedDistrict, selectedProvince, getTambonListFromFolder, updateStatus, loadMapData, fitToFiltered]);
+  }, [selectedDistrict, selectedProvince, getTambonListFromFolder, getEnglishProvinceName, updateStatus, loadMapData, fitToFiltered, clearAllLayers, loadAndDisplayKML]);
 
   const onSubdistrictChange = useCallback(async () => {
     if (selectedSubdistrict) {
       try {
-        await loadMapData("tambon", selectedSubdistrict);
-        updateStatus(
-          `โหลด polygon ตำบล ${selectedSubdistrict} สำเร็จ`,
-          "success"
-        );
-        // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
+        setIsLoading(true);
+        clearAllLayers();
+
+        // โหลด KML ของตำบลที่เลือก
+        const englishProvinceName = getEnglishProvinceName(selectedProvince);
+        const filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${selectedSubdistrict}.kml`;
+        const response = await fetch(filePath);
+
+        if (response.ok) {
+          const kmlText = await response.text();
+          const parser = new DOMParser();
+          const kmlDoc = parser.parseFromString(kmlText, "text/xml");
+
+          const tj = await import("@mapbox/togeojson");
+          const geoJsonData = tj.kml(kmlDoc);
+
+          // เพิ่มชื่อตำบลใน properties เพื่อให้สีถูกต้อง
+          const featuresWithName = geoJsonData.features.map((feature) => ({
+            ...feature,
+            properties: {
+              ...feature.properties,
+              name: selectedSubdistrict,
+              TAMBON_T: selectedSubdistrict,
+            },
+          }));
+
+          const combinedGeoJSON = {
+            type: "FeatureCollection",
+            features: featuresWithName,
+          };
+
+          await loadAndDisplayKML(combinedGeoJSON, "tambon");
+          updateStatus(
+            `โหลด polygon ตำบล ${selectedSubdistrict} สำเร็จ`,
+            "success"
+          );
+        } else {
+          updateStatus(`ไม่พบข้อมูลแผนที่สำหรับตำบล ${selectedSubdistrict}`, "warning");
+        }
       } catch (error) {
         console.error("Error in onSubdistrictChange:", error);
         updateStatus(`ข้อผิดพลาดในการโหลดข้อมูล: ${error}`, "error");
+      } finally {
+        setIsLoading(false);
       }
     } else if (selectedDistrict) {
-      await loadMapData("amphoe", selectedDistrict);
-      // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
+      // ถ้ายกเลิกการเลือกตำบล ให้โหลดตำบลทั้งหมดในอำเภอใหม่
+      // trigger onDistrictChange
     } else if (selectedProvince) {
       await loadMapData("province", selectedProvince);
-      // ไม่ต้องเรียก fitToFiltered() เพราะ loadMapData จัดการการซูมให้แล้ว
     }
-  }, [selectedSubdistrict, selectedDistrict, selectedProvince, loadMapData, updateStatus]);
+  }, [selectedSubdistrict, selectedDistrict, selectedProvince, loadMapData, updateStatus, getEnglishProvinceName, clearAllLayers, loadAndDisplayKML]);
 
 
-  const clearFilter = () => {
+  const clearFilter = useCallback(() => {
+    // ล้างการเลือกทั้งหมด
+    setSelectedHealthRegion("");
     setSelectedProvince("");
     setSelectedDistrict("");
     setSelectedSubdistrict("");
+    setAvailableProvincesInRegion([]);
     setAvailableDistricts([]);
     setAvailableSubdistricts([]);
+
+    // ล้าง layers บนแผนที่
     clearAllLayers();
+
+    // ซูมกลับไปที่ตำแหน่งเริ่มต้น (ประเทศไทย)
+    if (map) {
+      map.setView([13.7563, 100.5018], 6); // ตำแหน่งกลางประเทศไทย, zoom level 6
+    }
+
     updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
-  };
+  }, [clearAllLayers, updateStatus, map]);
 
 
   // Health Region handlers
@@ -511,10 +685,49 @@ const GisComp = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedHealthRegion]);
 
+  // ป้องกัน wheel event ไม่ให้ซูมแผนที่เมื่อ scroll บน control panel และ chart card
+  useEffect(() => {
+    const controlPanel = controlPanelRef.current;
+    const chartCard = chartCardRef.current;
+
+    const disableMapZoom = () => {
+      if (map) {
+        map.scrollWheelZoom.disable();
+      }
+    };
+
+    const enableMapZoom = () => {
+      if (map) {
+        map.scrollWheelZoom.enable();
+      }
+    };
+
+    if (controlPanel) {
+      controlPanel.addEventListener('mouseenter', disableMapZoom);
+      controlPanel.addEventListener('mouseleave', enableMapZoom);
+    }
+    if (chartCard) {
+      chartCard.addEventListener('mouseenter', disableMapZoom);
+      chartCard.addEventListener('mouseleave', enableMapZoom);
+    }
+
+    return () => {
+      if (controlPanel) {
+        controlPanel.removeEventListener('mouseenter', disableMapZoom);
+        controlPanel.removeEventListener('mouseleave', enableMapZoom);
+      }
+      if (chartCard) {
+        chartCard.removeEventListener('mouseenter', disableMapZoom);
+        chartCard.removeEventListener('mouseleave', enableMapZoom);
+      }
+    };
+  }, [map]);
+
   return (
     <div className={styles.gisComp}>
       <div className={styles.kmlMapViewer}>
         <div
+          ref={controlPanelRef}
           className={`${styles.controlPanel} ${
             isCollapsed ? styles.collapsed : ""
           }`}
@@ -649,8 +862,11 @@ const GisComp = () => {
                 <div className={styles.reportDivider}></div>
 
                 {/* Chart Card */}
-                <div className={styles.chartCard}>
-                  {provinceData.length > 0 ? (
+                <div
+                  ref={chartCardRef}
+                  className={styles.chartCard}
+                >
+                  {displayData.length > 0 ? (
                     <>
                       {/* Donut Chart */}
                       <div className={styles.donutChart}>
@@ -658,19 +874,18 @@ const GisComp = () => {
                           <svg width="150" height="150" viewBox="0 0 42 42" className={styles.donut}>
                             <circle cx="21" cy="21" r="15.91549430918" fill="transparent" stroke="#f1f5f9" strokeWidth="3"></circle>
                             {(() => {
-                              const total = provinceData.reduce((sum, item) => sum + item.value, 0);
-                              const colors = ['#6E28B7', '#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE'];
+                              const total = displayData.reduce((sum, item) => sum + item.value, 0);
                               let offset = 25; // Start offset
-                              return provinceData.map((province, index) => {
-                                const percentage = (province.value / total) * 100;
+                              return displayData.map((item) => {
+                                const percentage = (item.value / total) * 100;
                                 const strokeDasharray = `${percentage} ${100 - percentage}`;
-                                const color = colors[index % 5];
+                                const color = getProvinceColor(item.name);
                                 const currentOffset = offset;
                                 offset = (offset - percentage) % 100;
 
                                 return (
                                   <circle
-                                    key={province.name}
+                                    key={item.name}
                                     cx="21"
                                     cy="21"
                                     r="15.91549430918"
@@ -687,22 +902,25 @@ const GisComp = () => {
                           </svg>
                           <div className={styles.donutCenter}>
                             <div className={styles.donutValue}>
-                              {provinceData.reduce((sum, item) => sum + item.value, 0)}
+                              {displayData.reduce((sum, item) => sum + item.value, 0)}
                             </div>
                             <div className={styles.donutLabel}>รวม</div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Province List */}
+                      {/* Area List (Province or Amphoe) */}
                       <div className={styles.provinceList}>
-                        {provinceData.map((province, index) => (
-                          <div key={province.name} className={styles.provinceItem}>
+                        {displayData.map((item) => (
+                          <div key={item.name} className={styles.provinceItem}>
                             <div className={styles.provinceName}>
-                              <div className={`${styles.colorDot} ${styles[`color${(index % 5) + 1}`]}`}></div>
-                              {province.name}
+                              <div
+                                className={styles.colorDot}
+                                style={{ backgroundColor: getProvinceColor(item.name) }}
+                              ></div>
+                              {item.name}
                             </div>
-                            <div className={styles.provinceValue}>{province.value}</div>
+                            <div className={styles.provinceValue}>{item.value}</div>
                           </div>
                         ))}
                       </div>

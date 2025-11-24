@@ -417,14 +417,14 @@
 
 /* Chart Section Styles */
 .chartSection {
-  padding: 20px;
+  padding: 15px 20px 10px 20px;
 }
 
 .chartTitleRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: -5px;
+  margin-top: -8px;
 }
 
 .chartTitle {
@@ -437,14 +437,14 @@
   border: 1px solid #D3D4DD;
   border-radius: 8px;
   padding: 16px;
-  margin-top: 16px;
+  margin-top: 10px;
   background: white;
-  min-height: 280px;
-  max-height: 400px;
+  min-height: 350px;
+  max-height: 550px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 /* Donut Chart Styles */

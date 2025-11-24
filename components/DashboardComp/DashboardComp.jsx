@@ -1,10 +1,22 @@
-import React, { useState, useEffect } from "react";
-import DashboardSobos from "./DashboardSobos/DashboardSobos";
-import DashboardZone from "./DashboardZone/DashboardZone";
-import DashboardProvince from "./DashboardProvince/DashboardProvince";
-import DashboardDistrict from "./DashboardDistrict/DashboardDistrict";
-import DashboardSubdistrict from "./DashboardSubdistrict/DashboardSubdistrict";
-import DashboardHospital from "./DashboardHospital/DashboardHospital";
+import React, { useState, useEffect, lazy, Suspense } from "react";
+
+// Dynamic imports - โหลดแค่ตอนใช้งานจริง
+const DashboardSobos = lazy(() => import("./DashboardSobos/DashboardSobos"));
+const DashboardZone = lazy(() => import("./DashboardZone/DashboardZone"));
+const DashboardProvince = lazy(() => import("./DashboardProvince/DashboardProvince"));
+const DashboardDistrict = lazy(() => import("./DashboardDistrict/DashboardDistrict"));
+const DashboardSubdistrict = lazy(() => import("./DashboardSubdistrict/DashboardSubdistrict"));
+const DashboardHospital = lazy(() => import("./DashboardHospital/DashboardHospital"));
+
+// Loading component
+const DashboardLoading = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+      <p className="mt-4 text-gray-600">กำลังโหลด...</p>
+    </div>
+  </div>
+);
 
 const getRoleType = (auth) => {
   if (!auth || !auth.roles || !auth.roles.length) return "sobos";
@@ -32,25 +44,34 @@ const DashboardComp = () => {
   }, []);
 
   if (!roleType) {
-    return <div />;
+    return <DashboardLoading />;
   }
 
-  switch (roleType) {
-    case "sobos":
-      return <DashboardSobos />;
-    case "zone":
-      return <DashboardZone />;
-    case "province":
-      return <DashboardProvince />;
-    case "district":
-      return <DashboardDistrict />;
-    case "subdistrict":
-      return <DashboardSubdistrict />;
-    case "hospital":
-      return <DashboardHospital />;
-    default:
-      return <DashboardSobos />;
-  }
+  // Wrap ด้วย Suspense เพื่อแสดง loading ขณะ lazy load
+  const renderDashboard = () => {
+    switch (roleType) {
+      case "sobos":
+        return <DashboardSobos />;
+      case "zone":
+        return <DashboardZone />;
+      case "province":
+        return <DashboardProvince />;
+      case "district":
+        return <DashboardDistrict />;
+      case "subdistrict":
+        return <DashboardSubdistrict />;
+      case "hospital":
+        return <DashboardHospital />;
+      default:
+        return <DashboardSobos />;
+    }
+  };
+
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      {renderDashboard()}
+    </Suspense>
+  );
 };
 
 export default DashboardComp;

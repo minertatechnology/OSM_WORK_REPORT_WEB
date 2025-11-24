@@ -7,6 +7,11 @@ const nextConfig = {
   reactStrictMode: true,
   ...(isExport && { output: "export" }),
 
+  // แก้ไขปัญหา Image Optimization สำหรับ export mode
+  images: {
+    unoptimized: isExport,
+  },
+
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.alias["@d3"] = "d3";

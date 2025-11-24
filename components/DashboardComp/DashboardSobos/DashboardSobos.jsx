@@ -706,13 +706,21 @@ const DashboardSobos = () => {
     }
 
     // pie13: always 13 zones, set value=0 for missing zones
+    // แต่ต้องคงสีจาก original tab ไว้
+    const originalPie = REPORT_TABS[tabIdx].pie;
     let pie13 = [];
     for (let i = 1; i <= 13; i++) {
       const found = pie.find((p) => p.name === `เขตสุขภาพที่ ${i}`);
+      const original = originalPie.find((p) => p.name === `เขตสุขภาพที่ ${i}`);
+
       pie13.push(
         found
           ? found
-          : { name: `เขตสุขภาพที่ ${i}`, value: 0, color: "#E5E5E5" }
+          : {
+              name: `เขตสุขภาพที่ ${i}`,
+              value: 0,
+              color: original?.color || "#E5E5E5" // ใช้สีจาก original ถ้ามี
+            }
       );
     }
     setFilteredTable(filtered);
@@ -774,8 +782,8 @@ const DashboardSobos = () => {
       const zoneNum = parseInt(item.name.match(/\d+/)?.[0] || "0");
       zoneDataMap[zoneNum] = {
         value: item.value,
-        // ถ้า value = 0 ให้เป็นสีเทา
-        color: item.value === 0 ? "#E5E5E5" : item.color,
+        // ใช้สีจาก item.color เสมอ ไม่ว่า value จะเป็น 0 หรือไม่
+        color: item.color,
         percent: (
           (item.value /
             (chartPieData.reduce((sum, p) => sum + p.value, 0) || 1)) *
@@ -822,11 +830,11 @@ const DashboardSobos = () => {
         dataClasses: chartPieData
           .map((item) => {
             const zoneNum = parseInt(item.name.match(/\d+/)?.[0] || "0");
-            // ถ้า value = 0 ให้บังคับสีเทา
+            // ใช้สีจาก item.color โดยตรง ไม่เช็ค value
             return {
               from: zoneNum,
               to: zoneNum,
-              color: item.value === 0 ? "#E5E5E5" : item.color,
+              color: item.color,
               name: item.name,
             };
           })

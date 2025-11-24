@@ -76,7 +76,7 @@ const getUserInfoFromSession = () => {
 };
 
 // Component สำหรับแสดง position_name_th โดยตรงจาก sessionStorage
-const UserPosition = ({ isMobile }) => {
+const UserPosition = React.memo(({ isMobile }) => {
   const [position, setPosition] = useState("");
 
   useEffect(() => {
@@ -94,8 +94,7 @@ const UserPosition = ({ isMobile }) => {
     };
 
     updatePosition();
-    const interval = setInterval(updatePosition, 2000);
-    return () => clearInterval(interval);
+    // ลบ interval - อัพเดทครั้งเดียวตอน mount เท่านั้น
   }, []);
 
   if (!position) return null;
@@ -110,9 +109,9 @@ const UserPosition = ({ isMobile }) => {
       {position}
     </div>
   );
-};
+});
 
-const Navbar = ({
+const Navbar = React.memo(({
   onToggleSidebar,
   isMobile,
   userName,
@@ -165,7 +164,7 @@ const Navbar = ({
       </div>
     </div>
   );
-};
+});
 
 const Layout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -232,15 +231,8 @@ const Layout = ({ children }) => {
       });
     };
 
-    // อัปเดตทันทีตอน mount
+    // อัปเดตทันทีตอน mount เท่านั้น - ลบ interval
     updateUserInfo();
-
-    // ตั้ง interval ให้ตรวจสอบทุก 2 วินาที (เพื่อลด CPU usage)
-    const interval = setInterval(updateUserInfo, 2000);
-
-    return () => {
-      clearInterval(interval);
-    };
   }, []);
 
   // รับ callback จาก SideMenuComp
