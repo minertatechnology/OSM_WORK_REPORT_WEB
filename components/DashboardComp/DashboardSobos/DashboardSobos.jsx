@@ -416,7 +416,7 @@ const TableWithPagination = ({
               </th>
               <th className="py-3 px-4 font-semibold text-center">จังหวัด</th>
               <th className="py-3 px-4 font-semibold text-center">
-                จำนวนคนในพื้นที่
+                จำนวน อสม.
               </th>
               <th className="py-3 px-4 font-semibold text-center">
                 จำนวนที่ส่งรายงาน
@@ -1163,7 +1163,7 @@ const DashboardSobos = () => {
               </ResponsiveContainer>
               {/* Center value */}
               <div className="absolute top-0 left-0 flex flex-col items-center justify-center w-full h-full pointer-events-none">
-                <span className="mt-[65px] text-[28px] font-bold text-[#7e32e2]">
+                <span className="mt-[15px] text-[28px] font-bold text-[#7e32e2]">
                   {chartSummaryValue}
                 </span>
                 <span className="text-[17px] font-medium text-[#7e32e2]">

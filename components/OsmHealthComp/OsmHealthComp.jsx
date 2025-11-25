@@ -1,38 +1,36 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import ButtonService from "@services/buttonService/buttonService";
-import InputService from "@services/inputService/inputService";
 import {
   Download,
   CalendarDays,
   Search,
-  RotateCcw,
+  X,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   ChevronDown,
+  FileText,
+  Heart,
+  Users,
+  Calendar,
 } from "lucide-react";
 
 // Mock data
-const years = [
-  { value: "2568", label: "2568" },
-  { value: "2567", label: "2567" },
-  { value: "2566", label: "2566" },
-];
+const years = ["2568", "2567", "2566"];
 const months = [
-  { value: "มกราคม", label: "มกราคม" },
-  { value: "กุมภาพันธ์", label: "กุมภาพันธ์" },
-  { value: "มีนาคม", label: "มีนาคม" },
-  { value: "เมษายน", label: "เมษายน" },
-  { value: "พฤษภาคม", label: "พฤษภาคม" },
-  { value: "มิถุนายน", label: "มิถุนายน" },
-  { value: "กรกฎาคม", label: "กรกฎาคม" },
-  { value: "สิงหาคม", label: "สิงหาคม" },
-  { value: "กันยายน", label: "กันยายน" },
-  { value: "ตุลาคม", label: "ตุลาคม" },
-  { value: "พฤศจิกายน", label: "พฤศจิกายน" },
-  { value: "ธันวาคม", label: "ธันวาคม" },
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
 ];
 const mockList = Array.from({ length: 23 }).map((_, idx) => ({
   date: "25 มิถุนายน 2568",
@@ -46,6 +44,7 @@ const PER_PAGE_OPTIONS = [
   { value: 50, label: "50" },
   { value: 100, label: "100" },
 ];
+
 function getPageNumbers(current, total) {
   const visible = 5;
   if (total <= visible) return Array.from({ length: total }, (_, i) => i + 1);
@@ -59,6 +58,128 @@ function getPageNumbers(current, total) {
   }
   return pages.filter((v, i, arr) => v === "..." || arr.indexOf(v) === i);
 }
+
+// CustomSelect component
+function CustomSelect({ value, onChange, options, placeholder }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSelect = (option) => {
+    onChange(option);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (event) => {
+    if (!isOpen) {
+      if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case 'Escape':
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        setHighlightedIndex(prev =>
+          prev < options.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setHighlightedIndex(prev =>
+          prev > 0 ? prev - 1 : options.length - 1
+        );
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (highlightedIndex >= 0) {
+          handleSelect(options[highlightedIndex]);
+        }
+        break;
+    }
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div
+        className={`w-full h-12 px-4 rounded-xl border-2 ${
+          isOpen ? 'border-purple-600 ring-2 ring-purple-200' : 'border-purple-200'
+        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
+        onClick={handleToggle}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="combobox"
+        aria-expanded={isOpen}
+      >
+        <span className={value ? 'text-gray-700' : 'text-gray-500'}>
+          {value || placeholder}
+        </span>
+        <ChevronDown
+          size={20}
+          className={`text-purple-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
+          <ul role="listbox">
+            <li
+              className={`px-4 py-3 cursor-pointer transition-colors ${
+                !value ? 'bg-purple-50 text-purple-600 font-semibold' : 'hover:bg-purple-50 text-gray-700'
+              }`}
+              onClick={() => handleSelect("")}
+              role="option"
+            >
+              {placeholder}
+            </li>
+            {options.map((option, index) => (
+              <li
+                key={option}
+                className={`px-4 py-3 cursor-pointer transition-colors ${
+                  value === option
+                    ? 'bg-gradient-to-r from-purple-100 to-violet-100 text-purple-600 font-semibold border-l-4 border-purple-600'
+                    : highlightedIndex === index
+                    ? 'bg-purple-50 text-gray-700'
+                    : 'hover:bg-purple-50 text-gray-700'
+                }`}
+                onClick={() => handleSelect(option)}
+                role="option"
+                aria-selected={value === option}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PaginationWithPerPage({
   currentPage,
   setCurrentPage,
@@ -67,7 +188,7 @@ function PaginationWithPerPage({
   setItemsPerPage,
 }) {
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 mb-10 pt-4 border-t border-[#f0ebff]">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-purple-100">
       <div className="flex items-center gap-2">
         <label htmlFor="per-page" className="text-sm text-gray-600 font-medium">
           แสดง
@@ -79,7 +200,7 @@ function PaginationWithPerPage({
             setItemsPerPage(Number(e.target.value));
             setCurrentPage(1);
           }}
-          className="appearance-none border border-[#e5e7eb] rounded-full px-4 py-2 pr-8 text-sm font-semibold text-[#7e32e2] bg-white shadow transition focus:outline-none focus:ring-2 focus:ring-[#7e32e2] focus:border-transparent hover:border-[#7e32e2] cursor-pointer"
+          className="appearance-none border border-purple-200 rounded-xl px-4 py-2 pr-8 text-sm font-semibold text-purple-600 bg-purple-50 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent hover:border-purple-400 cursor-pointer"
         >
           {PER_PAGE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -89,52 +210,44 @@ function PaginationWithPerPage({
         </select>
         <span className="text-sm text-gray-600">รายการต่อหน้า</span>
       </div>
-      <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-[#ece1f7] shadow-lg backdrop-blur-sm">
+      <div className="flex items-center gap-1">
         <button
           onClick={() => setCurrentPage(1)}
           disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`hidden sm:flex p-2 rounded-lg transition-all ${
             currentPage === 1
               ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
+              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
           }`}
           title="หน้าแรก"
-          aria-label="หน้าแรก"
         >
           <ChevronsLeft size={18} />
         </button>
         <button
           onClick={() => setCurrentPage(currentPage - 1)}
           disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`p-2 rounded-lg transition-all ${
             currentPage === 1
               ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
+              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
           }`}
           title="หน้าก่อนหน้า"
-          aria-label="หน้าก่อนหน้า"
         >
           <ChevronLeft size={18} />
         </button>
-        <div className="flex items-center gap-1 mx-2">
+        <div className="hidden sm:flex items-center gap-1 mx-2">
           {getPageNumbers(currentPage, totalPages).map((page, idx) =>
             page === "..." ? (
-              <span
-                key={idx}
-                className="px-2 py-1 text-gray-400 font-semibold select-none"
-              >
-                ...
-              </span>
+              <span key={idx} className="px-2 text-gray-400">...</span>
             ) : (
               <button
                 key={idx}
                 onClick={() => setCurrentPage(page)}
-                className={`min-w-[36px] h-9 rounded-full font-semibold text-base transition-all duration-200 ${
+                className={`min-w-[36px] h-9 rounded-lg font-semibold transition-all ${
                   currentPage === page
-                    ? "bg-[#7e32e2] text-white shadow-lg scale-110 border border-[#7e32e2]"
-                    : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
+                    ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md"
+                    : "text-purple-600 hover:bg-purple-50"
                 }`}
-                aria-current={currentPage === page ? "page" : undefined}
               >
                 {page}
               </button>
@@ -144,31 +257,32 @@ function PaginationWithPerPage({
         <button
           onClick={() => setCurrentPage(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`p-2 rounded-lg transition-all ${
             currentPage === totalPages
               ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
+              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
           }`}
           title="หน้าถัดไป"
-          aria-label="หน้าถัดไป"
         >
           <ChevronRight size={18} />
         </button>
         <button
           onClick={() => setCurrentPage(totalPages)}
           disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`hidden sm:flex p-2 rounded-lg transition-all ${
             currentPage === totalPages
               ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
+              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
           }`}
           title="หน้าสุดท้าย"
-          aria-label="หน้าสุดท้าย"
         >
           <ChevronsRight size={18} />
         </button>
-        <div className="ml-3 text-sm text-[#888] font-semibold bg-[#f6eeff] px-4 py-2 rounded-xl shadow">
+        <div className="hidden sm:block ml-3 text-sm text-gray-600 font-medium bg-purple-50 px-3 py-2 rounded-lg">
           หน้า {currentPage} / {totalPages}
+        </div>
+        <div className="sm:hidden ml-2 text-sm text-gray-600 font-medium">
+          {currentPage} / {totalPages}
         </div>
       </div>
     </div>
@@ -205,176 +319,200 @@ const OsmHealthComp = () => {
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
 
-  // Styles
-  const buttonStyle =
-    "flex justify-between items-center w-full gap-2 px-5 py-2 rounded-lg shadow border border-[#ece1f7] text-[#6E28B7] font-bold text-[15px] bg-white transition";
-  const iconStyle = "mr-2 text-[#6E28B7]";
-  const splitStyle = "ml-4 flex items-center";
-  const arrowStyle = "text-[#6E28B7]";
+  // Reset filters
+  const resetFilters = () => {
+    setSearchType("year");
+    setYear("2568");
+    setMonth("มิถุนายน");
+  };
 
   return (
-    <div>
-      {/* Search Form */}
-      <div className="bg-white rounded-2xl shadow border border-[#ece1f7] p-5">
-        <div className="mx-auto px-8">
-          <div className="font-bold text-[16px] text-[#6E28B7] mb-4">
-            รูปแบบการค้นหา :
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header Section */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl shadow-lg">
+              <Heart className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                ผลตรวจสุขภาพ อสม.
+              </h1>
+              <p className="text-sm text-gray-500 mt-0.5">ข้อมูลผลการตรวจสุขภาพอาสาสมัครสาธารณสุข</p>
+            </div>
           </div>
-          <div className="flex flex-col gap-4 mb-4">
-            {/* Search type */}
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 cursor-pointer">
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-2xl p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-purple-100 to-violet-100 rounded-xl">
+                <Users className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">จำนวนผู้ตรวจทั้งหมด</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                  {mockList.length}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl">
+                <Heart className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">สุขภาพดี</p>
+                <p className="text-2xl font-bold text-green-600">18</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-violet-100 to-purple-100 rounded-xl">
+                <Calendar className="w-6 h-6 text-violet-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">เดือนปัจจุบัน</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                  {month}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Form */}
+        <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6 mb-6">
+          {/* Search Type Radio */}
+          <div className="mb-5">
+            <p className="text-sm font-semibold text-gray-700 mb-3">รูปแบบการค้นหา</p>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  searchType === "year" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
+                }`}>
+                  {searchType === "year" && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <span className={`text-sm font-medium ${searchType === "year" ? "text-purple-600" : "text-gray-600"}`}>
+                  ค้นหาแบบรายปี
+                </span>
                 <input
                   type="radio"
                   checked={searchType === "year"}
                   onChange={() => setSearchType("year")}
-                  className="accent-[#6E28B7]"
+                  className="sr-only"
                 />
-                <span className="text-[#6E28B7] font-medium text-[15px]">
-                  ค้นหาแบบรายปี
-                </span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  searchType === "budget" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
+                }`}>
+                  {searchType === "budget" && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <span className={`text-sm font-medium ${searchType === "budget" ? "text-purple-600" : "text-gray-600"}`}>
+                  ค้นหาแบบรายงบประมาณ
+                </span>
                 <input
                   type="radio"
                   checked={searchType === "budget"}
                   onChange={() => setSearchType("budget")}
-                  className="accent-[#6E28B7]"
+                  className="sr-only"
                 />
-                <span className="text-[#6E28B7] font-medium text-[15px]">
-                  ค้นหาแบบรายงบประมาณ
-                </span>
               </label>
             </div>
-            {/* ปี + เดือน */}
-            <div className="flex items-end gap-4">
-              {/* ปี */}
-              <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                <label className="text-[#6E28B7] font-medium text-[15px] mb-1">
-                  ปี
-                </label>
-                <div className="relative">
-                  <InputService
-                    options={years}
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                    name="year"
-                    placeholder="เลือกปี"
-                    icon={
-                      <CalendarDays
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B7B7B7]"
-                        size={20}
-                      />
-                    }
-                  />
-                </div>
-              </div>
-              {/* เดือน */}
-              <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                <label className="text-[#6E28B7] font-medium text-[15px] mb-1">
-                  เดือน
-                </label>
-                <div className="relative">
-                  <InputService
-                    options={months}
-                    value={month}
-                    onChange={(e) => setMonth(e.target.value)}
-                    name="month"
-                    placeholder="เลือกเดือน"
-                    icon={
-                      <CalendarDays
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B7B7B7]"
-                        size={20}
-                      />
-                    }
-                  />
-                </div>
-              </div>
+          </div>
+
+          {/* Year and Month */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">ปี</label>
+              <CustomSelect
+                value={year}
+                onChange={setYear}
+                options={years}
+                placeholder="-- เลือกปี --"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">เดือน</label>
+              <CustomSelect
+                value={month}
+                onChange={setMonth}
+                options={months}
+                placeholder="-- เลือกเดือน --"
+              />
             </div>
           </div>
-          {/* Actions */}
-          <div className="grid grid-cols-2 gap-4 w-full mt-3">
-            <ButtonService
-              variant="primary"
-              size="md"
-              className="w-full flex justify-center items-center gap-2"
-              icon={<Search size={20} />}
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-200"
             >
-              ค้นหา
-            </ButtonService>
-            <ButtonService
-              variant="secondary"
-              size="md"
-              className="w-full flex justify-center items-center gap-2"
-              icon={<RotateCcw size={20} />}
+              <Search size={20} />
+              <span>ค้นหา</span>
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-purple-300 text-purple-600 font-semibold rounded-xl hover:bg-purple-50 hover:border-purple-400 transition-all duration-200"
             >
-              ล้างข้อมูลการค้นหา
-            </ButtonService>
+              <X size={20} />
+              <span>ล้างข้อมูล</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Results Table Section */}
-      <div className="w-full max-w-none">
-        <div className="mx-auto py-3">
+        {/* Results Table Section */}
+        <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6">
           {/* Title and Download Dropdown */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-bold text-[#6E28B7] text-[17px]">
-              ตารางข้อมูลผลตรวจสุขภาพ อสม.
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-gray-800">ตารางข้อมูลผลตรวจสุขภาพ อสม.</h2>
+              <span className="text-sm text-gray-500">({mockList.length} รายการ)</span>
             </div>
-            <div className="relative inline-block" ref={dropdownRef}>
+            <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
-                className={buttonStyle}
-                style={{ minWidth: 200, boxShadow: "0 2px 8px #e5d9ff" }}
                 onClick={() => setOpen((s) => !s)}
-                aria-haspopup="true"
-                aria-expanded={open}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
               >
-                <span className="flex items-center">
-                  <Download className={iconStyle + " w-5 h-5"} />
-                  ดาวน์โหลดเอกสาร
-                </span>
-                <span className={splitStyle}>
-                  <ChevronDown className={arrowStyle + " w-6 h-6"} />
-                </span>
+                <Download size={18} />
+                <span className="hidden sm:inline">ดาวน์โหลดเอกสาร</span>
+                <span className="sm:hidden">ดาวน์โหลด</span>
+                <ChevronDown size={18} className={`transition-transform ${open ? "rotate-180" : ""}`} />
               </button>
               {open && (
-                <div
-                  className="absolute z-30 right-0 mt-2 w-full bg-white shadow-lg rounded-xl border border-[#ece1f7] py-2"
-                  style={{ minWidth: 180 }}
-                >
+                <div className="absolute z-30 right-0 mt-2 w-64 bg-white shadow-xl rounded-xl border border-purple-100 py-2 overflow-hidden">
                   <button
-                    className="flex items-center w-full px-5 py-3 gap-2 text-[#222] text-[17px] hover:bg-[#f6eeff] transition font-medium"
-                    onClick={() => {
-                      setOpen(false);
-                      // TODO: handle excel download
-                    }}
+                    className="flex items-center w-full px-4 py-3 gap-3 text-gray-700 hover:bg-purple-50 transition font-medium"
+                    onClick={() => setOpen(false)}
                   >
                     <Image
                       src="/xlsx.png"
                       alt="Excel icon"
-                      width={28}
-                      height={28}
-                      className="w-7 h-7"
-                      style={{ display: "inline-block" }}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6"
                     />
                     ดาวน์โหลดเอกสาร Excel
                   </button>
                   <button
-                    className="flex items-center w-full px-5 py-3 gap-2 text-[#222] text-[17px] hover:bg-[#f6eeff] transition font-medium"
-                    onClick={() => {
-                      setOpen(false);
-                      // TODO: handle pdf download
-                    }}
+                    className="flex items-center w-full px-4 py-3 gap-3 text-gray-700 hover:bg-purple-50 transition font-medium"
+                    onClick={() => setOpen(false)}
                   >
                     <Image
                       src="/pdf.png"
                       alt="PDF icon"
-                      width={28}
-                      height={28}
-                      className="w-7 h-7"
-                      style={{ display: "inline-block" }}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6"
                     />
                     ดาวน์โหลดเอกสาร PDF
                   </button>
@@ -382,54 +520,64 @@ const OsmHealthComp = () => {
               )}
             </div>
           </div>
+
           {/* Table */}
-          <div className="w-full">
-            <table className="w-full border-separate [border-spacing:0] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[500px]">
               <thead>
-                <tr>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] rounded-tl-xl text-center">
-                    วันที่
+                <tr className="bg-gradient-to-r from-purple-100 to-violet-100">
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tl-xl w-[140px]">
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar size={14} />
+                      วันที่
+                    </span>
                   </th>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] text-center ">
-                    รายชื่อ
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-left">
+                    <span className="inline-flex items-center gap-1">
+                      <Users size={14} />
+                      รายชื่อ
+                    </span>
                   </th>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] rounded-tr-xl text-center">
-                    ดาวน์โหลดผลตรวจ
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tr-xl w-[180px]">
+                    <span className="inline-flex items-center gap-1">
+                      <Download size={14} />
+                      ดาวน์โหลดผลตรวจ
+                    </span>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.map((row, idx) => (
-                  <tr key={idx} className="border-b border-[#F2EFFF]">
-                    <td className="py-3 px-2 text-center text-[#231d37] text-[15px] font-normal">
+                  <tr
+                    key={idx}
+                    className="border-b border-purple-50 hover:bg-purple-50/50 transition-colors"
+                  >
+                    <td className="py-3 px-3 text-center text-gray-600 text-sm">
                       {row.date}
                     </td>
-                    <td className="py-3 px-2 text-center text-[#231d37] text-[15px] font-normal">
+                    <td className="py-3 px-3 text-gray-800 text-sm font-medium">
                       {row.name}
                     </td>
-                    <td className="py-3 px-2 text-center">
-                      <ButtonService
-                        variant="secondary"
-                        size="md"
-                        className="flex items-center gap-2 px-4 py-1 rounded-lg border border-[#dadada] bg-[#F8F7FD] text-[#6E28B7] font-bold text-[15px] min-w-[148px] justify-center"
-                        icon={<Download size={18} />}
-                      >
-                        ดาวน์โหลดผลตรวจ
-                      </ButtonService>
+                    <td className="py-3 px-3 text-center">
+                      <button className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-600 font-semibold text-sm rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-all">
+                        <Download size={16} />
+                        <span className="hidden sm:inline">ดาวน์โหลด</span>
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {/* Pagination */}
-            <PaginationWithPerPage
-              currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
-              totalPages={totalPages}
-              itemsPerPage={itemsPerPage}
-              setItemsPerPage={setItemsPerPage}
-            />
           </div>
+
+          {/* Pagination */}
+          <PaginationWithPerPage
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            setItemsPerPage={setItemsPerPage}
+          />
         </div>
       </div>
     </div>

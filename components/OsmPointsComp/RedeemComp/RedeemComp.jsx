@@ -8,6 +8,14 @@ import {
   Plus,
   Trash2,
   X,
+  Gift,
+  Star,
+  Package,
+  Calendar,
+  Coins,
+  Search,
+  Filter,
+  Eye,
 } from "lucide-react";
 import alertService from "@services/alertService/alertService";
 
@@ -30,9 +38,9 @@ function getPageNumbers(currentPage, totalPages) {
 }
 
 const PER_PAGE_OPTIONS = [
-  { label: "10", value: 10 },
-  { label: "20", value: 20 },
-  { label: "50", value: 50 },
+  { label: "12", value: 12 },
+  { label: "24", value: 24 },
+  { label: "48", value: 48 },
   { label: "100", value: 100 },
 ];
 
@@ -418,21 +426,251 @@ function PaginationWithPerPage({
   );
 }
 
+// Mock data สำหรับรางวัล - ใช้รูปสินค้าจริงจาก Unsplash
+const mockRewardsData = [
+  {
+    id: 1,
+    name: "เสื้อโปโล OSM",
+    description: "เสื้อโปโลคุณภาพดี สีม่วง พร้อมโลโก้ OSM",
+    imageUrl: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=400&h=400&fit=crop",
+    points: 500,
+    totalCount: 50,
+    remainingCount: 35,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+  {
+    id: 2,
+    name: "กระเป๋าผ้า OSM",
+    description: "กระเป๋าผ้าแคนวาส ทนทาน จุของได้เยอะ",
+    imageUrl: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=400&h=400&fit=crop",
+    points: 800,
+    totalCount: 30,
+    remainingCount: 20,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+  {
+    id: 3,
+    name: "แก้วน้ำสแตนเลส",
+    description: "แก้วน้ำสแตนเลส เก็บความเย็น 24 ชม.",
+    imageUrl: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&h=400&fit=crop",
+    points: 1200,
+    totalCount: 40,
+    remainingCount: 28,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+  {
+    id: 5,
+    name: "Power Bank 10000mAh",
+    description: "แบตสำรอง ความจุ 10000mAh ชาร์จเร็ว",
+    imageUrl: "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=400&fit=crop",
+    points: 2500,
+    totalCount: 20,
+    remainingCount: 12,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+  {
+    id: 6,
+    name: "หูฟังบลูทูธ",
+    description: "หูฟังบลูทูธไร้สาย คุณภาพเสียงดี",
+    imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop",
+    points: 3500,
+    totalCount: 15,
+    remainingCount: 8,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+  {
+    id: 7,
+    name: "นาฬิกาสมาร์ทวอทช์",
+    description: "สมาร์ทวอทช์ วัดชีพจร นับก้าว แจ้งเตือน",
+    imageUrl: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=400&h=400&fit=crop",
+    points: 5000,
+    totalCount: 10,
+    remainingCount: 5,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+  {
+    id: 8,
+    name: "แท็บเล็ต 10 นิ้ว",
+    description: "แท็บเล็ต 10 นิ้ว RAM 4GB ROM 64GB",
+    imageUrl: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400&h=400&fit=crop",
+    points: 8000,
+    totalCount: 5,
+    remainingCount: 3,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+  {
+    id: 9,
+    name: "บัตรของขวัญ 1000 บาท",
+    description: "บัตรของขวัญมูลค่า 1000 บาท ใช้ได้ทุกสาขา",
+    imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=400&h=400&fit=crop",
+    points: 10000,
+    totalCount: 20,
+    remainingCount: 12,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+  {
+    id: 11,
+    name: "โน้ตบุ๊ค",
+    description: "โน้ตบุ๊ค Intel Core i5 RAM 8GB SSD 256GB",
+    imageUrl: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop",
+    points: 15000,
+    totalCount: 3,
+    remainingCount: 2,
+    limit: 1,
+    startDate: "2025-01-01",
+    endDate: "2025-12-31",
+  },
+];
+
+// Helper function to get stock status
+function getStockStatus(remaining, total) {
+  const percentage = (remaining / total) * 100;
+  if (percentage <= 10) return { label: "ใกล้หมด", color: "bg-red-500", textColor: "text-red-600" };
+  if (percentage <= 30) return { label: "เหลือน้อย", color: "bg-orange-500", textColor: "text-orange-600" };
+  return { label: "มีสินค้า", color: "bg-green-500", textColor: "text-green-600" };
+}
+
+// Reward Card Component
+function RewardCard({ reward, onDelete, index }) {
+  const stockStatus = getStockStatus(reward.remainingCount || reward.totalCount, reward.totalCount);
+  const stockPercentage = ((reward.remainingCount || reward.totalCount) / reward.totalCount) * 100;
+
+  return (
+    <div className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-[#f0ebff] hover:border-[#c4a8ff] hover:-translate-y-1">
+      {/* Points Badge */}
+      <div className="absolute top-3 right-3 z-10">
+        <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-bold text-sm shadow-lg">
+          <Coins size={14} />
+          <span>{reward.points?.toLocaleString() || 0}</span>
+        </div>
+      </div>
+
+      {/* Image Section */}
+      <div className="relative h-48 bg-gradient-to-br from-[#f8f4ff] to-[#ede4ff] flex items-center justify-center overflow-hidden">
+        {reward.imageUrl || reward.image ? (
+          <Image
+            src={reward.imageUrl || reward.image}
+            alt={reward.name}
+            fill
+            className="object-contain p-4 group-hover:scale-110 transition-transform duration-300"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-[#c4a8ff]">
+            <Gift size={64} strokeWidth={1.5} />
+            <span className="text-sm mt-2">ไม่มีรูปภาพ</span>
+          </div>
+        )}
+      </div>
+
+      {/* Content Section */}
+      <div className="p-4">
+        {/* Title */}
+        <h3 className="font-bold text-[#231d37] text-lg mb-2 line-clamp-1 group-hover:text-[#7e32e2] transition-colors">
+          {reward.name}
+        </h3>
+
+        {/* Description */}
+        <p className="text-gray-500 text-sm mb-3 line-clamp-2 min-h-[40px]">
+          {reward.description || "ไม่มีรายละเอียด"}
+        </p>
+
+        {/* Date Range */}
+        <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
+          <Calendar size={14} className="text-[#7e32e2]" />
+          <span>
+            {reward.startDate && reward.endDate
+              ? `${formatThaiDate(reward.startDate)} - ${formatThaiDate(reward.endDate)}`
+              : "ไม่ระบุระยะเวลา"}
+          </span>
+        </div>
+
+        {/* Stock Status */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-sm text-gray-600 flex items-center gap-1">
+              <Package size={14} />
+              คงเหลือ
+            </span>
+            <span className={`text-sm font-semibold ${stockStatus.textColor}`}>
+              {reward.remainingCount || reward.totalCount}/{reward.totalCount} ชิ้น
+            </span>
+          </div>
+          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${stockStatus.color} rounded-full transition-all duration-500`}
+              style={{ width: `${stockPercentage}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className={`text-xs font-medium ${stockStatus.textColor}`}>
+              {stockStatus.label}
+            </span>
+            <span className="text-xs text-gray-400">
+              จำกัด {reward.limit || 1} ชิ้น/คน
+            </span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <button
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:from-[#6b28c9] hover:to-[#9333ea] transition-all duration-200"
+            onClick={() => {}}
+          >
+            <Eye size={16} />
+            ดูรายละเอียด
+          </button>
+          <button
+            className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl border-2 border-red-200 text-red-500 font-semibold text-sm hover:bg-red-50 hover:border-red-300 transition-all duration-200"
+            onClick={() => onDelete(index)}
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const RedeemComp = () => {
   // Modal state
   const [addModalOpen, setAddModalOpen] = useState(false);
 
-  // Rewards list
-  const [rewards, setRewards] = useState([]);
+  // Rewards list - เริ่มต้นด้วย mock data
+  const [rewards, setRewards] = useState(mockRewardsData);
+
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Pagination state
   const [page, setPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+
+  // Filter rewards by search
+  const filteredRewards = rewards.filter((r) =>
+    r.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Derived pagination
-  const totalItems = rewards.length;
+  const totalItems = filteredRewards.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-  const paginatedRewards = rewards.slice(
+  const paginatedRewards = filteredRewards.slice(
     (page - 1) * itemsPerPage,
     page * itemsPerPage
   );
@@ -450,136 +688,134 @@ const RedeemComp = () => {
       "หากลบแล้วจะไม่สามารถกู้คืนได้"
     );
     if (result.isConfirmed) {
-      setRewards((prev) => prev.filter((_, i) => i !== idx));
+      const actualIdx = (page - 1) * itemsPerPage + idx;
+      setRewards((prev) => prev.filter((_, i) => i !== actualIdx));
       alertService.success("ลบของรางวัลเรียบร้อยแล้ว");
     }
   }
 
+  // Stats calculations
+  const totalRewards = rewards.length;
+  const totalStock = rewards.reduce((sum, r) => sum + (r.totalCount || 0), 0);
+  const remainingStock = rewards.reduce((sum, r) => sum + (r.remainingCount || r.totalCount || 0), 0);
+
   return (
-    <div className="w-full h-full bg-transparent p-0 m-0">
+    <div className="w-full min-h-screen bg-gradient-to-br from-[#faf8ff] via-white to-[#f5f0ff] p-4 sm:p-6">
       {/* Modal */}
       <AddRewardModal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdd={handleAddReward}
       />
-      {/* Header & Add button */}
-      <div className="flex flex-col sm:flex-row items-center justify-between mb-3 mt-2 px-2 gap-2">
-        <div className="font-bold text-[#7e32e2] text-[18px]">
-          เกณฑ์การแลกรางวัล
+
+      {/* Header Section with Gradient */}
+      <div className="relative mb-8 rounded-3xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
+        <div className="absolute inset-0 bg-white/5" />
+
+        <div className="relative p-6 sm:p-8">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            {/* Title & Stats */}
+            <div className="text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <Gift size={28} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold">เกณฑ์การแลกรางวัล</h1>
+                  <p className="text-white/80 text-sm mt-1">จัดการของรางวัลและคะแนนสะสม</p>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="flex flex-wrap gap-4 mt-4">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl">
+                  <Package size={18} />
+                  <span className="font-semibold">{totalRewards}</span>
+                  <span className="text-white/80 text-sm">รางวัลทั้งหมด</span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl">
+                  <Star size={18} />
+                  <span className="font-semibold">{remainingStock.toLocaleString()}</span>
+                  <span className="text-white/80 text-sm">/ {totalStock.toLocaleString()} ชิ้น</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Add Button */}
+            <button
+              className="flex items-center gap-2 px-6 py-3 bg-white text-[#7e32e2] font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+              onClick={() => setAddModalOpen(true)}
+            >
+              <Plus size={20} />
+              เพิ่มของรางวัล
+            </button>
+          </div>
         </div>
-        <button
-          className="flex items-center gap-2 px-5 py-2 border border-[#7e32e2] rounded-xl bg-white text-[#7e32e2] font-semibold shadow hover:bg-[#f6eeff] transition text-[16px] whitespace-nowrap"
-          style={{ minWidth: 180 }}
-          onClick={() => setAddModalOpen(true)}
-        >
-          <Plus size={18} className="mr-2" />
-          เพิ่มของรางวัล
-        </button>
       </div>
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table
-          className="w-full border-separate rounded-xl shadow-lg"
-          style={{
-            borderSpacing: 0,
-            minWidth: 600,
-            background: "white",
-            border: "1px solid #ece1f7",
-          }}
-        >
-          <thead>
-            <tr style={{ background: "#ead5ff" }} className="text-[#7e32e2]">
-              <th className="py-3 px-2 sm:px-4 font-semibold text-center rounded-tl-xl border-b border-[#ece1f7] text-[16px] whitespace-nowrap">
-                รูปภาพ
-              </th>
-              <th className="py-3 px-2 sm:px-4 font-semibold text-center border-b border-[#ece1f7] text-[16px] whitespace-nowrap">
-                ชื่อรางวัล
-              </th>
-              <th className="py-3 px-2 sm:px-4 font-semibold text-center border-b border-[#ece1f7] text-[16px] whitespace-nowrap">
-                ระยะเวลา
-              </th>
-              <th className="py-3 px-2 sm:px-4 font-semibold text-center border-b border-[#ece1f7] text-[16px] whitespace-nowrap">
-                คะแนนที่ต้องใช้
-              </th>
-              <th className="py-3 px-2 sm:px-4 font-semibold text-center border-b border-[#ece1f7] text-[16px] whitespace-nowrap">
-                จำนวนทั้งหมด
-              </th>
-              <th className="py-3 px-2 sm:px-4 font-semibold text-center rounded-tr-xl border-b border-[#ece1f7] text-[16px] whitespace-nowrap">
-                จัดการ
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedRewards.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="py-16 sm:py-32 text-center text-[#c4c4c4] text-[17px] font-medium tracking-wide bg-white"
-                  style={{
-                    borderBottomLeftRadius: "12px",
-                    borderBottomRightRadius: "12px",
-                  }}
-                >
-                  ไม่พบข้อมูล
-                </td>
-              </tr>
-            ) : (
-              paginatedRewards.map((reward, idx) => (
-                <tr key={idx} className="bg-white">
-                  <td className="py-1 px-2 sm:px-4 text-center align-middle">
-                    {reward.image && (
-                      <Image
-                        src={reward.image}
-                        alt="reward"
-                        width={48}
-                        height={48}
-                        className="w-12 h-12 object-contain rounded-lg mx-auto"
-                        style={{ background: "#fff" }}
-                      />
-                    )}
-                  </td>
-                  <td className="py-1 px-2 sm:px-4 align-middle text-left font-medium text-[#231d37]">
-                    {reward.name}
-                  </td>
-                  <td className="py-1 px-2 sm:px-4 align-middle text-center text-[#231d37]">
-                    {reward.startDate && reward.endDate
-                      ? `${formatThaiDate(reward.startDate)} - ${formatThaiDate(
-                          reward.endDate
-                        )}`
-                      : "-"}
-                  </td>
-                  <td className="py-1 px-2 sm:px-4 align-middle text-center text-[#231d37]">
-                    {reward.points || "-"}
-                  </td>
-                  <td className="py-1 px-2 sm:px-4 align-middle text-center text-[#231d37]">
-                    {reward.totalCount || "-"}
-                  </td>
-                  <td className="py-1 px-2 sm:px-4 align-middle text-center">
-                    <button
-                      className="flex items-center gap-2 px-4 py-2 border border-[#e23a3a] rounded-xl bg-white text-[#e23a3a] font-semibold shadow hover:bg-[#ffe5e5] transition text-[15px]"
-                      onClick={() =>
-                        handleDeleteReward((page - 1) * itemsPerPage + idx)
-                      }
-                    >
-                      <Trash2 size={18} className="mr-1" />
-                      ลบของรางวัล
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+        <div className="relative flex-1 w-full">
+          <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="ค้นหาของรางวัล..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
+            className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-[#ece1f7] bg-white focus:outline-none focus:border-[#7e32e2] focus:ring-2 focus:ring-[#7e32e2]/20 transition-all duration-200 text-[15px]"
+          />
+        </div>
+        <div className="flex items-center gap-2 px-4 py-3 bg-white rounded-xl border-2 border-[#ece1f7]">
+          <Filter size={18} className="text-[#7e32e2]" />
+          <span className="text-gray-600 text-sm">
+            แสดง <span className="font-bold text-[#7e32e2]">{filteredRewards.length}</span> รายการ
+          </span>
+        </div>
       </div>
-      {/* Pagination - styled and responsive */}
-      <PaginationWithPerPage
-        currentPage={page}
-        setCurrentPage={setPage}
-        totalPages={totalPages}
-        itemsPerPage={itemsPerPage}
-        setItemsPerPage={setItemsPerPage}
-      />
+
+      {/* Rewards Grid */}
+      {paginatedRewards.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-[#ece1f7]">
+          <Gift size={64} className="text-[#c4a8ff] mb-4" />
+          <h3 className="text-xl font-semibold text-gray-600 mb-2">ไม่พบของรางวัล</h3>
+          <p className="text-gray-400 text-center mb-6">
+            {searchTerm ? "ลองค้นหาด้วยคำอื่น หรือ" : "ยังไม่มีของรางวัลในระบบ"}
+          </p>
+          <button
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
+            onClick={() => setAddModalOpen(true)}
+          >
+            <Plus size={18} />
+            เพิ่มของรางวัลใหม่
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {paginatedRewards.map((reward, idx) => (
+            <RewardCard
+              key={reward.id || idx}
+              reward={reward}
+              onDelete={handleDeleteReward}
+              index={idx}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {filteredRewards.length > 0 && (
+        <PaginationWithPerPage
+          currentPage={page}
+          setCurrentPage={setPage}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+        />
+      )}
     </div>
   );
 };

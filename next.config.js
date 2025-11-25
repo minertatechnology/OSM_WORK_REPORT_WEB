@@ -10,6 +10,16 @@ const nextConfig = {
   // แก้ไขปัญหา Image Optimization สำหรับ export mode
   images: {
     unoptimized: isExport,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn-icons-png.flaticon.com",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+    ],
   },
 
   webpack: (config, { isServer }) => {

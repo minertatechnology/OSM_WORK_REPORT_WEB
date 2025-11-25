@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Users,
   ClipboardList,
@@ -6,12 +6,13 @@ import {
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
-  // Eye,
+  Search,
+  Shield,
+  ChevronDown,
 } from "lucide-react";
 import { useRouter } from "next/router";
-import AccessControlTable from "@services/Table/AccessControlTable"; // ← ใช้ table ตาม path ที่ระบุ
-import InputService from "@services/inputService/inputService";
-import ButtonService from "@services/buttonService/buttonService";
+import AccessControlTable from "@services/Table/AccessControlTable";
+
 // -------------------- MOCK DATA --------------------
 export const mockList = [
   {
@@ -395,22 +396,11 @@ export const mockList = [
     },
   },
 ];
-// -------------------- PAGINATION TABLE COMPONENT --------------------
-// const PER_PAGE_OPTIONS = [
-//   { label: "5", value: 5 },
-//   { label: "10", value: 10 },
-//   { label: "20", value: 20 },
-//   { label: "50", value: 50 },
-// ];
 
+// -------------------- PAGINATION TABLE COMPONENT --------------------
 function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(defaultItemsPerPage);
-
-  // const handleItemsPerPageChange = (newItemsPerPage) => {
-  //   setItemsPerPage(newItemsPerPage);
-  //   setCurrentPage(1);
-  // };
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -457,20 +447,22 @@ function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) 
   return (
     <div className="w-full">
       {/* Table */}
-      <AccessControlTable rows={paginatedData} onDetail={onDetail} />
+      <div className="overflow-x-auto rounded-xl border border-violet-100">
+        <AccessControlTable rows={paginatedData} onDetail={onDetail} />
+      </div>
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-[#f0ebff]">
-          <div className="text-sm text-gray-600">
-            แสดง <span className="font-medium text-[#7e32e2]">{startItem}</span>{" "}
-            ถึง <span className="font-medium text-[#7e32e2]">{endItem}</span>{" "}
-            จาก <span className="font-medium text-[#7e32e2]">{data.length}</span> รายการ
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-violet-100">
+          <div className="text-sm text-gray-600 order-2 sm:order-1">
+            แสดง <span className="font-semibold text-[#7e32e2]">{startItem}</span>{" "}
+            ถึง <span className="font-semibold text-[#7e32e2]">{endItem}</span>{" "}
+            จาก <span className="font-semibold text-[#7e32e2]">{data.length}</span> รายการ
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 order-1 sm:order-2">
             <button
               onClick={() => handlePageChange(1)}
               disabled={currentPage === 1}
-              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "text-[#7e32e2] hover:bg-violet-100 hover:scale-105"}`}
+              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === 1 ? "text-gray-300 cursor-not-allowed" : "text-[#7e32e2] hover:bg-violet-100 active:scale-95"}`}
               title="หน้าแรก"
             >
               <ChevronsLeft size={18} />
@@ -478,23 +470,23 @@ function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) 
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "text-[#7e32e2] hover:bg-violet-100 hover:scale-105"}`}
+              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === 1 ? "text-gray-300 cursor-not-allowed" : "text-[#7e32e2] hover:bg-violet-100 active:scale-95"}`}
               title="หน้าก่อนหน้า"
             >
               <ChevronLeft size={18} />
             </button>
-            <div className="flex items-center gap-1 mx-2">
+            <div className="flex items-center gap-1 mx-1 sm:mx-2">
               {getPageNumbers().map((page, idx) => (
                 <React.Fragment key={idx}>
                   {page === "..." ? (
-                    <span className="px-3 py-2 text-gray-400">...</span>
+                    <span className="px-2 sm:px-3 py-2 text-gray-400 text-sm">...</span>
                   ) : (
                     <button
                       onClick={() => handlePageChange(page)}
-                      className={`min-w-[40px] h-10 rounded-lg font-medium transition-all duration-200 ${
+                      className={`min-w-[36px] sm:min-w-[40px] h-9 sm:h-10 rounded-lg font-medium text-sm transition-all duration-200 ${
                         currentPage === page
-                          ? "bg-[#7e32e2] text-white shadow-lg scale-105"
-                          : "text-[#7e32e2] hover:bg-violet-100 hover:scale-105"
+                          ? "bg-gradient-to-r from-[#7e32e2] to-[#9b4dff] text-white shadow-lg shadow-violet-300"
+                          : "text-[#7e32e2] hover:bg-violet-100 active:scale-95"
                       }`}
                     >
                       {page}
@@ -506,7 +498,7 @@ function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) 
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "text-[#7e32e2] hover:bg-violet-100 hover:scale-105"}`}
+              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === totalPages ? "text-gray-300 cursor-not-allowed" : "text-[#7e32e2] hover:bg-violet-100 active:scale-95"}`}
               title="หน้าถัดไป"
             >
               <ChevronRight size={18} />
@@ -514,12 +506,133 @@ function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) 
             <button
               onClick={() => handlePageChange(totalPages)}
               disabled={currentPage === totalPages}
-              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "text-[#7e32e2] hover:bg-violet-100 hover:scale-105"}`}
+              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === totalPages ? "text-gray-300 cursor-not-allowed" : "text-[#7e32e2] hover:bg-violet-100 active:scale-95"}`}
               title="หน้าสุดท้าย"
             >
               <ChevronsRight size={18} />
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------------------- CUSTOM SELECT COMPONENT --------------------
+function RoleSelect({ value, onChange, options }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSelect = (option) => {
+    onChange(option);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (event) => {
+    if (!isOpen) {
+      if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case 'Escape':
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        setHighlightedIndex(prev =>
+          prev < options.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setHighlightedIndex(prev =>
+          prev > 0 ? prev - 1 : options.length - 1
+        );
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (highlightedIndex >= 0) {
+          handleSelect(options[highlightedIndex]);
+        }
+        break;
+    }
+  };
+
+  return (
+    <div className="w-full lg:w-64 relative" ref={dropdownRef}>
+      <div
+        className={`w-full h-12 px-4 rounded-xl border-2 ${
+          isOpen ? 'border-[#7e32e2] ring-2 ring-violet-200' : 'border-violet-200'
+        } bg-gradient-to-r from-violet-50/80 to-purple-50/80 text-gray-700 font-medium hover:border-violet-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
+        onClick={handleToggle}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="combobox"
+        aria-expanded={isOpen}
+      >
+        <span className={value ? 'text-gray-700' : 'text-gray-500'}>
+          {value || "เลือกบทบาทเจ้าหน้าที่"}
+        </span>
+        <ChevronDown
+          size={20}
+          className={`text-violet-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-violet-200 shadow-xl max-h-64 overflow-auto">
+          <ul role="listbox">
+            <li
+              className={`px-4 py-3 cursor-pointer transition-colors ${
+                !value ? 'bg-violet-50 text-[#7e32e2] font-semibold' : 'hover:bg-violet-50 text-gray-700'
+              }`}
+              onClick={() => handleSelect("")}
+              role="option"
+            >
+              เลือกบทบาทเจ้าหน้าที่
+            </li>
+            {options.map((option, index) => (
+              <li
+                key={option}
+                className={`px-4 py-3 cursor-pointer transition-colors ${
+                  value === option
+                    ? 'bg-gradient-to-r from-violet-100 to-purple-100 text-[#7e32e2] font-semibold border-l-4 border-[#7e32e2]'
+                    : highlightedIndex === index
+                    ? 'bg-violet-50 text-gray-700'
+                    : 'hover:bg-violet-50 text-gray-700'
+                }`}
+                onClick={() => handleSelect(option)}
+                role="option"
+                aria-selected={value === option}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
@@ -532,20 +645,13 @@ export default function AccessControlComp() {
   const [searchRole, setSearchRole] = useState("");
   const [filteredList, setFilteredList] = useState(mockList);
 
-  // สำหรับ modal รายละเอียด
-  // const [detailOpen, setDetailOpen] = useState(false);
-  // const [detailData, setDetailData] = useState(null);
-
-  // Next.js router
   const router = useRouter();
 
-  // สร้างบทบาทจากข้อมูล (unique)
   const roleOptions = useMemo(() => {
     const roles = mockList.map(x => x.role);
     return Array.from(new Set(roles));
   }, []);
 
-  // ฟังก์ชันค้นหา
   const handleSearch = (e) => {
     e?.preventDefault?.();
     const keyword = search.trim();
@@ -557,143 +663,163 @@ export default function AccessControlComp() {
     setFilteredList(filtered);
   };
 
-  // กด Enter ในช่องค้นหา = trigger handleSearch
   const handleKeyDown = (e) => {
     if (e.key === "Enter") handleSearch();
   };
 
-  // ฟังก์ชันไปหน้าแก้ไขสิทธิ์
   const handleEdit = () => {
     router.push("/access-control/edit");
   };
 
+  const handleClear = () => {
+    setSearch("");
+    setSearchRole("");
+    setFilteredList(mockList);
+  };
+
   return (
-    <div className="w-full min-h-screen bg-violet-50 flex items-start justify-center p-0 box-border">
-      <div className="w-full max-w-[1200px] min-h-screen bg-white shadow-lg rounded-2xl px-8 py-8 mx-auto flex flex-col">
-        {/* Top Badge Section */}
-      <div className="flex gap-6 items-stretch mb-6 w-full">
-        {/* Card: จำนวนบทบาททางเจ้าหน้าที่ */}
-        <div className="flex-1 bg-violet-50 border-2 border-violet-200 rounded-[18px] px-7 py-5 min-w-[240px] max-w-[480px] flex flex-col justify-between">
-          <div className="flex items-center gap-3 mb-7">
-            <div className="flex items-center justify-center bg-[#eadcff] rounded-full w-[40px] h-[40px]">
-              <ClipboardList size={22} color="#7e32e2" />
+    <div className="w-full min-h-screen bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2.5 bg-gradient-to-r from-[#7e32e2] to-[#9b4dff] rounded-xl shadow-lg shadow-violet-300">
+              <Shield size={24} className="text-white" />
             </div>
-            <div className="flex flex-col gap-0">
-            <div className="text-[17px] font-bold text-black">จำนวนบทบาททางเจ้าหน้าที่</div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
+              กำหนดสิทธิ์การเข้าถึง
+            </h1>
           </div>
+          <p className="text-sm sm:text-base text-gray-500 ml-0 sm:ml-14">
+            จัดการสิทธิ์และบทบาทของเจ้าหน้าที่ในระบบ
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          {/* Card: จำนวนบทบาททางเจ้าหน้าที่ */}
+          <div className="bg-white rounded-2xl shadow-sm border border-violet-100 p-5 sm:p-6 hover:shadow-md hover:border-violet-200 transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-violet-100 to-purple-100 rounded-xl">
+                    <ClipboardList size={22} className="text-[#7e32e2]" />
+                  </div>
+                  <span className="text-sm sm:text-base font-semibold text-gray-700">
+                    จำนวนบทบาททางเจ้าหน้าที่
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-[#7e32e2] to-[#9b4dff] bg-clip-text text-transparent">
+                    {roleOptions.length}
+                  </span>
+                  <span className="text-base sm:text-lg font-semibold text-[#7e32e2]">
+                    บทบาท
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-end justify-between w-full">
-            <span className="text-[22px] font-extrabold text-[#7e32e2] leading-none">{roleOptions.length}</span>
-            <span className="text-[16px] font-bold text-[#7e32e2] mb-[2px]">บทบาท</span>
+
+          {/* Card: จำนวนเจ้าหน้าที่ทั้งหมด */}
+          <div className="bg-white rounded-2xl shadow-sm border border-violet-100 p-5 sm:p-6 hover:shadow-md hover:border-violet-200 transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-violet-100 to-purple-100 rounded-xl">
+                    <Users size={22} className="text-[#7e32e2]" />
+                  </div>
+                  <span className="text-sm sm:text-base font-semibold text-gray-700">
+                    จำนวนเจ้าหน้าที่ทั้งหมด
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-[#7e32e2] to-[#9b4dff] bg-clip-text text-transparent">
+                    {mockList.length.toLocaleString("th-TH")}
+                  </span>
+                  <span className="text-base sm:text-lg font-semibold text-[#7e32e2]">
+                    คน
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        {/* Card: จำนวนเจ้าหน้าที่ทั้งหมด */}
-        <div className="flex-1 bg-violet-50 border-2 border-violet-200 rounded-[18px] px-7 py-5 min-w-[240px] max-w-[480px] flex flex-col justify-between">
-          <div className="flex items-center gap-3 mb-7">
-            <div className="flex items-center justify-center bg-[#eadcff] rounded-full w-[40px] h-[40px]">
-              <Users size={22} color="#7e32e2" />
+
+        {/* Search & Filter Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-violet-100 p-4 sm:p-6 mb-6">
+          <form onSubmit={handleSearch}>
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Search Input */}
+              <div className="flex-1 relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Search size={20} />
+                </div>
+                <input
+                  type="text"
+                  className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-violet-200 bg-violet-50/50 text-gray-700 placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-violet-200 focus:bg-white transition-all duration-200 text-sm sm:text-base"
+                  placeholder="ค้นหาชื่อ, ตำแหน่ง, หรือบทบาท..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
+              </div>
+
+              {/* Role Select */}
+              <RoleSelect
+                value={searchRole}
+                onChange={setSearchRole}
+                options={roleOptions}
+              />
+
+              {/* Buttons */}
+              <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+                <button
+                  type="submit"
+                  className="flex-1 sm:flex-none h-12 px-6 bg-gradient-to-r from-[#7e32e2] to-[#9b4dff] text-white font-semibold rounded-xl shadow-lg shadow-violet-300 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <Search size={18} />
+                  <span>ค้นหา</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="flex-1 sm:flex-none h-12 px-6 bg-gray-100 text-gray-600 font-semibold rounded-xl hover:bg-gray-200 active:scale-[0.98] transition-all duration-200"
+                >
+                  ล้าง
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  className="flex-1 sm:flex-none h-12 px-6 border-2 border-[#7e32e2] text-[#7e32e2] font-semibold rounded-xl hover:bg-violet-50 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <ClipboardList size={18} />
+                  <span className="hidden sm:inline">จัดการสิทธิ์</span>
+                  <span className="sm:hidden">จัดการ</span>
+                </button>
+              </div>
             </div>
-            <div className="flex flex-col gap-0">
-            <div className="text-[17px] font-bold text-black">จำนวนเจ้าหน้าที่ทั้งหมด</div>
-          </div>
-          </div>
-          <div className="flex items-end justify-between w-full">
-            <span className="text-[22px] font-extrabold text-[#7e32e2] leading-none">{mockList.length.toLocaleString("th-TH")}</span>
-            <span className="text-[16px] font-bold text-[#7e32e2] mb-[2px]">คน</span>
-          </div>
+          </form>
         </div>
-      </div>
 
-        {/* Search Row + ปุ่มจัดการสิทธิ์ */}
-        <form
-          className="flex gap-4 mb-4 items-center flex-nowrap"
-          onSubmit={handleSearch}
-        >
-          <div className="flex-1 min-w-[200px]">
-            <InputService
-              type="text"
-              className="w-full rounded-lg border border-violet-300 px-4 py-2 text-[16px] bg-violet-50 text-[#231d37] h-12"
-              placeholder="ค้นหารายชื่อ, ตำแหน่ง, หรือบทบาท"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={handleKeyDown}
-              style={{
-                border: "1.5px solid #c5a8fa",
-                background: "#f6f2ff",
-                fontSize: 16,
-                color: "#231d37",
-                height: 48,
-              }}
-            />
+        {/* Table Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-violet-100 p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-800">
+              รายชื่อเจ้าหน้าที่
+            </h2>
+            <span className="text-sm text-gray-500">
+              ทั้งหมด {filteredList.length} รายการ
+            </span>
           </div>
-          <div className="min-w-[220px]">
-            <InputService
-              options={[
-                { value: "", label: "เลือกบทบาทเจ้าหน้าที่" },
-                ...roleOptions
-              ]}
-              value={searchRole}
-              onChange={e => setSearchRole(e.value || e.target.value)}
-              clearable={true}
-              className="w-full rounded-lg border border-violet-300 px-3 py-2 text-[16px] bg-violet-50 text-[#231d37] h-12"
-              style={{
-                border: "1.5px solid #c5a8fa",
-                background: "#f6f2ff",
-                fontSize: 16,
-                color: "#231d37",
-                height: 48,
-              }}
-            />
-          </div>
-          <ButtonService
-            type="submit"
-            variant="primary"
-            size="md"
-            className="flex items-center h-12"
-            style={{
-              height: 48,
-              fontSize: 16,
-              fontWeight: 700,
-              borderRadius: "0.75rem",
-              paddingLeft: 28,
-              paddingRight: 28,
-              backgroundColor: "#7e32e2",
+          <TableWithPagination
+            data={filteredList}
+            defaultItemsPerPage={10}
+            onDetail={(row) => {
+              console.log('Detail clicked for:', row);
             }}
-          >
-            ค้นหา
-          </ButtonService>
-          <ButtonService
-            type="button"
-            variant="secondary"
-            size="md"
-            icon={<ClipboardList size={18} className="mr-2" />}
-            className="ml-auto flex items-center h-12"
-            onClick={handleEdit}
-            style={{
-              height: 48,
-              fontSize: 16,
-              fontWeight: 700,
-              borderRadius: "0.75rem",
-              paddingLeft: 20,
-              paddingRight: 20,
-              borderWidth: 2,
-              borderColor: "#7e32e2",
-              color: "#7e32e2",
-            }}
-          >
-            จัดการสิทธิ์การเข้าถึง
-          </ButtonService>
-        </form>
-
-        {/* Table Section with Pagination */}
-        <TableWithPagination
-          data={filteredList}
-          defaultItemsPerPage={10}
-          onDetail={(row) => {
-            // TODO: Implement detail modal functionality
-            console.log('Detail clicked for:', row);
-          }}
-        />
+          />
+        </div>
       </div>
     </div>
   );

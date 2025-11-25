@@ -1,22 +1,18 @@
 import Layout from "@components/layout/Layout";
 import PregnantReportComp from "@components/PregnantReportComp/PregnantReportComp";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
 const PregnantReport = () => {
   const { setLoading } = useLoading();
 
-  useLayoutEffect(() => {
-    // Show loading when page starts loading
-    setLoading(true);
-  }, [setLoading]);
-
   useEffect(() => {
-    // ปิด loading เมื่อ component mount และ render เสร็จ
-    setLoading(false);
-
+    // Briefly show loading on mount; always clear on unmount
+    setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 0);
     return () => {
-      setLoading(false); // ปิด loading เมื่อ component unmount
+      clearTimeout(timer);
+      setLoading(false);
     };
   }, [setLoading]);
 

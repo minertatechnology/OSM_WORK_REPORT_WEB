@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import ButtonService from "@services/buttonService/buttonService";
 import InputService from "@services/inputService/inputService";
 import {
@@ -14,6 +15,12 @@ import {
   Mail,
   BadgeCheck,
   Package,
+  TruckIcon,
+  CheckCircle,
+  Clock,
+  ArrowLeft,
+  Search,
+  Filter,
 } from "lucide-react";
 import alertService from "@services/alertService/alertService";
 
@@ -214,98 +221,150 @@ function DetailModal({ open, onClose, onApprove, data }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-      <div className="bg-white rounded-xl shadow-2xl max-w-[480px] w-full p-7 relative animate-fadein">
-        {/* Header */}
-        <div className="font-bold text-lg text-[#6E28B7] mb-2">รายละเอียด</div>
-        {/* ชื่อและตำแหน่ง */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="flex items-center gap-2 text-[#6E28B7] font-medium">
-            <User2 size={18} />
-            <span>ชื่อ-นามสกุล</span>
-          </div>
-          <div className="flex items-center gap-2 text-[#6E28B7] font-medium">
-            <BadgeCheck size={18} />
-            <span>ระดับตำแหน่ง</span>
-          </div>
-          <div className="col-span-1 pl-6 text-[#231d37]">
-            {data.detail.name}
-          </div>
-          <div className="col-span-1 pl-6 text-[#231d37]">
-            {data.detail.position}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-[520px] w-full mx-4 overflow-hidden border-2 border-[#f0ebff]">
+        {/* Header with Gradient */}
+        <div className="relative p-6 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]">
+          <div className="flex items-center gap-3 text-white">
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <User2 size={24} />
+            </div>
+            <h2 className="text-xl font-bold">รายละเอียดผู้ขอแลกรางวัล</h2>
           </div>
         </div>
-        {/* สังกัดปัจจุบัน */}
-        <div className="flex items-center gap-2 mb-3 text-[#6E28B7] font-medium">
-          <Package size={18} />
-          <span>สังกัดปัจจุบัน</span>
-        </div>
-        <div className="pl-6 mb-4 text-[#231d37]">{data.detail.hospital}</div>
-        {/* ข้อมูลที่อยู่ */}
-        <div className="font-bold mb-3 text-[#6E28B7]">ที่อยู่</div>
-        <div className="grid grid-cols-2 gap-y-2 gap-x-7 text-[15px] text-[#231d37] mb-2">
-          <div className="flex items-center gap-2">
-            <Home size={16} />
-            <span>บ้านเลขที่</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <LocateIcon size={16} />
-            <span>ซอย</span>
-          </div>
-          <div className="pl-6">{data.detail.address.house}</div>
-          <div className="pl-6">{data.detail.address.alley}</div>
 
-          <div className="flex items-center gap-2">
-            <Landmark size={16} />
-            <span>หมู่ที่</span>
+        <div className="p-6">
+          {/* ชื่อและตำแหน่ง */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-[#faf8ff] p-4 rounded-xl border border-[#f0ebff]">
+              <div className="flex items-center gap-2 text-[#7e32e2] font-semibold mb-2 text-sm">
+                <User2 size={16} />
+                <span>ชื่อ-นามสกุล</span>
+              </div>
+              <div className="text-[#231d37] font-medium pl-6">
+                {data.detail.name}
+              </div>
+            </div>
+            <div className="bg-[#faf8ff] p-4 rounded-xl border border-[#f0ebff]">
+              <div className="flex items-center gap-2 text-[#7e32e2] font-semibold mb-2 text-sm">
+                <BadgeCheck size={16} />
+                <span>ระดับตำแหน่ง</span>
+              </div>
+              <div className="text-[#231d37] font-medium pl-6">
+                {data.detail.position}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <MapPin size={16} />
-            <span>ชุมชนบ้าน / ชุมชน</span>
-          </div>
-          <div className="pl-6">{data.detail.address.village}</div>
-          <div className="pl-6">{data.detail.address.subArea}</div>
 
-          <div className="flex items-center gap-2">
-            <MapPin size={16} />
-            <span>จังหวัด</span>
+          {/* สังกัดปัจจุบัน */}
+          <div className="bg-[#faf8ff] p-4 rounded-xl border border-[#f0ebff] mb-6">
+            <div className="flex items-center gap-2 text-[#7e32e2] font-semibold mb-2 text-sm">
+              <Package size={16} />
+              <span>สังกัดปัจจุบัน</span>
+            </div>
+            <div className="text-[#231d37] font-medium pl-6">
+              {data.detail.hospital}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <MapPin size={16} />
-            <span>อำเภอ</span>
-          </div>
-          <div className="pl-6">{data.detail.address.province}</div>
-          <div className="pl-6">{data.detail.address.district}</div>
 
-          <div className="flex items-center gap-2">
-            <MapPin size={16} />
-            <span>ตำบล</span>
+          {/* ข้อมูลที่อยู่ */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-4 text-[#7e32e2] font-bold text-base">
+              <MapPin size={18} />
+              <span>ข้อมูลที่อยู่</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-white p-3 rounded-lg border border-[#ece1f7]">
+                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                  <Home size={14} className="text-[#7e32e2]" />
+                  <span className="text-xs">บ้านเลขที่</span>
+                </div>
+                <div className="pl-5 font-medium text-[#231d37]">
+                  {data.detail.address.house}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#ece1f7]">
+                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                  <Landmark size={14} className="text-[#7e32e2]" />
+                  <span className="text-xs">หมู่ที่</span>
+                </div>
+                <div className="pl-5 font-medium text-[#231d37]">
+                  {data.detail.address.village}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#ece1f7]">
+                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                  <LocateIcon size={14} className="text-[#7e32e2]" />
+                  <span className="text-xs">ซอย</span>
+                </div>
+                <div className="pl-5 font-medium text-[#231d37]">
+                  {data.detail.address.alley}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#ece1f7]">
+                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                  <MapPin size={14} className="text-[#7e32e2]" />
+                  <span className="text-xs">ชุมชนบ้าน/ชุมชน</span>
+                </div>
+                <div className="pl-5 font-medium text-[#231d37]">
+                  {data.detail.address.subArea}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#ece1f7]">
+                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                  <MapPin size={14} className="text-[#7e32e2]" />
+                  <span className="text-xs">จังหวัด</span>
+                </div>
+                <div className="pl-5 font-medium text-[#231d37]">
+                  {data.detail.address.province}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#ece1f7]">
+                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                  <MapPin size={14} className="text-[#7e32e2]" />
+                  <span className="text-xs">อำเภอ</span>
+                </div>
+                <div className="pl-5 font-medium text-[#231d37]">
+                  {data.detail.address.district}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#ece1f7]">
+                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                  <MapPin size={14} className="text-[#7e32e2]" />
+                  <span className="text-xs">ตำบล</span>
+                </div>
+                <div className="pl-5 font-medium text-[#231d37]">
+                  {data.detail.address.subdistrict}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-[#ece1f7]">
+                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                  <Mail size={14} className="text-[#7e32e2]" />
+                  <span className="text-xs">รหัสไปรษณีย์</span>
+                </div>
+                <div className="pl-5 font-medium text-[#231d37]">
+                  {data.detail.address.zipcode}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Mail size={16} />
-            <span>รหัสไปรษณีย์</span>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-[#f0ebff]">
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-50 transition-all duration-200"
+            >
+              ปิด
+            </button>
+            <button
+              onClick={onApprove}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold shadow-md hover:shadow-lg hover:from-[#6b28c9] hover:to-[#8333d8] transition-all duration-200"
+            >
+              <CheckCircle size={16} />
+              อนุมัติคำขอ
+            </button>
           </div>
-          <div className="pl-6">{data.detail.address.subdistrict}</div>
-          <div className="pl-6">{data.detail.address.zipcode}</div>
-        </div>
-        {/* Footer */}
-        <div className="flex justify-between mt-9">
-          <ButtonService
-            variant="secondary"
-            size="md"
-            className="px-7"
-            onClick={onClose}
-          >
-            ปิด
-          </ButtonService>
-          <ButtonService
-            variant="primary"
-            size="md"
-            className="px-7"
-            onClick={onApprove}
-          >
-            อนุมัติคำขอ
-          </ButtonService>
         </div>
       </div>
     </div>
@@ -313,6 +372,8 @@ function DetailModal({ open, onClose, onApprove, data }) {
 }
 
 const ShippingList = () => {
+  const router = useRouter();
+
   // Pagination state
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState(TABS[0].key);
@@ -366,64 +427,132 @@ const ShippingList = () => {
     alertService.success("อนุมัติคำขอสำเร็จ");
   };
 
+  // Stats
+  const pendingCount = tableList.filter(
+    (row) => row.status === "รอยืนยัน"
+  ).length;
+  const shippedCount = tableList.filter(
+    (row) => row.status === "จัดส่งแล้ว"
+  ).length;
+
   return (
-    <div>
-      {/* Header */}
-      <div className="w-full mb-5 font-bold text-[#6E28B7] text-[20px]">
-        รายชื่อ อสม. ที่ขอแลกของรางวัล
+    <div className="w-full min-h-screen bg-gradient-to-br from-[#faf8ff] via-white to-[#f5f0ff] p-4 sm:p-6">
+      {/* Header Section with Gradient */}
+      <div className="relative mb-8 rounded-3xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
+        <div className="absolute inset-0 bg-white/5" />
+
+        <div className="relative p-6 sm:p-8">
+          <div className="flex flex-col gap-6">
+            {/* Back Button and Title */}
+            <div className="text-white">
+              <button
+                onClick={() => router.push("/osm-points/shipping")}
+                className="flex items-center gap-2 px-4 py-2 mb-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl transition-all duration-200 w-fit"
+              >
+                <ArrowLeft size={20} />
+                <span className="font-semibold">กลับ</span>
+              </button>
+
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <TruckIcon size={28} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold">
+                    รายชื่อ อสม. ที่ขอแลกของรางวัล
+                  </h1>
+                  <p className="text-white/80 text-sm mt-1">
+                    ตรวจสอบและอนุมัติคำขอแลกรางวัล
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="flex flex-wrap gap-4 mt-4">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl">
+                  <Clock size={18} />
+                  <span className="font-semibold">{pendingCount}</span>
+                  <span className="text-white/80 text-sm">รอยืนยัน</span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl">
+                  <CheckCircle size={18} />
+                  <span className="font-semibold">{shippedCount}</span>
+                  <span className="text-white/80 text-sm">จัดส่งแล้ว</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
       {/* Tabs */}
-      <div className="w-full flex items-center px-10 mt-2 mb-3">
-        <div className="flex gap-4 border-b border-[#EAD8FF] w-full">
+      <div className="mb-6">
+        <div className="flex gap-2 p-1 bg-white rounded-xl border border-[#ece1f7] shadow-md w-fit">
           {TABS.map((tab) => (
-            <div
+            <button
               key={tab.key}
-              className={`cursor-pointer font-bold pb-2 px-4 transition ${
+              className={`px-6 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
                 activeTab === tab.key
-                  ? "text-[#6E28B7] border-b-2 border-[#6E28B7] bg-none"
-                  : "text-[#B7B7B7] border-b-2 border-transparent bg-none"
+                  ? "bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white shadow-md"
+                  : "text-gray-600 hover:bg-[#f6eeff]"
               }`}
               onClick={() => setActiveTab(tab.key)}
               role="tab"
               aria-selected={activeTab === tab.key}
-              tabIndex={0}
             >
               {tab.label}
-            </div>
+            </button>
           ))}
         </div>
       </div>
-      {/* Search */}
-      <div className="w-full flex items-center mb-4 gap-2">
-        <InputService
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="ค้นหาชื่อและนามสกุล"
-        />
-        <ButtonService variant="primary" size="md">
-          ค้นหา
-        </ButtonService>
+
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+        <div className="relative flex-1 w-full">
+          <Search
+            size={20}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="text"
+            placeholder="ค้นหาชื่อและนามสกุล..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-[#ece1f7] bg-white focus:outline-none focus:border-[#7e32e2] focus:ring-2 focus:ring-[#7e32e2]/20 transition-all duration-200 text-[15px]"
+          />
+        </div>
+        <div className="flex items-center gap-2 px-4 py-3 bg-white rounded-xl border-2 border-[#ece1f7]">
+          <Filter size={18} className="text-[#7e32e2]" />
+          <span className="text-gray-600 text-sm">
+            แสดง{" "}
+            <span className="font-bold text-[#7e32e2]">
+              {filteredList.length}
+            </span>{" "}
+            รายการ
+          </span>
+        </div>
       </div>
+
       {/* Table */}
-      <div className="w-full">
-        <table className="w-full border-separate [border-spacing:0] rounded-xl overflow-hidden">
+      <div className="w-full bg-white rounded-2xl shadow-lg border border-[#f0ebff] overflow-hidden">
+        <table className="w-full">
           <thead>
-            <tr>
-              <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[16px] border-b border-[#dadada] rounded-tl-xl">
+            <tr className="bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]">
+              <th className="text-white font-bold py-4 px-4 text-[16px] text-center">
                 ลำดับ
               </th>
-              <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[16px] border-b border-[#dadada]">
-                รายชื่อ (100 รายการ)
+              <th className="text-white font-bold py-4 px-4 text-[16px] text-left">
+                ชื่อ-นามสกุล
               </th>
-              <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[16px] border-b border-[#dadada]">
+              <th className="text-white font-bold py-4 px-4 text-[16px] text-center">
                 วันที่สั่งคำขอ
               </th>
-              <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[16px] border-b border-[#dadada]">
+              <th className="text-white font-bold py-4 px-4 text-[16px] text-center">
                 สถานะการจัดส่ง
               </th>
-              {/* ถ้าเป็น tab รอยืนยัน ให้มีคอลัมน์ อนุมัติ */}
               {activeTab === "รอยืนยัน" && (
-                <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[16px] border-b border-[#dadada] rounded-tr-xl">
+                <th className="text-white font-bold py-4 px-4 text-[16px] text-center">
                   อนุมัติ
                 </th>
               )}
@@ -431,55 +560,45 @@ const ShippingList = () => {
           </thead>
           <tbody>
             {paginatedList.map((row, idx) => (
-              <tr key={row.no} className="border-b border-[#F2EFFF]">
-                <td className="py-3 text-center text-[#231d37] text-[15px] font-normal">
-                  {/* ลำดับใหม่ในแต่ละหน้า */}
+              <tr
+                key={row.no}
+                className="border-b border-[#f0ebff] hover:bg-[#faf8ff] transition-colors duration-150"
+              >
+                <td className="py-4 px-4 text-center text-[#231d37] text-[15px] font-semibold">
                   {(currentPage - 1) * itemsPerPage + idx + 1}
                 </td>
-                <td className="py-3 text-center text-[#231d37] text-[15px] font-normal">
+                <td className="py-4 px-4 text-left text-[#231d37] text-[15px] font-medium">
                   {row.name}
                 </td>
-                <td className="py-3 text-center text-[#231d37] text-[15px] font-normal">
+                <td className="py-4 px-4 text-center text-gray-600 text-[15px]">
                   {row.date}
                 </td>
-                <td
-                  className={`py-3 text-center text-[15px] font-bold ${
-                    row.status === "จัดส่งแล้ว"
-                      ? "text-[#2AC769]"
-                      : "text-[#FF7A00]"
-                  }`}
-                >
-                  {row.status}
+                <td className="py-4 px-4 text-center">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${
+                      row.status === "จัดส่งแล้ว"
+                        ? "bg-green-50 text-green-600 border border-green-200"
+                        : "bg-orange-50 text-orange-600 border border-orange-200"
+                    }`}
+                  >
+                    {row.status === "จัดส่งแล้ว" ? (
+                      <CheckCircle size={14} />
+                    ) : (
+                      <Clock size={14} />
+                    )}
+                    {row.status}
+                  </span>
                 </td>
-                {/* ถ้าเป็น tab รอยืนยัน ให้มีปุ่มอนุมัติ */}
                 {activeTab === "รอยืนยัน" && (
-                  <td className="py-3">
+                  <td className="py-4 px-4">
                     <div className="flex justify-center">
-                      <ButtonService
-                        variant="secondary"
-                        size="md"
-                        className="flex items-center gap-2 px-4 py-1 rounded-lg border border-[#dadada] bg-[#F8F7FD] text-[#6E28B7] font-bold text-[15px] shadow-sm min-w-[118px] justify-center box-shadow-none"
-                        icon={
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 20 20"
-                            fill="none"
-                          >
-                            <circle cx="10" cy="10" r="10" fill="#6E28B7" />
-                            <path
-                              d="M6 10.5L9 13.5L14 8.5"
-                              stroke="white"
-                              strokeWidth="2.2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        }
+                      <button
                         onClick={() => handleOpenModal(row)}
+                        className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:from-[#6b28c9] hover:to-[#8333d8] transition-all duration-200"
                       >
+                        <CheckCircle size={16} />
                         อนุมัติคำขอ
-                      </ButtonService>
+                      </button>
                     </div>
                   </td>
                 )}
@@ -487,6 +606,7 @@ const ShippingList = () => {
             ))}
           </tbody>
         </table>
+
         <PaginationWithPerPage
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
@@ -495,6 +615,7 @@ const ShippingList = () => {
           setItemsPerPage={setItemsPerPage}
         />
       </div>
+
       <DetailModal
         open={modalOpen}
         onClose={handleCloseModal}

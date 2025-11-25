@@ -1,69 +1,56 @@
-import React, { useState } from "react";
+﻿import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Eye,
   Download,
-  // ChevronDown, // Unused
   ChevronsLeft,
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Calendar,
+  MapPin,
+  Building2,
+  Home,
+  Heart,
+  UserCheck,
+  RotateCcw,
+  FileText,
 } from "lucide-react";
-import InputService from "@services/inputService/inputService";
-import ButtonService from "@services/buttonService/buttonService";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
+import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
+import NcdsScreeningDetail from "./NcdsScreeningDetail/NcdsScreeningDetail";
 
 // Mock Data
-const YEARS = [
-  { label: "2568", value: "2568" },
-  { label: "2567", value: "2567" },
-  { label: "2566", value: "2566" },
-];
+const YEARS = ["2568", "2567", "2566"];
 const MONTHS = [
-  { label: "มกราคม", value: "01" },
-  { label: "กุมภาพันธ์", value: "02" },
-  { label: "มีนาคม", value: "03" },
-  { label: "เมษายน", value: "04" },
-  { label: "พฤษภาคม", value: "05" },
-  { label: "มิถุนายน", value: "06" },
-  { label: "กรกฎาคม", value: "07" },
-  { label: "สิงหาคม", value: "08" },
-  { label: "กันยายน", value: "09" },
-  { label: "ตุลาคม", value: "10" },
-  { label: "พฤศจิกายน", value: "11" },
-  { label: "ธันวาคม", value: "12" },
+  'มกราคม',
+  'กุมภาพันธ์',
+  'มีนาคม',
+  'เมษายน',
+  'พฤษภาคม',
+  'มิถุนายน',
+  'กรกฎาคม',
+  'สิงหาคม',
+  'กันยายน',
+  'ตุลาคม',
+  'พฤศจิกายน',
+  'ธันวาคม',
 ];
 const WEEKS = [
-  { label: "สัปดาห์ 4 (23/6/68-27/6/68)", value: "4" },
-  { label: "สัปดาห์ 3 (16/6/68-22/6/68)", value: "3" },
+  'สัปดาห์ 4 (23/6/68-27/6/68)',
+  'สัปดาห์ 3 (16/6/68-22/6/68)',
 ];
-const ZONES = [
-  { label: "เลือกเขตสุขภาพ", value: "" },
-  ...Array.from({ length: 13 }, (_, i) => ({
-    label: `เขตสุขภาพที่ ${i + 1}`,
-    value: `${i + 1}`,
-  })),
-];
-const PROVINCES = [
-  { label: "เลือกจังหวัด", value: "" },
-  { label: "เชียงใหม่", value: "เชียงใหม่" },
-  { label: "กรุงเทพฯ", value: "กรุงเทพฯ" },
-];
-const DISTRICTS = [
-  { label: "เลือกอำเภอ", value: "" },
-  { label: "เมือง", value: "เมือง" },
-  { label: "สันทราย", value: "สันทราย" },
-];
-const SUBDISTRICTS = [
-  { label: "เลือกตำบล", value: "" },
-  { label: "ท่าศาลา", value: "ท่าศาลา" },
-  { label: "หนองจ๊อม", value: "หนองจ๊อม" },
-];
-const SERVICES = [
-  { label: "เลือกหน่วยบริการ", value: "" },
-  { label: "รพ.เชียงใหม่", value: "รพ.เชียงใหม่" },
-  { label: "รพ.สันทราย", value: "รพ.สันทราย" },
-];
+const ZONES = Array.from({ length: 13 }, (_, i) => `เขตสุขภาพที่ ${i + 1}`);
+const PROVINCES = ['เชียงใหม่', 'กรุงเทพฯ', 'อุดรธานี', 'นครราชสีมา', 'ชลบุรี'];
+const DISTRICTS = ['เมือง', 'สันทราย', 'บางนา', 'พระประแดง'];
+const SUBDISTRICTS = ['ท่าศาลา', 'หนองจ๊อม', 'บางแก้ว', 'บางครุ'];
+const SERVICES = ['รพ.เชียงใหม่', 'รพ.สันทราย', 'รพ.บางนา', 'รพ.พระประแดง'];
 
 // Table mock (100 rows)
 const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
@@ -79,6 +66,237 @@ const PER_PAGE_OPTIONS = [
   { label: "50", value: 50 },
   { label: "100", value: 100 },
 ];
+
+// Export helpers
+function exportSummaryPDF(data) {
+  const doc = new jsPDF();
+
+  doc.addFileToVFS("Sarabun-Regular.ttf", sarabunFont);
+  doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
+  doc.addFileToVFS("Sarabun-Bold.ttf", sarabunBoldFont);
+  doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
+  doc.setFont("Sarabun");
+
+  doc.setFontSize(16);
+  doc.setFont("Sarabun", "bold");
+  doc.text("สรุปจำนวนการส่งรายงานคัดกรอง NCDs", 105, 15, { align: "center" });
+  doc.setFontSize(12);
+  doc.setFont("Sarabun", "normal");
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, { align: "center" });
+
+  const startX = 15;
+  const startY = 35;
+  const rowHeight = 8;
+  const colWidths = [20, 90, 40, 40];
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "วันที่", "จำนวนรายงาน"];
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.setFillColor(255, 255, 255);
+
+  let xPos = startX;
+  headers.forEach((header, i) => {
+    doc.rect(xPos, startY, colWidths[i], rowHeight);
+    doc.setFont("Sarabun", "bold");
+    doc.setFontSize(11);
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, { align: "center" });
+    xPos += colWidths[i];
+  });
+
+  let yPos = startY + rowHeight;
+  doc.setFont("Sarabun", "normal");
+  doc.setFontSize(10);
+
+  data.forEach((row, idx) => {
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    xPos = startX;
+    doc.rect(xPos, yPos, colWidths[0], rowHeight);
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, { align: "center" });
+    xPos += colWidths[0];
+
+    doc.rect(xPos, yPos, colWidths[1], rowHeight);
+    doc.text(row.name, xPos + 3, yPos + 5.5);
+    xPos += colWidths[1];
+
+    doc.rect(xPos, yPos, colWidths[2], rowHeight);
+    doc.text(row.date, xPos + colWidths[2] / 2, yPos + 5.5, { align: "center" });
+    xPos += colWidths[2];
+
+    doc.rect(xPos, yPos, colWidths[3], rowHeight);
+    doc.text(String(row.amount), xPos + colWidths[3] / 2, yPos + 5.5, { align: "center" });
+
+    yPos += rowHeight;
+  });
+
+  doc.save(`สรุปจำนวนรายงาน_NCDs_${new Date().toISOString().split("T")[0]}.pdf`);
+}
+
+function exportOverviewPDF(data) {
+  const doc = new jsPDF();
+
+  doc.addFileToVFS("Sarabun-Regular.ttf", sarabunFont);
+  doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
+  doc.addFileToVFS("Sarabun-Bold.ttf", sarabunBoldFont);
+  doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
+  doc.setFont("Sarabun");
+
+  doc.setFontSize(16);
+  doc.setFont("Sarabun", "bold");
+  doc.text("สรุปภาพรวมรายงานคัดกรอง NCDs ในพื้นที่", 105, 15, { align: "center" });
+  doc.setFontSize(12);
+  doc.setFont("Sarabun", "normal");
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, { align: "center" });
+
+  const startX = 15;
+  const startY = 35;
+  const rowHeight = 8;
+  const colWidths = [20, 60, 35, 35, 35];
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "ส่งแล้ว", "ยังไม่ส่ง", "รวม"];
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.setFillColor(255, 255, 255);
+
+  let xPos = startX;
+  headers.forEach((header, i) => {
+    doc.rect(xPos, startY, colWidths[i], rowHeight);
+    doc.setFont("Sarabun", "bold");
+    doc.setFontSize(11);
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, { align: "center" });
+    xPos += colWidths[i];
+  });
+
+  let yPos = startY + rowHeight;
+  doc.setFont("Sarabun", "normal");
+  doc.setFontSize(10);
+
+  data.forEach((row, idx) => {
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    xPos = startX;
+    doc.rect(xPos, yPos, colWidths[0], rowHeight);
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, { align: "center" });
+    xPos += colWidths[0];
+
+    doc.rect(xPos, yPos, colWidths[1], rowHeight);
+    doc.text(row.name, xPos + 3, yPos + 5.5);
+    xPos += colWidths[1];
+
+    doc.rect(xPos, yPos, colWidths[2], rowHeight);
+    doc.text("1", xPos + colWidths[2] / 2, yPos + 5.5, { align: "center" });
+    xPos += colWidths[2];
+
+    doc.rect(xPos, yPos, colWidths[3], rowHeight);
+    doc.text("0", xPos + colWidths[3] / 2, yPos + 5.5, { align: "center" });
+    xPos += colWidths[3];
+
+    doc.rect(xPos, yPos, colWidths[4], rowHeight);
+    doc.text(String(row.amount), xPos + colWidths[4] / 2, yPos + 5.5, { align: "center" });
+
+    yPos += rowHeight;
+  });
+
+  doc.save(`สรุปภาพรวม_NCDs_${new Date().toISOString().split("T")[0]}.pdf`);
+}
+
+function exportNotSubmittedPDF(data) {
+  const doc = new jsPDF();
+
+  doc.addFileToVFS("Sarabun-Regular.ttf", sarabunFont);
+  doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
+  doc.addFileToVFS("Sarabun-Bold.ttf", sarabunBoldFont);
+  doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
+  doc.setFont("Sarabun");
+
+  doc.setFontSize(16);
+  doc.setFont("Sarabun", "bold");
+  doc.text("รายชื่อ อสม. ที่ยังไม่ส่งรายงานคัดกรอง NCDs", 105, 15, { align: "center" });
+
+  doc.setFontSize(12);
+  doc.setFont("Sarabun", "normal");
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, { align: "center" });
+
+  const notSubmittedData = data.filter((row) => row.status === "notSubmitted");
+
+  const startX = 15;
+  const startY = 35;
+  const rowHeight = 8;
+  const colWidths = [20, 100, 65];
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "สถานะ"];
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.setFillColor(255, 255, 255);
+
+  let xPos = startX;
+  headers.forEach((header, i) => {
+    doc.rect(xPos, startY, colWidths[i], rowHeight);
+    doc.setFont("Sarabun", "bold");
+    doc.setFontSize(11);
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, { align: "center" });
+    xPos += colWidths[i];
+  });
+
+  let yPos = startY + rowHeight;
+  doc.setFont("Sarabun", "normal");
+  doc.setFontSize(10);
+
+  notSubmittedData.forEach((row, idx) => {
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    xPos = startX;
+    doc.rect(xPos, yPos, colWidths[0], rowHeight);
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, { align: "center" });
+    xPos += colWidths[0];
+
+    doc.rect(xPos, yPos, colWidths[1], rowHeight);
+    doc.text(row.name, xPos + 3, yPos + 5.5);
+    xPos += colWidths[1];
+
+    doc.rect(xPos, yPos, colWidths[2], rowHeight);
+    doc.text("ยังไม่ส่งรายงาน", xPos + 3, yPos + 5.5);
+
+    yPos += rowHeight;
+  });
+
+  doc.save(`อสม_ที่ยังไม่ส่งรายงาน_NCDs_${new Date().toISOString().split("T")[0]}.pdf`);
+}
+
+function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {
+  const excelData = data.map((row, idx) => ({
+    "�ӴѺ": idx + 1,
+    "����-���ʡ��": row.name,
+    "�ѹ�����": row.date,
+    "�ӹǹ��ѧ�����͹": row.amount,
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(excelData);
+  ws["!cols"] = [
+    { wch: 8 },
+    { wch: 30 },
+    { wch: 20 },
+    { wch: 20 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "��§ҹ");
+
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(blob, `ncds_report_${new Date().toISOString().split("T")[0]}.xlsx`);
+}
 
 // Utility function for pagination numbers with ellipsis
 function getPageNumbers(currentPage, totalPages) {
@@ -99,85 +317,209 @@ function getPageNumbers(currentPage, totalPages) {
 }
 
 // Modal component styled like the image (for both download and detail)
-function DetailModal({ open, onClose }) {
+function DetailModal({ open, onClose, data = [] }) {
   if (!open) return null;
+
+  const rows = data?.length ? data : ALL_ROWS;
+
+  const handleExportSummaryPDF = () => {
+    if (rows.length) exportSummaryPDF(rows);
+  };
+  const handleExportOverviewPDF = () => {
+    if (rows.length) exportOverviewPDF(rows);
+  };
+  const handleExportNotSubmittedPDF = () => {
+    if (rows.length) exportNotSubmittedPDF(rows);
+  };
+  const handleExportExcel = (payload = rows, title) => {
+    if (payload.length) exportToExcel(payload, title);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-      <div className="bg-white rounded-2xl shadow-xl border border-[#ece1f7] w-[95vw] max-w-xl p-6 relative">
-        <div className="text-[20px] font-bold text-[#7e32e2] mb-5">
-          ดาวน์โหลดเอกสาร
-        </div>
-        <div className="flex flex-col gap-4 mb-8">
-          {/* Row 1 */}
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
-              สรุปจำนวนการส่งรายงาน
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-[#ece1f7] w-full max-w-2xl p-6 relative">
+        <div className="text-[20px] font-bold text-[#7e32e2] mb-5">รายละเอียดเอกสาร</div>
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">สรุปจำนวนการส่งรายงาน</div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#7e32e2] bg-white text-[#d32f2f] font-semibold text-[15px] shadow hover:bg-[#fbe9e7] focus:outline-none">
+              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95" onClick={handleExportSummaryPDF}>
                 <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6" />
                 เอกสาร PDF
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#7e32e2] bg-white text-[#388e3c] font-semibold text-[15px] shadow hover:bg-[#e8f5e9] focus:outline-none">
+              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95" onClick={() => handleExportExcel(rows)}>
                 <Image src="/xlsx.png" alt="excel" width={24} height={24} className="w-6 h-6" />
                 เอกสาร Excel
               </button>
             </div>
           </div>
-          {/* Row 2 */}
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
-              สรุปภาพรวมรายงานในพื้นที่
-            </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/40 border border-purple-100 rounded-xl px-4 py-3">
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">สรุปภาพรวมรายงานในพื้นที่</div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#ece1f7] bg-[#f7f7f7] text-[#bbb] font-semibold text-[15px] shadow cursor-not-allowed">
-                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6 opacity-50" />
+              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95" onClick={handleExportOverviewPDF}>
+                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6" />
                 เอกสาร PDF
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#ece1f7] bg-[#f7f7f7] text-[#bbb] font-semibold text-[15px] shadow cursor-not-allowed">
-                <Image
-                  src="/xlsx.png"
-                  alt="excel"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6 opacity-50"
-                />
+              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95" onClick={() => handleExportExcel(rows, "สรุปภาพรวมรายงานในพื้นที่")}>
+                <Image src="/xlsx.png" alt="excel" width={24} height={24} className="w-6 h-6" />
                 เอกสาร Excel
               </button>
             </div>
           </div>
-          {/* Row 3 */}
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
-              อสม. ที่ยังไม่ส่งรายงาน
-            </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/30 border border-purple-100 rounded-xl px-4 py-3">
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">อสม. ที่ยังไม่ส่งรายงาน</div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#ece1f7] bg-[#f7f7f7] text-[#bbb] font-semibold text-[15px] shadow cursor-not-allowed">
-                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6 opacity-50" />
+              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95" onClick={handleExportNotSubmittedPDF}>
+                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6" />
                 เอกสาร PDF
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#ece1f7] bg-[#f7f7f7] text-[#bbb] font-semibold text-[15px] shadow cursor-not-allowed">
-                <Image
-                  src="/xlsx.png"
-                  alt="excel"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6 opacity-50"
-                />
+              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95" onClick={() => handleExportExcel(rows.slice(0, 10), "อสม. ที่ยังไม่ส่งรายงาน")}>
+                <Image src="/xlsx.png" alt="excel" width={24} height={24} className="w-6 h-6" />
                 เอกสาร Excel
               </button>
             </div>
           </div>
         </div>
-        <div className="flex justify-end mt-2">
-          <button
-            className="px-6 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[16px] shadow hover:bg-[#f6eeff] transition"
-            onClick={onClose}
-          >
+        <div className="flex justify-end">
+          <button className="px-6 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[16px] shadow hover:bg-[#f6eeff] transition" onClick={onClose}>
             ปิด
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// CustomSelect component - styled dropdown
+function CustomSelect({ value, onChange, options, placeholder, icon: Icon }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSelect = (option) => {
+    onChange(option);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (event) => {
+    if (!isOpen) {
+      if (
+        event.key === "Enter" ||
+        event.key === " " ||
+        event.key === "ArrowDown"
+      ) {
+        event.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case "Escape":
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        break;
+      case "ArrowDown":
+        event.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < options.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : options.length - 1
+        );
+        break;
+      case "Enter":
+        event.preventDefault();
+        if (highlightedIndex >= 0) {
+          handleSelect(options[highlightedIndex]);
+        }
+        break;
+    }
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div
+        className={`w-full h-12 px-4 rounded-xl border-2 ${
+          isOpen
+            ? "border-[#7e32e2] ring-2 ring-purple-200"
+            : "border-purple-200"
+        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
+        onClick={handleToggle}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="combobox"
+        aria-expanded={isOpen}
+      >
+        <div className="flex items-center gap-2">
+          {Icon && <Icon size={18} className="text-[#7e32e2]" />}
+          <span className={value ? "text-gray-700" : "text-gray-400"}>
+            {value || placeholder}
+          </span>
+        </div>
+        <ChevronDown
+          size={20}
+          className={`text-[#7e32e2] transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
+          <ul role="listbox">
+            <li
+              className={`px-4 py-3 cursor-pointer transition-colors ${
+                !value
+                  ? "bg-purple-50 text-[#7e32e2] font-semibold"
+                  : "hover:bg-purple-50 text-gray-700"
+              }`}
+              onClick={() => handleSelect("")}
+              role="option"
+            >
+              {placeholder}
+            </li>
+            {options.map((option, index) => (
+              <li
+                key={option}
+                className={`px-4 py-3 cursor-pointer transition-colors ${
+                  value === option
+                    ? "bg-gradient-to-r from-purple-100 to-violet-100 text-[#7e32e2] font-semibold border-l-4 border-[#7e32e2]"
+                    : highlightedIndex === index
+                    ? "bg-purple-50 text-gray-700"
+                    : "hover:bg-purple-50 text-gray-700"
+                }`}
+                onClick={() => handleSelect(option)}
+                role="option"
+                aria-selected={value === option}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -299,358 +641,321 @@ function PaginationWithPerPage({
 }
 
 const NcdsScreeningComp = () => {
-  // State
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const detailId = searchParams.get("detail");
+
   const [searchType, setSearchType] = useState("year");
   const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("06");
-  const [week, setWeek] = useState("4");
+  const [month, setMonth] = useState("มิถุนายน");
+  const [week, setWeek] = useState("สัปดาห์ 4 (23/6/68-27/6/68)");
   const [zone, setZone] = useState("");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
   const [subdistrict, setSubdistrict] = useState("");
   const [service, setService] = useState("");
   const [keyword, setKeyword] = useState("");
-  const [modalOpen, setModalOpen] = useState(false); // for modal
-  // const dropdownRef = useRef(null); // Unused
+  const [modalOpen, setModalOpen] = useState(false);
 
-  // Pagination state
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Filter rows by keyword
-  const filteredRows = ALL_ROWS.filter(
-    (row) =>
-      row.name.includes(keyword) ||
-      row.date.includes(keyword) ||
-      String(row.index).includes(keyword)
+  const filteredRows = useMemo(
+    () =>
+      ALL_ROWS.filter(
+        (row) =>
+          row.name.includes(keyword) ||
+          row.date.includes(keyword) ||
+          String(row.index).includes(keyword)
+      ),
+    [keyword]
   );
+
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
-  // Paginated rows
-  const paginatedRows = filteredRows.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
+  const paginatedRows = useMemo(
+    () =>
+      filteredRows.slice((page - 1) * itemsPerPage, page * itemsPerPage),
+    [filteredRows, page, itemsPerPage]
   );
 
-  // Reset page if filteredRows or itemsPerPage change
-  React.useEffect(() => {
+  useEffect(() => {
     if (page > totalPages) setPage(1);
-  }, [filteredRows.length, totalPages, itemsPerPage, page]);
+  }, [filteredRows.length, totalPages, page]);
 
-  // Button styles (ดาวน์โหลด)
-  const buttonStyle =
-    "flex items-center justify-center px-4 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[15px] focus:outline-none transition shadow-[0_2px_8px_0_rgba(126,50,226,0.10)]";
-  const iconStyle = "text-[#7e32e2] mr-2";
+  const totalReports = filteredRows.length;
+  const totalHouseholds = useMemo(
+    () => filteredRows.reduce((sum, row) => sum + row.amount, 0),
+    [filteredRows]
+  );
+
+  const handleClear = () => {
+    setYear("2568");
+    setMonth("มิถุนายน");
+    setWeek("สัปดาห์ 4 (23/6/68-27/6/68)");
+    setZone("");
+    setService("");
+    setProvince("");
+    setDistrict("");
+    setSubdistrict("");
+    setKeyword("");
+    setPage(1);
+  };
+
+  const searchModes = [
+    { key: "year", label: "ค้นหาแบบรายปี" },
+    { key: "budget", label: "ค้นหาแบบรายปีงบประมาณ" }
+  ];
+
+  // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
+  if (detailId) {
+    const selectedRow = ALL_ROWS.find((row) => row.index === Number(detailId));
+    return (
+      <NcdsScreeningDetail
+        reportData={{
+          year,
+          month,
+          name: selectedRow?.name || "ไม่พบข้อมูล",
+        }}
+      />
+    );
+  }
 
   return (
     <div className="w-full h-full bg-transparent p-0 m-0">
-      {/* Modal */}
-      <DetailModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <DetailModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        data={filteredRows}
+      />
 
-      {/* ฟอร์มค้นหา */}
-      <div
-        className="w-full bg-white rounded-xl shadow-sm border border-[#ece1f7] p-6 mb-5"
-        style={{ boxSizing: "border-box" }}
-      >
-        <div className="flex flex-wrap items-center gap-4 mb-4">
-          <span className="font-semibold text-[#231d37] text-[16px] mr-3">
-            รูปแบบการค้นหา :
-          </span>
-          <label className="flex items-center cursor-pointer mr-5">
-            <input
-              type="radio"
-              checked={searchType === "year"}
-              onChange={() => setSearchType("year")}
-              className="hidden"
-            />
-            <span
-              className={`w-5 h-5 mr-2 rounded-full border-2 flex items-center justify-center transition-colors ${
-                searchType === "year"
-                  ? "border-[#7e32e2] bg-[#f6eeff]"
-                  : "border-gray-300 bg-white"
-              }`}
-            >
-              {searchType === "year" && (
-                <span className="w-3 h-3 bg-[#7e32e2] rounded-full block" />
-              )}
-            </span>
-            <span
-              className={`font-medium ${
-                searchType === "year" ? "text-[#7e32e2]" : "text-[#aaa]"
-              }`}
-            >
-              ค้นหาแบบรายปี
-            </span>
-          </label>
-          <label className="flex items-center cursor-pointer">
-            <input
-              type="radio"
-              checked={searchType === "budget"}
-              onChange={() => setSearchType("budget")}
-              className="hidden"
-            />
-            <span
-              className={`w-5 h-5 mr-2 rounded-full border-2 flex items-center justify-center transition-colors ${
-                searchType === "budget"
-                  ? "border-[#7e32e2] bg-[#f6eeff]"
-                  : "border-gray-300 bg-white"
-              }`}
-            >
-              {searchType === "budget" && (
-                <span className="w-3 h-3 bg-[#7e32e2] rounded-full block" />
-              )}
-            </span>
-            <span
-              className={`font-medium ${
-                searchType === "budget" ? "text-[#7e32e2]" : "text-[#aaa]"
-              }`}
-            >
-              ค้นหาแบบรายปีงบประมาณ
-            </span>
-          </label>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-          <div>
-            <div className="text-[15px] text-[#222] font-medium mb-1">ปี</div>
-            <InputService
-              options={YEARS}
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              placeholder="เลือกปี"
-              name="year"
-              clearable={false}
-            />
-          </div>
-          <div>
-            <div className="text-[15px] text-[#222] font-medium mb-1">
-              เดือน
+      <div className="relative mb-6 rounded-3xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
+        <div className="absolute inset-0 bg-white/5" />
+        <div className="relative p-6 sm:p-8">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <Heart size={28} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold">คัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)</h1>
+                  <p className="text-white/80">แดชบอร์ดรายงานและรายละเอียดเอกสาร</p>
+                </div>
+              </div>
             </div>
-            <InputService
-              options={MONTHS}
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              placeholder="เลือกเดือน"
-              name="month"
-              clearable={false}
-            />
-          </div>
-          <div>
-            <div className="text-[15px] text-[#222] font-medium mb-1">
-              สัปดาห์
-            </div>
-            <InputService
-              options={WEEKS}
-              value={week}
-              onChange={(e) => setWeek(e.target.value)}
-              placeholder="เลือกสัปดาห์"
-              name="week"
-              clearable={false}
-            />
-          </div>
-          <div>
-            <div className="text-[15px] text-[#222] font-medium mb-1">
-              เขตสุขภาพ
-            </div>
-            <InputService
-              options={ZONES}
-              value={zone}
-              onChange={(e) => setZone(e.target.value)}
-              placeholder="เลือกเขตสุขภาพ"
-              name="zone"
-              clearable={true}
-            />
-          </div>
-          <div>
-            <div className="text-[15px] text-[#222] font-medium mb-1">ตำบล</div>
-            <InputService
-              options={SUBDISTRICTS}
-              value={subdistrict}
-              onChange={(e) => setSubdistrict(e.target.value)}
-              placeholder="เลือกตำบล"
-              name="subdistrict"
-              clearable={true}
-            />
-          </div>
-          <div>
-            <div className="text-[15px] text-[#222] font-medium mb-1">
-              หน่วยบริการ
-            </div>
-            <InputService
-              options={SERVICES}
-              value={service}
-              onChange={(e) => setService(e.target.value)}
-              placeholder="เลือกหน่วยบริการ"
-              name="service"
-              clearable={true}
-            />
-          </div>
-          <div>
-            <div className="text-[15px] text-[#222] font-medium mb-1">
-              จังหวัด
-            </div>
-            <InputService
-              options={PROVINCES}
-              value={province}
-              onChange={(e) => setProvince(e.target.value)}
-              placeholder="เลือกจังหวัด"
-              name="province"
-              clearable={true}
-            />
-          </div>
-          <div>
-            <div className="text-[15px] text-[#222] font-medium mb-1">
-              อำเภอ
-            </div>
-            <InputService
-              options={DISTRICTS}
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-              placeholder="เลือกอำเภอ"
-              name="district"
-              clearable={true}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-3 mt-5">
-          <ButtonService
-            icon={<Search className="w-5 h-5 mr-2 text-white" />}
-            variant="primary"
-            size="md"
-            className="w-full md:w-fit flex-1 h-12 text-[18px] bg-[#7e32e2] hover:bg-[#6c28c8] border-none text-white rounded-lg font-semibold flex items-center justify-center"
-            onClick={() => {
-              /* handle search */
-            }}
-          >
-            ค้นหา
-          </ButtonService>
-          <ButtonService
-            variant="secondary"
-            size="md"
-            className="w-full md:w-fit flex-1 h-12 text-[18px] bg-white border border-[#7e32e2] text-[#7e32e2] hover:bg-[#f6eeff] rounded-lg font-semibold"
-            onClick={() => {
-              setYear("");
-              setMonth("");
-              setWeek("");
-              setZone("");
-              setService("");
-              setProvince("");
-              setDistrict("");
-              setSubdistrict("");
-              setKeyword("");
-            }}
-          >
-            ล้างข้อมูลการค้นหา
-          </ButtonService>
-        </div>
-      </div>
-
-      {/* Search bar + download */}
-      <div className="flex flex-col md:flex-row items-center justify-between mt-4 mb-0 gap-2">
-        <div className="w-full md:w-auto flex-1">
-          <InputService
-            value={keyword}
-            onChange={(e) => {
-              setKeyword(e.target.value);
-              setPage(1); // reset to page 1 on search
-            }}
-            placeholder="ค้นหาชื่อและนามสกุล"
-            name="search"
-            clearable={true}
-          />
-        </div>
-        <div className="flex items-center gap-2 mt-3 md:mt-0">
-          <ButtonService
-            icon={<Search className="w-5 h-5 mr-2 text-white" />}
-            variant="primary"
-            size="md"
-            className="w-full md:w-fit h-12 text-[16px] bg-[#7e32e2] border-none text-white rounded-lg font-semibold flex items-center justify-center"
-            onClick={() => {
-              setPage(1);
-            }}
-          >
-            ค้นหา
-          </ButtonService>
-          <ButtonService
-            icon={<Download className={iconStyle + " w-5 h-5"} />}
-            variant="secondary"
-            size="md"
-            className={buttonStyle + " h-12 ml-2"}
-            onClick={() => {
-              setModalOpen(true);
-            }}
-          >
-            ดาวน์โหลดรายงาน
-          </ButtonService>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto mt-6">
-        <table
-          className="w-full text-[15px] border-separate"
-          style={{ borderSpacing: 0, minWidth: "900px" }}
-        >
-          <thead>
-            <tr
-              className="text-[#7e32e2]"
-              style={{
-                background: "#f6eeff",
-              }}
-            >
-              <th className="py-3 px-4 font-semibold text-center rounded-tl-xl">
-                ลำดับ
-              </th>
-              <th className="py-3 px-4 font-semibold text-left">
-                รายชื่อ (100 รายการ)
-              </th>
-              <th className="py-3 px-4 font-semibold text-center">ส่งวันที่</th>
-              <th className="py-3 px-4 font-semibold text-center">
-                จำนวนหลังคาเรือน
-              </th>
-              <th className="py-3 px-4 font-semibold text-center rounded-tr-xl">
-                รายละเอียด
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedRows.map((row, idx) => (
-              <tr
-                key={row.index}
-                className={idx % 2 === 0 ? "bg-white" : "bg-[#faf8ff]"}
+            <div className="flex w-full lg:w-auto justify-end">
+              <button
+                className="bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition"
+                onClick={() => setModalOpen(true)}
               >
-                <td className="py-3 px-4 text-center align-middle font-medium">
-                  {row.index}
-                </td>
-                <td className="py-3 px-4 align-middle">{row.name}</td>
-                <td className="py-3 px-4 text-center align-middle">
-                  {row.date}
-                </td>
-                <td className="py-3 px-4 text-center align-middle">
-                  {row.amount}
-                </td>
-                <td className="py-3 px-4 text-center align-middle">
-                  <ButtonService
-                    icon={<Eye className="w-5 h-5 text-[#7e32e2]" />}
-                    variant="secondary"
-                    size="md"
-                    className="border-[#7e32e2] text-[#7e32e2] font-semibold shadow-[0_2px_6px_0_rgba(126,50,226,0.10)]"
-                    style={{
-                      borderWidth: 2,
-                      borderStyle: "solid",
-                      background: "white",
-                      boxShadow: "0 2px 6px 0 rgba(126,50,226,0.10)",
-                    }}
-                    onClick={() => {
-                      setModalOpen(true);
-                    }}
-                  >
-                    ดูรายละเอียด
-                  </ButtonService>
-                </td>
+                <Download size={18} className="inline mr-2" /> รายละเอียดเอกสาร
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6">
+        <div className="mb-4 flex flex-wrap gap-2">
+          {searchModes.map((mode) => (
+            <button
+              key={mode.key}
+              className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                searchType === mode.key
+                  ? "bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white shadow-md"
+                  : "text-gray-600 bg-purple-50 hover:bg-purple-100"
+              }`}
+              onClick={() => setSearchType(mode.key)}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ปี</label>
+            <CustomSelect
+              value={year}
+              onChange={setYear}
+              options={YEARS}
+              placeholder="เลือกปี"
+              icon={Calendar}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
+            <CustomSelect
+              value={month}
+              onChange={setMonth}
+              options={MONTHS}
+              placeholder="เลือกเดือน"
+              icon={Calendar}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">สัปดาห์</label>
+            <CustomSelect
+              value={week}
+              onChange={setWeek}
+              options={WEEKS}
+              placeholder="เลือกสัปดาห์"
+              icon={Calendar}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">เขตสุขภาพ</label>
+            <CustomSelect
+              value={zone}
+              onChange={setZone}
+              options={ZONES}
+              placeholder="เลือกเขตสุขภาพ"
+              icon={MapPin}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">จังหวัด</label>
+            <CustomSelect
+              value={province}
+              onChange={setProvince}
+              options={PROVINCES}
+              placeholder="เลือกจังหวัด"
+              icon={Building2}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">อำเภอ</label>
+            <CustomSelect
+              value={district}
+              onChange={setDistrict}
+              options={DISTRICTS}
+              placeholder="เลือกอำเภอ"
+              icon={Building2}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ตำบล</label>
+            <CustomSelect
+              value={subdistrict}
+              onChange={setSubdistrict}
+              options={SUBDISTRICTS}
+              placeholder="เลือกตำบล"
+              icon={Home}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">หน่วยบริการ</label>
+            <CustomSelect
+              value={service}
+              onChange={setService}
+              options={SERVICES}
+              placeholder="เลือกหน่วยบริการ"
+              icon={UserCheck}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 mt-5">
+          <button
+            className="flex-1 flex items-center justify-center gap-2 h-12 px-6 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200"
+            onClick={() => setPage(1)}
+          >
+            <Search size={20} />
+            ค้นหา
+          </button>
+          <button
+            className="flex-1 flex items-center justify-center gap-2 h-12 px-6 bg-white border-2 border-[#7e32e2] text-[#7e32e2] font-semibold rounded-xl hover:bg-purple-50 transition-all duration-200"
+            onClick={handleClear}
+          >
+            <RotateCcw size={20} />
+            ล้างข้อมูลการค้นหา
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-4 my-6">
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              value={keyword}
+              onChange={(e) => {
+                setKeyword(e.target.value);
+                setPage(1);
+              }}
+              placeholder="พิมพ์เพื่อค้นหาชื่อหรือข้อมูล..."
+              className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
+            />
+          </div>
+          <button
+            className="flex items-center justify-center gap-2 px-6 py-3 h-12 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 whitespace-nowrap w-full sm:w-auto"
+            onClick={() => setPage(1)}
+          >
+            <Search size={20} />
+            ค้นหา
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-[15px] border-separate" style={{ borderSpacing: 0, minWidth: "900px" }}>
+            <thead>
+              <tr className="bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white">
+                <th className="py-4 px-4 font-semibold text-center text-white rounded-tl-xl">ลำดับ</th>
+                <th className="py-4 px-4 font-semibold text-left text-white">ชื่อ-นามสกุล</th>
+                <th className="py-4 px-4 font-semibold text-center text-white">วันที่</th>
+                <th className="py-4 px-4 font-semibold text-center text-white">จำนวนครัวเรือน</th>
+                <th className="py-4 px-4 font-semibold text-center text-white rounded-tr-xl">รายละเอียด</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {paginatedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <FileText size={48} className="text-gray-300" />
+                      <p className="text-gray-500">ไม่พบข้อมูล</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedRows.map((row, idx) => (
+                  <tr
+                    key={row.index}
+                    className={`${idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"} hover:bg-purple-50 transition-colors`}
+                  >
+                    <td className="py-4 px-4 text-center font-medium text-gray-600">
+                      {(page - 1) * itemsPerPage + idx + 1}
+                    </td>
+                    <td className="py-4 px-4 font-medium text-[#231d37]">{row.name}</td>
+                    <td className="py-4 px-4 text-center text-gray-600">{row.date}</td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-100 text-pink-700 font-semibold text-sm">
+                        <Heart size={14} />
+                        {row.amount}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <button
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                        onClick={() => router.push(`/ncds-screening?detail=${row.index}`)}
+                      >
+                        <Eye size={16} />
+                        รายละเอียด
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
         <PaginationWithPerPage
           currentPage={page}
           setCurrentPage={setPage}
@@ -664,3 +969,5 @@ const NcdsScreeningComp = () => {
 };
 
 export default NcdsScreeningComp;
+
+

@@ -1,7 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import styles from "@components/ThreeDocComp/ThreeDocComp.module.scss";
-import ThreeDocCompService from "@services/Table/ThreeDocCompService";
 import Image from "next/image";
+import {
+  Calendar,
+  MapPin,
+  Building2,
+  Users,
+  Home,
+  Heart,
+  UserCheck,
+  ChevronDown,
+  X,
+} from "lucide-react";
 
 // ⬇️ เรียกใช้ยูทิลสิทธิ์จาก @utils/access
 import {
@@ -21,6 +30,146 @@ const elderlyColumns = [
   { key: "risk",   label: "เสี่ยง/มีปัญหา",     align: "center", width: "40px" },
   { key: "total",  label: "รวมทั้งหมด",         align: "center", width: "40px" },
 ];
+
+/* ---------- CustomSelect Component ---------- */
+function CustomSelect({ value, onChange, options, placeholder, icon: Icon, disabled = false }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleToggle = () => {
+    if (!disabled) {
+      setIsOpen(!isOpen);
+      setHighlightedIndex(-1);
+    }
+  };
+
+  const handleSelect = (option) => {
+    onChange(option);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (event) => {
+    if (disabled) return;
+
+    if (!isOpen) {
+      if (
+        event.key === "Enter" ||
+        event.key === " " ||
+        event.key === "ArrowDown"
+      ) {
+        event.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case "Escape":
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        break;
+      case "ArrowDown":
+        event.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < options.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : options.length - 1
+        );
+        break;
+      case "Enter":
+        event.preventDefault();
+        if (highlightedIndex >= 0) {
+          handleSelect(options[highlightedIndex]);
+        }
+        break;
+    }
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div
+        className={`w-full h-12 px-4 rounded-xl border-2 ${
+          disabled
+            ? "border-gray-200 bg-gray-50 cursor-not-allowed"
+            : isOpen
+            ? "border-[#7e32e2] ring-2 ring-purple-200"
+            : "border-purple-200"
+        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
+        onClick={handleToggle}
+        onKeyDown={handleKeyDown}
+        tabIndex={disabled ? -1 : 0}
+        role="combobox"
+        aria-expanded={isOpen}
+      >
+        <div className="flex items-center gap-2">
+          {Icon && <Icon size={18} className={disabled ? "text-gray-400" : "text-[#7e32e2]"} />}
+          <span className={value ? "text-gray-700" : "text-gray-400"}>
+            {value || placeholder}
+          </span>
+        </div>
+        <ChevronDown
+          size={20}
+          className={`${disabled ? "text-gray-400" : "text-[#7e32e2]"} transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </div>
+
+      {isOpen && !disabled && (
+        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
+          <ul role="listbox">
+            <li
+              className={`px-4 py-3 cursor-pointer transition-colors ${
+                !value
+                  ? "bg-purple-50 text-[#7e32e2] font-semibold"
+                  : "hover:bg-purple-50 text-gray-700"
+              }`}
+              onClick={() => handleSelect("")}
+              role="option"
+            >
+              {placeholder}
+            </li>
+            {options.map((option, index) => (
+              <li
+                key={option}
+                className={`px-4 py-3 cursor-pointer transition-colors ${
+                  value === option
+                    ? "bg-gradient-to-r from-purple-100 to-violet-100 text-[#7e32e2] font-semibold border-l-4 border-[#7e32e2]"
+                    : highlightedIndex === index
+                    ? "bg-purple-50 text-gray-700"
+                    : "hover:bg-purple-50 text-gray-700"
+                }`}
+                onClick={() => handleSelect(option)}
+                role="option"
+                aria-selected={value === option}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ---------- Donut ---------- */
 function Donut({ data, maxSize = 300, minSize = 200, thicknessRatio = 0.22 }) {
@@ -184,16 +333,14 @@ export default function ThreeDocComp() {
   /* ---------- Gate ไม่มีสิทธิ์ ---------- */
   if (!hasAccess) {
     return (
-      <div className={styles.wrap}>
-        <div className={styles.card}>
-          <div className={styles.cardContent}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 22 }}>🔒</span>
-              <div>
-                <div style={{ fontWeight: 800, color: "#7A1679" }}>ไม่มีสิทธิ์เข้าถึงหน้านี้</div>
-                <div style={{ color: "#6b7280" }}>
-                  กรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่มสิทธิ์: {ALLOWED_ROLES.join(" / ")}
-                </div>
+      <div className="w-full min-h-screen bg-gradient-to-br from-[#faf8ff] via-white to-[#f5f0ff] p-4 sm:p-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔒</span>
+            <div>
+              <div className="text-xl font-bold text-[#7e32e2]">ไม่มีสิทธิ์เข้าถึงหน้านี้</div>
+              <div className="text-gray-600 mt-1">
+                กรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่มสิทธิ์: {ALLOWED_ROLES.join(" / ")}
               </div>
             </div>
           </div>
@@ -204,194 +351,278 @@ export default function ThreeDocComp() {
 
   /* ---------- UI ---------- */
   return (
-    <div className={styles.wrap}>
-      {/* Header */}
-      <div className={styles.header}>
-        <div className={styles.headerTitle}>
-          รายละเอียดข้อมูล 3 หมอ รู้จักคุณ
-          {activeRole && (
-            <span
-              style={{
-                marginLeft: 10,
-                fontSize: 12,
-                padding: "4px 8px",
-                background: "#F5E6FF",
-                color: "#5A2BA6",
-                borderRadius: 999,
-                border: "1px solid #EAD9FF",
-                verticalAlign: "middle",
-              }}
-              title={`บทบาท: ${activeRole}`}
-            >
-              บทบาท: {activeRole}
-            </span>
-          )}
+    <div className="w-full min-h-screen bg-gradient-to-br from-[#faf8ff] via-white to-[#f5f0ff] p-4 sm:p-6">
+      {/* Header Section with Gradient */}
+      <div className="relative mb-6 rounded-3xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
+        <div className="absolute inset-0 bg-white/5" />
+
+        <div className="relative p-6 sm:p-8">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            {/* Title */}
+            <div className="text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <Heart size={28} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold">
+                    รายละเอียดข้อมูล 3 หมอ รู้จักคุณ
+                  </h1>
+                  <p className="text-white/80 text-sm mt-1">
+                    ข้อมูลประชากรและคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)
+                  </p>
+                </div>
+              </div>
+
+              {activeRole && (
+                <div className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl">
+                  <UserCheck size={16} />
+                  <span className="text-sm font-semibold">บทบาท: {activeRole}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-
-        <button
-          type="button"
-          className={`${styles.printBtn} ${styles["printBtn--primary"]}`}
-          disabled
-          title="ฟีเจอร์กำลังพัฒนา"
-        >
-          <Image
-            src="/PDF.png"
-            alt="PDF icon"
-            width={20}
-            height={20}
-            className={styles.icon}
-          />
-          <span style={{ marginLeft: 8 }}>พิมพ์รายงาน PDF</span>
-        </button>
-
       </div>
 
       {/* Filters */}
-      <div className={styles.card} style={{ marginBottom: 16 }}>
-        <div className={styles.cardContent}>
-          <div className={styles.filters}>
-            {[
-              { key: "year", label: "ปี", opts: ["2568", "2567"] },
-              { key: "month", label: "เดือน", opts: ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"] },
-              { key: "week", label: "สัปดาห์", opts: ["สัปดาห์ที่ 1","สัปดาห์ที่ 2","สัปดาห์ที่ 3","สัปดาห์ที่ 4 (23/6/68-27/6/68)"] },
-              { key: "healthZone", label: "เขตสุขภาพ", opts: ["ทั้งหมด", ...Array.from({length:13},(_,i)=>`เขตสุขภาพที่ ${i+1}`)], lock: "zone" },
-              { key: "province", label: "จังหวัด", opts: ["","นนทบุรี","ปทุมธานี","พระนครศรีอยุธยา","อ่างทอง"], lock: "province" },
-              { key: "district", label: "อำเภอ", opts: ["","เมือง","คลองหลวง","วังน้อย","ไชโย"], lock: "district" },
-              { key: "subdistrict", label: "ตำบล", opts: ["","บางกระสอ","คลองหนึ่ง","ลำไทร","ชะไว"], lock: "subdistrict" },
-              { key: "unit", label: "หน่วยบริการ", opts: ["","รพ.สต.ทดสอบ 1","รพ.สต.ทดสอบ 2","รพ.สต.ทดสอบ 3","รพ.สต.ทดสอบ 4"], lock: "unit" },
-            ].map((f, idx) => (
-              <div key={f.key + idx} className={styles.field}>
-                <label className={styles.label}>{f.label}</label>
-                <select
-                  className={styles.select}
-                  value={filters[f.key]}
-                  disabled={f.lock ? isFieldLocked(lockLevel, f.lock) : false}
-                  onChange={(e) => setFilters({ ...filters, [f.key]: e.target.value })}
-                >
-                  {f.opts.map((o) => (
-                    <option key={`${f.key}-${o || "empty"}`} value={o === "" ? "" : o}>
-                      {o === "" ? `เลือก${f.label}` : o}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+      <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              ปี
+            </label>
+            <CustomSelect
+              value={filters.year}
+              onChange={(val) => setFilters({ ...filters, year: val })}
+              options={["2568", "2567"]}
+              placeholder="เลือกปี"
+              icon={Calendar}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              เดือน
+            </label>
+            <CustomSelect
+              value={filters.month}
+              onChange={(val) => setFilters({ ...filters, month: val })}
+              options={["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"]}
+              placeholder="เลือกเดือน"
+              icon={Calendar}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              สัปดาห์
+            </label>
+            <CustomSelect
+              value={filters.week}
+              onChange={(val) => setFilters({ ...filters, week: val })}
+              options={["สัปดาห์ที่ 1","สัปดาห์ที่ 2","สัปดาห์ที่ 3","สัปดาห์ที่ 4 (23/6/68-27/6/68)"]}
+              placeholder="เลือกสัปดาห์"
+              icon={Calendar}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              เขตสุขภาพ
+            </label>
+            <CustomSelect
+              value={filters.healthZone}
+              onChange={(val) => setFilters({ ...filters, healthZone: val })}
+              options={["ทั้งหมด", ...Array.from({length:13},(_,i)=>`เขตสุขภาพที่ ${i+1}`)]}
+              placeholder="เลือกเขตสุขภาพ"
+              icon={MapPin}
+              disabled={isFieldLocked(lockLevel, "zone")}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              จังหวัด
+            </label>
+            <CustomSelect
+              value={filters.province}
+              onChange={(val) => setFilters({ ...filters, province: val })}
+              options={["นนทบุรี","ปทุมธานี","พระนครศรีอยุธยา","อ่างทอง"]}
+              placeholder="เลือกจังหวัด"
+              icon={MapPin}
+              disabled={isFieldLocked(lockLevel, "province")}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              อำเภอ
+            </label>
+            <CustomSelect
+              value={filters.district}
+              onChange={(val) => setFilters({ ...filters, district: val })}
+              options={["เมือง","คลองหลวง","วังน้อย","ไชโย"]}
+              placeholder="เลือกอำเภอ"
+              icon={MapPin}
+              disabled={isFieldLocked(lockLevel, "district")}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              ตำบล
+            </label>
+            <CustomSelect
+              value={filters.subdistrict}
+              onChange={(val) => setFilters({ ...filters, subdistrict: val })}
+              options={["บางกระสอ","คลองหนึ่ง","ลำไทร","ชะไว"]}
+              placeholder="เลือกตำบล"
+              icon={MapPin}
+              disabled={isFieldLocked(lockLevel, "subdistrict")}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              หน่วยบริการ
+            </label>
+            <CustomSelect
+              value={filters.unit}
+              onChange={(val) => setFilters({ ...filters, unit: val })}
+              options={["รพ.สต.ทดสอบ 1","รพ.สต.ทดสอบ 2","รพ.สต.ทดสอบ 3","รพ.สต.ทดสอบ 4"]}
+              placeholder="เลือกหน่วยบริการ"
+              icon={Building2}
+              disabled={isFieldLocked(lockLevel, "unit")}
+            />
           </div>
         </div>
       </div>
 
       {/* ข้อมูลประชากร & 3 หมอ */}
-      <div className={styles.card} style={{ marginBottom: 12 }}>
-        <div className={styles.cardHeader}>ข้อมูลประชากร และ ข้อมูล 3 หมอรู้จักคุณ</div>
-        <div className={styles.cardContent}>
-          <div className={styles.kpiRow}>
-            {[
-              { icon: "/group.png",           label: "จำนวนประชากรในพื้นที่", value: kpiTop.population,      unit: "คน" },
-              { icon: "/home_health.png",     label: "หมอประจำบ้าน",          value: kpiTop.houseDoc,        unit: "คน" },
-              { icon: "/medical_services.png",label: "หมอสาธารณสุข",          value: kpiTop.publicHealthDoc, unit: "คน" },
-              { icon: "/diversity_1.png",     label: "หมอครอบครัว",            value: kpiTop.familyDoc,       unit: "คน" },
-            ].map((k, i) => (
-              <div key={i} className={styles.kpi}>
-                <div className={styles.kpiIcon} aria-hidden>
-                  <Image src={k.icon} alt="" width={24} height={24} />
+      <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6 mb-6">
+        <h2 className="text-xl font-bold text-[#231d37] mb-4">ข้อมูลประชากร และ ข้อมูล 3 หมอรู้จักคุณ</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { icon: Users, label: "จำนวนประชากรในพื้นที่", value: kpiTop.population, unit: "คน", color: "#7e32e2" },
+            { icon: Home, label: "หมอประจำบ้าน", value: kpiTop.houseDoc, unit: "คน", color: "#9333ea" },
+            { icon: Heart, label: "หมอสาธารณสุข", value: kpiTop.publicHealthDoc, unit: "คน", color: "#a855f7" },
+            { icon: UserCheck, label: "หมอครอบครัว", value: kpiTop.familyDoc, unit: "คน", color: "#c084fc" },
+          ].map((k, i) => (
+            <div key={i} className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-100">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-white shadow-sm">
+                  <k.icon size={24} style={{ color: k.color }} />
                 </div>
-                <div className={styles.kpiTitle}>{k.label}</div>
-                <div className={styles.kpiValue}>
-                  <span className={styles.kpiValueNum}>{numberFmt(k.value)}</span>
-                </div>
-                <div className={styles.kpiValueUnit}>{k.unit}</div>
+                <div className="text-sm font-medium text-gray-700">{k.label}</div>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <div className="text-2xl font-bold text-[#7e32e2]">{numberFmt(k.value)}</div>
+                <div className="text-sm text-gray-600">{k.unit}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* NCDs */}
+      <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6 mb-6">
+        <h2 className="text-xl font-bold text-[#231d37] mb-4">คัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)</h2>
+
+        {/* BMI */}
+        <div className="mb-4">
+          <div className="text-sm font-semibold text-gray-700 mb-2">ค่า BMI</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {bmiRow.map((b) => (
+              <div key={b.label} className="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-100 text-center">
+                <div className="text-sm text-gray-600 mb-1">{b.label}</div>
+                <div className="text-lg font-bold text-[#7e32e2]">{numberFmt(b.value)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ความดันโลหิต */}
+        <div className="mb-4">
+          <div className="text-sm font-semibold text-gray-700 mb-2">ค่าความดันโลหิต</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {bpRow.map((b) => (
+              <div key={b.label} className="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-100 text-center">
+                <div className="text-sm text-gray-600 mb-1">{b.label}</div>
+                <div className="text-lg font-bold text-[#7e32e2]">{numberFmt(b.value)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* น้ำตาลในเลือด */}
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-2">ค่าน้ำตาลในเลือด</div>
+          <div className="grid grid-cols-3 gap-3">
+            {sugarRow.map((b) => (
+              <div key={b.label} className="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-100 text-center">
+                <div className="text-sm text-gray-600 mb-1">{b.label}</div>
+                <div className="text-lg font-bold text-[#7e32e2]">{numberFmt(b.value)}</div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* NCDs */}
-      <div className={styles.card} style={{ marginBottom: 12 }}>
-        <div className={styles.cardHeader}>คัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)</div>
-        <div className={styles.cardContent}>
-          {/* BMI */}
-          <div className={styles.ncdBar} style={{ marginBottom: 10 }}>
-            <div className={styles.ncdLine}>
-              <div className={styles.head}>ค่า BMI</div>
-              {bmiRow.map((b) => (
-                <div key={b.label} className={styles.box}>
-                  <div className={styles.label}>{b.label}</div>
-                  <div className={styles.val}>{numberFmt(b.value)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* ความดันโลหิต */}
-          <div className={styles.ncdBar} style={{ marginBottom: 10 }}>
-            <div className={styles.ncdLine}>
-              <div className={styles.head}>ค่าความดันโลหิต</div>
-              {bpRow.map((b) => (
-                <div key={b.label} className={styles.box}>
-                  <div className={styles.label}>{b.label}</div>
-                  <div className={styles.val}>{numberFmt(b.value)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* น้ำตาลในเลือด */}
-          <div className={styles.ncdBar}>
-            <div className={styles.ncdLine}>
-              <div className={styles.head}>ค่าน้ำตาลในเลือด</div>
-              {sugarRow.map((b) => (
-                <div key={b.label} className={styles.box}>
-                  <div className={styles.label}>{b.label}</div>
-                  <div className={styles.val}>{numberFmt(b.value)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* ตาราง + Donut */}
-      <div className={styles.row} style={{ marginBottom: 16 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ตารางซ้าย */}
-        <div className={styles["col-8"]}>
-          <ThreeDocCompService
-            title="ข้อมูลคัดกรองผู้สูงอายุในชุมชน"
-            columns={elderlyColumns}
-            rows={elderlyScreens}
-            numberFmt={numberFmt}
-            emptyText="ไม่มีข้อมูล"
-          />
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] overflow-hidden">
+            <div className="bg-gradient-to-r from-[#7e32e2] to-[#a855f7] px-6 py-4">
+              <h3 className="text-lg font-bold text-white">ข้อมูลคัดกรองผู้สูงอายุในชุมชน</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-purple-50">
+                  <tr>
+                    {elderlyColumns.map((col) => (
+                      <th
+                        key={col.key}
+                        className="px-4 py-3 text-sm font-semibold text-gray-700"
+                        style={{ textAlign: col.align }}
+                      >
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {elderlyScreens.map((row, idx) => (
+                    <tr key={row.id} className={idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"}>
+                      <td className="px-4 py-3 text-center text-gray-600">{row.id}</td>
+                      <td className="px-4 py-3 text-gray-700">{row.name}</td>
+                      <td className="px-4 py-3 text-center text-gray-700">{numberFmt(row.normal)}</td>
+                      <td className="px-4 py-3 text-center text-gray-700">{numberFmt(row.risk)}</td>
+                      <td className="px-4 py-3 text-center font-semibold text-[#7e32e2]">{numberFmt(row.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         {/* Donut ขวา */}
-        <div className={styles["col-4"]}>
-          <div className={`${styles.card} ${styles.cardMuted}`} style={{ height: "100%" }}>
-            <div className={styles.cardHeader} style={{ color: "#6E28B7" }}>
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6">
+            <h3 className="text-lg font-bold text-[#7e32e2] mb-4">
               สัดส่วนยาเม็ดเสริมไอโอดีนของหญิงตั้งครรภ์
-            </div>
-            <div className={styles.cardContent}>
-              <div className={styles.donutCard}>
-                <div className={styles.donutWrap}>
-                  <Donut data={iodineData} maxSize={260} minSize={220} thicknessRatio={0.22} />
-                </div>
+            </h3>
+            <Donut data={iodineData} maxSize={260} minSize={220} thicknessRatio={0.22} />
 
-                <div className={`${styles.card} ${styles.cardMuted}`} style={{ marginTop: 12 }}>
-                  <div className={styles.cardHeader} style={{ color: "#6E28B7" }}>
-                    ยาเม็ดเสริมไอโอดีนของหญิงตั้งครรภ์
+            <div className="mt-6 space-y-3">
+              {iodineData.map((d, i) => (
+                <div key={d.name} className="flex items-center justify-between p-3 rounded-xl bg-purple-50">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-4 h-4 rounded-full"
+                      style={{ background: PALETTE[i % PALETTE.length] }}
+                    />
+                    <span className="font-medium text-gray-700">{d.name}</span>
                   </div>
-                  <div className={styles.cardContent}>
-                    <div className={styles.legendList}>
-                      {iodineData.map((d, i) => (
-                        <div key={d.name} className={styles.row}>
-                          <span className={styles.dot} style={{ background: PALETTE[i % PALETTE.length] }} />
-                          <span className={styles.name}>{d.name}</span>
-                          <span className={styles.value}>{numberFmt(d.value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <span className="font-bold text-[#7e32e2]">{numberFmt(d.value)}</span>
                 </div>
-
-              </div>
+              ))}
             </div>
           </div>
         </div>

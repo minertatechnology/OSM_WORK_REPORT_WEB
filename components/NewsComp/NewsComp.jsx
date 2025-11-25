@@ -1,37 +1,149 @@
-import React, { useState, useMemo } from "react";
-import { Plus, Calendar, Search, ChevronsLeft, ChevronLeft, ChevronsRight, ChevronRight } from "lucide-react";
-import InputService from "@services/inputService/inputService";
-import ButtonService from "@services/buttonService/buttonService";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { Plus, Calendar, Search, ChevronsLeft, ChevronLeft, ChevronsRight, ChevronRight, Megaphone, FileText, X, ChevronDown } from "lucide-react";
 import NewsCompService from "@services/Table/NewsCompService";
 import NewsAddPopup from "@components/NewsComp/NewsAddPopup";
 
 // Dummy auth สำหรับตัวอย่าง
 const dummyAuth = { roles: ["สบส."] };
 
-const purple = "#9327e2";
-const border = "#c9b7f7";
-const text_gray = "#231d37";
-
 // ตัวเลือกปี
-const years = [
-  "", "2567", "2568", "2569", "2570"
-];
+const years = ["2567", "2568", "2569", "2570"];
 
 // ตัวเลือกเดือน
 const months = [
-  "",
   "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม",
   "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
 ];
 
-// ตัวเลือกสัปดาห์
+// ตัวเลือกสัปดาห์ (1 เดือนมี 4-5 สัปดาห์)
 const weeks = [
-  "",
-  "สัปดาห์ 1 (1/6/68-7/6/68)",
-  "สัปดาห์ 2 (8/6/68-14/6/68)",
-  "สัปดาห์ 3 (15/6/68-21/6/68)",
-  "สัปดาห์ 4 (22/6/68-28/6/68)",
+  "สัปดาห์ที่ 1 (1-7)",
+  "สัปดาห์ที่ 2 (8-14)",
+  "สัปดาห์ที่ 3 (15-21)",
+  "สัปดาห์ที่ 4 (22-28)",
+  "สัปดาห์ที่ 5 (29-31)",
 ];
+
+// -------------------- CUSTOM SELECT COMPONENT --------------------
+function CustomSelect({ value, onChange, options, placeholder }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSelect = (option) => {
+    onChange(option);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (event) => {
+    if (!isOpen) {
+      if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case 'Escape':
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        setHighlightedIndex(prev =>
+          prev < options.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setHighlightedIndex(prev =>
+          prev > 0 ? prev - 1 : options.length - 1
+        );
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (highlightedIndex >= 0) {
+          handleSelect(options[highlightedIndex]);
+        }
+        break;
+    }
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div
+        className={`w-full h-12 px-4 rounded-xl border-2 ${
+          isOpen ? 'border-purple-600 ring-2 ring-purple-200' : 'border-purple-200'
+        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
+        onClick={handleToggle}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="combobox"
+        aria-expanded={isOpen}
+      >
+        <span className={value ? 'text-gray-700' : 'text-gray-500'}>
+          {value || placeholder}
+        </span>
+        <ChevronDown
+          size={20}
+          className={`text-purple-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
+          <ul role="listbox">
+            <li
+              className={`px-4 py-3 cursor-pointer transition-colors ${
+                !value ? 'bg-purple-50 text-purple-600 font-semibold' : 'hover:bg-purple-50 text-gray-700'
+              }`}
+              onClick={() => handleSelect("")}
+              role="option"
+            >
+              {placeholder}
+            </li>
+            {options.map((option, index) => (
+              <li
+                key={option}
+                className={`px-4 py-3 cursor-pointer transition-colors ${
+                  value === option
+                    ? 'bg-gradient-to-r from-purple-100 to-violet-100 text-purple-600 font-semibold border-l-4 border-purple-600'
+                    : highlightedIndex === index
+                    ? 'bg-purple-50 text-gray-700'
+                    : 'hover:bg-purple-50 text-gray-700'
+                }`}
+                onClick={() => handleSelect(option)}
+                role="option"
+                aria-selected={value === option}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // mock ข่าวสาร
 export const rawNewsListOrigin = [
@@ -41,7 +153,7 @@ export const rawNewsListOrigin = [
     title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป",
     year: "2568",
     month: "มิถุนายน",
-    week: "สัปดาห์ 4 (22/6/68-28/6/68)",
+    week: "สัปดาห์ที่ 4 (22-28)",
     healthZone: "zone1",
     province: "เชียงใหม่",
     amphur: "เมือง",
@@ -55,7 +167,7 @@ export const rawNewsListOrigin = [
     title: "อัพเดตเวอร์ชั่นใหม่",
     year: "2567",
     month: "กรกฎาคม",
-    week: "สัปดาห์ 2 (8/6/68-14/6/68)",
+    week: "สัปดาห์ที่ 3 (15-21)",
     healthZone: "zone2",
     province: "กรุงเทพ",
     amphur: "เมือง",
@@ -69,7 +181,7 @@ export const rawNewsListOrigin = [
     title: "ระบบแจ้งเตือนใหม่",
     year: "2569",
     month: "มีนาคม",
-    week: "สัปดาห์ 1 (1/6/68-7/6/68)",
+    week: "สัปดาห์ที่ 2 (8-14)",
     healthZone: "zone1",
     province: "เชียงใหม่",
     amphur: "เมือง",
@@ -83,7 +195,7 @@ export const rawNewsListOrigin = [
     title: "คู่มือการใช้งานแอป",
     year: "2570",
     month: "มิถุนายน",
-    week: "สัปดาห์ 3 (15/6/68-21/6/68)",
+    week: "สัปดาห์ที่ 3 (15-21)",
     healthZone: "zone2",
     province: "กรุงเทพ",
     amphur: "เมือง",
@@ -97,7 +209,7 @@ export const rawNewsListOrigin = [
     title: "เพิ่มระบบแสดงผลกราฟ",
     year: "2568",
     month: "พฤษภาคม",
-    week: "สัปดาห์ 1 (1/6/68-7/6/68)",
+    week: "สัปดาห์ที่ 2 (8-14)",
     healthZone: "zone1",
     province: "เชียงใหม่",
     amphur: "เมือง",
@@ -111,7 +223,7 @@ export const rawNewsListOrigin = [
     title: "แจ้งปิดปรับปรุงระบบ",
     year: "2567",
     month: "เมษายน",
-    week: "สัปดาห์ 3 (15/6/68-21/6/68)",
+    week: "สัปดาห์ที่ 5 (29-31)",
     healthZone: "zone2",
     province: "กรุงเทพ",
     amphur: "เมือง",
@@ -125,7 +237,7 @@ export const rawNewsListOrigin = [
     title: "เพิ่มระบบสมาชิก",
     year: "2569",
     month: "สิงหาคม",
-    week: "สัปดาห์ 2 (8/6/68-14/6/68)",
+    week: "สัปดาห์ที่ 3 (15-21)",
     healthZone: "zone2",
     province: "กรุงเทพ",
     amphur: "เมือง",
@@ -139,7 +251,7 @@ export const rawNewsListOrigin = [
     title: "อัพเดตระบบความปลอดภัย",
     year: "2570",
     month: "กันยายน",
-    week: "สัปดาห์ 1 (1/6/68-7/6/68)",
+    week: "สัปดาห์ที่ 1 (1-7)",
     healthZone: "zone1",
     province: "เชียงใหม่",
     amphur: "เมือง",
@@ -153,7 +265,7 @@ export const rawNewsListOrigin = [
     title: "แจ้งเตือนการประชุม",
     year: "2568",
     month: "ตุลาคม",
-    week: "สัปดาห์ 3 (15/6/68-21/6/68)",
+    week: "สัปดาห์ที่ 2 (8-14)",
     healthZone: "zone1",
     province: "เชียงใหม่",
     amphur: "เมือง",
@@ -167,7 +279,7 @@ export const rawNewsListOrigin = [
     title: "ระบบแจ้งเตือนวันหยุด",
     year: "2567",
     month: "ธันวาคม",
-    week: "สัปดาห์ 4 (22/6/68-28/6/68)",
+    week: "สัปดาห์ที่ 4 (22-28)",
     healthZone: "zone2",
     province: "กรุงเทพ",
     amphur: "เมือง",
@@ -176,44 +288,6 @@ export const rawNewsListOrigin = [
     detail: "แจ้งเตือนวันหยุดประจำปีล่วงหน้า"
   }
 ];
-
-
-function MyRadio({ checked, onChange, children }) {
-  return (
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 500, fontSize: 16 }}>
-      <span style={{
-        display: "inline-block",
-        width: 22,
-        height: 22,
-        borderRadius: "50%",
-        border: `2px solid ${checked ? purple : "#dadada"}`,
-        background: "#fff",
-        position: "relative",
-        marginRight: 4
-      }}>
-        {checked && (
-          <span style={{
-            display: "block",
-            width: 12,
-            height: 12,
-            borderRadius: "50%",
-            background: purple,
-            position: "absolute",
-            top: 3,
-            left: 3
-          }} />
-        )}
-        <input
-          type="radio"
-          checked={checked}
-          onChange={onChange}
-          style={{ opacity: 0, position: "absolute", width: 22, height: 22, cursor: "pointer" }}
-        />
-      </span>
-      <span style={{ color: checked ? purple : text_gray }}>{children}</span>
-    </label>
-  );
-}
 
 // Table with Pagination
 function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) {
@@ -263,71 +337,89 @@ function TableWithPagination({ data = [], defaultItemsPerPage = 10, onDetail }) 
   };
 
   return (
-    <div style={{ width: "100%" }}>
-      <NewsCompService rows={paginatedData} onDetail={onDetail} />
+    <div className="w-full">
+      <div className="overflow-x-auto">
+        <NewsCompService rows={paginatedData} onDetail={onDetail} />
+      </div>
       {totalPages > 1 && (
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginTop: 32, paddingTop: 16, borderTop: "1px solid #f0ebff" }}>
-          <div style={{ fontSize: 15, color: "#555" }}>
-            แสดง <span style={{ fontWeight: 600, color: purple }}>{startItem}</span>
-            {" "}ถึง <span style={{ fontWeight: 600, color: purple }}>{endItem}</span>
-            {" "}จาก <span style={{ fontWeight: 600, color: purple }}>{data.length}</span> รายการ
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-purple-100">
+          <div className="text-sm text-gray-600">
+            <span className="hidden sm:inline">แสดง <span className="font-semibold text-purple-600">{startItem}</span>
+            {" "}ถึง <span className="font-semibold text-purple-600">{endItem}</span>
+            {" "}จาก </span>
+            <span className="font-semibold text-purple-600">{data.length}</span>
+            <span className="sm:hidden"> รายการทั้งหมด</span>
+            <span className="hidden sm:inline"> รายการ</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            <button title="หน้าแรก" onClick={() => handlePageChange(1)} disabled={currentPage === 1}
-              style={{
-                padding: 7, borderRadius: 8,
-                color: currentPage === 1 ? "#bbb" : purple,
-                background: currentPage === 1 ? "#fff" : "#f6f2ff",
-                border: "none", cursor: currentPage === 1 ? "not-allowed" : "pointer"
-              }}>
+          <div className="flex items-center gap-1">
+            <button
+              title="หน้าแรก"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              className={`hidden sm:flex p-2 rounded-lg transition-all ${
+                currentPage === 1
+                  ? "text-gray-300 cursor-not-allowed"
+                  : "text-purple-600 bg-purple-50 hover:bg-purple-100"
+              }`}
+            >
               <ChevronsLeft size={18} />
             </button>
-            <button title="หน้าก่อนหน้า" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}
-              style={{
-                padding: 7, borderRadius: 8,
-                color: currentPage === 1 ? "#bbb" : purple,
-                background: currentPage === 1 ? "#fff" : "#f6f2ff",
-                border: "none", cursor: currentPage === 1 ? "not-allowed" : "pointer"
-              }}>
+            <button
+              title="หน้าก่อนหน้า"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`p-2 rounded-lg transition-all ${
+                currentPage === 1
+                  ? "text-gray-300 cursor-not-allowed"
+                  : "text-purple-600 bg-purple-50 hover:bg-purple-100"
+              }`}
+            >
               <ChevronLeft size={18} />
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 3, margin: "0 8px" }}>
+            <div className="hidden sm:flex items-center gap-1 mx-2">
               {getPageNumbers().map((page, idx) =>
                 page === "..." ? (
-                  <span key={idx} style={{ padding: "0 10px", color: "#bbb" }}>...</span>
+                  <span key={idx} className="px-2 text-gray-400">...</span>
                 ) : (
                   <button
                     key={idx}
                     onClick={() => handlePageChange(page)}
-                    style={{
-                      minWidth: 40, height: 36, borderRadius: 8, fontWeight: 600,
-                      background: currentPage === page ? purple : "#fff",
-                      color: currentPage === page ? "#fff" : purple,
-                      boxShadow: currentPage === page ? "0 2px 8px #e3d7fa" : "none",
-                      border: "none", cursor: "pointer"
-                    }}
+                    className={`min-w-[36px] h-9 rounded-lg font-semibold transition-all ${
+                      currentPage === page
+                        ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md"
+                        : "text-purple-600 hover:bg-purple-50"
+                    }`}
                   >
                     {page}
                   </button>
                 )
               )}
             </div>
-            <button title="หน้าถัดไป" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}
-              style={{
-                padding: 7, borderRadius: 8,
-                color: currentPage === totalPages ? "#bbb" : purple,
-                background: currentPage === totalPages ? "#fff" : "#f6f2ff",
-                border: "none", cursor: currentPage === totalPages ? "not-allowed" : "pointer"
-              }}>
+            <div className="sm:hidden mx-2 text-sm text-gray-600 font-medium">
+              {currentPage} / {totalPages}
+            </div>
+            <button
+              title="หน้าถัดไป"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`p-2 rounded-lg transition-all ${
+                currentPage === totalPages
+                  ? "text-gray-300 cursor-not-allowed"
+                  : "text-purple-600 bg-purple-50 hover:bg-purple-100"
+              }`}
+            >
               <ChevronRight size={18} />
             </button>
-            <button title="หน้าสุดท้าย" onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages}
-              style={{
-                padding: 7, borderRadius: 8,
-                color: currentPage === totalPages ? "#bbb" : purple,
-                background: currentPage === totalPages ? "#fff" : "#f6f2ff",
-                border: "none", cursor: currentPage === totalPages ? "not-allowed" : "pointer"
-              }}>
+            <button
+              title="หน้าสุดท้าย"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              className={`hidden sm:flex p-2 rounded-lg transition-all ${
+                currentPage === totalPages
+                  ? "text-gray-300 cursor-not-allowed"
+                  : "text-purple-600 bg-purple-50 hover:bg-purple-100"
+              }`}
+            >
               <ChevronsRight size={18} />
             </button>
           </div>
@@ -362,7 +454,6 @@ const NewsComp = () => {
     setShowAddPopup(false);
   };
   const handleSubmitPopup = (data) => {
-    // เพิ่มข้อมูลใหม่เข้า list (mock เพิ่ม date/id)
     const newId = rawNewsList.length ? Math.max(...rawNewsList.map(n => n.id || 0)) + 1 : 1;
     const now = new Date();
     const dateStr = `${now.getDate()} ${months[now.getMonth() + 1] || ""} ${now.getFullYear() + 543}`;
@@ -404,218 +495,183 @@ const NewsComp = () => {
     setFilteredNews(filtered);
   };
 
+  // Stats data
+  const totalNews = rawNewsList.length;
+  const thisYearNews = rawNewsList.filter(n => n.year === "2568").length;
+
   return (
-    <div style={{
-      background: "#f7f4ff",
-      minHeight: "100vh",
-      padding: "38px 0 0 0",
-      fontFamily: "'Noto Sans Thai', 'Kanit', Arial, sans-serif"
-    }}>
-      <div style={{ position: "relative", maxWidth: 1050, margin: "0 auto" }}>
-        <div style={{ fontWeight: 900, fontSize: 24, color: purple, marginBottom: 28, marginLeft: 6 }}>
-          ประวัติการส่งข่าว
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header Section */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl shadow-lg">
+                <Megaphone className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                  ประกาศข่าวสาร
+                </h1>
+                <p className="text-sm text-gray-500 mt-0.5">จัดการข่าวสารและประกาศ</p>
+              </div>
+            </div>
+            <button
+              onClick={handleAddNews}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200"
+            >
+              <Plus size={20} />
+              <span>เพิ่มข่าวสาร</span>
+            </button>
+          </div>
         </div>
-        <div style={{
-          position: "absolute", right: 0, top: -8,
-        }}>
-          <ButtonService
-            type="button"
-            variant="secondary"
-            size="md"
-            icon={<Plus size={22} style={{ marginRight: 8 }} />}
-            className="inline-flex items-center"
-            style={{
-              background: "#fff",
-              border: `2px solid ${purple}`,
-              color: purple,
-              fontWeight: 700,
-              fontSize: 17,
-              borderRadius: 13,
-              padding: "8px 28px",
-              boxShadow: "0 2px 8px #e3d7fa",
-              gap: 8,
-              transition: "all .18s",
-              cursor: "pointer"
-            }}
-            onClick={handleAddNews}
-          >
-            เพิ่มข่าวสาร
-          </ButtonService>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="bg-white rounded-2xl p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-purple-100 to-violet-100 rounded-xl">
+                <FileText className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">ข่าวสารทั้งหมด</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                  {totalNews}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-violet-100 to-purple-100 rounded-xl">
+                <Calendar className="w-6 h-6 text-violet-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">ข่าวสารปี 2568</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                  {thisYearNews}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Search Box */}
         <form
-          style={{
-            background: "#fff", border: `2px solid ${border}`,
-            borderRadius: 14, boxShadow: "0 2px 8px #e3d7fa",
-            padding: "28px 34px 22px 34px", marginBottom: 38, marginTop: 4,
-          }}
           onSubmit={handleSearch}
+          className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6 mb-6"
         >
-          <div style={{
-            fontWeight: 700, fontSize: 18, color: text_gray, marginBottom: 14
-          }}>
-            รูปแบบการค้นหา :
-            <span style={{ marginLeft: 18 }}>
-              <MyRadio checked={searchType === "yearly"} onChange={() => setSearchType("yearly")}>
-                ค้นหาแบบรายปี
-              </MyRadio>
-            </span>
-            <span style={{ marginLeft: 22 }}>
-              <MyRadio checked={searchType === "budget"} onChange={() => setSearchType("budget")}>
-                ค้นหาแบบรายปีงบประมาณ
-              </MyRadio>
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 24, marginBottom: 18, flexWrap: "wrap" }}>
-            {/* ปี */}
-            <div style={{ flex: 1, minWidth: 150, maxWidth: 190 }}>
-              <div style={{ fontWeight: 600, color: text_gray, fontSize: 15, marginBottom: 8 }}>
-                ปี
-              </div>
-              <div style={{ position: "relative" }}>
-                <InputService
-                  type="select"
-                  options={years.map(y => ({ value: y, label: y ? y : "เลือกปี" }))}
-                  value={year}
-                  onChange={e => setYear(e.value || e.target.value)}
-                  className="w-full"
-                  style={{
-                    width: "100%",
-                    border: `1.5px solid ${border}`,
-                    borderRadius: 8,
-                    fontSize: 16,
-                    padding: "10px 18px 10px 18px",
-                    color: text_gray,
-                    background: "#f6f2ff",
-                    fontWeight: 500,
-                  }}
-                  suffixIcon={<Calendar size={20} color="#a759e7" />}
+          {/* Search Type Radio */}
+          <div className="mb-5">
+            <p className="text-sm font-semibold text-gray-700 mb-3">รูปแบบการค้นหา</p>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  searchType === "yearly" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
+                }`}>
+                  {searchType === "yearly" && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <span className={`text-sm font-medium ${searchType === "yearly" ? "text-purple-600" : "text-gray-600"}`}>
+                  ค้นหาแบบรายปี
+                </span>
+                <input
+                  type="radio"
+                  name="searchType"
+                  checked={searchType === "yearly"}
+                  onChange={() => setSearchType("yearly")}
+                  className="sr-only"
                 />
-              </div>
-            </div>
-            {/* เดือน */}
-            <div style={{ flex: 1, minWidth: 150, maxWidth: 190 }}>
-              <div style={{ fontWeight: 600, color: text_gray, fontSize: 15, marginBottom: 8 }}>
-                เดือน
-              </div>
-              <div style={{ position: "relative" }}>
-                <InputService
-                  type="select"
-                  options={months.map(m => ({ value: m, label: m ? m : "เลือกเดือน" }))}
-                  value={month}
-                  onChange={e => setMonth(e.value || e.target.value)}
-                  className="w-full"
-                  style={{
-                    width: "100%",
-                    border: `1.5px solid ${border}`,
-                    borderRadius: 8,
-                    fontSize: 16,
-                    padding: "10px 18px 10px 18px",
-                    color: text_gray,
-                    background: "#f6f2ff",
-                    fontWeight: 500,
-                  }}
-                  suffixIcon={<Calendar size={20} color="#a759e7" />}
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  searchType === "budget" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
+                }`}>
+                  {searchType === "budget" && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <span className={`text-sm font-medium ${searchType === "budget" ? "text-purple-600" : "text-gray-600"}`}>
+                  ค้นหาแบบรายปีงบประมาณ
+                </span>
+                <input
+                  type="radio"
+                  name="searchType"
+                  checked={searchType === "budget"}
+                  onChange={() => setSearchType("budget")}
+                  className="sr-only"
                 />
-              </div>
-            </div>
-            {/* สัปดาห์ */}
-            <div style={{ flex: 1.2, minWidth: 180, maxWidth: 290 }}>
-              <div style={{ fontWeight: 600, color: text_gray, fontSize: 15, marginBottom: 8 }}>
-                สัปดาห์
-              </div>
-              <div style={{ position: "relative" }}>
-                <InputService
-                  type="select"
-                  options={weeks.map(w => ({ value: w, label: w ? w : "เลือกสัปดาห์" }))}
-                  value={week}
-                  onChange={e => setWeek(e.value || e.target.value)}
-                  className="w-full"
-                  style={{
-                    width: "100%",
-                    border: `1.5px solid ${border}`,
-                    borderRadius: 8,
-                    fontSize: 16,
-                    padding: "10px 18px 10px 18px",
-                    color: text_gray,
-                    background: "#f6f2ff",
-                    fontWeight: 500,
-                  }}
-                  suffixIcon={<Calendar size={20} color="#a759e7" />}
-                />
-              </div>
+              </label>
             </div>
           </div>
-          {/* ปุ่มค้นหาและล้างข้อมูลการค้นหา */}
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              width: "100%",
-              marginBottom: 6,
-            }}
-          >
-            <ButtonService
+
+          {/* Filter Dropdowns */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+            {/* Year */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">ปี</label>
+              <CustomSelect
+                value={year}
+                onChange={setYear}
+                options={years}
+                placeholder="-- เลือกปี --"
+              />
+            </div>
+
+            {/* Month */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">เดือน</label>
+              <CustomSelect
+                value={month}
+                onChange={setMonth}
+                options={months}
+                placeholder="-- เลือกเดือน --"
+              />
+            </div>
+
+            {/* Week */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">สัปดาห์</label>
+              <CustomSelect
+                value={week}
+                onChange={setWeek}
+                options={weeks}
+                placeholder="-- เลือกสัปดาห์ --"
+              />
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
               type="submit"
-              variant="primary"
-              size="md"
-              icon={<Search size={22} color="#fff" />}
-              className="flex items-center justify-center"
-              style={{
-                background: purple,
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 18,
-                borderRadius: 9,
-                border: "none",
-                padding: "8px 0",
-                minWidth: 0,
-                width: "50%",
-                boxShadow: "0 2px 8px #e3d7fa",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                cursor: "pointer",
-                transition: "all .18s"
-              }}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-200"
             >
-              ค้นหา
-            </ButtonService>
-            <ButtonService
+              <Search size={20} />
+              <span>ค้นหา</span>
+            </button>
+            <button
               type="button"
-              variant="secondary"
-              size="md"
-              className="flex items-center justify-center"
-              style={{
-                background: "#fff",
-                color: purple,
-                fontWeight: 700,
-                fontSize: 17,
-                borderRadius: 9,
-                border: `1.5px solid ${purple}`,
-                padding: "8px 0",
-                minWidth: 0,
-                width: "50%",
-                boxShadow: "0 2px 8px #e3d7fa",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                cursor: "pointer",
-                transition: "all .18s"
-              }}
               onClick={resetAll}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-purple-300 text-purple-600 font-semibold rounded-xl hover:bg-purple-50 hover:border-purple-400 transition-all duration-200"
             >
-              ล้างข้อมูลการค้นหา
-            </ButtonService>
+              <X size={20} />
+              <span>ล้างข้อมูล</span>
+            </button>
           </div>
         </form>
 
-        {/* Table with Pagination */}
-        <TableWithPagination data={filteredNews} defaultItemsPerPage={10} onDetail={handleDetail} />
+        {/* Table Section */}
+        <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-5 h-5 text-purple-600" />
+            <h2 className="text-lg font-semibold text-gray-800">รายการข่าวสาร</h2>
+            <span className="ml-auto text-sm text-gray-500">
+              พบ {filteredNews.length} รายการ
+            </span>
+          </div>
+          <TableWithPagination data={filteredNews} defaultItemsPerPage={10} onDetail={handleDetail} />
+        </div>
       </div>
+
+      {/* Popups */}
       <NewsAddPopup open={showAddPopup} onClose={handleClosePopup} onSubmit={handleSubmitPopup} auth={dummyAuth} />
       <NewsAddPopup
         open={showDetailPopup}

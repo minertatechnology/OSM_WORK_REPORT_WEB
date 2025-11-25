@@ -1,150 +1,77 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import ButtonService from "@services/buttonService/buttonService";
-import InputService from "@services/inputService/inputService";
 import {
   Download,
   CalendarDays,
   Search,
-  RotateCcw,
+  X,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
+  FileText,
+  TestTube,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 
 // Mock data for filter dropdowns
-const healthZones = [
-  { value: "", label: "ทั้งหมด" },
-  { value: "เขต1", label: "เขต1" },
-  { value: "เขต2", label: "เขต2" },
-];
+const healthZones = ["ทั้งหมด", "เขต1", "เขต2"];
 const provinces = [
-  { value: "", label: "เลือกจังหวัด" },
-  { value: "มหาสารคาม", label: "มหาสารคาม" },
-  { value: "ชลบุรี", label: "ชลบุรี" },
-  { value: "ปราจีนบุรี", label: "ปราจีนบุรี" },
-  { value: "กระบี่", label: "กระบี่" },
-  { value: "นครศรีธรรมราช", label: "นครศรีธรรมราช" },
-  { value: "สระแก้ว", label: "สระแก้ว" },
-  { value: "มุกดาหาร", label: "มุกดาหาร" },
-  { value: "กรุงเทพมหานคร", label: "กรุงเทพมหานคร" },
-  { value: "อุทัยธานี", label: "อุทัยธานี" },
-  { value: "ลำปาง", label: "ลำปาง" },
+  "มหาสารคาม",
+  "ชลบุรี",
+  "ปราจีนบุรี",
+  "กระบี่",
+  "นครศรีธรรมราช",
+  "สระแก้ว",
+  "มุกดาหาร",
+  "กรุงเทพมหานคร",
+  "อุทัยธานี",
+  "ลำปาง",
 ];
-const amphurs = [
-  { value: "", label: "เลือกอำเภอ" },
-  { value: "เมือง", label: "เมือง" },
-  { value: "บ้านกรวด", label: "บ้านกรวด" },
-];
-const tambons = [
-  { value: "", label: "เลือกตำบล" },
-  { value: "ท่าตูม", label: "ท่าตูม" },
-  { value: "ในเมือง", label: "ในเมือง" },
-];
+const amphurs = ["เมือง", "บ้านกรวด"];
+const tambons = ["ท่าตูม", "ในเมือง"];
 
-const years = [
-  { value: "2568", label: "2568" },
-  { value: "2567", label: "2567" },
-  { value: "2566", label: "2566" },
-];
+const years = ["2568", "2567", "2566"];
 const months = [
-  { value: "มกราคม", label: "มกราคม" },
-  { value: "กุมภาพันธ์", label: "กุมภาพันธ์" },
-  { value: "มีนาคม", label: "มีนาคม" },
-  { value: "เมษายน", label: "เมษายน" },
-  { value: "พฤษภาคม", label: "พฤษภาคม" },
-  { value: "มิถุนายน", label: "มิถุนายน" },
-  { value: "กรกฎาคม", label: "กรกฎาคม" },
-  { value: "สิงหาคม", label: "สิงหาคม" },
-  { value: "กันยายน", label: "กันยายน" },
-  { value: "ตุลาคม", label: "ตุลาคม" },
-  { value: "พฤศจิกายน", label: "พฤศจิกายน" },
-  { value: "ธันวาคม", label: "ธันวาคม" },
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
 ];
 
 // Mock table data
 const tableList = [
-  {
-    name: "มหาสารคาม",
-    positive: 573,
-    negative: 4755,
-    invalid: 27,
-    total: 5355,
-  },
-  {
-    name: "ชลบุรี",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
-  {
-    name: "ปราจีนบุรี",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
-  {
-    name: "กระบี่",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
-  {
-    name: "นครศรีธรรมราช",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
-  {
-    name: "สระแก้ว",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
-  {
-    name: "มุกดาหาร",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
-  {
-    name: "กรุงเทพมหานคร",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
-  {
-    name: "อุทัยธานี",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
-  {
-    name: "ลำปาง",
-    positive: 75,
-    negative: 1780,
-    invalid: 4,
-    total: 1859,
-  },
+  { name: "มหาสารคาม", positive: 573, negative: 4755, invalid: 27, total: 5355 },
+  { name: "ชลบุรี", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  { name: "ปราจีนบุรี", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  { name: "กระบี่", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  { name: "นครศรีธรรมราช", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  { name: "สระแก้ว", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  { name: "มุกดาหาร", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  { name: "กรุงเทพมหานคร", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  { name: "อุทัยธานี", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  { name: "ลำปาง", positive: 75, negative: 1780, invalid: 4, total: 1859 },
 ];
 
-// Pagination constants and helpers
+// Pagination helpers
 const PER_PAGE_OPTIONS = [
   { value: 10, label: "10" },
   { value: 20, label: "20" },
   { value: 50, label: "50" },
   { value: 100, label: "100" },
 ];
+
 function getPageNumbers(current, total) {
   const visible = 5;
   if (total <= visible) return Array.from({ length: total }, (_, i) => i + 1);
@@ -159,6 +86,127 @@ function getPageNumbers(current, total) {
   return pages.filter((v, i, arr) => v === "..." || arr.indexOf(v) === i);
 }
 
+// CustomSelect component
+function CustomSelect({ value, onChange, options, placeholder }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSelect = (option) => {
+    onChange(option);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (event) => {
+    if (!isOpen) {
+      if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case 'Escape':
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        setHighlightedIndex(prev =>
+          prev < options.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setHighlightedIndex(prev =>
+          prev > 0 ? prev - 1 : options.length - 1
+        );
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (highlightedIndex >= 0) {
+          handleSelect(options[highlightedIndex]);
+        }
+        break;
+    }
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div
+        className={`w-full h-12 px-4 rounded-xl border-2 ${
+          isOpen ? 'border-purple-600 ring-2 ring-purple-200' : 'border-purple-200'
+        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
+        onClick={handleToggle}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="combobox"
+        aria-expanded={isOpen}
+      >
+        <span className={value ? 'text-gray-700' : 'text-gray-500'}>
+          {value || placeholder}
+        </span>
+        <ChevronDown
+          size={20}
+          className={`text-purple-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
+          <ul role="listbox">
+            <li
+              className={`px-4 py-3 cursor-pointer transition-colors ${
+                !value ? 'bg-purple-50 text-purple-600 font-semibold' : 'hover:bg-purple-50 text-gray-700'
+              }`}
+              onClick={() => handleSelect("")}
+              role="option"
+            >
+              {placeholder}
+            </li>
+            {options.map((option, index) => (
+              <li
+                key={option}
+                className={`px-4 py-3 cursor-pointer transition-colors ${
+                  value === option
+                    ? 'bg-gradient-to-r from-purple-100 to-violet-100 text-purple-600 font-semibold border-l-4 border-purple-600'
+                    : highlightedIndex === index
+                    ? 'bg-purple-50 text-gray-700'
+                    : 'hover:bg-purple-50 text-gray-700'
+                }`}
+                onClick={() => handleSelect(option)}
+                role="option"
+                aria-selected={value === option}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Pagination component
 function PaginationWithPerPage({
   currentPage,
@@ -168,7 +216,7 @@ function PaginationWithPerPage({
   setItemsPerPage,
 }) {
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 mb-10 pt-4 border-t border-[#f0ebff]">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-purple-100">
       <div className="flex items-center gap-2">
         <label htmlFor="per-page" className="text-sm text-gray-600 font-medium">
           แสดง
@@ -180,7 +228,7 @@ function PaginationWithPerPage({
             setItemsPerPage(Number(e.target.value));
             setCurrentPage(1);
           }}
-          className="appearance-none border border-[#e5e7eb] rounded-full px-4 py-2 pr-8 text-sm font-semibold text-[#7e32e2] bg-white shadow transition focus:outline-none focus:ring-2 focus:ring-[#7e32e2] focus:border-transparent hover:border-[#7e32e2] cursor-pointer"
+          className="appearance-none border border-purple-200 rounded-xl px-4 py-2 pr-8 text-sm font-semibold text-purple-600 bg-purple-50 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent hover:border-purple-400 cursor-pointer"
         >
           {PER_PAGE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -190,52 +238,44 @@ function PaginationWithPerPage({
         </select>
         <span className="text-sm text-gray-600">รายการต่อหน้า</span>
       </div>
-      <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-[#ece1f7] shadow-lg backdrop-blur-sm">
+      <div className="flex items-center gap-1">
         <button
           onClick={() => setCurrentPage(1)}
           disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`hidden sm:flex p-2 rounded-lg transition-all ${
             currentPage === 1
               ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
+              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
           }`}
           title="หน้าแรก"
-          aria-label="หน้าแรก"
         >
           <ChevronsLeft size={18} />
         </button>
         <button
           onClick={() => setCurrentPage(currentPage - 1)}
           disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`p-2 rounded-lg transition-all ${
             currentPage === 1
               ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
+              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
           }`}
           title="หน้าก่อนหน้า"
-          aria-label="หน้าก่อนหน้า"
         >
           <ChevronLeft size={18} />
         </button>
-        <div className="flex items-center gap-1 mx-2">
+        <div className="hidden sm:flex items-center gap-1 mx-2">
           {getPageNumbers(currentPage, totalPages).map((page, idx) =>
             page === "..." ? (
-              <span
-                key={idx}
-                className="px-2 py-1 text-gray-400 font-semibold select-none"
-              >
-                ...
-              </span>
+              <span key={idx} className="px-2 text-gray-400">...</span>
             ) : (
               <button
                 key={idx}
                 onClick={() => setCurrentPage(page)}
-                className={`min-w-[36px] h-9 rounded-full font-semibold text-base transition-all duration-200 ${
+                className={`min-w-[36px] h-9 rounded-lg font-semibold transition-all ${
                   currentPage === page
-                    ? "bg-[#7e32e2] text-white shadow-lg scale-110 border border-[#7e32e2]"
-                    : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
+                    ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md"
+                    : "text-purple-600 hover:bg-purple-50"
                 }`}
-                aria-current={currentPage === page ? "page" : undefined}
               >
                 {page}
               </button>
@@ -245,31 +285,32 @@ function PaginationWithPerPage({
         <button
           onClick={() => setCurrentPage(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`p-2 rounded-lg transition-all ${
             currentPage === totalPages
               ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
+              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
           }`}
           title="หน้าถัดไป"
-          aria-label="หน้าถัดไป"
         >
           <ChevronRight size={18} />
         </button>
         <button
           onClick={() => setCurrentPage(totalPages)}
           disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`hidden sm:flex p-2 rounded-lg transition-all ${
             currentPage === totalPages
               ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
+              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
           }`}
           title="หน้าสุดท้าย"
-          aria-label="หน้าสุดท้าย"
         >
           <ChevronsRight size={18} />
         </button>
-        <div className="ml-3 text-sm text-[#888] font-semibold bg-[#f6eeff] px-4 py-2 rounded-xl shadow">
+        <div className="hidden sm:block ml-3 text-sm text-gray-600 font-medium bg-purple-50 px-3 py-2 rounded-lg">
           หน้า {currentPage} / {totalPages}
+        </div>
+        <div className="sm:hidden ml-2 text-sm text-gray-600 font-medium">
+          {currentPage} / {totalPages}
         </div>
       </div>
     </div>
@@ -298,6 +339,12 @@ const AtkReportComp = () => {
     currentPage * itemsPerPage
   );
 
+  // Calculate stats
+  const totalPositive = tableList.reduce((sum, row) => sum + row.positive, 0);
+  const totalNegative = tableList.reduce((sum, row) => sum + row.negative, 0);
+  const totalInvalid = tableList.reduce((sum, row) => sum + row.invalid, 0);
+  const totalAll = tableList.reduce((sum, row) => sum + row.total, 0);
+
   // Close dropdown on click outside
   React.useEffect(() => {
     if (!open) return;
@@ -310,231 +357,253 @@ const AtkReportComp = () => {
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
 
-  // Styles
-  const buttonStyle =
-    "flex justify-between items-center w-full gap-2 px-5 py-2 rounded-lg shadow border border-[#ece1f7] text-[#6E28B7] font-bold text-[15px] bg-white transition";
-  const iconStyle = "mr-2 text-[#6E28B7]";
-  const splitStyle = "ml-4 flex items-center";
-  const arrowStyle = "text-[#6E28B7]";
+  // Reset all filters
+  const resetFilters = () => {
+    setSearchType("year");
+    setYear("2568");
+    setMonth("มิถุนายน");
+    setZone("");
+    setProvince("");
+    setAmphur("");
+    setTambon("");
+  };
 
   return (
-    <div>
-      {/* Search Form */}
-      <div className="bg-white rounded-2xl shadow border border-[#ece1f7] p-5">
-        <div className="mx-auto px-8">
-          <div className="font-bold text-[16px] text-[#6E28B7] mb-4">
-            รูปแบบการค้นหา :
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl shadow-lg">
+              <TestTube className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                รายงานผลตรวจ ATK
+              </h1>
+              <p className="text-sm text-gray-500 mt-0.5">ข้อมูลการตรวจ Antigen Test Kit</p>
+            </div>
           </div>
-          <div className="flex flex-col gap-4 mb-4">
-            {/* Search type */}
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 cursor-pointer">
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-red-100 to-red-50 rounded-xl">
+                <XCircle className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500">Positive</p>
+                <p className="text-lg sm:text-xl font-bold text-red-500">{totalPositive.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-green-100 to-green-50 rounded-xl">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500">Negative</p>
+                <p className="text-lg sm:text-xl font-bold text-green-500">{totalNegative.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-xl">
+                <AlertCircle className="w-5 h-5 text-yellow-500" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500">Invalid</p>
+                <p className="text-lg sm:text-xl font-bold text-yellow-500">{totalInvalid.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-purple-100 to-violet-100 rounded-xl">
+                <FileText className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500">ทั้งหมด</p>
+                <p className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                  {totalAll.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Form */}
+        <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6 mb-6">
+          {/* Search Type Radio */}
+          <div className="mb-5">
+            <p className="text-sm font-semibold text-gray-700 mb-3">รูปแบบการค้นหา</p>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  searchType === "year" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
+                }`}>
+                  {searchType === "year" && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <span className={`text-sm font-medium ${searchType === "year" ? "text-purple-600" : "text-gray-600"}`}>
+                  ค้นหาแบบรายปี
+                </span>
                 <input
                   type="radio"
                   checked={searchType === "year"}
                   onChange={() => setSearchType("year")}
-                  className="accent-[#6E28B7]"
+                  className="sr-only"
                 />
-                <span className="text-[#6E28B7] font-medium text-[15px]">
-                  ค้นหาแบบรายปี
-                </span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  searchType === "budget" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
+                }`}>
+                  {searchType === "budget" && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+                <span className={`text-sm font-medium ${searchType === "budget" ? "text-purple-600" : "text-gray-600"}`}>
+                  ค้นหาแบบรายงบประมาณ
+                </span>
                 <input
                   type="radio"
                   checked={searchType === "budget"}
                   onChange={() => setSearchType("budget")}
-                  className="accent-[#6E28B7]"
+                  className="sr-only"
                 />
-                <span className="text-[#6E28B7] font-medium text-[15px]">
-                  ค้นหาแบบรายงบประมาณ
-                </span>
               </label>
             </div>
-            {/* ปี + เดือน */}
-            <div className="flex items-end gap-4">
-              {/* ปี */}
-              <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                <label className="text-[#6E28B7] font-medium text-[15px] mb-1">
-                  ปี
-                </label>
-                <div className="relative">
-                  <InputService
-                    options={years}
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                    name="year"
-                    placeholder="เลือกปี"
-                    icon={
-                      <CalendarDays
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B7B7B7]"
-                        size={20}
-                      />
-                    }
-                  />
-                </div>
-              </div>
-              {/* เดือน */}
-              <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                <label className="text-[#6E28B7] font-medium text-[15px] mb-1">
-                  เดือน
-                </label>
-                <div className="relative">
-                  <InputService
-                    options={months}
-                    value={month}
-                    onChange={(e) => setMonth(e.target.value)}
-                    name="month"
-                    placeholder="เลือกเดือน"
-                    icon={
-                      <CalendarDays
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B7B7B7]"
-                        size={20}
-                      />
-                    }
-                  />
-                </div>
-              </div>
+          </div>
+
+          {/* Year and Month */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">ปี</label>
+              <CustomSelect
+                value={year}
+                onChange={setYear}
+                options={years}
+                placeholder="-- เลือกปี --"
+              />
             </div>
-            {/* ฟีลเตอร์เพิ่มเติม: เขต จังหวัด อำเภอ ตำบล */}
-            <div className="flex items-end gap-4">
-              {/* เขตสุขภาพ */}
-              <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                <label className="text-[#6E28B7] font-medium text-[15px] mb-1">
-                  เขตสุขภาพ
-                </label>
-                <InputService
-                  options={healthZones}
-                  value={zone}
-                  onChange={(e) => setZone(e.target.value)}
-                  name="zone"
-                  placeholder="ทั้งหมด"
-                />
-              </div>
-              {/* จังหวัด */}
-              <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                <label className="text-[#6E28B7] font-medium text-[15px] mb-1">
-                  จังหวัด
-                </label>
-                <InputService
-                  options={provinces}
-                  value={province}
-                  onChange={(e) => setProvince(e.target.value)}
-                  name="province"
-                  placeholder="เลือกจังหวัด"
-                />
-              </div>
-              {/* อำเภอ */}
-              <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                <label className="text-[#6E28B7] font-medium text-[15px] mb-1">
-                  อำเภอ
-                </label>
-                <InputService
-                  options={amphurs}
-                  value={amphur}
-                  onChange={(e) => setAmphur(e.target.value)}
-                  name="amphur"
-                  placeholder="เลือกอำเภอ"
-                />
-              </div>
-              {/* ตำบล */}
-              <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                <label className="text-[#6E28B7] font-medium text-[15px] mb-1">
-                  ตำบล
-                </label>
-                <InputService
-                  options={tambons}
-                  value={tambon}
-                  onChange={(e) => setTambon(e.target.value)}
-                  name="tambon"
-                  placeholder="เลือกตำบล"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">เดือน</label>
+              <CustomSelect
+                value={month}
+                onChange={setMonth}
+                options={months}
+                placeholder="-- เลือกเดือน --"
+              />
             </div>
           </div>
-          {/* Actions */}
-          <div className="grid grid-cols-2 gap-4 w-full mt-3">
-            <ButtonService
-              variant="primary"
-              size="md"
-              className="w-full flex justify-center items-center gap-2"
-              icon={<Search size={20} />}
+
+          {/* Location Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">เขตสุขภาพ</label>
+              <CustomSelect
+                value={zone}
+                onChange={setZone}
+                options={healthZones}
+                placeholder="-- เลือกเขตสุขภาพ --"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">จังหวัด</label>
+              <CustomSelect
+                value={province}
+                onChange={setProvince}
+                options={provinces}
+                placeholder="-- เลือกจังหวัด --"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">อำเภอ</label>
+              <CustomSelect
+                value={amphur}
+                onChange={setAmphur}
+                options={amphurs}
+                placeholder="-- เลือกอำเภอ --"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">ตำบล</label>
+              <CustomSelect
+                value={tambon}
+                onChange={setTambon}
+                options={tambons}
+                placeholder="-- เลือกตำบล --"
+              />
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-200"
             >
-              ค้นหา
-            </ButtonService>
-            <ButtonService
-              variant="secondary"
-              size="md"
-              className="w-full flex justify-center items-center gap-2"
-              icon={<RotateCcw size={20} />}
+              <Search size={20} />
+              <span>ค้นหา</span>
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-purple-300 text-purple-600 font-semibold rounded-xl hover:bg-purple-50 hover:border-purple-400 transition-all duration-200"
             >
-              ล้างข้อมูลการค้นหา
-            </ButtonService>
+              <X size={20} />
+              <span>ล้างข้อมูล</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Results Table Section */}
-      <div className="w-full max-w-none">
-        <div className="mx-auto py-3">
+        {/* Results Table Section */}
+        <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6">
           {/* Title and Download Dropdown */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-bold text-[#6E28B7] text-[17px]">
-              ตารางข้อมูลผลตรวจสอบ ATK
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-gray-800">ตารางข้อมูลผลตรวจ ATK</h2>
+              <span className="text-sm text-gray-500">({tableList.length} รายการ)</span>
             </div>
-            <div className="relative inline-block" ref={dropdownRef}>
+            <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
-                className={buttonStyle}
-                style={{ minWidth: 200, boxShadow: "0 2px 8px #e5d9ff" }}
                 onClick={() => setOpen((s) => !s)}
-                aria-haspopup="true"
-                aria-expanded={open}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
               >
-                <span className="flex items-center">
-                  <Download className={iconStyle + " w-5 h-5"} />
-                  ดาวน์โหลดรายงาน
-                </span>
-                <span className={splitStyle}>
-                  <ChevronDown className={arrowStyle + " w-6 h-6"} />
-                </span>
+                <Download size={18} />
+                <span className="hidden sm:inline">ดาวน์โหลดรายงาน</span>
+                <span className="sm:hidden">ดาวน์โหลด</span>
+                <ChevronDown size={18} className={`transition-transform ${open ? "rotate-180" : ""}`} />
               </button>
               {open && (
-                <div
-                  className="absolute z-30 right-0 mt-2 w-full bg-white shadow-lg rounded-xl border border-[#ece1f7] py-2"
-                  style={{ minWidth: 180 }}
-                >
+                <div className="absolute z-30 right-0 mt-2 w-64 bg-white shadow-xl rounded-xl border border-purple-100 py-2 overflow-hidden">
                   <button
-                    className="flex items-center w-full px-5 py-3 gap-2 text-[#222] text-[17px] hover:bg-[#f6eeff] transition font-medium"
-                    onClick={() => {
-                      setOpen(false);
-                      // TODO: handle excel download
-                    }}
+                    className="flex items-center w-full px-4 py-3 gap-3 text-gray-700 hover:bg-purple-50 transition font-medium"
+                    onClick={() => setOpen(false)}
                   >
                     <Image
                       src="/xlsx.png"
                       alt="Excel icon"
-                      width={28}
-                      height={28}
-                      className="w-7 h-7"
-                      style={{ display: "inline-block" }}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6"
                     />
                     ดาวน์โหลดเอกสาร Excel
                   </button>
                   <button
-                    className="flex items-center w-full px-5 py-3 gap-2 text-[#222] text-[17px] hover:bg-[#f6eeff] transition font-medium"
-                    onClick={() => {
-                      setOpen(false);
-                      // TODO: handle pdf download
-                    }}
+                    className="flex items-center w-full px-4 py-3 gap-3 text-gray-700 hover:bg-purple-50 transition font-medium"
+                    onClick={() => setOpen(false)}
                   >
                     <Image
                       src="/pdf.png"
                       alt="PDF icon"
-                      width={28}
-                      height={28}
-                      className="w-7 h-7"
-                      style={{ display: "inline-block" }}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6"
                     />
                     ดาวน์โหลดเอกสาร PDF
                   </button>
@@ -542,65 +611,77 @@ const AtkReportComp = () => {
               )}
             </div>
           </div>
+
           {/* Table */}
-          <div className="w-full">
-            <table className="w-full border-separate [border-spacing:0] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[600px]">
               <thead>
-                <tr>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] rounded-tl-xl text-center">
-                    ลำดับ
+                <tr className="bg-gradient-to-r from-purple-100 to-violet-100">
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tl-xl">ลำดับ</th>
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-left">รายการ</th>
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center">
+                    <span className="inline-flex items-center gap-1">
+                      <XCircle size={14} className="text-red-500" />
+                      Positive
+                    </span>
                   </th>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] text-center">
-                    รายการ
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center">
+                    <span className="inline-flex items-center gap-1">
+                      <CheckCircle size={14} className="text-green-500" />
+                      Negative
+                    </span>
                   </th>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] text-center">
-                    Positive
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center">
+                    <span className="inline-flex items-center gap-1">
+                      <AlertCircle size={14} className="text-yellow-500" />
+                      Invalid
+                    </span>
                   </th>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] text-center">
-                    negative
-                  </th>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] text-center">
-                    Invalid
-                  </th>
-                  <th className="bg-[#EAD8FF] text-[#6E28B7] font-bold py-3 px-2 text-[15px] border-b border-[#dadada] rounded-tr-xl text-center">
-                    ทั้งหมด
-                  </th>
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tr-xl">ทั้งหมด</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.map((row, idx) => (
-                  <tr key={idx} className="border-b border-[#F2EFFF]">
-                    <td className="py-3 px-2 text-center text-[#231d37] text-[15px] font-normal">
+                  <tr
+                    key={idx}
+                    className="border-b border-purple-50 hover:bg-purple-50/50 transition-colors"
+                  >
+                    <td className="py-3 px-3 text-center text-gray-600 text-sm">
                       {(currentPage - 1) * itemsPerPage + idx + 1}
                     </td>
-                    <td className="py-3 px-2 text-center text-[#231d37] text-[15px] font-normal">
-                      {row.name}
+                    <td className="py-3 px-3 text-gray-800 text-sm font-medium">{row.name}</td>
+                    <td className="py-3 px-3 text-center">
+                      <span className="inline-block px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm font-semibold">
+                        {row.positive.toLocaleString()}
+                      </span>
                     </td>
-                    <td className="py-3 px-2 text-center text-[#231d37] text-[15px] font-normal">
-                      {row.positive}
+                    <td className="py-3 px-3 text-center">
+                      <span className="inline-block px-3 py-1 bg-green-50 text-green-600 rounded-full text-sm font-semibold">
+                        {row.negative.toLocaleString()}
+                      </span>
                     </td>
-                    <td className="py-3 px-2 text-center text-[#231d37] text-[15px] font-normal">
-                      {row.negative}
+                    <td className="py-3 px-3 text-center">
+                      <span className="inline-block px-3 py-1 bg-yellow-50 text-yellow-600 rounded-full text-sm font-semibold">
+                        {row.invalid.toLocaleString()}
+                      </span>
                     </td>
-                    <td className="py-3 px-2 text-center text-[#231d37] text-[15px] font-normal">
-                      {row.invalid}
-                    </td>
-                    <td className="py-3 px-2 text-center text-[#231d37] text-[15px] font-normal">
-                      {row.total}
+                    <td className="py-3 px-3 text-center text-gray-800 text-sm font-bold">
+                      {row.total.toLocaleString()}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {/* Pagination */}
-            <PaginationWithPerPage
-              currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
-              totalPages={totalPages}
-              itemsPerPage={itemsPerPage}
-              setItemsPerPage={setItemsPerPage}
-            />
           </div>
+
+          {/* Pagination */}
+          <PaginationWithPerPage
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            setItemsPerPage={setItemsPerPage}
+          />
         </div>
       </div>
     </div>
