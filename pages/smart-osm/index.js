@@ -1,12 +1,12 @@
 import Layout from "@components/layout/Layout";
 import SmartOsmComp from "@components/SmartOsmComp/SmartOsmComp";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
 const SmartOsm = () => {
   const { setLoading } = useLoading();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     // Show loading when page starts loading
     setLoading(true);
   }, [setLoading]);

@@ -1,12 +1,12 @@
 import Layout from "@components/layout/Layout";
 import ThreeDocComp from "@components/ThreeDocComp/ThreeDocComp";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
 const ThreeDoc = () => {
   const { setLoading } = useLoading();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     // Show loading when page starts loading
     setLoading(true);
   }, [setLoading]);

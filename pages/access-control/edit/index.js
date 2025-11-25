@@ -1,12 +1,12 @@
 import Layout from "@components/layout/Layout";
 import ManageAccess from "@components/AccessControlComp/edit/ManageAccess";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
 const AccessControlEdit = () => {
   const { setLoading } = useLoading();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     setLoading(true);
   }, [setLoading]);
 

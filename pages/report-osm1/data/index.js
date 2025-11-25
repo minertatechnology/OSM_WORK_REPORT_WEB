@@ -1,12 +1,12 @@
 import Layout from "@components/layout/Layout";
 import Reportosm1DataComp from "@components/Reportosm1Comp/Reportosm1DataComp/Reportosm1DataComp";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
 const Reportosm1Data = () => {
   const { setLoading } = useLoading();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     // Show loading when page starts loading
     setLoading(true);
   }, [setLoading]);

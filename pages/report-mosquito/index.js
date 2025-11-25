@@ -1,12 +1,12 @@
 import Layout from "@components/layout/Layout";
 import ReportMosquitoComp from "@components/ReportMosquitoComp/ReportMosquitoComp";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
 const ReportMosquito = () => {
   const { setLoading } = useLoading();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     // Show loading when page starts loading
     setLoading(true);
   }, [setLoading]);

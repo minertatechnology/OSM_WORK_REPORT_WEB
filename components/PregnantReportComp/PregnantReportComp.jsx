@@ -44,10 +44,10 @@ const MONTHS = [
   "ธันวาคม",
 ];
 const WEEKS = [
-  "สัปดาห์ 4 (22/6/68-30/6/68)",
-  "สัปดาห์ 3 (15/6/68-21/6/68)",
-  "สัปดาห์ 2 (8/6/68-14/6/68)",
-  "สัปดาห์ 1 (1/6/68-7/6/68)",
+  "สัปดาห์ 1 (1/6/68 - 7/6/68)",
+  "สัปดาห์ 2 (8/6/68 - 14/6/68)",
+  "สัปดาห์ 3 (15/6/68 - 21/6/68)",
+  "สัปดาห์ 4 (22/6/68 - 30/6/68)",
 ];
 const ZONES = Array.from({ length: 13 }, (_, i) => `เขตสุขภาพที่ ${i + 1}`);
 const PROVINCES = ["เชียงใหม่", "กรุงเทพฯ", "ขอนแก่น", "นครราชสีมา", "ชลบุรี"];
@@ -168,7 +168,7 @@ function CustomSelect({ value, onChange, options, placeholder, icon: Icon }) {
   return (
     <div className="relative" ref={dropdownRef}>
       <div
-        className={`w-full h-12 rounded-xl border-2 ${
+        className={`w-full h-12 rounded-xl border-2 px-4 ${
           isOpen
             ? "border-[#7e32e2] ring-2 ring-purple-200"
             : "border-purple-200"

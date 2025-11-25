@@ -29,28 +29,25 @@ import NcdsScreeningDetail from "./NcdsScreeningDetail/NcdsScreeningDetail";
 // Mock Data
 const YEARS = ["2568", "2567", "2566"];
 const MONTHS = [
-  'มกราคม',
-  'กุมภาพันธ์',
-  'มีนาคม',
-  'เมษายน',
-  'พฤษภาคม',
-  'มิถุนายน',
-  'กรกฎาคม',
-  'สิงหาคม',
-  'กันยายน',
-  'ตุลาคม',
-  'พฤศจิกายน',
-  'ธันวาคม',
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
 ];
-const WEEKS = [
-  'สัปดาห์ 4 (23/6/68-27/6/68)',
-  'สัปดาห์ 3 (16/6/68-22/6/68)',
-];
+const WEEKS = ["สัปดาห์ 4 (23/6/68-27/6/68)", "สัปดาห์ 3 (16/6/68-22/6/68)"];
 const ZONES = Array.from({ length: 13 }, (_, i) => `เขตสุขภาพที่ ${i + 1}`);
-const PROVINCES = ['เชียงใหม่', 'กรุงเทพฯ', 'อุดรธานี', 'นครราชสีมา', 'ชลบุรี'];
-const DISTRICTS = ['เมือง', 'สันทราย', 'บางนา', 'พระประแดง'];
-const SUBDISTRICTS = ['ท่าศาลา', 'หนองจ๊อม', 'บางแก้ว', 'บางครุ'];
-const SERVICES = ['รพ.เชียงใหม่', 'รพ.สันทราย', 'รพ.บางนา', 'รพ.พระประแดง'];
+const PROVINCES = ["เชียงใหม่", "กรุงเทพฯ", "อุดรธานี", "นครราชสีมา", "ชลบุรี"];
+const DISTRICTS = ["เมือง", "สันทราย", "บางนา", "พระประแดง"];
+const SUBDISTRICTS = ["ท่าศาลา", "หนองจ๊อม", "บางแก้ว", "บางครุ"];
+const SERVICES = ["รพ.เชียงใหม่", "รพ.สันทราย", "รพ.บางนา", "รพ.พระประแดง"];
 
 // Table mock (100 rows)
 const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
@@ -82,7 +79,9 @@ function exportSummaryPDF(data) {
   doc.text("สรุปจำนวนการส่งรายงานคัดกรอง NCDs", 105, 15, { align: "center" });
   doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
-  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, { align: "center" });
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, {
+    align: "center",
+  });
 
   const startX = 15;
   const startY = 35;
@@ -99,7 +98,9 @@ function exportSummaryPDF(data) {
     doc.rect(xPos, startY, colWidths[i], rowHeight);
     doc.setFont("Sarabun", "bold");
     doc.setFontSize(11);
-    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, { align: "center" });
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[i];
   });
 
@@ -115,7 +116,9 @@ function exportSummaryPDF(data) {
 
     xPos = startX;
     doc.rect(xPos, yPos, colWidths[0], rowHeight);
-    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, { align: "center" });
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[0];
 
     doc.rect(xPos, yPos, colWidths[1], rowHeight);
@@ -123,16 +126,22 @@ function exportSummaryPDF(data) {
     xPos += colWidths[1];
 
     doc.rect(xPos, yPos, colWidths[2], rowHeight);
-    doc.text(row.date, xPos + colWidths[2] / 2, yPos + 5.5, { align: "center" });
+    doc.text(row.date, xPos + colWidths[2] / 2, yPos + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[2];
 
     doc.rect(xPos, yPos, colWidths[3], rowHeight);
-    doc.text(String(row.amount), xPos + colWidths[3] / 2, yPos + 5.5, { align: "center" });
+    doc.text(String(row.amount), xPos + colWidths[3] / 2, yPos + 5.5, {
+      align: "center",
+    });
 
     yPos += rowHeight;
   });
 
-  doc.save(`สรุปจำนวนรายงาน_NCDs_${new Date().toISOString().split("T")[0]}.pdf`);
+  doc.save(
+    `สรุปจำนวนรายงาน_NCDs_${new Date().toISOString().split("T")[0]}.pdf`
+  );
 }
 
 function exportOverviewPDF(data) {
@@ -146,10 +155,14 @@ function exportOverviewPDF(data) {
 
   doc.setFontSize(16);
   doc.setFont("Sarabun", "bold");
-  doc.text("สรุปภาพรวมรายงานคัดกรอง NCDs ในพื้นที่", 105, 15, { align: "center" });
+  doc.text("สรุปภาพรวมรายงานคัดกรอง NCDs ในพื้นที่", 105, 15, {
+    align: "center",
+  });
   doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
-  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, { align: "center" });
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, {
+    align: "center",
+  });
 
   const startX = 15;
   const startY = 35;
@@ -166,7 +179,9 @@ function exportOverviewPDF(data) {
     doc.rect(xPos, startY, colWidths[i], rowHeight);
     doc.setFont("Sarabun", "bold");
     doc.setFontSize(11);
-    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, { align: "center" });
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[i];
   });
 
@@ -182,7 +197,9 @@ function exportOverviewPDF(data) {
 
     xPos = startX;
     doc.rect(xPos, yPos, colWidths[0], rowHeight);
-    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, { align: "center" });
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[0];
 
     doc.rect(xPos, yPos, colWidths[1], rowHeight);
@@ -198,7 +215,9 @@ function exportOverviewPDF(data) {
     xPos += colWidths[3];
 
     doc.rect(xPos, yPos, colWidths[4], rowHeight);
-    doc.text(String(row.amount), xPos + colWidths[4] / 2, yPos + 5.5, { align: "center" });
+    doc.text(String(row.amount), xPos + colWidths[4] / 2, yPos + 5.5, {
+      align: "center",
+    });
 
     yPos += rowHeight;
   });
@@ -217,11 +236,15 @@ function exportNotSubmittedPDF(data) {
 
   doc.setFontSize(16);
   doc.setFont("Sarabun", "bold");
-  doc.text("รายชื่อ อสม. ที่ยังไม่ส่งรายงานคัดกรอง NCDs", 105, 15, { align: "center" });
+  doc.text("รายชื่อ อสม. ที่ยังไม่ส่งรายงานคัดกรอง NCDs", 105, 15, {
+    align: "center",
+  });
 
   doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
-  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, { align: "center" });
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, {
+    align: "center",
+  });
 
   const notSubmittedData = data.filter((row) => row.status === "notSubmitted");
 
@@ -240,7 +263,9 @@ function exportNotSubmittedPDF(data) {
     doc.rect(xPos, startY, colWidths[i], rowHeight);
     doc.setFont("Sarabun", "bold");
     doc.setFontSize(11);
-    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, { align: "center" });
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[i];
   });
 
@@ -256,7 +281,9 @@ function exportNotSubmittedPDF(data) {
 
     xPos = startX;
     doc.rect(xPos, yPos, colWidths[0], rowHeight);
-    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, { align: "center" });
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[0];
 
     doc.rect(xPos, yPos, colWidths[1], rowHeight);
@@ -269,7 +296,9 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(`อสม_ที่ยังไม่ส่งรายงาน_NCDs_${new Date().toISOString().split("T")[0]}.pdf`);
+  doc.save(
+    `อสม_ที่ยังไม่ส่งรายงาน_NCDs_${new Date().toISOString().split("T")[0]}.pdf`
+  );
 }
 
 function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {
@@ -281,12 +310,7 @@ function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {
   }));
 
   const ws = XLSX.utils.json_to_sheet(excelData);
-  ws["!cols"] = [
-    { wch: 8 },
-    { wch: 30 },
-    { wch: 20 },
-    { wch: 20 },
-  ];
+  ws["!cols"] = [{ wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "��§ҹ");
@@ -338,50 +362,122 @@ function DetailModal({ open, onClose, data = [] }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-[#ece1f7] w-full max-w-2xl p-6 relative">
-        <div className="text-[20px] font-bold text-[#7e32e2] mb-5">รายละเอียดเอกสาร</div>
+        <div className="text-[20px] font-bold text-[#7e32e2] mb-5">
+          ดาวน์โหลดเอกสาร
+        </div>
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
-            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">สรุปจำนวนการส่งรายงาน</div>
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
+              สรุปจำนวนการส่งรายงาน
+            </div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95" onClick={handleExportSummaryPDF}>
-                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6" />
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+                onClick={handleExportSummaryPDF}
+              >
+                <Image
+                  src="/pdf.png"
+                  alt="pdf"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
                 เอกสาร PDF
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95" onClick={() => handleExportExcel(rows)}>
-                <Image src="/xlsx.png" alt="excel" width={24} height={24} className="w-6 h-6" />
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
+                onClick={() => handleExportExcel(rows)}
+              >
+                <Image
+                  src="/xlsx.png"
+                  alt="excel"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
                 เอกสาร Excel
               </button>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/40 border border-purple-100 rounded-xl px-4 py-3">
-            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">สรุปภาพรวมรายงานในพื้นที่</div>
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
+              สรุปภาพรวมรายงานในพื้นที่
+            </div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95" onClick={handleExportOverviewPDF}>
-                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6" />
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+                onClick={handleExportOverviewPDF}
+              >
+                <Image
+                  src="/pdf.png"
+                  alt="pdf"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
                 เอกสาร PDF
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95" onClick={() => handleExportExcel(rows, "สรุปภาพรวมรายงานในพื้นที่")}>
-                <Image src="/xlsx.png" alt="excel" width={24} height={24} className="w-6 h-6" />
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
+                onClick={() =>
+                  handleExportExcel(rows, "สรุปภาพรวมรายงานในพื้นที่")
+                }
+              >
+                <Image
+                  src="/xlsx.png"
+                  alt="excel"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
                 เอกสาร Excel
               </button>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/30 border border-purple-100 rounded-xl px-4 py-3">
-            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">อสม. ที่ยังไม่ส่งรายงาน</div>
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
+              อสม. ที่ยังไม่ส่งรายงาน
+            </div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95" onClick={handleExportNotSubmittedPDF}>
-                <Image src="/pdf.png" alt="pdf" width={24} height={24} className="w-6 h-6" />
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+                onClick={handleExportNotSubmittedPDF}
+              >
+                <Image
+                  src="/pdf.png"
+                  alt="pdf"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
                 เอกสาร PDF
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95" onClick={() => handleExportExcel(rows.slice(0, 10), "อสม. ที่ยังไม่ส่งรายงาน")}>
-                <Image src="/xlsx.png" alt="excel" width={24} height={24} className="w-6 h-6" />
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
+                onClick={() =>
+                  handleExportExcel(
+                    rows.slice(0, 10),
+                    "อสม. ที่ยังไม่ส่งรายงาน"
+                  )
+                }
+              >
+                <Image
+                  src="/xlsx.png"
+                  alt="excel"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
                 เอกสาร Excel
               </button>
             </div>
           </div>
         </div>
         <div className="flex justify-end">
-          <button className="px-6 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[16px] shadow hover:bg-[#f6eeff] transition" onClick={onClose}>
+          <button
+            className="px-6 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[16px] shadow hover:bg-[#f6eeff] transition"
+            onClick={onClose}
+          >
             ปิด
           </button>
         </div>
@@ -673,8 +769,7 @@ const NcdsScreeningComp = () => {
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
-    () =>
-      filteredRows.slice((page - 1) * itemsPerPage, page * itemsPerPage),
+    () => filteredRows.slice((page - 1) * itemsPerPage, page * itemsPerPage),
     [filteredRows, page, itemsPerPage]
   );
 
@@ -703,7 +798,7 @@ const NcdsScreeningComp = () => {
 
   const searchModes = [
     { key: "year", label: "ค้นหาแบบรายปี" },
-    { key: "budget", label: "ค้นหาแบบรายปีงบประมาณ" }
+    { key: "budget", label: "ค้นหาแบบรายปีงบประมาณ" },
   ];
 
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
@@ -739,8 +834,12 @@ const NcdsScreeningComp = () => {
                   <Heart size={28} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold">คัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)</h1>
-                  <p className="text-white/80">แดชบอร์ดรายงานและรายละเอียดเอกสาร</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold">
+                    คัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)
+                  </h1>
+                  <p className="text-white/80">
+                    แดชบอร์ดรายงานและรายละเอียดเอกสาร
+                  </p>
                 </div>
               </div>
             </div>
@@ -775,7 +874,9 @@ const NcdsScreeningComp = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ปี</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              ปี
+            </label>
             <CustomSelect
               value={year}
               onChange={setYear}
@@ -785,7 +886,9 @@ const NcdsScreeningComp = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              เดือน
+            </label>
             <CustomSelect
               value={month}
               onChange={setMonth}
@@ -795,7 +898,9 @@ const NcdsScreeningComp = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">สัปดาห์</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              สัปดาห์
+            </label>
             <CustomSelect
               value={week}
               onChange={setWeek}
@@ -808,7 +913,9 @@ const NcdsScreeningComp = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">เขตสุขภาพ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              เขตสุขภาพ
+            </label>
             <CustomSelect
               value={zone}
               onChange={setZone}
@@ -818,7 +925,9 @@ const NcdsScreeningComp = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">จังหวัด</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              จังหวัด
+            </label>
             <CustomSelect
               value={province}
               onChange={setProvince}
@@ -828,7 +937,9 @@ const NcdsScreeningComp = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">อำเภอ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              อำเภอ
+            </label>
             <CustomSelect
               value={district}
               onChange={setDistrict}
@@ -838,7 +949,9 @@ const NcdsScreeningComp = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ตำบล</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              ตำบล
+            </label>
             <CustomSelect
               value={subdistrict}
               onChange={setSubdistrict}
@@ -848,7 +961,9 @@ const NcdsScreeningComp = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">หน่วยบริการ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              หน่วยบริการ
+            </label>
             <CustomSelect
               value={service}
               onChange={setService}
@@ -880,7 +995,10 @@ const NcdsScreeningComp = () => {
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-4 my-6">
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+              size={20}
+            />
             <input
               type="text"
               value={keyword}
@@ -904,14 +1022,27 @@ const NcdsScreeningComp = () => {
 
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-[15px] border-separate" style={{ borderSpacing: 0, minWidth: "900px" }}>
+          <table
+            className="w-full text-[15px] border-separate"
+            style={{ borderSpacing: 0, minWidth: "900px" }}
+          >
             <thead>
               <tr className="bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white">
-                <th className="py-4 px-4 font-semibold text-center text-white rounded-tl-xl">ลำดับ</th>
-                <th className="py-4 px-4 font-semibold text-left text-white">ชื่อ-นามสกุล</th>
-                <th className="py-4 px-4 font-semibold text-center text-white">วันที่</th>
-                <th className="py-4 px-4 font-semibold text-center text-white">จำนวนครัวเรือน</th>
-                <th className="py-4 px-4 font-semibold text-center text-white rounded-tr-xl">รายละเอียด</th>
+                <th className="py-4 px-4 font-semibold text-center text-white rounded-tl-xl">
+                  ลำดับ
+                </th>
+                <th className="py-4 px-4 font-semibold text-left text-white">
+                  ชื่อ-นามสกุล
+                </th>
+                <th className="py-4 px-4 font-semibold text-center text-white">
+                  วันที่
+                </th>
+                <th className="py-4 px-4 font-semibold text-center text-white">
+                  จำนวนครัวเรือน
+                </th>
+                <th className="py-4 px-4 font-semibold text-center text-white rounded-tr-xl">
+                  รายละเอียด
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -928,13 +1059,19 @@ const NcdsScreeningComp = () => {
                 paginatedRows.map((row, idx) => (
                   <tr
                     key={row.index}
-                    className={`${idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"} hover:bg-purple-50 transition-colors`}
+                    className={`${
+                      idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
+                    } hover:bg-purple-50 transition-colors`}
                   >
                     <td className="py-4 px-4 text-center font-medium text-gray-600">
                       {(page - 1) * itemsPerPage + idx + 1}
                     </td>
-                    <td className="py-4 px-4 font-medium text-[#231d37]">{row.name}</td>
-                    <td className="py-4 px-4 text-center text-gray-600">{row.date}</td>
+                    <td className="py-4 px-4 font-medium text-[#231d37]">
+                      {row.name}
+                    </td>
+                    <td className="py-4 px-4 text-center text-gray-600">
+                      {row.date}
+                    </td>
                     <td className="py-4 px-4 text-center">
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-100 text-pink-700 font-semibold text-sm">
                         <Heart size={14} />
@@ -944,7 +1081,9 @@ const NcdsScreeningComp = () => {
                     <td className="py-4 px-4 text-center">
                       <button
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
-                        onClick={() => router.push(`/ncds-screening?detail=${row.index}`)}
+                        onClick={() =>
+                          router.push(`/ncds-screening?detail=${row.index}`)
+                        }
                       >
                         <Eye size={16} />
                         รายละเอียด
@@ -969,5 +1108,3 @@ const NcdsScreeningComp = () => {
 };
 
 export default NcdsScreeningComp;
-
-

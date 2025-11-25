@@ -43,26 +43,6 @@ const MENU_ICON_MAP = {
   การขนส่งของรางวัล: <Gift className="w-5 h-5" />,
 };
 
-const roleDisplayName = (roles) => {
-  if (!roles || !roles.length) return "";
-  switch (roles[0]) {
-    case "สบส.":
-      return "สบส.";
-    case "เขต":
-      return "เขต";
-    case "จังหวัด":
-      return "จังหวัด";
-    case "อำเภอ":
-      return "อำเภอ";
-    case "ตำบล":
-      return "ตำบล";
-    case "รพสต.":
-      return "รพสต.";
-    default:
-      return roles[0];
-  }
-};
-
 const getUserInfoFromSession = () => {
   if (typeof window === "undefined") return {};
   try {
@@ -88,7 +68,7 @@ const UserPosition = React.memo(({ isMobile }) => {
           const pos = parsed?.user?.position_name_th || "";
           setPosition(pos);
         }
-      } catch (err) {
+      } catch {
         // Silent error - no need to log
       }
     };
@@ -110,13 +90,12 @@ const UserPosition = React.memo(({ isMobile }) => {
     </div>
   );
 });
+UserPosition.displayName = 'UserPosition';
 
 const Navbar = React.memo(({
   onToggleSidebar,
   isMobile,
   userName,
-  userProvince,
-  userRole,
   navTitle,
   // navIcon,
 }) => {
@@ -165,6 +144,7 @@ const Navbar = React.memo(({
     </div>
   );
 });
+Navbar.displayName = 'Navbar';
 
 const Layout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

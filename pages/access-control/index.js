@@ -1,12 +1,12 @@
 import Layout from "@components/layout/Layout";
 import AccessControlComp from "@components/AccessControlComp/AccessControlComp";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
 
 const AccessControl = () => {
   const { setLoading } = useLoading();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     // Show loading when page starts loading
     setLoading(true);
   }, [setLoading]);
