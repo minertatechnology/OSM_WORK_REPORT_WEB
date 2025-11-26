@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Eye,
@@ -17,6 +18,12 @@ import {
   FileText,
   Users,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import { font as sarabunFont } from "../../../styles/Sarabun-Regular-normal";
+import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
+import ReportMosquitoCompDetailComp from "../ReportMosquitoCompDetailComp/ReportMosquitoCompDetailComp";
 
 // Mock data
 const YEARS = [
@@ -44,33 +51,26 @@ const WEEKS = [
   { label: "สัปดาห์ 3 (15/6/68 - 21/6/68)", value: "3" },
   { label: "สัปดาห์ 4 (22/6/68 - 30/6/68)", value: "4" },
 ];
-const ZONES = [
-  { label: "เลือกเขต", value: "" },
-  ...Array.from({ length: 13 }, (_, i) => ({
-    label: `เขตสุขภาพ ${i + 1}`,
-    value: `${i + 1}`,
-  })),
-];
+const ZONES = Array.from({ length: 13 }, (_, i) => ({
+  label: `เขตสุขภาพ ${i + 1}`,
+  value: `${i + 1}`,
+}));
 const PROVINCES = [
-  { label: "เลือกจังหวัด", value: "" },
   { label: "นครราชสีมา", value: "นครราชสีมา" },
   { label: "ชัยภูมิ", value: "ชัยภูมิ" },
   { label: "บุรีรัมย์", value: "บุรีรัมย์" },
 ];
 const DISTRICTS = [
-  { label: "เลือกอำเภอ", value: "" },
   { label: "เมือง", value: "เมือง" },
   { label: "ปากช่อง", value: "ปากช่อง" },
   { label: "โนนสูง", value: "โนนสูง" },
 ];
 const SUBDISTRICTS = [
-  { label: "เลือกตำบล", value: "" },
   { label: "ในเมือง", value: "ในเมือง" },
   { label: "หนองสาหร่าย", value: "หนองสาหร่าย" },
   { label: "โนนไทย", value: "โนนไทย" },
 ];
 const SERVICES = [
-  { label: "เลือกหน่วยบริการ", value: "" },
   { label: "รพ.นครราชสีมา", value: "รพ.นครราชสีมา" },
   { label: "รพ.ปากช่อง", value: "รพ.ปากช่อง" },
   { label: "รพ.สต.โนนไทย", value: "รพ.สต.โนนไทย" },
@@ -180,6 +180,273 @@ const MOCK_REPORTS = [
 ];
 
 const ALL_ROWS = MOCK_REPORTS.map((row, idx) => ({ ...row, index: idx + 1 }));
+
+// Export functions
+function exportSummaryPDF(data) {
+  const doc = new jsPDF();
+
+  doc.addFileToVFS("Sarabun-Regular.ttf", sarabunFont);
+  doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
+  doc.addFileToVFS("Sarabun-Bold.ttf", sarabunBoldFont);
+  doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
+  doc.setFont("Sarabun");
+
+  doc.setFontSize(16);
+  doc.setFont("Sarabun", "bold");
+  doc.text("สรุปยอดรายงานลูกน้ำยุงลาย", 105, 15, { align: "center" });
+  doc.setFontSize(12);
+  doc.setFont("Sarabun", "normal");
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, {
+    align: "center",
+  });
+
+  const startX = 15;
+  const startY = 35;
+  const rowHeight = 8;
+  const colWidths = [20, 90, 40, 30];
+  const headers = ["ลำดับ", "ชื่อรายงาน", "วันที่", "จำนวน"];
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.setFillColor(255, 255, 255);
+
+  let xPos = startX;
+  headers.forEach((header, i) => {
+    doc.rect(xPos, startY, colWidths[i], rowHeight);
+    doc.setFont("Sarabun", "bold");
+    doc.setFontSize(11);
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[i];
+  });
+
+  let yPos = startY + rowHeight;
+  doc.setFont("Sarabun", "normal");
+  doc.setFontSize(10);
+
+  data.forEach((row, idx) => {
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    xPos = startX;
+    doc.rect(xPos, yPos, colWidths[0], rowHeight);
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[0];
+
+    doc.rect(xPos, yPos, colWidths[1], rowHeight);
+    const nameParts = doc.splitTextToSize(row.name, colWidths[1] - 4);
+    doc.text(nameParts[0], xPos + 2, yPos + 5.5);
+    xPos += colWidths[1];
+
+    doc.rect(xPos, yPos, colWidths[2], rowHeight);
+    doc.text(row.date, xPos + colWidths[2] / 2, yPos + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[2];
+
+    doc.rect(xPos, yPos, colWidths[3], rowHeight);
+    doc.text(String(row.amount), xPos + colWidths[3] / 2, yPos + 5.5, {
+      align: "center",
+    });
+
+    yPos += rowHeight;
+  });
+
+  doc.save(
+    `สรุปยอดรายงาน_ลูกน้ำยุงลาย_${new Date().toISOString().split("T")[0]}.pdf`
+  );
+}
+
+function exportDistrictPDF(data) {
+  const doc = new jsPDF();
+
+  doc.addFileToVFS("Sarabun-Regular.ttf", sarabunFont);
+  doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
+  doc.addFileToVFS("Sarabun-Bold.ttf", sarabunBoldFont);
+  doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
+  doc.setFont("Sarabun");
+
+  doc.setFontSize(16);
+  doc.setFont("Sarabun", "bold");
+  doc.text("สรุปรายอำเภอ - รายงานลูกน้ำยุงลาย", 105, 15, { align: "center" });
+  doc.setFontSize(12);
+  doc.setFont("Sarabun", "normal");
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, {
+    align: "center",
+  });
+
+  const startX = 15;
+  const startY = 35;
+  const rowHeight = 8;
+  const colWidths = [20, 70, 30, 30, 35];
+  const headers = ["ลำดับ", "อำเภอ", "ส่งแล้ว", "ยังไม่ส่ง", "รวม"];
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.setFillColor(255, 255, 255);
+
+  let xPos = startX;
+  headers.forEach((header, i) => {
+    doc.rect(xPos, startY, colWidths[i], rowHeight);
+    doc.setFont("Sarabun", "bold");
+    doc.setFontSize(11);
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[i];
+  });
+
+  let yPos = startY + rowHeight;
+  doc.setFont("Sarabun", "normal");
+  doc.setFontSize(10);
+
+  // Mock district data
+  const districts = ["เมือง", "ปากช่อง", "โนนสูง"];
+  districts.forEach((district, idx) => {
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    xPos = startX;
+    doc.rect(xPos, yPos, colWidths[0], rowHeight);
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[0];
+
+    doc.rect(xPos, yPos, colWidths[1], rowHeight);
+    doc.text(district, xPos + colWidths[1] / 2, yPos + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[1];
+
+    doc.rect(xPos, yPos, colWidths[2], rowHeight);
+    doc.text(String(Math.floor(data.length / 3)), xPos + colWidths[2] / 2, yPos + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[2];
+
+    doc.rect(xPos, yPos, colWidths[3], rowHeight);
+    doc.text("0", xPos + colWidths[3] / 2, yPos + 5.5, { align: "center" });
+    xPos += colWidths[3];
+
+    doc.rect(xPos, yPos, colWidths[4], rowHeight);
+    doc.text(String(Math.floor(data.length / 3)), xPos + colWidths[4] / 2, yPos + 5.5, {
+      align: "center",
+    });
+
+    yPos += rowHeight;
+  });
+
+  doc.save(
+    `สรุปรายอำเภอ_ลูกน้ำยุงลาย_${new Date().toISOString().split("T")[0]}.pdf`
+  );
+}
+
+function exportNotSubmittedPDF(data) {
+  const doc = new jsPDF();
+
+  doc.addFileToVFS("Sarabun-Regular.ttf", sarabunFont);
+  doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
+  doc.addFileToVFS("Sarabun-Bold.ttf", sarabunBoldFont);
+  doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
+  doc.setFont("Sarabun");
+
+  doc.setFontSize(16);
+  doc.setFont("Sarabun", "bold");
+  doc.text("หน่วยที่ยังไม่ส่งรายงานลูกน้ำยุงลาย", 105, 15, {
+    align: "center",
+  });
+
+  doc.setFontSize(12);
+  doc.setFont("Sarabun", "normal");
+  doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 23, {
+    align: "center",
+  });
+
+  const startX = 15;
+  const startY = 35;
+  const rowHeight = 8;
+  const colWidths = [20, 100, 65];
+  const headers = ["ลำดับ", "ชื่อหน่วยบริการ", "สถานะ"];
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.setFillColor(255, 255, 255);
+
+  let xPos = startX;
+  headers.forEach((header, i) => {
+    doc.rect(xPos, startY, colWidths[i], rowHeight);
+    doc.setFont("Sarabun", "bold");
+    doc.setFontSize(11);
+    doc.text(header, xPos + colWidths[i] / 2, startY + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[i];
+  });
+
+  let yPos = startY + rowHeight;
+  doc.setFont("Sarabun", "normal");
+  doc.setFontSize(10);
+
+  // Mock not submitted data (first 5 items as example)
+  const notSubmitted = ["รพ.สต.บ้านดง", "รพ.สต.บ้านหนองบัว", "รพ.สต.บ้านโคกสูง"];
+  notSubmitted.forEach((unit, idx) => {
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    xPos = startX;
+    doc.rect(xPos, yPos, colWidths[0], rowHeight);
+    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, {
+      align: "center",
+    });
+    xPos += colWidths[0];
+
+    doc.rect(xPos, yPos, colWidths[1], rowHeight);
+    doc.text(unit, xPos + 3, yPos + 5.5);
+    xPos += colWidths[1];
+
+    doc.rect(xPos, yPos, colWidths[2], rowHeight);
+    doc.text("ยังไม่ส่งรายงาน", xPos + 3, yPos + 5.5);
+
+    yPos += rowHeight;
+  });
+
+  doc.save(
+    `หน่วยที่ยังไม่ส่ง_ลูกน้ำยุงลาย_${
+      new Date().toISOString().split("T")[0]
+    }.pdf`
+  );
+}
+
+function exportToExcel(data, title = "รายงานลูกน้ำยุงลาย") {
+  const excelData = data.map((row, idx) => ({
+    ลำดับ: idx + 1,
+    "ชื่อรายงาน": row.name,
+    วันที่: row.date,
+    จำนวน: row.amount,
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(excelData);
+  ws["!cols"] = [{ wch: 8 }, { wch: 50 }, { wch: 20 }, { wch: 15 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "รายงาน");
+
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(blob, `mosquito_report_${new Date().toISOString().split("T")[0]}.xlsx`);
+}
 
 // CustomSelect component - styled dropdown
 function CustomSelect({
@@ -328,9 +595,27 @@ function CustomSelect({
   );
 }
 
-function DetailModal({ open, onClose }) {
+function DetailModal({ open, onClose, data = [] }) {
   if (!open) return null;
-  const sections = ["สรุปยอดรายงาน", "สรุปรายอำเภอ", "หน่วยที่ยังไม่ส่ง"];
+
+  const rows = data?.length ? data : ALL_ROWS;
+
+  const handleExportSummaryPDF = () => {
+    if (rows.length) exportSummaryPDF(rows);
+  };
+
+  const handleExportDistrictPDF = () => {
+    if (rows.length) exportDistrictPDF(rows);
+  };
+
+  const handleExportNotSubmittedPDF = () => {
+    if (rows.length) exportNotSubmittedPDF(rows);
+  };
+
+  const handleExportExcel = (payload = rows, title) => {
+    if (payload.length) exportToExcel(payload, title);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-[#ece1f7] w-full max-w-2xl p-6 relative">
@@ -338,44 +623,105 @@ function DetailModal({ open, onClose }) {
           ดาวน์โหลดเอกสาร
         </div>
         <div className="flex flex-col gap-4 mb-6">
-          {sections.map((title, idx) => (
-            <div
-              key={title}
-              className={`flex flex-col sm:flex-row items-center gap-3 sm:gap-4 rounded-xl px-4 py-3 border ${
-                idx === 0
-                  ? "bg-purple-50/60 border-purple-100"
-                  : idx === 1
-                  ? "bg-purple-50/40 border-purple-100"
-                  : "bg-purple-50/30 border-purple-100"
-              }`}
-            >
-              <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
-                {title}
-              </div>
-              <div className="flex gap-2">
-                <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95">
-                  <Image
-                    src="/pdf.png"
-                    alt="pdf"
-                    width={24}
-                    height={24}
-                    className="w-6 h-6"
-                  />
-                  ดาวน์โหลด PDF
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95">
-                  <Image
-                    src="/xlsx.png"
-                    alt="excel"
-                    width={24}
-                    height={24}
-                    className="w-6 h-6"
-                  />
-                  ดาวน์โหลด Excel
-                </button>
-              </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
+              สรุปยอดรายงาน
             </div>
-          ))}
+            <div className="flex gap-2">
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+                onClick={handleExportSummaryPDF}
+              >
+                <Image
+                  src="/pdf.png"
+                  alt="pdf"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
+                เอกสาร PDF
+              </button>
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
+                onClick={() => handleExportExcel(rows, "สรุปยอดรายงาน")}
+              >
+                <Image
+                  src="/xlsx.png"
+                  alt="excel"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
+                เอกสาร Excel
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/40 border border-purple-100 rounded-xl px-4 py-3">
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
+              สรุปรายอำเภอ
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+                onClick={handleExportDistrictPDF}
+              >
+                <Image
+                  src="/pdf.png"
+                  alt="pdf"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
+                เอกสาร PDF
+              </button>
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
+                onClick={() => handleExportExcel(rows, "สรุปรายอำเภอ")}
+              >
+                <Image
+                  src="/xlsx.png"
+                  alt="excel"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
+                เอกสาร Excel
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/30 border border-purple-100 rounded-xl px-4 py-3">
+            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
+              หน่วยที่ยังไม่ส่ง
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+                onClick={handleExportNotSubmittedPDF}
+              >
+                <Image
+                  src="/pdf.png"
+                  alt="pdf"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
+                เอกสาร PDF
+              </button>
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
+                onClick={() => handleExportExcel(rows.slice(0, 5), "หน่วยที่ยังไม่ส่ง")}
+              >
+                <Image
+                  src="/xlsx.png"
+                  alt="excel"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
+                เอกสาร Excel
+              </button>
+            </div>
+          </div>
         </div>
         <div className="flex justify-end">
           <button
@@ -530,6 +876,10 @@ function Pagination({
 }
 
 const ReportMosquitoCompDataComp = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const detailId = searchParams.get("detail");
+
   const [year, setYear] = useState("2568");
   const [month, setMonth] = useState("06");
   const [week, setWeek] = useState("1");
@@ -577,9 +927,31 @@ const ReportMosquitoCompDataComp = () => {
     setPage(1);
   };
 
+  // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
+  if (detailId) {
+    const selectedRow = ALL_ROWS.find((row) => row.index === Number(detailId));
+    const monthLabel = MONTHS.find(m => m.value === month)?.label || "มิถุนายน";
+    const weekLabel = WEEKS.find(w => w.value === week)?.label || "สัปดาห์ที่ 1";
+
+    return (
+      <ReportMosquitoCompDetailComp
+        reportData={{
+          year,
+          month: monthLabel,
+          week: weekLabel,
+          name: selectedRow?.name || "ไม่พบข้อมูล",
+        }}
+      />
+    );
+  }
+
   return (
     <div className="w-full h-full bg-gradient-to-b from-[#f7f2ff] via-white to-white p-0">
-      <DetailModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <DetailModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        data={filteredRows}
+      />
 
       <div className="relative mb-6 rounded-3xl overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
@@ -771,7 +1143,7 @@ const ReportMosquitoCompDataComp = () => {
                     <td className="py-4 px-4 text-center">
                       <button
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
-                        onClick={() => setModalOpen(true)}
+                        onClick={() => router.push(`/report-mosquito/data?detail=${row.index}`)}
                       >
                         <Eye size={16} />
                         รายละเอียด

@@ -3,10 +3,12 @@ import { Search, X, Download } from "lucide-react";
 import { useKMLData } from "../../../composables/useKMLData.js";
 import { useMapManager } from "../../../composables/useMapManager.js";
 import { useHealthRegions } from "../../../composables/useHealthRegions.js";
+import { useLoading } from "../../../context/LoadingProvider";
 import CustomSelect from "./CustomSelect";
 import styles from "./GisComp.module.css";
 
 const GisComp = () => {
+  const { setLoading } = useLoading();
   // States for KmlMapViewer
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
@@ -610,11 +612,14 @@ const GisComp = () => {
 
     const initializeComponent = async () => {
       try {
-        // Import Leaflet CSS dynamically
-        await import("leaflet/dist/leaflet.css");
+        setLoading(true);
 
-        // Fix Leaflet default markers
-        const L = await import("leaflet");
+        // Load Leaflet CSS and library in parallel
+        const [_, L] = await Promise.all([
+          import("leaflet/dist/leaflet.css"),
+          import("leaflet")
+        ]);
+
         delete L.Icon.Default.prototype._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl:
@@ -625,11 +630,8 @@ const GisComp = () => {
             "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
         });
 
-        // Wait a bit for DOM to be ready
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
         if (mapContainer.current && isMounted) {
-          await initializeMap(mapContainer.current);
+          await initializeMap(mapContainer.current, L);
         }
 
         // Load available provinces
@@ -643,6 +645,10 @@ const GisComp = () => {
         console.error("Error initializing component:", error);
         if (isMounted) {
           updateStatus("ข้อผิดพลาดในการเริ่มต้นระบบ", "error");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
         }
       }
     };
@@ -956,14 +962,6 @@ const GisComp = () => {
           </div>
         </div>
 
-        {isLoading && (
-          <div className={styles.loadingOverlay}>
-            <div className={styles.loadingSpinner}>
-              <div className={styles.spinner}></div>
-              <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

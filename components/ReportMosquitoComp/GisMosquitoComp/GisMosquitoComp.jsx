@@ -3,10 +3,12 @@ import { Search, X, Download } from "lucide-react";
 import { useKMLData } from "../../../composables/useKMLData.js";
 import { useMapManager } from "../../../composables/useMapManager.js";
 import { useHealthRegions } from "../../../composables/useHealthRegions.js";
+import { useLoading } from "../../../context/LoadingProvider";
 import CustomSelect from "../../Reportosm1Comp/GisComp/CustomSelect";
 import styles from "../../Reportosm1Comp/GisComp/GisComp.module.css";
 
 const GisMosquitoComp = () => {
+  const { setLoading } = useLoading();
   // States for KmlMapViewer
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
@@ -588,9 +590,14 @@ const GisMosquitoComp = () => {
 
     const initializeComponent = async () => {
       try {
-        await import("leaflet/dist/leaflet.css");
+        setLoading(true);
 
-        const L = await import("leaflet");
+        // Load Leaflet CSS and library in parallel
+        const [_, L] = await Promise.all([
+          import("leaflet/dist/leaflet.css"),
+          import("leaflet")
+        ]);
+
         delete L.Icon.Default.prototype._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl:
@@ -601,10 +608,8 @@ const GisMosquitoComp = () => {
             "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
         });
 
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
         if (mapContainer.current && isMounted) {
-          await initializeMap(mapContainer.current);
+          await initializeMap(mapContainer.current, L);
         }
 
         if (isMounted) {
@@ -617,6 +622,10 @@ const GisMosquitoComp = () => {
         console.error("Error initializing component:", error);
         if (isMounted) {
           updateStatus("ข้อผิดพลาดในการเริ่มต้นระบบ", "error");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
         }
       }
     };
@@ -931,14 +940,6 @@ const GisMosquitoComp = () => {
           </div>
         </div>
 
-        {isLoading && (
-          <div className={styles.loadingOverlay}>
-            <div className={styles.loadingSpinner}>
-              <div className={styles.spinner}></div>
-              <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

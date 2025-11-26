@@ -35,7 +35,7 @@ export const useMapManager = () => {
   };
 
   // เริ่มต้นแผนที่
-  const initializeMap = useCallback(async (mapContainer) => {
+  const initializeMap = useCallback(async (mapContainer, L = null) => {
     if (!mapContainer) return;
     if (typeof window === "undefined") return; // Guard for SSR
 
@@ -46,19 +46,10 @@ export const useMapManager = () => {
       mapRef.current = null;
     }
 
-    // Import Leaflet dynamically
-    const L = await import("leaflet");
-
-    // ตั้งค่า Leaflet icons ก่อน
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-      iconUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-      shadowUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-    });
+    // Import Leaflet dynamically ถ้ายังไม่ได้ส่งเข้ามา
+    if (!L) {
+      L = await import("leaflet");
+    }
 
     mapRef.current = L.map(mapContainer, {
       center: config.defaultCenter,
@@ -73,11 +64,9 @@ export const useMapManager = () => {
     }).addTo(mapRef.current);
 
     // Force map to render properly
-    setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.invalidateSize();
-      }
-    }, 100);
+    if (mapRef.current) {
+      mapRef.current.invalidateSize();
+    }
   }, []);
 
   // ฟังก์ชันสำหรับหาค่าจาก properties
