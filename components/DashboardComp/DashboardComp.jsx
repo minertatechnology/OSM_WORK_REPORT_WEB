@@ -1,22 +1,13 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
-
-// Dynamic imports - โหลดแค่ตอนใช้งานจริง
-const DashboardSobos = lazy(() => import("./DashboardSobos/DashboardSobos"));
-const DashboardZone = lazy(() => import("./DashboardZone/DashboardZone"));
-const DashboardProvince = lazy(() => import("./DashboardProvince/DashboardProvince"));
-const DashboardDistrict = lazy(() => import("./DashboardDistrict/DashboardDistrict"));
-const DashboardSubdistrict = lazy(() => import("./DashboardSubdistrict/DashboardSubdistrict"));
-const DashboardHospital = lazy(() => import("./DashboardHospital/DashboardHospital"));
-
-// Loading component
-const DashboardLoading = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-      <p className="mt-4 text-gray-600">กำลังโหลด...</p>
-    </div>
-  </div>
-);
+import React, { useState, useEffect, Suspense } from "react";
+import { FullPageLoadingSpinner } from "@components/shared/LoadingSpinner";
+import {
+  LazyDashboardSobos,
+  LazyDashboardZone,
+  LazyDashboardProvince,
+  LazyDashboardDistrict,
+  LazyDashboardSubdistrict,
+  LazyDashboardHospital
+} from "@components/shared/LazyComponents";
 
 const getRoleType = (auth) => {
   if (!auth || !auth.roles || !auth.roles.length) return "sobos";
@@ -44,31 +35,31 @@ const DashboardComp = () => {
   }, []);
 
   if (!roleType) {
-    return <DashboardLoading />;
+    return <FullPageLoadingSpinner message="กำลังตรวจสอบสิทธิ์..." />;
   }
 
   // Wrap ด้วย Suspense เพื่อแสดง loading ขณะ lazy load
   const renderDashboard = () => {
     switch (roleType) {
       case "sobos":
-        return <DashboardSobos />;
+        return <LazyDashboardSobos />;
       case "zone":
-        return <DashboardZone />;
+        return <LazyDashboardZone />;
       case "province":
-        return <DashboardProvince />;
+        return <LazyDashboardProvince />;
       case "district":
-        return <DashboardDistrict />;
+        return <LazyDashboardDistrict />;
       case "subdistrict":
-        return <DashboardSubdistrict />;
+        return <LazyDashboardSubdistrict />;
       case "hospital":
-        return <DashboardHospital />;
+        return <LazyDashboardHospital />;
       default:
-        return <DashboardSobos />;
+        return <LazyDashboardSobos />;
     }
   };
 
   return (
-    <Suspense fallback={<DashboardLoading />}>
+    <Suspense fallback={<FullPageLoadingSpinner message="กำลังโหลด Dashboard..." />}>
       {renderDashboard()}
     </Suspense>
   );

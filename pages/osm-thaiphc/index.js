@@ -1,7 +1,8 @@
 import Layout from "@components/layout/Layout";
-import OsmThaiPHCComp from "@components/OsmThaiPHCComp/OsmThaiPHCComp";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useLoading } from "@context/LoadingProvider";
+import { LazyOsmThaiPHCComp } from "@components/shared/LazyComponents";
+import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 
 const OsmThaiPHC = () => {
   const { setLoading } = useLoading();
@@ -25,7 +26,11 @@ const OsmThaiPHC = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return <OsmThaiPHCComp triggerLoading={triggerLoading} />;
+  return (
+    <Suspense fallback={<ComponentLoadingSpinner />}>
+      <LazyOsmThaiPHCComp triggerLoading={triggerLoading} />
+    </Suspense>
+  );
 };
 
 OsmThaiPHC.getLayout = (page) => <Layout>{page}</Layout>;

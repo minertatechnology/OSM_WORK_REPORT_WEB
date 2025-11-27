@@ -1,7 +1,8 @@
 import Layout from "@components/layout/Layout";
-import Reportosm1Comp from "@components/Reportosm1Comp/Reportosm1Comp";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useLoading } from "@context/LoadingProvider";
+import { LazyReportOsm1Comp } from "@components/shared/LazyComponents";
+import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 
 const Reportosm1 = () => {
   const { setLoading } = useLoading();
@@ -25,7 +26,11 @@ const Reportosm1 = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return <Reportosm1Comp triggerLoading={triggerLoading} />;
+  return (
+    <Suspense fallback={<ComponentLoadingSpinner />}>
+      <LazyReportOsm1Comp triggerLoading={triggerLoading} />
+    </Suspense>
+  );
 };
 
 Reportosm1.getLayout = (page) => <Layout>{page}</Layout>;

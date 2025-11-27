@@ -1,7 +1,8 @@
 import Layout from "@components/layout/Layout";
-import ElderlyScreeningComp from "@components/ElderlyScreeningComp/ElderlyScreeningComp";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useLoading } from "@context/LoadingProvider";
+import { LazyElderlyScreeningComp } from "@components/shared/LazyComponents";
+import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 
 const ElderlyScreening = () => {
   const { setLoading } = useLoading();
@@ -25,7 +26,11 @@ const ElderlyScreening = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return <ElderlyScreeningComp triggerLoading={triggerLoading} />;
+  return (
+    <Suspense fallback={<ComponentLoadingSpinner />}>
+      <LazyElderlyScreeningComp triggerLoading={triggerLoading} />
+    </Suspense>
+  );
 };
 
 ElderlyScreening.getLayout = (page) => <Layout>{page}</Layout>;

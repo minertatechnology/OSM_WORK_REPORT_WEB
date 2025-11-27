@@ -1,7 +1,8 @@
 import Layout from "@components/layout/Layout";
-import SmartOsmComp from "@components/SmartOsmComp/SmartOsmComp";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useLoading } from "@context/LoadingProvider";
+import { LazySmartOsmComp } from "@components/shared/LazyComponents";
+import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 
 const SmartOsm = () => {
   const { setLoading } = useLoading();
@@ -25,7 +26,11 @@ const SmartOsm = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return <SmartOsmComp triggerLoading={triggerLoading} />;
+  return (
+    <Suspense fallback={<ComponentLoadingSpinner />}>
+      <LazySmartOsmComp triggerLoading={triggerLoading} />
+    </Suspense>
+  );
 };
 
 SmartOsm.getLayout = (page) => <Layout>{page}</Layout>;

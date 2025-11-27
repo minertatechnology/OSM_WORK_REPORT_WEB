@@ -1,7 +1,8 @@
 import Layout from "@components/layout/Layout";
-import ReportMosquitoComp from "@components/ReportMosquitoComp/ReportMosquitoComp";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useLoading } from "@context/LoadingProvider";
+import { LazyReportMosquitoComp } from "@components/shared/LazyComponents";
+import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 
 const ReportMosquito = () => {
   const { setLoading } = useLoading();
@@ -25,7 +26,11 @@ const ReportMosquito = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return <ReportMosquitoComp triggerLoading={triggerLoading} />;
+  return (
+    <Suspense fallback={<ComponentLoadingSpinner />}>
+      <LazyReportMosquitoComp triggerLoading={triggerLoading} />
+    </Suspense>
+  );
 };
 
 ReportMosquito.getLayout = (page) => <Layout>{page}</Layout>;

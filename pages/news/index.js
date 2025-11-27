@@ -1,7 +1,8 @@
 import Layout from "@components/layout/Layout";
-import NewsComp from "@components/NewsComp/NewsComp";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useLoading } from "@context/LoadingProvider";
+import { LazyNewsComp } from "@components/shared/LazyComponents";
+import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 
 const News = () => {
   const { setLoading } = useLoading();
@@ -25,7 +26,11 @@ const News = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return <NewsComp triggerLoading={triggerLoading} />;
+  return (
+    <Suspense fallback={<ComponentLoadingSpinner />}>
+      <LazyNewsComp triggerLoading={triggerLoading} />
+    </Suspense>
+  );
 };
 
 News.getLayout = (page) => <Layout>{page}</Layout>;

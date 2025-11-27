@@ -547,6 +547,8 @@ const GisMosquitoComp = () => {
     if (selectedHealthRegion) {
       try {
         setIsLoading(true);
+        console.log("selectedHealthRegion type:", typeof selectedHealthRegion);
+        console.log("selectedHealthRegion value:", selectedHealthRegion);
         updateStatus(`กำลังโหลดข้อมูล ${selectedHealthRegion}...`, "info");
 
         const provincesInRegion = getProvincesInRegion(selectedHealthRegion);
@@ -778,7 +780,7 @@ const GisMosquitoComp = () => {
                       label="ปี"
                       options={yearOptions}
                       value={selectedYear}
-                      onChange={setSelectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
                       placeholder="-- เลือกปี --"
                     />
                   </div>
@@ -788,7 +790,7 @@ const GisMosquitoComp = () => {
                       label="เดือน"
                       options={monthOptions}
                       value={selectedMonth}
-                      onChange={setSelectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
                       placeholder="-- เลือกเดือน --"
                     />
                   </div>
@@ -799,7 +801,7 @@ const GisMosquitoComp = () => {
                     label="สัปดาห์"
                     options={weekOptions}
                     value={selectedWeek}
-                    onChange={setSelectedWeek}
+                    onChange={(e) => setSelectedWeek(e.target.value)}
                     placeholder="-- เลือกสัปดาห์ --"
                   />
                 </div>
@@ -809,7 +811,7 @@ const GisMosquitoComp = () => {
                     label="เขตสุขภาพ"
                     options={healthRegionOptions}
                     value={selectedHealthRegion}
-                    onChange={setSelectedHealthRegion}
+                    onChange={(e) => setSelectedHealthRegion(e.target.value)}
                     placeholder="-- เลือกเขตสุขภาพ --"
                   />
                 </div>
@@ -819,7 +821,7 @@ const GisMosquitoComp = () => {
                     label="จังหวัด"
                     options={provinceOptions}
                     value={selectedProvince}
-                    onChange={setSelectedProvince}
+                    onChange={(e) => setSelectedProvince(e.target.value)}
                     disabled={
                       selectedHealthRegion &&
                       availableProvincesInRegion.length === 0
@@ -833,7 +835,7 @@ const GisMosquitoComp = () => {
                     label="อำเภอ/เขต"
                     options={districtOptions}
                     value={selectedDistrict}
-                    onChange={setSelectedDistrict}
+                    onChange={(e) => setSelectedDistrict(e.target.value)}
                     disabled={!selectedProvince || isLoadingDistricts}
                     placeholder={
                       isLoadingDistricts
@@ -848,7 +850,7 @@ const GisMosquitoComp = () => {
                     label="ตำบล/แขวง"
                     options={subdistrictOptions}
                     value={selectedSubdistrict}
-                    onChange={setSelectedSubdistrict}
+                    onChange={(e) => setSelectedSubdistrict(e.target.value)}
                     disabled={!selectedDistrict || isLoadingSubdistricts}
                     placeholder={
                       isLoadingSubdistricts
