@@ -4,7 +4,7 @@ import { useKMLData } from "../../../composables/useKMLData.js";
 import { useMapManager } from "../../../composables/useMapManager.js";
 import { useHealthRegions } from "../../../composables/useHealthRegions.js";
 import { useLoading } from "../../../context/LoadingProvider";
-import CustomSelect from "../../Reportosm1Comp/GisComp/CustomSelect";
+import CustomSelect from "@services/customSelectService/customSelectService";
 import styles from "../../Reportosm1Comp/GisComp/GisComp.module.css";
 
 const GisMosquitoComp = () => {
@@ -27,7 +27,9 @@ const GisMosquitoComp = () => {
 
   // States for Health Regions
   const [selectedHealthRegion, setSelectedHealthRegion] = useState("");
-  const [availableProvincesInRegion, setAvailableProvincesInRegion] = useState([]);
+  const [availableProvincesInRegion, setAvailableProvincesInRegion] = useState(
+    []
+  );
 
   // States for year, month and week selection
   const [selectedYear, setSelectedYear] = useState("");
@@ -39,21 +41,21 @@ const GisMosquitoComp = () => {
     if (selectedDistrict && availableSubdistricts.length > 0) {
       return availableSubdistricts.map((tambon) => ({
         name: tambon,
-        value: Math.floor(Math.random() * 100) + 20
+        value: Math.floor(Math.random() * 100) + 20,
       }));
     }
 
     if (selectedProvince && availableDistricts.length > 0) {
       return availableDistricts.map((amphoe) => ({
         name: amphoe,
-        value: Math.floor(Math.random() * 100) + 20
+        value: Math.floor(Math.random() * 100) + 20,
       }));
     }
 
     if (selectedHealthRegion && availableProvincesInRegion.length > 0) {
       return availableProvincesInRegion.map((province) => ({
         name: province,
-        value: Math.floor(Math.random() * 100) + 20
+        value: Math.floor(Math.random() * 100) + 20,
       }));
     }
 
@@ -65,7 +67,7 @@ const GisMosquitoComp = () => {
   // คำนวณข้อมูลลูกน้ำยุงลายจาก displayData
   const mosquitoReportData = {
     total: displayData.reduce((sum, item) => sum + item.value, 0),
-    items: []
+    items: [],
   };
 
   const mapContainer = useRef(null);
@@ -177,67 +179,78 @@ const GisMosquitoComp = () => {
     setIsCollapsed(!isCollapsed);
   };
 
-  const loadMapData = useCallback(async (level, name) => {
-    try {
-      setIsLoading(true);
-      updateStatus(`กำลังโหลด ${level} - ${name}...`, "info");
+  const loadMapData = useCallback(
+    async (level, name) => {
+      try {
+        setIsLoading(true);
+        updateStatus(`กำลังโหลด ${level} - ${name}...`, "info");
 
-      let filePath = "";
+        let filePath = "";
 
-      if (level === "province") {
-        filePath = `/split-provinces/${name}.kml`;
-      } else if (level === "amphoe") {
-        const englishProvinceName = getEnglishProvinceName(selectedProvince);
-        filePath = `/split-amphoe/${englishProvinceName}/${name}.kml`;
-      } else if (level === "tambon") {
-        const englishProvinceName = getEnglishProvinceName(selectedProvince);
-        filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${name}.kml`;
-      } else {
-        filePath = `/split-provinces/${name}.kml`;
+        if (level === "province") {
+          filePath = `/split-provinces/${name}.kml`;
+        } else if (level === "amphoe") {
+          const englishProvinceName = getEnglishProvinceName(selectedProvince);
+          filePath = `/split-amphoe/${englishProvinceName}/${name}.kml`;
+        } else if (level === "tambon") {
+          const englishProvinceName = getEnglishProvinceName(selectedProvince);
+          filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${name}.kml`;
+        } else {
+          filePath = `/split-provinces/${name}.kml`;
+        }
+
+        const response = await fetch(filePath);
+        if (!response.ok) {
+          throw new Error(
+            `ไม่พบไฟล์: ${filePath} (Status: ${response.status})`
+          );
+        }
+
+        const kmlText = await response.text();
+        const parser = new DOMParser();
+        const kmlDoc = parser.parseFromString(kmlText, "text/xml");
+
+        const parserError = kmlDoc.querySelector("parsererror");
+        if (parserError) {
+          throw new Error(`XML parsing error: ${parserError.textContent}`);
+        }
+
+        const toGeoJSON = await import("@mapbox/togeojson");
+        const geoJsonData = toGeoJSON.kml(kmlDoc);
+
+        if (!geoJsonData || !geoJsonData.features) {
+          throw new Error("ไม่พบ features ในไฟล์ KML");
+        }
+
+        const result = await loadAndDisplayKML(geoJsonData, level);
+
+        if (result) {
+          const levelText =
+            level === "province"
+              ? "จังหวัด"
+              : level === "amphoe"
+              ? "อำเภอ"
+              : "ตำบล";
+          updateStatus(
+            `โหลด ${levelText} ${name} สำเร็จ: ${result.featureCount} features (${result.loadTime}s)`,
+            "success"
+          );
+        }
+      } catch (error) {
+        console.error("Error loading map data:", error);
+        updateStatus(`ข้อผิดพลาดในการโหลด: ${error}`, "error");
+      } finally {
+        setIsLoading(false);
       }
-
-      const response = await fetch(filePath);
-      if (!response.ok) {
-        throw new Error(`ไม่พบไฟล์: ${filePath} (Status: ${response.status})`);
-      }
-
-      const kmlText = await response.text();
-      const parser = new DOMParser();
-      const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-
-      const parserError = kmlDoc.querySelector("parsererror");
-      if (parserError) {
-        throw new Error(`XML parsing error: ${parserError.textContent}`);
-      }
-
-      const toGeoJSON = await import("@mapbox/togeojson");
-      const geoJsonData = toGeoJSON.kml(kmlDoc);
-
-      if (!geoJsonData || !geoJsonData.features) {
-        throw new Error("ไม่พบ features ในไฟล์ KML");
-      }
-
-      const result = await loadAndDisplayKML(geoJsonData, level);
-
-      if (result) {
-        const levelText =
-          level === "province"
-            ? "จังหวัด"
-            : level === "amphoe"
-            ? "อำเภอ"
-            : "ตำบล";
-        updateStatus(
-          `โหลด ${levelText} ${name} สำเร็จ: ${result.featureCount} features (${result.loadTime}s)`,
-          "success"
-        );
-      }
-    } catch (error) {
-      console.error("Error loading map data:", error);
-      updateStatus(`ข้อผิดพลาดในการโหลด: ${error}`, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedProvince, selectedDistrict, updateStatus, loadAndDisplayKML, getEnglishProvinceName]);
+    },
+    [
+      selectedProvince,
+      selectedDistrict,
+      updateStatus,
+      loadAndDisplayKML,
+      getEnglishProvinceName,
+    ]
+  );
 
   const fitToFiltered = useCallback(() => {
     fitToData();
@@ -313,7 +326,10 @@ const GisMosquitoComp = () => {
               );
             }
           } else {
-            updateStatus(`ไม่พบข้อมูลแผนที่สำหรับ ${selectedProvince}`, "warning");
+            updateStatus(
+              `ไม่พบข้อมูลแผนที่สำหรับ ${selectedProvince}`,
+              "warning"
+            );
           }
         } else {
           updateStatus(
@@ -332,7 +348,14 @@ const GisMosquitoComp = () => {
       clearAllLayers();
       updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
     }
-  }, [selectedProvince, getAmphoeListFromFolder, getEnglishProvinceName, updateStatus, loadAndDisplayKML, clearAllLayers]);
+  }, [
+    selectedProvince,
+    getAmphoeListFromFolder,
+    getEnglishProvinceName,
+    updateStatus,
+    loadAndDisplayKML,
+    clearAllLayers,
+  ]);
 
   const onDistrictChange = useCallback(async () => {
     setSelectedSubdistrict("");
@@ -393,13 +416,19 @@ const GisMosquitoComp = () => {
               features: allFeatures,
             };
 
-            const loadResult = await loadAndDisplayKML(combinedGeoJSON, "tambon");
+            const loadResult = await loadAndDisplayKML(
+              combinedGeoJSON,
+              "tambon"
+            );
             updateStatus(
               `โหลดแผนที่ ${selectedDistrict} สำเร็จ: ${validResults.length} ตำบล, ${loadResult.featureCount} features`,
               "success"
             );
           } else {
-            updateStatus(`ไม่พบข้อมูลแผนที่สำหรับ ${selectedDistrict}`, "warning");
+            updateStatus(
+              `ไม่พบข้อมูลแผนที่สำหรับ ${selectedDistrict}`,
+              "warning"
+            );
           }
         } else {
           updateStatus(`ไม่พบข้อมูลตำบลในอำเภอ ${selectedDistrict}`, "warning");
@@ -417,7 +446,17 @@ const GisMosquitoComp = () => {
         fitToFiltered();
       }, 300);
     }
-  }, [selectedDistrict, selectedProvince, getTambonListFromFolder, getEnglishProvinceName, updateStatus, loadMapData, fitToFiltered, clearAllLayers, loadAndDisplayKML]);
+  }, [
+    selectedDistrict,
+    selectedProvince,
+    getTambonListFromFolder,
+    getEnglishProvinceName,
+    updateStatus,
+    loadMapData,
+    fitToFiltered,
+    clearAllLayers,
+    loadAndDisplayKML,
+  ]);
 
   const onSubdistrictChange = useCallback(async () => {
     if (selectedSubdistrict) {
@@ -457,7 +496,10 @@ const GisMosquitoComp = () => {
             "success"
           );
         } else {
-          updateStatus(`ไม่พบข้อมูลแผนที่สำหรับตำบล ${selectedSubdistrict}`, "warning");
+          updateStatus(
+            `ไม่พบข้อมูลแผนที่สำหรับตำบล ${selectedSubdistrict}`,
+            "warning"
+          );
         }
       } catch (error) {
         console.error("Error in onSubdistrictChange:", error);
@@ -469,8 +511,16 @@ const GisMosquitoComp = () => {
     } else if (selectedProvince) {
       await loadMapData("province", selectedProvince);
     }
-  }, [selectedSubdistrict, selectedDistrict, selectedProvince, loadMapData, updateStatus, getEnglishProvinceName, clearAllLayers, loadAndDisplayKML]);
-
+  }, [
+    selectedSubdistrict,
+    selectedDistrict,
+    selectedProvince,
+    loadMapData,
+    updateStatus,
+    getEnglishProvinceName,
+    clearAllLayers,
+    loadAndDisplayKML,
+  ]);
 
   const clearFilter = useCallback(() => {
     setSelectedYear("");
@@ -492,7 +542,6 @@ const GisMosquitoComp = () => {
 
     updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
   }, [clearAllLayers, updateStatus, map]);
-
 
   const onHealthRegionSelection = useCallback(async () => {
     if (selectedHealthRegion) {
@@ -581,7 +630,13 @@ const GisMosquitoComp = () => {
       clearAllLayers();
       updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
     }
-  }, [selectedHealthRegion, getProvincesInRegion, clearAllLayers, updateStatus, loadAndDisplayKML]);
+  }, [
+    selectedHealthRegion,
+    getProvincesInRegion,
+    clearAllLayers,
+    updateStatus,
+    loadAndDisplayKML,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -595,7 +650,7 @@ const GisMosquitoComp = () => {
         // Load Leaflet CSS and library in parallel
         const [_, L] = await Promise.all([
           import("leaflet/dist/leaflet.css"),
-          import("leaflet")
+          import("leaflet"),
         ]);
 
         delete L.Icon.Default.prototype._getIconUrl;
@@ -617,7 +672,6 @@ const GisMosquitoComp = () => {
           setAvailableProvinces(provinces);
           updateStatus("แผนที่พร้อมใช้งาน - ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
         }
-
       } catch (error) {
         console.error("Error initializing component:", error);
         if (isMounted) {
@@ -677,22 +731,22 @@ const GisMosquitoComp = () => {
     };
 
     if (controlPanel) {
-      controlPanel.addEventListener('mouseenter', disableMapZoom);
-      controlPanel.addEventListener('mouseleave', enableMapZoom);
+      controlPanel.addEventListener("mouseenter", disableMapZoom);
+      controlPanel.addEventListener("mouseleave", enableMapZoom);
     }
     if (chartCard) {
-      chartCard.addEventListener('mouseenter', disableMapZoom);
-      chartCard.addEventListener('mouseleave', enableMapZoom);
+      chartCard.addEventListener("mouseenter", disableMapZoom);
+      chartCard.addEventListener("mouseleave", enableMapZoom);
     }
 
     return () => {
       if (controlPanel) {
-        controlPanel.removeEventListener('mouseenter', disableMapZoom);
-        controlPanel.removeEventListener('mouseleave', enableMapZoom);
+        controlPanel.removeEventListener("mouseenter", disableMapZoom);
+        controlPanel.removeEventListener("mouseleave", enableMapZoom);
       }
       if (chartCard) {
-        chartCard.removeEventListener('mouseenter', disableMapZoom);
-        chartCard.removeEventListener('mouseleave', enableMapZoom);
+        chartCard.removeEventListener("mouseenter", disableMapZoom);
+        chartCard.removeEventListener("mouseleave", enableMapZoom);
       }
     };
   }, [map]);
@@ -711,10 +765,7 @@ const GisMosquitoComp = () => {
               <span style={{ fontSize: "100%" }}>
                 เครื่องมือแสดงชั้นข้อมูล{" "}
               </span>
-              <button
-                className={styles.toggleBtn}
-                onClick={toggleControlPanel}
-              >
+              <button className={styles.toggleBtn} onClick={toggleControlPanel}>
                 {isCollapsed ? "▼" : "▲"}
               </button>
             </h3>
@@ -846,23 +897,37 @@ const GisMosquitoComp = () => {
                 <div className={styles.reportDivider}></div>
 
                 {/* Chart Card */}
-                <div
-                  ref={chartCardRef}
-                  className={styles.chartCard}
-                >
+                <div ref={chartCardRef} className={styles.chartCard}>
                   {displayData.length > 0 ? (
                     <>
                       {/* Donut Chart */}
                       <div className={styles.donutChart}>
                         <div className={styles.donutContainer}>
-                          <svg width="150" height="150" viewBox="0 0 42 42" className={styles.donut}>
-                            <circle cx="21" cy="21" r="15.91549430918" fill="transparent" stroke="#f1f5f9" strokeWidth="3"></circle>
+                          <svg
+                            width="150"
+                            height="150"
+                            viewBox="0 0 42 42"
+                            className={styles.donut}
+                          >
+                            <circle
+                              cx="21"
+                              cy="21"
+                              r="15.91549430918"
+                              fill="transparent"
+                              stroke="#f1f5f9"
+                              strokeWidth="3"
+                            ></circle>
                             {(() => {
-                              const total = displayData.reduce((sum, item) => sum + item.value, 0);
+                              const total = displayData.reduce(
+                                (sum, item) => sum + item.value,
+                                0
+                              );
                               let offset = 25;
                               return displayData.map((item) => {
                                 const percentage = (item.value / total) * 100;
-                                const strokeDasharray = `${percentage} ${100 - percentage}`;
+                                const strokeDasharray = `${percentage} ${
+                                  100 - percentage
+                                }`;
                                 const color = getProvinceColor(item.name);
                                 const currentOffset = offset;
                                 offset = (offset - percentage) % 100;
@@ -886,7 +951,10 @@ const GisMosquitoComp = () => {
                           </svg>
                           <div className={styles.donutCenter}>
                             <div className={styles.donutValue}>
-                              {displayData.reduce((sum, item) => sum + item.value, 0)}
+                              {displayData.reduce(
+                                (sum, item) => sum + item.value,
+                                0
+                              )}
                             </div>
                             <div className={styles.donutLabel}>รวม</div>
                           </div>
@@ -900,11 +968,15 @@ const GisMosquitoComp = () => {
                             <div className={styles.provinceName}>
                               <div
                                 className={styles.colorDot}
-                                style={{ backgroundColor: getProvinceColor(item.name) }}
+                                style={{
+                                  backgroundColor: getProvinceColor(item.name),
+                                }}
                               ></div>
                               {item.name}
                             </div>
-                            <div className={styles.provinceValue}>{item.value}</div>
+                            <div className={styles.provinceValue}>
+                              {item.value}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -921,10 +993,14 @@ const GisMosquitoComp = () => {
 
               {/* Monthly Report Section */}
               <div className={styles.monthlyReportSection}>
-                <div className={styles.sectionTitle}>กราฟสรุปผลรายงานรายเดือน</div>
+                <div className={styles.sectionTitle}>
+                  กราฟสรุปผลรายงานรายเดือน
+                </div>
 
                 <div className={styles.totalSection}>
-                  <div className={styles.totalValue}>{mosquitoReportData.total}</div>
+                  <div className={styles.totalValue}>
+                    {mosquitoReportData.total}
+                  </div>
                   <div className={styles.totalLabel}>รวมทุกรายการ</div>
                 </div>
 
@@ -939,7 +1015,6 @@ const GisMosquitoComp = () => {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

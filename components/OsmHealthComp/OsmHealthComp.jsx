@@ -15,6 +15,7 @@ import {
   Users,
   Calendar,
 } from "lucide-react";
+import CustomSelect from "@services/customSelectService/customSelectService";
 
 // Mock data
 const years = ["2568", "2567", "2566"];
@@ -57,127 +58,6 @@ function getPageNumbers(current, total) {
     pages.push(1, "...", current - 1, current, current + 1, "...", total);
   }
   return pages.filter((v, i, arr) => v === "..." || arr.indexOf(v) === i);
-}
-
-// CustomSelect component
-function CustomSelect({ value, onChange, options, placeholder }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleToggle = () => {
-    setIsOpen(!isOpen);
-    setHighlightedIndex(-1);
-  };
-
-  const handleSelect = (option) => {
-    onChange(option);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-  };
-
-  const handleKeyDown = (event) => {
-    if (!isOpen) {
-      if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
-        event.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    switch (event.key) {
-      case 'Escape':
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        break;
-      case 'ArrowDown':
-        event.preventDefault();
-        setHighlightedIndex(prev =>
-          prev < options.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        event.preventDefault();
-        setHighlightedIndex(prev =>
-          prev > 0 ? prev - 1 : options.length - 1
-        );
-        break;
-      case 'Enter':
-        event.preventDefault();
-        if (highlightedIndex >= 0) {
-          handleSelect(options[highlightedIndex]);
-        }
-        break;
-    }
-  };
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <div
-        className={`w-full h-12 px-4 rounded-xl border-2 ${
-          isOpen ? 'border-purple-600 ring-2 ring-purple-200' : 'border-purple-200'
-        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
-        onClick={handleToggle}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        role="combobox"
-        aria-expanded={isOpen}
-      >
-        <span className={value ? 'text-gray-700' : 'text-gray-500'}>
-          {value || placeholder}
-        </span>
-        <ChevronDown
-          size={20}
-          className={`text-purple-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-        />
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
-          <ul role="listbox">
-            <li
-              className={`px-4 py-3 cursor-pointer transition-colors ${
-                !value ? 'bg-purple-50 text-purple-600 font-semibold' : 'hover:bg-purple-50 text-gray-700'
-              }`}
-              onClick={() => handleSelect("")}
-              role="option"
-            >
-              {placeholder}
-            </li>
-            {options.map((option, index) => (
-              <li
-                key={option}
-                className={`px-4 py-3 cursor-pointer transition-colors ${
-                  value === option
-                    ? 'bg-gradient-to-r from-purple-100 to-violet-100 text-purple-600 font-semibold border-l-4 border-purple-600'
-                    : highlightedIndex === index
-                    ? 'bg-purple-50 text-gray-700'
-                    : 'hover:bg-purple-50 text-gray-700'
-                }`}
-                onClick={() => handleSelect(option)}
-                role="option"
-                aria-selected={value === option}
-              >
-                {option}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function PaginationWithPerPage({
@@ -238,7 +118,9 @@ function PaginationWithPerPage({
         <div className="hidden sm:flex items-center gap-1 mx-2">
           {getPageNumbers(currentPage, totalPages).map((page, idx) =>
             page === "..." ? (
-              <span key={idx} className="px-2 text-gray-400">...</span>
+              <span key={idx} className="px-2 text-gray-400">
+                ...
+              </span>
             ) : (
               <button
                 key={idx}
@@ -339,7 +221,9 @@ const OsmHealthComp = () => {
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
                 ผลตรวจสุขภาพ อสม.
               </h1>
-              <p className="text-sm text-gray-500 mt-0.5">ข้อมูลผลการตรวจสุขภาพอาสาสมัครสาธารณสุข</p>
+              <p className="text-sm text-gray-500 mt-0.5">
+                ข้อมูลผลการตรวจสุขภาพอาสาสมัครสาธารณสุข
+              </p>
             </div>
           </div>
         </div>
@@ -389,15 +273,27 @@ const OsmHealthComp = () => {
         <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6 mb-6">
           {/* Search Type Radio */}
           <div className="mb-5">
-            <p className="text-sm font-semibold text-gray-700 mb-3">รูปแบบการค้นหา</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">
+              รูปแบบการค้นหา
+            </p>
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                  searchType === "year" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
-                }`}>
-                  {searchType === "year" && <div className="w-2 h-2 bg-white rounded-full" />}
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    searchType === "year"
+                      ? "border-purple-600 bg-purple-600"
+                      : "border-gray-300 group-hover:border-purple-400"
+                  }`}
+                >
+                  {searchType === "year" && (
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                  )}
                 </div>
-                <span className={`text-sm font-medium ${searchType === "year" ? "text-purple-600" : "text-gray-600"}`}>
+                <span
+                  className={`text-sm font-medium ${
+                    searchType === "year" ? "text-purple-600" : "text-gray-600"
+                  }`}
+                >
                   ค้นหาแบบรายปี
                 </span>
                 <input
@@ -408,12 +304,24 @@ const OsmHealthComp = () => {
                 />
               </label>
               <label className="flex items-center gap-2 cursor-pointer group">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                  searchType === "budget" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
-                }`}>
-                  {searchType === "budget" && <div className="w-2 h-2 bg-white rounded-full" />}
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    searchType === "budget"
+                      ? "border-purple-600 bg-purple-600"
+                      : "border-gray-300 group-hover:border-purple-400"
+                  }`}
+                >
+                  {searchType === "budget" && (
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                  )}
                 </div>
-                <span className={`text-sm font-medium ${searchType === "budget" ? "text-purple-600" : "text-gray-600"}`}>
+                <span
+                  className={`text-sm font-medium ${
+                    searchType === "budget"
+                      ? "text-purple-600"
+                      : "text-gray-600"
+                  }`}
+                >
                   ค้นหาแบบรายงบประมาณ
                 </span>
                 <input
@@ -428,24 +336,22 @@ const OsmHealthComp = () => {
 
           {/* Year and Month */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">ปี</label>
-              <CustomSelect
-                value={year}
-                onChange={setYear}
-                options={years}
-                placeholder="-- เลือกปี --"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">เดือน</label>
-              <CustomSelect
-                value={month}
-                onChange={setMonth}
-                options={months}
-                placeholder="-- เลือกเดือน --"
-              />
-            </div>
+            <CustomSelect
+              label="ปี"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              options={years.map((y) => ({ label: y, value: y }))}
+              placeholder="-- เลือกปี --"
+              icon={Calendar}
+            />
+            <CustomSelect
+              label="เดือน"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              options={months.map((m) => ({ label: m, value: m }))}
+              placeholder="-- เลือกเดือน --"
+              icon={Calendar}
+            />
           </div>
 
           {/* Buttons */}
@@ -474,8 +380,12 @@ const OsmHealthComp = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
             <div className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-purple-600" />
-              <h2 className="text-lg font-semibold text-gray-800">ตารางข้อมูลผลตรวจสุขภาพ อสม.</h2>
-              <span className="text-sm text-gray-500">({mockList.length} รายการ)</span>
+              <h2 className="text-lg font-semibold text-gray-800">
+                ตารางข้อมูลผลตรวจสุขภาพ อสม.
+              </h2>
+              <span className="text-sm text-gray-500">
+                ({mockList.length} รายการ)
+              </span>
             </div>
             <div className="relative" ref={dropdownRef}>
               <button
@@ -486,7 +396,10 @@ const OsmHealthComp = () => {
                 <Download size={18} />
                 <span className="hidden sm:inline">ดาวน์โหลดเอกสาร</span>
                 <span className="sm:hidden">ดาวน์โหลด</span>
-                <ChevronDown size={18} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  size={18}
+                  className={`transition-transform ${open ? "rotate-180" : ""}`}
+                />
               </button>
               {open && (
                 <div className="absolute z-30 right-0 mt-2 w-64 bg-white shadow-xl rounded-xl border border-purple-100 py-2 overflow-hidden">

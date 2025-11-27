@@ -22,6 +22,13 @@ const nextConfig = {
     ],
   },
 
+  // Turbopack configuration
+  turbopack: {
+    resolveAlias: {
+      "@d3": "d3",
+    },
+  },
+
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.alias["@d3"] = "d3";

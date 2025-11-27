@@ -24,6 +24,7 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 import Reportosm1CompDetailComp from "../Reportosm1CompDetailComp/Reportosm1CompDetailComp";
+import CustomSelect from "@services/customSelectService/customSelectService";
 
 // Mock data
 const YEARS = [
@@ -147,9 +148,7 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปยอดรายงาน_อสม1_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  doc.save(`สรุปยอดรายงาน_อสม1_${new Date().toISOString().split("T")[0]}.pdf`);
 }
 
 function exportDistrictPDF(data) {
@@ -216,9 +215,14 @@ function exportDistrictPDF(data) {
     xPos += colWidths[1];
 
     doc.rect(xPos, yPos, colWidths[2], rowHeight);
-    doc.text(String(Math.floor(data.length / 3)), xPos + colWidths[2] / 2, yPos + 5.5, {
-      align: "center",
-    });
+    doc.text(
+      String(Math.floor(data.length / 3)),
+      xPos + colWidths[2] / 2,
+      yPos + 5.5,
+      {
+        align: "center",
+      }
+    );
     xPos += colWidths[2];
 
     doc.rect(xPos, yPos, colWidths[3], rowHeight);
@@ -226,16 +230,19 @@ function exportDistrictPDF(data) {
     xPos += colWidths[3];
 
     doc.rect(xPos, yPos, colWidths[4], rowHeight);
-    doc.text(String(Math.floor(data.length / 3)), xPos + colWidths[4] / 2, yPos + 5.5, {
-      align: "center",
-    });
+    doc.text(
+      String(Math.floor(data.length / 3)),
+      xPos + colWidths[4] / 2,
+      yPos + 5.5,
+      {
+        align: "center",
+      }
+    );
 
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปรายอำเภอ_อสม1_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  doc.save(`สรุปรายอำเภอ_อสม1_${new Date().toISOString().split("T")[0]}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -284,7 +291,11 @@ function exportNotSubmittedPDF(data) {
   doc.setFont("Sarabun", "normal");
   doc.setFontSize(10);
 
-  const notSubmitted = ["รพ.สต.บ้านดง", "รพ.สต.บ้านหนองบัว", "รพ.สต.บ้านโคกสูง"];
+  const notSubmitted = [
+    "รพ.สต.บ้านดง",
+    "รพ.สต.บ้านหนองบัว",
+    "รพ.สต.บ้านโคกสูง",
+  ];
   notSubmitted.forEach((unit, idx) => {
     if (yPos > 270) {
       doc.addPage();
@@ -309,9 +320,7 @@ function exportNotSubmittedPDF(data) {
   });
 
   doc.save(
-    `หน่วยที่ยังไม่ส่ง_อสม1_${
-      new Date().toISOString().split("T")[0]
-    }.pdf`
+    `หน่วยที่ยังไม่ส่ง_อสม1_${new Date().toISOString().split("T")[0]}.pdf`
   );
 }
 
@@ -333,153 +342,6 @@ function exportToExcel(data, title = "รายงาน อสม.1") {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   saveAs(blob, `osm1_report_${new Date().toISOString().split("T")[0]}.xlsx`);
-}
-
-// CustomSelect component - styled dropdown
-function CustomSelect({
-  label,
-  value,
-  onChange,
-  options,
-  placeholder,
-  icon: Icon,
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const display = useMemo(() => {
-    const found = options.find((opt) => (opt.value ?? opt) === value);
-    return (found && (found.label ?? found)) || "";
-  }, [options, value]);
-
-  const handleToggle = () => {
-    setIsOpen((v) => !v);
-    setHighlightedIndex(-1);
-  };
-
-  const handleSelect = (option) => {
-    onChange(option.value ?? option);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-  };
-
-  const handleKeyDown = (event) => {
-    if (!isOpen) {
-      if (
-        event.key === "Enter" ||
-        event.key === " " ||
-        event.key === "ArrowDown"
-      ) {
-        event.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-    switch (event.key) {
-      case "Escape":
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        break;
-      case "ArrowDown":
-        event.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < options.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case "ArrowUp":
-        event.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : options.length - 1
-        );
-        break;
-      case "Enter":
-        event.preventDefault();
-        if (highlightedIndex >= 0) handleSelect(options[highlightedIndex]);
-        break;
-      default:
-        break;
-    }
-  };
-
-  return (
-    <div className="relative flex flex-col gap-1" ref={dropdownRef}>
-      {label ? (
-        <span className="text-sm font-semibold text-[#4b3b76]">{label}</span>
-      ) : null}
-      <div
-        className={`w-full h-12 rounded-xl border-2 px-4 ${
-          isOpen
-            ? "border-[#7e32e2] ring-2 ring-purple-200"
-            : "border-purple-200"
-        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
-        onClick={handleToggle}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        role="combobox"
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-center gap-2">
-          {Icon && <Icon size={18} className="text-[#7e32e2]" />}
-          <span className={value ? "text-gray-700" : "text-gray-400"}>
-            {display || placeholder}
-          </span>
-        </div>
-        <ChevronDown
-          size={20}
-          className={`text-[#7e32e2] transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
-      </div>
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
-          <ul role="listbox">
-            <li
-              className={`px-4 py-3 cursor-pointer transition-colors ${
-                !value
-                  ? "bg-purple-50 text-[#7e32e2] font-semibold"
-                  : "hover:bg-purple-50 text-gray-700"
-              }`}
-              onClick={() => handleSelect({ value: "" })}
-              role="option"
-            >
-              {placeholder}
-            </li>
-            {options.map((option, index) => (
-              <li
-                key={option.value || option.label || option}
-                className={`px-4 py-3 cursor-pointer transition-colors ${
-                  value === (option.value ?? option)
-                    ? "bg-gradient-to-r from-purple-100 to-violet-100 text-[#7e32e2] font-semibold border-l-4 border-[#7e32e2]"
-                    : highlightedIndex === index
-                    ? "bg-purple-50 text-gray-700"
-                    : "hover:bg-purple-50 text-gray-700"
-                }`}
-                onClick={() => handleSelect(option)}
-                role="option"
-                aria-selected={value === (option.value ?? option)}
-                onMouseEnter={() => setHighlightedIndex(index)}
-              >
-                {option.label ?? option}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function DetailModal({ open, onClose, data = [] }) {
@@ -596,7 +458,9 @@ function DetailModal({ open, onClose, data = [] }) {
               </button>
               <button
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
-                onClick={() => handleExportExcel(rows.slice(0, 5), "หน่วยที่ยังไม่ส่ง")}
+                onClick={() =>
+                  handleExportExcel(rows.slice(0, 5), "หน่วยที่ยังไม่ส่ง")
+                }
               >
                 <Image
                   src="/xlsx.png"
@@ -815,7 +679,8 @@ const Reportosm1DataComp = () => {
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
     const selectedRow = ALL_ROWS.find((row) => row.index === Number(detailId));
-    const monthLabel = MONTHS.find(m => m.value === month)?.label || "มิถุนายน";
+    const monthLabel =
+      MONTHS.find((m) => m.value === month)?.label || "มิถุนายน";
 
     return (
       <Reportosm1CompDetailComp
@@ -874,7 +739,7 @@ const Reportosm1DataComp = () => {
             label="ปีงบประมาณ"
             placeholder="เลือกปี"
             value={year}
-            onChange={setYear}
+            onChange={(e) => setYear(e.target.value)}
             options={YEARS}
             icon={Calendar}
           />
@@ -882,7 +747,7 @@ const Reportosm1DataComp = () => {
             label="เดือน"
             placeholder="เลือกเดือน"
             value={month}
-            onChange={setMonth}
+            onChange={(e) => setMonth(e.target.value)}
             options={MONTHS}
             icon={Calendar}
           />
@@ -890,7 +755,7 @@ const Reportosm1DataComp = () => {
             label="เขตสุขภาพ"
             placeholder="เลือกเขต"
             value={zone}
-            onChange={setZone}
+            onChange={(e) => setZone(e.target.value)}
             options={ZONES}
             icon={MapPin}
           />
@@ -898,7 +763,7 @@ const Reportosm1DataComp = () => {
             label="จังหวัด"
             placeholder="เลือกจังหวัด"
             value={province}
-            onChange={setProvince}
+            onChange={(e) => setProvince(e.target.value)}
             options={PROVINCES}
             icon={Building2}
           />
@@ -906,7 +771,7 @@ const Reportosm1DataComp = () => {
             label="อำเภอ"
             placeholder="เลือกอำเภอ"
             value={district}
-            onChange={setDistrict}
+            onChange={(e) => setDistrict(e.target.value)}
             options={DISTRICTS}
             icon={Building2}
           />
@@ -914,7 +779,7 @@ const Reportosm1DataComp = () => {
             label="ตำบล"
             placeholder="เลือกตำบล"
             value={subdistrict}
-            onChange={setSubdistrict}
+            onChange={(e) => setSubdistrict(e.target.value)}
             options={SUBDISTRICTS}
             icon={Home}
           />
@@ -922,7 +787,7 @@ const Reportosm1DataComp = () => {
             label="หน่วยบริการ"
             placeholder="เลือกหน่วยบริการ"
             value={service}
-            onChange={setService}
+            onChange={(e) => setService(e.target.value)}
             options={SERVICES}
             icon={Home}
           />
@@ -1009,7 +874,9 @@ const Reportosm1DataComp = () => {
                     <td className="py-4 px-4 text-center">
                       <button
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
-                        onClick={() => router.push(`/report-osm1/data?detail=${row.index}`)}
+                        onClick={() =>
+                          router.push(`/report-osm1/data?detail=${row.index}`)
+                        }
                       >
                         <Eye size={16} />
                         รายละเอียด

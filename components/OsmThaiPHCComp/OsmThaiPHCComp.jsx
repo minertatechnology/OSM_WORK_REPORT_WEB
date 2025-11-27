@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
-import { Search, Eye, Download, ChevronDown, Calendar, MapPin } from "lucide-react";
+import {
+  Search,
+  Eye,
+  EyeOff,
+  Download,
+  ChevronDown,
+  Calendar,
+  MapPin,
+  X,
+} from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import ButtonService from "@services/buttonService/buttonService";
+import CustomSelect from "@services/customSelectService/customSelectService";
+import Swal from "sweetalert2";
+import * as XLSX from "xlsx";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import { font as SarabunFont } from "@styles/Sarabun-Regular-normal";
+import { fontbold as SarabunBoldFont } from "@styles/Sarabun-Regular-bold";
 
 // Register chart.js elements
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -168,6 +184,7 @@ const LEGEND_OPTIONS = [
       </span>
     ),
     value: "phc-central",
+    text: "จำนวน อสม.จากฐานข้อมูล ThaiPHC และกรมบัญชีกลาง",
   },
   {
     label: (
@@ -180,6 +197,7 @@ const LEGEND_OPTIONS = [
       </span>
     ),
     value: "central-no-phc",
+    text: "จำนวน อสม.จากฐานข้อมูลกรมบัญชีกลาง ที่ไม่มีข้อมูลใน Thaiphc",
   },
   {
     label: (
@@ -192,6 +210,7 @@ const LEGEND_OPTIONS = [
       </span>
     ),
     value: "new-osm",
+    text: "จำนวน อสม.รายใหม่ที่รอยืนยันจากสสจ.",
   },
   {
     label: (
@@ -204,6 +223,7 @@ const LEGEND_OPTIONS = [
       </span>
     ),
     value: "no-central",
+    text: "จำนวน อสม.ที่ไม่มีข้อมูลในฐานข้อมูลกรมบัญชีกลาง",
   },
   {
     label: (
@@ -216,8 +236,15 @@ const LEGEND_OPTIONS = [
       </span>
     ),
     value: "phc-not-match",
+    text: "จำนวน อสม. จาก ThaiPHC ที่ไม่เข้าเงื่อนไข",
   },
 ];
+
+// Helper function to get category text from value
+const getCategoryText = (categoryValue) => {
+  const option = LEGEND_OPTIONS.find((opt) => opt.value === categoryValue);
+  return option ? option.text : "";
+};
 
 // Pie chart mock values (สีให้ตรง legend)
 const pieData = [
@@ -294,158 +321,731 @@ const pieChartOptions = {
   },
 };
 
-const tableRows = Array.from({ length: 10 }, (_, i) => ({
-  index: i + 1,
-  name: "นางสาวชมบุษบก ผดุงจิตร",
-  cid: "1539900551382",
-}));
+const mockUserDetails = [
+  {
+    prefix: "นางสาว",
+    firstName: "ชนุชนาถ",
+    lastName: "ผดุงจิตร",
+    cid: "1709900273968",
+    gender: "หญิง",
+    bloodType: "O",
+    maritalStatus: "โสด",
+    children: "-",
+    phone: "081-234-5678",
+    email: "chanuchanart@email.com",
+    education: "ปริญญาตรี",
+    birthDate: "24/02/2530",
+    occupation: "เกษตรกรรม",
+    houseNumber: "17",
+    villageNumber: "2",
+    postalCode: "76130",
+    province: "เพชรบุรี",
+    district: "อำเภอท่ายาง",
+    subdistrict: "หนองจอก",
+    village: "บ้านหนองจอก",
+    hospitalCode: "76050402",
+    motto: "ใจดีมีน้ำใจ",
+    osmCardNumber: "76050402011031",
+    osmStartDate: "15/03/2562",
+    osmYear: "2562",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารกรุงไทย",
+    accountNumber: "123-4-56789-0",
+    hasSmartphone: "มี",
+    category: "phc-central", // จำนวน อสม.จากฐานข้อมูล ThaiPHC และกรมบัญชีกลาง
+  },
+  {
+    prefix: "นาย",
+    firstName: "สมชาย",
+    lastName: "ใจดี",
+    cid: "1234567890123",
+    gender: "ชาย",
+    bloodType: "A",
+    maritalStatus: "สมรส",
+    children: "2",
+    phone: "082-345-6789",
+    email: "-",
+    education: "มัธยมศึกษาตอนปลาย",
+    birthDate: "10/05/2518",
+    occupation: "รับจ้างทั่วไป",
+    houseNumber: "25",
+    villageNumber: "3",
+    postalCode: "50000",
+    province: "เชียงใหม่",
+    district: "อำเภอเมือง",
+    subdistrict: "ช้างเผือก",
+    village: "บ้านช้างเผือก",
+    hospitalCode: "50010301",
+    motto: "ช่วยเหลือผู้อื่น",
+    osmCardNumber: "50010301012045",
+    osmStartDate: "01/01/2561",
+    osmYear: "2561",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารกสิกรไทย",
+    accountNumber: "234-5-67890-1",
+    hasSmartphone: "มี",
+    category: "phc-central", // จำนวน อสม.จากฐานข้อมูล ThaiPHC และกรมบัญชีกลาง
+  },
+  {
+    prefix: "นาง",
+    firstName: "สมหญิง",
+    lastName: "รักษาดี",
+    cid: "2345678901234",
+    gender: "หญิง",
+    bloodType: "B",
+    maritalStatus: "สมรส",
+    children: "3",
+    phone: "083-456-7890",
+    email: "somying@email.com",
+    education: "มัธยมศึกษาตอนต้น",
+    birthDate: "20/08/2523",
+    occupation: "ค้าขาย",
+    houseNumber: "42",
+    villageNumber: "5",
+    postalCode: "10110",
+    province: "กรุงเทพฯ",
+    district: "เขตบางกอกน้อย",
+    subdistrict: "บางขุนนนท์",
+    village: "บ้านบางขุนนนท์",
+    hospitalCode: "10010203",
+    motto: "บริการด้วยใจ",
+    osmCardNumber: "10010203015067",
+    osmStartDate: "20/06/2560",
+    osmYear: "2560",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารไทยพาณิชย์",
+    accountNumber: "345-6-78901-2",
+    hasSmartphone: "มี",
+    category: "phc-central", // จำนวน อสม.จากฐานข้อมูล ThaiPHC และกรมบัญชีกลาง
+  },
+  {
+    prefix: "นางสาว",
+    firstName: "มาลี",
+    lastName: "ดอกไม้",
+    cid: "3456789012345",
+    gender: "หญิง",
+    bloodType: "AB",
+    maritalStatus: "โสด",
+    children: "-",
+    phone: "084-567-8901",
+    email: "-",
+    education: "ปริญญาตรี",
+    birthDate: "15/12/2533",
+    occupation: "พนักงานบริษัท",
+    houseNumber: "88",
+    villageNumber: "1",
+    postalCode: "80000",
+    province: "นครศรีธรรมราช",
+    district: "อำเภอเมือง",
+    subdistrict: "ในเมือง",
+    village: "บ้านในเมือง",
+    hospitalCode: "80010101",
+    motto: "-",
+    osmCardNumber: "80010101011089",
+    osmStartDate: "10/09/2563",
+    osmYear: "2563",
+    osmStatus: "ปกติ",
+    paymentStatus: "ไม่ขอรับค่าป่วยการ",
+    bank: "-",
+    accountNumber: "-",
+    hasSmartphone: "มี",
+    category: "central-no-phc", // จำนวน อสม.จากฐานข้อมูลกรมบัญชีกลาง ที่ไม่มีข้อมูลใน Thaiphc
+  },
+  {
+    prefix: "นาย",
+    firstName: "ประสิทธิ์",
+    lastName: "สุขสันต์",
+    cid: "4567890123456",
+    gender: "ชาย",
+    bloodType: "O",
+    maritalStatus: "สมรส",
+    children: "1",
+    phone: "085-678-9012",
+    email: "prasit@email.com",
+    education: "ปริญญาโท",
+    birthDate: "05/03/2525",
+    occupation: "ข้าราชการบำนาญ",
+    houseNumber: "12",
+    villageNumber: "7",
+    postalCode: "40000",
+    province: "ขอนแก่น",
+    district: "อำเภอเมือง",
+    subdistrict: "ในเมือง",
+    village: "บ้านกลางเมือง",
+    hospitalCode: "40010102",
+    motto: "สุขภาพดีคือความสุข",
+    osmCardNumber: "40010102017123",
+    osmStartDate: "01/04/2559",
+    osmYear: "2559",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารกรุงเทพ",
+    accountNumber: "456-7-89012-3",
+    hasSmartphone: "มี",
+    category: "new-osm", // จำนวน อสม.รายใหม่ที่รอยืนยันจากสสจ.
+  },
+  {
+    prefix: "นาง",
+    firstName: "วิไล",
+    lastName: "อุไรพร",
+    cid: "5678901234567",
+    gender: "หญิง",
+    bloodType: "A",
+    maritalStatus: "หม้าย",
+    children: "4",
+    phone: "086-789-0123",
+    email: "-",
+    education: "ประถมศึกษา",
+    birthDate: "30/11/2508",
+    occupation: "เกษตรกรรม",
+    houseNumber: "56",
+    villageNumber: "4",
+    postalCode: "30000",
+    province: "นครราชสีมา",
+    district: "อำเภอปากช่อง",
+    subdistrict: "ปากช่อง",
+    village: "บ้านปากช่อง",
+    hospitalCode: "30040201",
+    motto: "ช่วยเหลือชุมชน",
+    osmCardNumber: "30040201014156",
+    osmStartDate: "18/02/2558",
+    osmYear: "2558",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารกรุงไทย",
+    accountNumber: "567-8-90123-4",
+    hasSmartphone: "ไม่มี",
+    category: "no-central", // จำนวน อสม.ที่ไม่มีข้อมูลในฐานข้อมูลกรมบัญชีกลาง
+  },
+  {
+    prefix: "นาย",
+    firstName: "อนันต์",
+    lastName: "ศรีสุข",
+    cid: "6789012345678",
+    gender: "ชาย",
+    bloodType: "B",
+    maritalStatus: "สมรส",
+    children: "2",
+    phone: "087-890-1234",
+    email: "anan@email.com",
+    education: "ปริญญาตรี",
+    birthDate: "22/07/2520",
+    occupation: "ธุรกิจส่วนตัว",
+    houseNumber: "99",
+    villageNumber: "6",
+    postalCode: "20000",
+    province: "ชลบุรี",
+    district: "อำเภอเมือง",
+    subdistrict: "บางปลาสร้อย",
+    village: "บ้านบางปลาสร้อย",
+    hospitalCode: "20010301",
+    motto: "มุ่งมั่นพัฒนา",
+    osmCardNumber: "20010301016234",
+    osmStartDate: "25/05/2561",
+    osmYear: "2561",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารกสิกรไทย",
+    accountNumber: "678-9-01234-5",
+    hasSmartphone: "มี",
+    category: "phc-not-match", // จำนวน อสม. จาก ThaiPHC ที่ไม่เข้าเงื่อนไข
+  },
+  {
+    prefix: "นางสาว",
+    firstName: "กมลชนก",
+    lastName: "สวัสดิ์",
+    cid: "7890123456789",
+    gender: "หญิง",
+    bloodType: "O",
+    maritalStatus: "โสด",
+    children: "-",
+    phone: "088-901-2345",
+    email: "kamonchonok@email.com",
+    education: "ปริญญาตรี",
+    birthDate: "08/09/2535",
+    occupation: "ครู",
+    houseNumber: "33",
+    villageNumber: "8",
+    postalCode: "60000",
+    province: "นครสวรรค์",
+    district: "อำเภอเมือง",
+    subdistrict: "ปากน้ำโพ",
+    village: "บ้านปากน้ำโพ",
+    hospitalCode: "60010401",
+    motto: "การศึกษาคือรากฐาน",
+    osmCardNumber: "60010401018345",
+    osmStartDate: "12/08/2564",
+    osmYear: "2564",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารไทยพาณิชย์",
+    accountNumber: "789-0-12345-6",
+    hasSmartphone: "มี",
+    category: "new-osm", // จำนวน อสม.รายใหม่ที่รอยืนยันจากสสจ.
+  },
+  {
+    prefix: "นาย",
+    firstName: "วิชัย",
+    lastName: "พูลสวัสดิ์",
+    cid: "8901234567890",
+    gender: "ชาย",
+    bloodType: "AB",
+    maritalStatus: "สมรส",
+    children: "5",
+    phone: "089-012-3456",
+    email: "-",
+    education: "มัธยมศึกษาตอนปลาย",
+    birthDate: "17/01/2515",
+    occupation: "รับจ้าง",
+    houseNumber: "74",
+    villageNumber: "9",
+    postalCode: "70000",
+    province: "ราชบุรี",
+    district: "อำเภอเมือง",
+    subdistrict: "หน้าเมือง",
+    village: "บ้านหน้าเมือง",
+    hospitalCode: "70010201",
+    motto: "-",
+    osmCardNumber: "70010201019456",
+    osmStartDate: "05/07/2557",
+    osmYear: "2557",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารกรุงไทย",
+    accountNumber: "890-1-23456-7",
+    hasSmartphone: "ไม่มี",
+    category: "no-central", // จำนวน อสม.ที่ไม่มีข้อมูลในฐานข้อมูลกรมบัญชีกลาง
+  },
+  {
+    prefix: "นาง",
+    firstName: "อรุณี",
+    lastName: "แสงจันทร์",
+    cid: "9012345678901",
+    gender: "หญิง",
+    bloodType: "A",
+    maritalStatus: "สมรส",
+    children: "3",
+    phone: "090-123-4567",
+    email: "arunee@email.com",
+    education: "ปริญญาตรี",
+    birthDate: "28/04/2522",
+    occupation: "พยาบาล",
+    houseNumber: "61",
+    villageNumber: "10",
+    postalCode: "90000",
+    province: "สงขลา",
+    district: "อำเภอเมือง",
+    subdistrict: "บ่อยาง",
+    village: "บ้านบ่อยาง",
+    hospitalCode: "90010501",
+    motto: "รักษาด้วยหัวใจ",
+    osmCardNumber: "90010501010567",
+    osmStartDate: "30/11/2562",
+    osmYear: "2562",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารกสิกรไทย",
+    accountNumber: "901-2-34567-8",
+    hasSmartphone: "มี",
+    category: "central-no-phc", // จำนวน อสม.จากฐานข้อมูลกรมบัญชีกลาง ที่ไม่มีข้อมูลใน Thaiphc
+  },
+  {
+    prefix: "นาย",
+    firstName: "สุรชัย",
+    lastName: "บุญมี",
+    cid: "1539900551382",
+    gender: "ชาย",
+    bloodType: "B",
+    maritalStatus: "สมรส",
+    children: "1",
+    phone: "091-234-5678",
+    email: "-",
+    education: "ปริญญาตรี",
+    birthDate: "12/06/2528",
+    occupation: "ข้าราชการ",
+    houseNumber: "45",
+    villageNumber: "11",
+    postalCode: "83000",
+    province: "ภูเก็ต",
+    district: "อำเภอเมือง",
+    subdistrict: "ตลาดใหญ่",
+    village: "บ้านตลาดใหญ่",
+    hospitalCode: "83010102",
+    motto: "ทำดีได้ดี",
+    osmCardNumber: "83010102011678",
+    osmStartDate: "22/10/2563",
+    osmYear: "2563",
+    osmStatus: "ปกติ",
+    paymentStatus: "ขอรับค่าป่วยการ",
+    bank: "ธนาคารกรุงเทพ",
+    accountNumber: "012-3-45678-9",
+    hasSmartphone: "มี",
+    category: "phc-central", // จำนวน อสม.จากฐานข้อมูล ThaiPHC และกรมบัญชีกลาง
+  },
+];
+
+// Function to mask CID for PDPA compliance
+// Mask last 4 digits for both table and modal (9 ตัวแรก + X 4 ตัว)
+const maskCID = (cid, showFull = false, isTable = false) => {
+  if (!cid) return "-";
+  const cleanCID = cid.replace(/[^0-9]/g, "");
+  if (cleanCID.length !== 13) return cid;
+
+  if (showFull) {
+    // Show full CID in standard format
+    return `${cleanCID.slice(0, 1)}-${cleanCID.slice(1, 5)}-${cleanCID.slice(
+      5,
+      10
+    )}-${cleanCID.slice(10, 12)}-${cleanCID.slice(12, 13)}`;
+  }
+
+  // For both table and modal: mask only last 4 digits (9 ตัวแรก + X 4 ตัว)
+  return `${cleanCID.slice(0, 1)}-${cleanCID.slice(1, 5)}-${cleanCID.slice(
+    5,
+    9
+  )}-XX-XX`;
+};
 
 const showProvinceChart = (province) => province && province !== "";
 
-// CustomSelect component
-function CustomSelect({
-  label,
-  value,
-  onChange,
-  options,
-  placeholder,
-  icon: Icon,
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const dropdownRef = useRef(null);
+// Detail Modal Component
+function OsmDetailModal({ open, onClose, data }) {
+  const [showFullCID, setShowFullCID] = useState(false);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
+  if (!open || !data) return null;
+
+  const handleToggleCID = async () => {
+    if (!showFullCID) {
+      // Show PDPA warning before revealing full ID using SweetAlert2
+      const result = await Swal.fire({
+        title: "คำเตือนตามกฎหมาย PDPA",
+        html: `
+          <div style="text-align: left; padding: 10px;">
+            <p style="margin-bottom: 15px; font-weight: 600; color: #7e32e2;">
+              ⚠️ พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)
+            </p>
+            <p style="margin-bottom: 12px; line-height: 1.6;">
+              การเปิดเผยข้อมูลส่วนบุคคล เช่น <strong>เลขบัตรประจำตัวประชาชน</strong> ต้องมีวัตถุประสงค์ที่ชอบด้วยกฎหมาย และได้รับความยินยอมจากเจ้าของข้อมูล
+            </p>
+            <p style="margin-bottom: 12px; line-height: 1.6;">
+              การเข้าถึงข้อมูลนี้อาจถูกบันทึกไว้เพื่อการตรวจสอบ
+            </p>
+            <p style="margin-top: 15px; font-weight: 500; color: #555;">
+              คุณต้องการดูเลขบัตรประจำตัวประชาชนแบบเต็มหรือไม่?
+            </p>
+          </div>
+        `,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#7e32e2",
+        cancelButtonColor: "#888",
+        confirmButtonText: "ยืนยัน",
+        cancelButtonText: "ยกเลิก",
+        customClass: {
+          popup: "rounded-2xl",
+          title: "text-xl font-bold",
+          htmlContainer: "text-base",
+        },
+        focusConfirm: false,
+      });
+
+      if (result.isConfirmed) {
+        setShowFullCID(true);
       }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const display = useMemo(() => {
-    const found = options.find((opt) => (opt.value ?? opt) === value);
-    return (found && (found.label ?? found)) || "";
-  }, [options, value]);
-
-  const handleToggle = () => {
-    setIsOpen((v) => !v);
-    setHighlightedIndex(-1);
-  };
-
-  const handleSelect = (option) => {
-    const newValue = option.value ?? option;
-    onChange({ target: { value: newValue } });
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-  };
-
-  const handleKeyDown = (event) => {
-    if (!isOpen) {
-      if (
-        event.key === "Enter" ||
-        event.key === " " ||
-        event.key === "ArrowDown"
-      ) {
-        event.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-    switch (event.key) {
-      case "Escape":
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        break;
-      case "ArrowDown":
-        event.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < options.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case "ArrowUp":
-        event.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : options.length - 1
-        );
-        break;
-      case "Enter":
-        event.preventDefault();
-        if (highlightedIndex >= 0) handleSelect(options[highlightedIndex]);
-        break;
-      default:
-        break;
+    } else {
+      setShowFullCID(false);
     }
   };
 
   return (
-    <div className="relative flex flex-col gap-1" ref={dropdownRef}>
-      {label ? (
-        <span className="text-sm font-semibold text-[#4b3b76]">{label}</span>
-      ) : null}
-      <div
-        className={`w-full h-12 rounded-xl border-2 px-4 ${
-          isOpen
-            ? "border-[#7e32e2] ring-2 ring-purple-200"
-            : "border-purple-200"
-        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
-        onClick={handleToggle}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        role="combobox"
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-center gap-2">
-          {Icon && <Icon size={18} className="text-[#7e32e2]" />}
-          <span className={value ? "text-gray-700" : "text-gray-400"}>
-            {display || placeholder}
-          </span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-[#ece1f7] w-full max-w-4xl relative my-8 flex flex-col max-h-[90vh]">
+        {/* Fixed Header */}
+        <div className="p-7 pb-4 border-b border-purple-200">
+          <div className="text-[22px] font-bold text-[#7e32e2] mb-2">
+            รายละเอียด
+          </div>
+          <div className="text-[14px] text-gray-600">
+            (ข้อมูลจาก จำนวน อสม.จากฐานข้อมูล ThaiPHC และกรมบัญชีกลาง)
+          </div>
+          <button
+            className="absolute top-4 right-4 text-[#aaa] hover:text-[#e74c3c] transition"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={22} />
+          </button>
         </div>
-        <ChevronDown
-          size={20}
-          className={`text-[#7e32e2] transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
-      </div>
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
-          <ul role="listbox">
-            <li
-              className={`px-4 py-3 cursor-pointer transition-colors ${
-                !value
-                  ? "bg-purple-50 text-[#7e32e2] font-semibold"
-                  : "hover:bg-purple-50 text-gray-700"
-              }`}
-              onClick={() => handleSelect({ value: "" })}
-              role="option"
+
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto p-7 pt-4 flex-1">
+          {/* ข้อมูลส่วนตัว */}
+          <div className="mb-6">
+            <div className="text-[18px] font-bold text-[#7e32e2] mb-4 pb-2 border-b-2 border-purple-200">
+              ข้อมูลส่วนตัว
+            </div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">คำนำหน้า</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.prefix}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">ชื่อ</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.firstName}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">นามสกุล</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.lastName}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  เลขบัตรประจำตัวประชาชน
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[16px] text-[#231d37] font-medium font-mono">
+                    {maskCID(data.cid, showFullCID)}
+                  </div>
+                  <button
+                    onClick={handleToggleCID}
+                    className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors"
+                    title={
+                      showFullCID
+                        ? "ซ่อนเลขบัตรประชาชน"
+                        : "แสดงเลขบัตรประชาชนแบบเต็ม"
+                    }
+                  >
+                    {showFullCID ? (
+                      <EyeOff size={18} className="text-[#7e32e2]" />
+                    ) : (
+                      <Eye size={18} className="text-gray-500" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">เพศ</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.gender}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">กรุ๊ปเลือด</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.bloodType}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">สภานภาพ</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.maritalStatus}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  จำนวนบุตร (ถ้ามี)
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.children}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  เบอร์โทร (ถ้ามี)
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.phone}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  อีเมล (ถ้ามี)
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.email}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  ระดับการศึกษา
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.education}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  วัน/เดือน/ปีเกิด
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.birthDate}
+                </div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-[14px] text-gray-600 mb-1">อาชีพ</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.occupation}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ที่อยู่ */}
+          <div className="mb-6">
+            <div className="text-[18px] font-bold text-[#7e32e2] mb-4 pb-2 border-b-2 border-purple-200">
+              ที่อยู่
+            </div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">บ้านเลขที่</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.houseNumber}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">หมู่</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.villageNumber}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  รหัสไปรษณีย์
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.postalCode}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">จังหวัด</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.province}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">อำเภอ/เขต</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.district}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">ตำบล</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.subdistrict}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">หมู่บ้าน</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.village}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  รหัสสถานพยาบาล
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium font-mono">
+                  {data.hospitalCode}
+                </div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-[14px] text-gray-600 mb-1">
+                  คติ (ถ้ามี)
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.motto}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ข้อมูลเกี่ยวกับอสม. */}
+          <div className="mb-6">
+            <div className="text-[18px] font-bold text-[#7e32e2] mb-4 pb-2 border-b-2 border-purple-200">
+              ข้อมูลเกี่ยวกับอสม.
+            </div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  เลขบัตรประจำตัวอสม. (ถ้ามี)
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium font-mono">
+                  {data.osmCardNumber}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  วันที่เริ่มเป็นอสม. (ถ้ามี)
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.osmStartDate}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  ปีที่เป็นอสม. (ปี พ.ศ.)
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.osmYear}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  สถานะของอสม.
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.osmStatus}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  สถานะการรับเงิน
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.paymentStatus}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">ธนาคาร</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.bank}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">เลขบัญชี</div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.accountNumber}
+                </div>
+              </div>
+              <div>
+                <div className="text-[14px] text-gray-600 mb-1">
+                  อสม.มีสมาร์ทโฟนหรือไม่
+                </div>
+                <div className="text-[16px] text-[#231d37] font-medium">
+                  {data.hasSmartphone}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              className="px-6 py-3 rounded-xl border border-[#7e32e2] text-[#7e32e2] text-[17px] font-semibold shadow bg-white hover:bg-[#f6eeff] transition"
+              onClick={onClose}
             >
-              {placeholder}
-            </li>
-            {options.map((option, index) => (
-              <li
-                key={option.value || option.label || option}
-                className={`px-4 py-3 cursor-pointer transition-colors ${
-                  value === (option.value ?? option)
-                    ? "bg-gradient-to-r from-purple-100 to-violet-100 text-[#7e32e2] font-semibold border-l-4 border-[#7e32e2]"
-                    : highlightedIndex === index
-                    ? "bg-purple-50 text-gray-700"
-                    : "hover:bg-purple-50 text-gray-700"
-                }`}
-                onClick={() => handleSelect(option)}
-                role="option"
-                aria-selected={value === (option.value ?? option)}
-                onMouseEnter={() => setHighlightedIndex(index)}
-              >
-                {option.label ?? option}
-              </li>
-            ))}
-          </ul>
+              ปิด
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -465,6 +1065,320 @@ const OsmThaiPHCComp = () => {
   const [open, setOpen] = useState(false);
   // const dropdownRef = useRef(null);
 
+  // Detail Modal state
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  // Table CID visibility state - track which rows show full CID
+  const [tableCIDVisibility, setTableCIDVisibility] = useState({});
+
+  // Filter users by selected category
+  const filteredUsers = useMemo(() => {
+    return legend
+      ? mockUserDetails.filter((user) => user.category === legend)
+      : mockUserDetails;
+  }, [legend]);
+
+  // Create table rows from filtered users
+  const tableRows = useMemo(() => {
+    return filteredUsers.map((user, index) => ({
+      index: index + 1,
+      name: `${user.prefix}${user.firstName} ${user.lastName}`,
+      cid: user.cid,
+      details: user,
+    }));
+  }, [filteredUsers]);
+
+  // Toggle CID visibility in table
+  const handleToggleTableCID = async (rowIndex) => {
+    const isCurrentlyVisible = tableCIDVisibility[rowIndex];
+
+    if (!isCurrentlyVisible) {
+      // Show PDPA warning before revealing full ID
+      const result = await Swal.fire({
+        title: "คำเตือนตามกฎหมาย PDPA",
+        html: `
+          <div style="text-align: left; padding: 10px;">
+            <p style="margin-bottom: 15px; font-weight: 600; color: #7e32e2;">
+              ⚠️ พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)
+            </p>
+            <p style="margin-bottom: 12px; line-height: 1.6;">
+              การเปิดเผยข้อมูลส่วนบุคคล เช่น <strong>เลขบัตรประจำตัวประชาชน</strong> ต้องมีวัตถุประสงค์ที่ชอบด้วยกฎหมาย และได้รับความยินยอมจากเจ้าของข้อมูล
+            </p>
+            <p style="margin-bottom: 12px; line-height: 1.6;">
+              การเข้าถึงข้อมูลนี้อาจถูกบันทึกไว้เพื่อการตรวจสอบ
+            </p>
+            <p style="margin-top: 15px; font-weight: 500; color: #555;">
+              คุณต้องการดูเลขบัตรประจำตัวประชาชนแบบเต็มหรือไม่?
+            </p>
+          </div>
+        `,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#7e32e2",
+        cancelButtonColor: "#888",
+        confirmButtonText: "ยืนยัน",
+        cancelButtonText: "ยกเลิก",
+        customClass: {
+          popup: "rounded-2xl",
+          title: "text-xl font-bold",
+          htmlContainer: "text-base",
+        },
+        focusConfirm: false,
+      });
+
+      if (result.isConfirmed) {
+        setTableCIDVisibility((prev) => ({ ...prev, [rowIndex]: true }));
+      }
+    } else {
+      setTableCIDVisibility((prev) => ({ ...prev, [rowIndex]: false }));
+    }
+  };
+
+  // Download Excel handler
+  const handleDownloadExcel = () => {
+    // Prepare data for Excel export - use filtered users
+    const exportData = filteredUsers.map((user, index) => ({
+      ลำดับ: index + 1,
+      คำนำหน้า: user.prefix,
+      ชื่อ: user.firstName,
+      นามสกุล: user.lastName,
+      เลขบัตรประชาชน: maskCID(user.cid, false, true), // Masked for PDPA
+      เพศ: user.gender,
+      หมู่โลหิต: user.bloodType,
+      สถานภาพ: user.maritalStatus,
+      จำนวนบุตร: user.children,
+      เบอร์โทรศัพท์: user.phone,
+      อีเมล: user.email,
+      การศึกษา: user.education,
+      วันเกิด: user.birthDate,
+      อาชีพ: user.occupation,
+      บ้านเลขที่: user.houseNumber,
+      หมู่ที่: user.villageNumber,
+      รหัสไปรษณีย์: user.postalCode,
+      จังหวัด: user.province,
+      อำเภอ: user.district,
+      ตำบล: user.subdistrict,
+      หมู่บ้าน: user.village,
+      รหัสสถานพยาบาล: user.hospitalCode,
+      คำขวัญ: user.motto,
+      "เลขที่บัตร อสม.": user.osmCardNumber,
+      "วันที่เริ่มเป็น อสม.": user.osmStartDate,
+      ปีที่เข้า: user.osmYear,
+      "สถานะ อสม.": user.osmStatus,
+      สถานะการขอรับค่าป่วยการ: user.paymentStatus,
+      ธนาคาร: user.bank,
+      เลขที่บัญชี: user.accountNumber,
+      มีสมาร์ทโฟน: user.hasSmartphone,
+    }));
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+
+    // If category is selected, add header rows
+    let ws;
+    if (legend) {
+      const categoryText = getCategoryText(legend);
+      const headerData = [
+        ["รายงานข้อมูล อสม. Thai PHC"],
+        [`ประเภท: ${categoryText}`],
+        [], // Empty row for spacing
+      ];
+
+      // Combine header and data
+      const wsData = XLSX.utils.aoa_to_sheet(headerData);
+      XLSX.utils.sheet_add_json(wsData, exportData, { origin: -1 });
+      ws = wsData;
+    } else {
+      ws = XLSX.utils.json_to_sheet(exportData);
+    }
+
+    // Set column widths
+    const colWidths = [
+      { wch: 8 }, // ลำดับ
+      { wch: 10 }, // คำนำหน้า
+      { wch: 15 }, // ชื่อ
+      { wch: 15 }, // นามสกุล
+      { wch: 20 }, // เลขบัตรประชาชน
+      { wch: 8 }, // เพศ
+      { wch: 10 }, // หมู่โลหิต
+      { wch: 12 }, // สถานภาพ
+      { wch: 12 }, // จำนวนบุตร
+      { wch: 15 }, // เบอร์โทรศัพท์
+      { wch: 25 }, // อีเมล
+      { wch: 15 }, // การศึกษา
+      { wch: 12 }, // วันเกิด
+      { wch: 20 }, // อาชีพ
+      { wch: 12 }, // บ้านเลขที่
+      { wch: 8 }, // หมู่ที่
+      { wch: 12 }, // รหัสไปรษณีย์
+      { wch: 15 }, // จังหวัด
+      { wch: 15 }, // อำเภอ
+      { wch: 15 }, // ตำบล
+      { wch: 20 }, // หมู่บ้าน
+      { wch: 15 }, // รหัสสถานพยาบาล
+      { wch: 20 }, // คำขวัญ
+      { wch: 18 }, // เลขที่บัตร อสม.
+      { wch: 18 }, // วันที่เริ่มเป็น อสม.
+      { wch: 10 }, // ปีที่เข้า
+      { wch: 12 }, // สถานะ อสม.
+      { wch: 20 }, // สถานะการขอรับค่าป่วยการ
+      { wch: 18 }, // ธนาคาร
+      { wch: 18 }, // เลขที่บัญชี
+      { wch: 12 }, // มีสมาร์ทโฟน
+    ];
+    ws["!cols"] = colWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, "ข้อมูล อสม. Thai PHC");
+
+    // Generate filename with current date and category
+    const today = new Date();
+    const dateStr = `${today.getDate()}-${today.getMonth() + 1}-${
+      today.getFullYear() + 543
+    }`;
+    const categoryPart = legend ? `_${legend}` : "";
+    const filename = `ข้อมูล_อสม_Thai_PHC${categoryPart}_${dateStr}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+
+    // Show success message
+    Swal.fire({
+      title: "ดาวน์โหลดสำเร็จ",
+      text: `ไฟล์ ${filename} ถูกดาวน์โหลดเรียบร้อยแล้ว`,
+      icon: "success",
+      confirmButtonColor: "#7e32e2",
+      confirmButtonText: "ตรวจสอบ",
+    });
+  };
+
+  // Download PDF handler
+  const handleDownloadPDF = () => {
+    // Create new PDF document
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
+
+    // Add Thai font support
+    doc.addFileToVFS("Sarabun-Regular.ttf", SarabunFont);
+    doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
+    doc.addFileToVFS("Sarabun-Bold.ttf", SarabunBoldFont);
+    doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
+    doc.setFont("Sarabun");
+
+    // Add title
+    doc.setFontSize(18);
+    doc.text("รายงานข้อมูล อสม. Thai PHC", 14, 15);
+
+    // Add date
+    const today = new Date();
+    const dateStr = `${today.getDate()}/${today.getMonth() + 1}/${
+      today.getFullYear() + 543
+    }`;
+    doc.setFontSize(10);
+    doc.text(`วันที่: ${dateStr}`, 14, 22);
+
+    // Add category subtitle if filter is applied
+    let startY = 28;
+    if (legend) {
+      const categoryText = getCategoryText(legend);
+      doc.setFontSize(12);
+      doc.setFont("Sarabun", "bold");
+      doc.text(`ประเภท: ${categoryText}`, 14, 28);
+      doc.setFont("Sarabun", "normal");
+      startY = 35; // Move table start position down
+    }
+
+    // Prepare table data - use filtered users
+    const tableData = filteredUsers.map((user, index) => [
+      index + 1,
+      `${user.prefix}${user.firstName} ${user.lastName}`,
+      maskCID(user.cid, false, true), // Masked for PDPA
+      user.province,
+      user.district,
+      user.subdistrict,
+      user.osmStatus,
+    ]);
+
+    // Add table using autoTable
+    autoTable(doc, {
+      head: [
+        [
+          "ลำดับ",
+          "ชื่อ-นามสกุล",
+          "เลขบัตรประชาชน",
+          "จังหวัด",
+          "อำเภอ",
+          "ตำบล",
+          "สถานะ",
+        ],
+      ],
+      body: tableData,
+      startY: startY,
+      theme: "grid",
+      styles: {
+        font: "Sarabun",
+      },
+      headStyles: {
+        fillColor: [126, 50, 226],
+        textColor: 255,
+        fontSize: 11,
+        fontStyle: "bold",
+        halign: "center",
+        font: "Sarabun",
+      },
+      bodyStyles: {
+        fontSize: 9,
+        cellPadding: 3,
+        font: "Sarabun",
+      },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 15 }, // ลำดับ
+        1: { halign: "left", cellWidth: 50 }, // ชื่อ-นามสกุล
+        2: { halign: "center", cellWidth: 45 }, // เลขบัตรประชาชน
+        3: { halign: "left", cellWidth: 35 }, // จังหวัด
+        4: { halign: "left", cellWidth: 35 }, // อำเภอ
+        5: { halign: "left", cellWidth: 35 }, // ตำบล
+        6: { halign: "center", cellWidth: 25 }, // สถานะ
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: function (data) {
+        // Footer
+        const pageCount = doc.internal.pages.length - 1;
+        doc.setFont("Sarabun");
+        doc.setFontSize(8);
+        doc.text(
+          `หน้า ${data.pageNumber} จาก ${pageCount}`,
+          doc.internal.pageSize.width / 2,
+          doc.internal.pageSize.height - 10,
+          { align: "center" }
+        );
+      },
+    });
+
+    // Generate filename with current date and category
+    const categoryPart = legend ? `_${legend}` : "";
+    const filename = `รายงาน_อสม_Thai_PHC${categoryPart}_${dateStr.replace(
+      /\//g,
+      "-"
+    )}.pdf`;
+
+    // Save file
+    doc.save(filename);
+
+    // Show success message
+    Swal.fire({
+      title: "ดาวน์โหลดสำเร็จ",
+      text: `ไฟล์ ${filename} ถูกดาวน์โหลดเรียบร้อยแล้ว`,
+      icon: "success",
+      confirmButtonColor: "#7e32e2",
+      confirmButtonText: "ตรวจสอบ",
+    });
+  };
+
   // Button styles (ใช้เหมือนภาพ ![image7](image7))
   const buttonStyle =
     "flex items-center justify-between px-6 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[16px] focus:outline-none transition shadow-[0_2px_8px_0_rgba(126,50,226,0.10)]";
@@ -474,6 +1388,11 @@ const OsmThaiPHCComp = () => {
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-purple-50/30 via-white to-violet-50/30">
+      <OsmDetailModal
+        open={detailModalOpen}
+        onClose={() => setDetailModalOpen(false)}
+        data={selectedUser}
+      />
       <div className="w-full h-full p-6">
         {/* Header Section with Gradient */}
         <div className="relative mb-6 rounded-3xl overflow-hidden shadow-lg">
@@ -482,8 +1401,18 @@ const OsmThaiPHCComp = () => {
           <div className="relative p-8">
             <div className="flex items-center gap-4">
               <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                <svg
+                  className="w-8 h-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
                 </svg>
               </div>
               <div>
@@ -907,8 +1836,18 @@ const OsmThaiPHCComp = () => {
         <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-6">
           <div>
             <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                className="w-6 h-6 text-purple-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               รายชื่อ อสม.แยกตามเขตที่ผ่านการตรวจสอบข้อมูล
             </h2>
@@ -941,7 +1880,7 @@ const OsmThaiPHCComp = () => {
                       className="flex items-center w-full px-5 py-3 gap-3 text-gray-700 text-base hover:bg-purple-50 transition font-medium"
                       onClick={() => {
                         setOpen(false);
-                        // TODO: Add Excel download logic here
+                        handleDownloadExcel();
                       }}
                     >
                       <Image
@@ -957,7 +1896,7 @@ const OsmThaiPHCComp = () => {
                       className="flex items-center w-full px-5 py-3 gap-3 text-gray-700 text-base hover:bg-purple-50 transition font-medium"
                       onClick={() => {
                         setOpen(false);
-                        // TODO: Add PDF download logic here
+                        handleDownloadPDF();
                       }}
                     >
                       <Image
@@ -976,14 +1915,17 @@ const OsmThaiPHCComp = () => {
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-purple-100">
-            <table className="w-full text-base border-separate" style={{ borderSpacing: 0, minWidth: "900px" }}>
+            <table
+              className="w-full text-base border-separate"
+              style={{ borderSpacing: 0, minWidth: "900px" }}
+            >
               <thead>
                 <tr className="bg-gradient-to-r from-purple-600 to-violet-600 text-white">
                   <th className="py-4 px-6 font-bold text-center rounded-tl-xl">
                     ลำดับ
                   </th>
                   <th className="py-4 px-6 font-bold text-left">
-                    รายชื่อ (100 รายการ)
+                    รายชื่อ ({tableRows.length} รายการ)
                   </th>
                   <th className="py-4 px-6 font-bold text-center">
                     เลขประจำตัวประชาชน
@@ -1007,8 +1949,27 @@ const OsmThaiPHCComp = () => {
                     <td className="py-4 px-6 align-middle font-medium text-gray-800">
                       {row.name}
                     </td>
-                    <td className="py-4 px-6 text-center align-middle text-gray-600 font-mono">
-                      {row.cid}
+                    <td className="py-4 px-6 text-center align-middle">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="text-gray-600 font-mono">
+                          {maskCID(row.cid, tableCIDVisibility[idx], true)}
+                        </div>
+                        <button
+                          onClick={() => handleToggleTableCID(idx)}
+                          className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors"
+                          title={
+                            tableCIDVisibility[idx]
+                              ? "ซ่อนเลขบัตรประชาชน"
+                              : "แสดงเลขบัตรประชาชนแบบเต็ม"
+                          }
+                        >
+                          {tableCIDVisibility[idx] ? (
+                            <EyeOff size={18} className="text-[#7e32e2]" />
+                          ) : (
+                            <Eye size={18} className="text-gray-500" />
+                          )}
+                        </button>
+                      </div>
                     </td>
                     <td className="py-4 px-6 text-center align-middle">
                       <ButtonService
@@ -1017,7 +1978,8 @@ const OsmThaiPHCComp = () => {
                         size="md"
                         className="border-2 border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold shadow-md hover:shadow-lg transition-all rounded-lg px-4 py-2"
                         onClick={() => {
-                          /* handle detail */
+                          setSelectedUser(row.details);
+                          setDetailModalOpen(true);
                         }}
                       >
                         ดูรายละเอียด

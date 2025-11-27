@@ -9,7 +9,6 @@ import {
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Calendar,
   MapPin,
   Building2,
@@ -19,6 +18,7 @@ import {
   RotateCcw,
   FileText,
 } from "lucide-react";
+import CustomSelect from "@services/customSelectService/customSelectService";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -486,140 +486,6 @@ function DetailModal({ open, onClose, data = [] }) {
   );
 }
 
-// CustomSelect component - styled dropdown
-function CustomSelect({ value, onChange, options, placeholder, icon: Icon }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleToggle = () => {
-    setIsOpen(!isOpen);
-    setHighlightedIndex(-1);
-  };
-
-  const handleSelect = (option) => {
-    onChange(option);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-  };
-
-  const handleKeyDown = (event) => {
-    if (!isOpen) {
-      if (
-        event.key === "Enter" ||
-        event.key === " " ||
-        event.key === "ArrowDown"
-      ) {
-        event.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    switch (event.key) {
-      case "Escape":
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        break;
-      case "ArrowDown":
-        event.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < options.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case "ArrowUp":
-        event.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : options.length - 1
-        );
-        break;
-      case "Enter":
-        event.preventDefault();
-        if (highlightedIndex >= 0) {
-          handleSelect(options[highlightedIndex]);
-        }
-        break;
-    }
-  };
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <div
-        className={`w-full h-12 px-4 rounded-xl border-2 ${
-          isOpen
-            ? "border-[#7e32e2] ring-2 ring-purple-200"
-            : "border-purple-200"
-        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
-        onClick={handleToggle}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        role="combobox"
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-center gap-2">
-          {Icon && <Icon size={18} className="text-[#7e32e2]" />}
-          <span className={value ? "text-gray-700" : "text-gray-400"}>
-            {value || placeholder}
-          </span>
-        </div>
-        <ChevronDown
-          size={20}
-          className={`text-[#7e32e2] transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
-          <ul role="listbox">
-            <li
-              className={`px-4 py-3 cursor-pointer transition-colors ${
-                !value
-                  ? "bg-purple-50 text-[#7e32e2] font-semibold"
-                  : "hover:bg-purple-50 text-gray-700"
-              }`}
-              onClick={() => handleSelect("")}
-              role="option"
-            >
-              {placeholder}
-            </li>
-            {options.map((option, index) => (
-              <li
-                key={option}
-                className={`px-4 py-3 cursor-pointer transition-colors ${
-                  value === option
-                    ? "bg-gradient-to-r from-purple-100 to-violet-100 text-[#7e32e2] font-semibold border-l-4 border-[#7e32e2]"
-                    : highlightedIndex === index
-                    ? "bg-purple-50 text-gray-700"
-                    : "hover:bg-purple-50 text-gray-700"
-                }`}
-                onClick={() => handleSelect(option)}
-                role="option"
-                aria-selected={value === option}
-              >
-                {option}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function PaginationWithPerPage({
   currentPage,
   setCurrentPage,
@@ -873,105 +739,73 @@ const NcdsScreeningComp = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              ปี
-            </label>
-            <CustomSelect
-              value={year}
-              onChange={setYear}
-              options={YEARS}
-              placeholder="เลือกปี"
-              icon={Calendar}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              เดือน
-            </label>
-            <CustomSelect
-              value={month}
-              onChange={setMonth}
-              options={MONTHS}
-              placeholder="เลือกเดือน"
-              icon={Calendar}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              สัปดาห์
-            </label>
-            <CustomSelect
-              value={week}
-              onChange={setWeek}
-              options={WEEKS}
-              placeholder="เลือกสัปดาห์"
-              icon={Calendar}
-            />
-          </div>
+          <CustomSelect
+            label="ปี"
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            options={YEARS.map((y) => ({ label: y, value: y }))}
+            placeholder="-- เลือกปี --"
+            icon={Calendar}
+          />
+          <CustomSelect
+            label="เดือน"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            options={MONTHS.map((m) => ({ label: m, value: m }))}
+            placeholder="-- เลือกเดือน --"
+            icon={Calendar}
+          />
+          <CustomSelect
+            label="สัปดาห์"
+            value={week}
+            onChange={(e) => setWeek(e.target.value)}
+            options={WEEKS.map((w) => ({ label: w, value: w }))}
+            placeholder="-- เลือกสัปดาห์ --"
+            icon={Calendar}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              เขตสุขภาพ
-            </label>
-            <CustomSelect
-              value={zone}
-              onChange={setZone}
-              options={ZONES}
-              placeholder="เลือกเขตสุขภาพ"
-              icon={MapPin}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              จังหวัด
-            </label>
-            <CustomSelect
-              value={province}
-              onChange={setProvince}
-              options={PROVINCES}
-              placeholder="เลือกจังหวัด"
-              icon={Building2}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              อำเภอ
-            </label>
-            <CustomSelect
-              value={district}
-              onChange={setDistrict}
-              options={DISTRICTS}
-              placeholder="เลือกอำเภอ"
-              icon={Building2}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              ตำบล
-            </label>
-            <CustomSelect
-              value={subdistrict}
-              onChange={setSubdistrict}
-              options={SUBDISTRICTS}
-              placeholder="เลือกตำบล"
-              icon={Home}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              หน่วยบริการ
-            </label>
-            <CustomSelect
-              value={service}
-              onChange={setService}
-              options={SERVICES}
-              placeholder="เลือกหน่วยบริการ"
-              icon={UserCheck}
-            />
-          </div>
+          <CustomSelect
+            label="เขตสุขภาพ"
+            value={zone}
+            onChange={(e) => setZone(e.target.value)}
+            options={ZONES.map((z) => ({ label: z, value: z }))}
+            placeholder="-- เลือกเขตสุขภาพ --"
+            icon={MapPin}
+          />
+          <CustomSelect
+            label="จังหวัด"
+            value={province}
+            onChange={(e) => setProvince(e.target.value)}
+            options={PROVINCES.map((p) => ({ label: p, value: p }))}
+            placeholder="-- เลือกจังหวัด --"
+            icon={Building2}
+          />
+          <CustomSelect
+            label="อำเภอ"
+            value={district}
+            onChange={(e) => setDistrict(e.target.value)}
+            options={DISTRICTS.map((d) => ({ label: d, value: d }))}
+            placeholder="-- เลือกอำเภอ --"
+            icon={Building2}
+          />
+          <CustomSelect
+            label="ตำบล"
+            value={subdistrict}
+            onChange={(e) => setSubdistrict(e.target.value)}
+            options={SUBDISTRICTS.map((s) => ({ label: s, value: s }))}
+            placeholder="-- เลือกตำบล --"
+            icon={Home}
+          />
+          <CustomSelect
+            label="หน่วยบริการ"
+            value={service}
+            onChange={(e) => setService(e.target.value)}
+            options={SERVICES.map((s) => ({ label: s, value: s }))}
+            placeholder="-- เลือกหน่วยบริการ --"
+            icon={UserCheck}
+          />
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mt-5">

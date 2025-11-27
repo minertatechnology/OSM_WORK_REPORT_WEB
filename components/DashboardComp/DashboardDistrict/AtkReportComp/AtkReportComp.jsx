@@ -15,7 +15,12 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Calendar,
+  MapPin,
+  Building2,
+  Home,
 } from "lucide-react";
+import CustomSelect from "@services/customSelectService/customSelectService";
 
 // Mock data for filter dropdowns
 const healthZones = ["ทั้งหมด", "เขต1", "เขต2"];
@@ -52,14 +57,32 @@ const months = [
 
 // Mock table data
 const tableList = [
-  { name: "มหาสารคาม", positive: 573, negative: 4755, invalid: 27, total: 5355 },
+  {
+    name: "มหาสารคาม",
+    positive: 573,
+    negative: 4755,
+    invalid: 27,
+    total: 5355,
+  },
   { name: "ชลบุรี", positive: 75, negative: 1780, invalid: 4, total: 1859 },
   { name: "ปราจีนบุรี", positive: 75, negative: 1780, invalid: 4, total: 1859 },
   { name: "กระบี่", positive: 75, negative: 1780, invalid: 4, total: 1859 },
-  { name: "นครศรีธรรมราช", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  {
+    name: "นครศรีธรรมราช",
+    positive: 75,
+    negative: 1780,
+    invalid: 4,
+    total: 1859,
+  },
   { name: "สระแก้ว", positive: 75, negative: 1780, invalid: 4, total: 1859 },
   { name: "มุกดาหาร", positive: 75, negative: 1780, invalid: 4, total: 1859 },
-  { name: "กรุงเทพมหานคร", positive: 75, negative: 1780, invalid: 4, total: 1859 },
+  {
+    name: "กรุงเทพมหานคร",
+    positive: 75,
+    negative: 1780,
+    invalid: 4,
+    total: 1859,
+  },
   { name: "อุทัยธานี", positive: 75, negative: 1780, invalid: 4, total: 1859 },
   { name: "ลำปาง", positive: 75, negative: 1780, invalid: 4, total: 1859 },
 ];
@@ -84,127 +107,6 @@ function getPageNumbers(current, total) {
     pages.push(1, "...", current - 1, current, current + 1, "...", total);
   }
   return pages.filter((v, i, arr) => v === "..." || arr.indexOf(v) === i);
-}
-
-// CustomSelect component
-function CustomSelect({ value, onChange, options, placeholder }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleToggle = () => {
-    setIsOpen(!isOpen);
-    setHighlightedIndex(-1);
-  };
-
-  const handleSelect = (option) => {
-    onChange(option);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-  };
-
-  const handleKeyDown = (event) => {
-    if (!isOpen) {
-      if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
-        event.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    switch (event.key) {
-      case 'Escape':
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        break;
-      case 'ArrowDown':
-        event.preventDefault();
-        setHighlightedIndex(prev =>
-          prev < options.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        event.preventDefault();
-        setHighlightedIndex(prev =>
-          prev > 0 ? prev - 1 : options.length - 1
-        );
-        break;
-      case 'Enter':
-        event.preventDefault();
-        if (highlightedIndex >= 0) {
-          handleSelect(options[highlightedIndex]);
-        }
-        break;
-    }
-  };
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <div
-        className={`w-full h-12 px-4 rounded-xl border-2 ${
-          isOpen ? 'border-purple-600 ring-2 ring-purple-200' : 'border-purple-200'
-        } bg-gradient-to-r from-purple-50/80 to-violet-50/80 text-gray-700 font-medium hover:border-purple-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-center justify-between`}
-        onClick={handleToggle}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        role="combobox"
-        aria-expanded={isOpen}
-      >
-        <span className={value ? 'text-gray-700' : 'text-gray-500'}>
-          {value || placeholder}
-        </span>
-        <ChevronDown
-          size={20}
-          className={`text-purple-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-        />
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
-          <ul role="listbox">
-            <li
-              className={`px-4 py-3 cursor-pointer transition-colors ${
-                !value ? 'bg-purple-50 text-purple-600 font-semibold' : 'hover:bg-purple-50 text-gray-700'
-              }`}
-              onClick={() => handleSelect("")}
-              role="option"
-            >
-              {placeholder}
-            </li>
-            {options.map((option, index) => (
-              <li
-                key={option}
-                className={`px-4 py-3 cursor-pointer transition-colors ${
-                  value === option
-                    ? 'bg-gradient-to-r from-purple-100 to-violet-100 text-purple-600 font-semibold border-l-4 border-purple-600'
-                    : highlightedIndex === index
-                    ? 'bg-purple-50 text-gray-700'
-                    : 'hover:bg-purple-50 text-gray-700'
-                }`}
-                onClick={() => handleSelect(option)}
-                role="option"
-                aria-selected={value === option}
-              >
-                {option}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
 }
 
 // Pagination component
@@ -266,7 +168,9 @@ function PaginationWithPerPage({
         <div className="hidden sm:flex items-center gap-1 mx-2">
           {getPageNumbers(currentPage, totalPages).map((page, idx) =>
             page === "..." ? (
-              <span key={idx} className="px-2 text-gray-400">...</span>
+              <span key={idx} className="px-2 text-gray-400">
+                ...
+              </span>
             ) : (
               <button
                 key={idx}
@@ -381,7 +285,9 @@ const AtkReportComp = () => {
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
                 รายงานผลตรวจ ATK
               </h1>
-              <p className="text-sm text-gray-500 mt-0.5">ข้อมูลการตรวจ Antigen Test Kit</p>
+              <p className="text-sm text-gray-500 mt-0.5">
+                ข้อมูลการตรวจ Antigen Test Kit
+              </p>
             </div>
           </div>
         </div>
@@ -395,7 +301,9 @@ const AtkReportComp = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-gray-500">Positive</p>
-                <p className="text-lg sm:text-xl font-bold text-red-500">{totalPositive.toLocaleString()}</p>
+                <p className="text-lg sm:text-xl font-bold text-red-500">
+                  {totalPositive.toLocaleString()}
+                </p>
               </div>
             </div>
           </div>
@@ -406,7 +314,9 @@ const AtkReportComp = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-gray-500">Negative</p>
-                <p className="text-lg sm:text-xl font-bold text-green-500">{totalNegative.toLocaleString()}</p>
+                <p className="text-lg sm:text-xl font-bold text-green-500">
+                  {totalNegative.toLocaleString()}
+                </p>
               </div>
             </div>
           </div>
@@ -417,7 +327,9 @@ const AtkReportComp = () => {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-gray-500">Invalid</p>
-                <p className="text-lg sm:text-xl font-bold text-yellow-500">{totalInvalid.toLocaleString()}</p>
+                <p className="text-lg sm:text-xl font-bold text-yellow-500">
+                  {totalInvalid.toLocaleString()}
+                </p>
               </div>
             </div>
           </div>
@@ -440,15 +352,27 @@ const AtkReportComp = () => {
         <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6 mb-6">
           {/* Search Type Radio */}
           <div className="mb-5">
-            <p className="text-sm font-semibold text-gray-700 mb-3">รูปแบบการค้นหา</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">
+              รูปแบบการค้นหา
+            </p>
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                  searchType === "year" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
-                }`}>
-                  {searchType === "year" && <div className="w-2 h-2 bg-white rounded-full" />}
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    searchType === "year"
+                      ? "border-purple-600 bg-purple-600"
+                      : "border-gray-300 group-hover:border-purple-400"
+                  }`}
+                >
+                  {searchType === "year" && (
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                  )}
                 </div>
-                <span className={`text-sm font-medium ${searchType === "year" ? "text-purple-600" : "text-gray-600"}`}>
+                <span
+                  className={`text-sm font-medium ${
+                    searchType === "year" ? "text-purple-600" : "text-gray-600"
+                  }`}
+                >
                   ค้นหาแบบรายปี
                 </span>
                 <input
@@ -459,12 +383,24 @@ const AtkReportComp = () => {
                 />
               </label>
               <label className="flex items-center gap-2 cursor-pointer group">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                  searchType === "budget" ? "border-purple-600 bg-purple-600" : "border-gray-300 group-hover:border-purple-400"
-                }`}>
-                  {searchType === "budget" && <div className="w-2 h-2 bg-white rounded-full" />}
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    searchType === "budget"
+                      ? "border-purple-600 bg-purple-600"
+                      : "border-gray-300 group-hover:border-purple-400"
+                  }`}
+                >
+                  {searchType === "budget" && (
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                  )}
                 </div>
-                <span className={`text-sm font-medium ${searchType === "budget" ? "text-purple-600" : "text-gray-600"}`}>
+                <span
+                  className={`text-sm font-medium ${
+                    searchType === "budget"
+                      ? "text-purple-600"
+                      : "text-gray-600"
+                  }`}
+                >
                   ค้นหาแบบรายงบประมาณ
                 </span>
                 <input
@@ -479,64 +415,58 @@ const AtkReportComp = () => {
 
           {/* Year and Month */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">ปี</label>
-              <CustomSelect
-                value={year}
-                onChange={setYear}
-                options={years}
-                placeholder="-- เลือกปี --"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">เดือน</label>
-              <CustomSelect
-                value={month}
-                onChange={setMonth}
-                options={months}
-                placeholder="-- เลือกเดือน --"
-              />
-            </div>
+            <CustomSelect
+              label="ปี"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              options={years.map((y) => ({ label: y, value: y }))}
+              placeholder="-- เลือกปี --"
+              icon={Calendar}
+            />
+            <CustomSelect
+              label="เดือน"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              options={months.map((m) => ({ label: m, value: m }))}
+              placeholder="-- เลือกเดือน --"
+              icon={Calendar}
+            />
           </div>
 
           {/* Location Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">เขตสุขภาพ</label>
-              <CustomSelect
-                value={zone}
-                onChange={setZone}
-                options={healthZones}
-                placeholder="-- เลือกเขตสุขภาพ --"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">จังหวัด</label>
-              <CustomSelect
-                value={province}
-                onChange={setProvince}
-                options={provinces}
-                placeholder="-- เลือกจังหวัด --"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">อำเภอ</label>
-              <CustomSelect
-                value={amphur}
-                onChange={setAmphur}
-                options={amphurs}
-                placeholder="-- เลือกอำเภอ --"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">ตำบล</label>
-              <CustomSelect
-                value={tambon}
-                onChange={setTambon}
-                options={tambons}
-                placeholder="-- เลือกตำบล --"
-              />
-            </div>
+            <CustomSelect
+              label="เขตสุขภาพ"
+              value={zone}
+              onChange={(e) => setZone(e.target.value)}
+              options={healthZones.map((z) => ({ label: z, value: z }))}
+              placeholder="-- เลือกเขตสุขภาพ --"
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="จังหวัด"
+              value={province}
+              onChange={(e) => setProvince(e.target.value)}
+              options={provinces.map((p) => ({ label: p, value: p }))}
+              placeholder="-- เลือกจังหวัด --"
+              icon={Building2}
+            />
+            <CustomSelect
+              label="อำเภอ"
+              value={amphur}
+              onChange={(e) => setAmphur(e.target.value)}
+              options={amphurs.map((a) => ({ label: a, value: a }))}
+              placeholder="-- เลือกอำเภอ --"
+              icon={Building2}
+            />
+            <CustomSelect
+              label="ตำบล"
+              value={tambon}
+              onChange={(e) => setTambon(e.target.value)}
+              options={tambons.map((t) => ({ label: t, value: t }))}
+              placeholder="-- เลือกตำบล --"
+              icon={Home}
+            />
           </div>
 
           {/* Buttons */}
@@ -565,8 +495,12 @@ const AtkReportComp = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
             <div className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-purple-600" />
-              <h2 className="text-lg font-semibold text-gray-800">ตารางข้อมูลผลตรวจ ATK</h2>
-              <span className="text-sm text-gray-500">({tableList.length} รายการ)</span>
+              <h2 className="text-lg font-semibold text-gray-800">
+                ตารางข้อมูลผลตรวจ ATK
+              </h2>
+              <span className="text-sm text-gray-500">
+                ({tableList.length} รายการ)
+              </span>
             </div>
             <div className="relative" ref={dropdownRef}>
               <button
@@ -577,7 +511,10 @@ const AtkReportComp = () => {
                 <Download size={18} />
                 <span className="hidden sm:inline">ดาวน์โหลดรายงาน</span>
                 <span className="sm:hidden">ดาวน์โหลด</span>
-                <ChevronDown size={18} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  size={18}
+                  className={`transition-transform ${open ? "rotate-180" : ""}`}
+                />
               </button>
               {open && (
                 <div className="absolute z-30 right-0 mt-2 w-64 bg-white shadow-xl rounded-xl border border-purple-100 py-2 overflow-hidden">
@@ -617,8 +554,12 @@ const AtkReportComp = () => {
             <table className="w-full border-collapse min-w-[600px]">
               <thead>
                 <tr className="bg-gradient-to-r from-purple-100 to-violet-100">
-                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tl-xl">ลำดับ</th>
-                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-left">รายการ</th>
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tl-xl">
+                    ลำดับ
+                  </th>
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-left">
+                    รายการ
+                  </th>
                   <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center">
                     <span className="inline-flex items-center gap-1">
                       <XCircle size={14} className="text-red-500" />
@@ -637,7 +578,9 @@ const AtkReportComp = () => {
                       Invalid
                     </span>
                   </th>
-                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tr-xl">ทั้งหมด</th>
+                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tr-xl">
+                    ทั้งหมด
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -649,7 +592,9 @@ const AtkReportComp = () => {
                     <td className="py-3 px-3 text-center text-gray-600 text-sm">
                       {(currentPage - 1) * itemsPerPage + idx + 1}
                     </td>
-                    <td className="py-3 px-3 text-gray-800 text-sm font-medium">{row.name}</td>
+                    <td className="py-3 px-3 text-gray-800 text-sm font-medium">
+                      {row.name}
+                    </td>
                     <td className="py-3 px-3 text-center">
                       <span className="inline-block px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm font-semibold">
                         {row.positive.toLocaleString()}

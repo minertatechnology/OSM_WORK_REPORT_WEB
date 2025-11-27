@@ -1,6 +1,13 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import InputService from "@services/inputService/inputService";
 import ButtonService from "@services/buttonService/buttonService";
+import CustomSelect from "@services/customSelectService/customSelectService";
 import {
   Users,
   UserCheck,
@@ -14,11 +21,13 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ChevronDown,
+  Search,
+  MapPin,
+  Calendar,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import MapThailandComponent from "@services/MapThailand/MapThailandService";
 import { HEALTHZONE_PROVINCES } from "@utils/healthzone-province-data";
-import { Search } from "lucide-react";
 // ปี options (mock)
 const YEARS = [
   { label: "2568", value: "2568" },
@@ -375,37 +384,6 @@ const TableWithPagination = ({
 
   return (
     <div className={`w-full ${className}`}>
-      {/* Items per page selector */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">แสดง</span>
-          <div className="relative">
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="appearance-none bg-white border border-[#e5e7eb] rounded-lg px-3 py-2 pr-8 text-sm font-medium text-[#7e32e2] focus:outline-none focus:ring-2 focus:ring-[#7e32e2] focus:border-transparent cursor-pointer hover:border-[#7e32e2] transition-colors"
-            >
-              {PER_PAGE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={16}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#7e32e2] pointer-events-none"
-            />
-          </div>
-          <span className="text-sm text-gray-600">รายการต่อหน้า</span>
-        </div>
-
-        <div className="text-sm text-gray-600">
-          รวมทั้งหมด{" "}
-          <span className="font-medium text-[#7e32e2]">{data.length}</span>{" "}
-          รายการ
-        </div>
-      </div>
-
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-[14px]">
@@ -473,100 +451,145 @@ const TableWithPagination = ({
         </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-[#f0ebff]">
-          {/* Info text */}
-          <div className="text-sm text-gray-600">
-            แสดง <span className="font-medium text-[#7e32e2]">{startItem}</span>{" "}
-            ถึง <span className="font-medium text-[#7e32e2]">{endItem}</span>{" "}
-            จาก{" "}
-            <span className="font-medium text-[#7e32e2]">{data.length}</span>{" "}
-            รายการ
+      {/* Items per page selector & Total count & Pagination - ทั้งหมดในแถวเดียว */}
+      <div className="flex flex-row items-center justify-between gap-3 mt-6 pt-6 border-t-2 border-purple-100 flex-wrap">
+        {/* Left: Items per page selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+            แสดง
+          </span>
+          <div className="relative">
+            <select
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              className="appearance-none bg-gradient-to-r from-purple-50/80 to-violet-50/80 border-2 border-purple-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-[#7e32e2] cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all duration-200 min-w-[65px]"
+            >
+              {PER_PAGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={16}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#7e32e2] pointer-events-none"
+            />
           </div>
+          <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+            รายการ/หน้า
+          </span>
+        </div>
+
+        {/* Center: Total count */}
+        <div className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รวม{" "}
+          <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+            {data.length}
+          </span>{" "}
+          รายการ
+        </div>
+
+        {/* Right: Pagination controls */}
+        <div className="flex items-center gap-2">
+          {/* Info text */}
+          {totalPages > 1 && (
+            <div className="text-xs font-medium text-gray-700 bg-gradient-to-r from-purple-50 to-white px-3 py-1.5 rounded-lg border border-purple-100 whitespace-nowrap">
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {startItem}
+              </span>
+              -
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {endItem}
+              </span>
+            </div>
+          )}
 
           {/* Pagination controls */}
-          <div className="flex items-center gap-1">
-            {/* First page */}
-            <button
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                currentPage === 1
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
-              }`}
-              title="หน้าแรก"
-            >
-              <ChevronsLeft size={18} />
-            </button>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1 bg-white px-1.5 py-1.5 rounded-lg border border-purple-100 shadow-sm">
+              {/* First page */}
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+                title="หน้าแรก"
+              >
+                <ChevronsLeft size={16} />
+              </button>
 
-            {/* Previous page */}
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                currentPage === 1
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
-              }`}
-              title="หน้าก่อนหน้า"
-            >
-              <ChevronLeft size={18} />
-            </button>
+              {/* Previous page */}
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+                title="หน้าก่อนหน้า"
+              >
+                <ChevronLeft size={16} />
+              </button>
 
-            {/* Page numbers */}
-            <div className="flex items-center gap-1 mx-2">
-              {getPageNumbers().map((page, idx) => (
-                <React.Fragment key={idx}>
-                  {page === "..." ? (
-                    <span className="px-3 py-2 text-gray-400">...</span>
-                  ) : (
-                    <button
-                      onClick={() => handlePageChange(page)}
-                      className={`min-w-[40px] h-10 rounded-lg font-medium transition-all duration-200 ${
-                        currentPage === page
-                          ? "bg-[#7e32e2] text-white shadow-lg scale-105"
-                          : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  )}
-                </React.Fragment>
-              ))}
+              {/* Page numbers */}
+              <div className="flex items-center gap-1 mx-0.5">
+                {getPageNumbers().map((page, idx) => (
+                  <React.Fragment key={idx}>
+                    {page === "..." ? (
+                      <span className="px-2 py-1 text-gray-400 font-semibold text-xs">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handlePageChange(page)}
+                        className={`min-w-[32px] h-8 rounded-lg font-semibold text-xs transition-all duration-200 ${
+                          currentPage === page
+                            ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md scale-105"
+                            : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-100 hover:to-purple-50 hover:scale-105 border border-transparent hover:border-purple-200"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {/* Next page */}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+                title="หน้าถัดไป"
+              >
+                <ChevronRight size={16} />
+              </button>
+
+              {/* Last page */}
+              <button
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+                title="หน้าสุดท้าย"
+              >
+                <ChevronsRight size={16} />
+              </button>
             </div>
-
-            {/* Next page */}
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                currentPage === totalPages
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
-              }`}
-              title="หน้าถัดไป"
-            >
-              <ChevronRight size={18} />
-            </button>
-
-            {/* Last page */}
-            <button
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                currentPage === totalPages
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
-              }`}
-              title="หน้าสุดท้าย"
-            >
-              <ChevronsRight size={18} />
-            </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -719,7 +742,7 @@ const DashboardSobos = () => {
           : {
               name: `เขตสุขภาพที่ ${i}`,
               value: 0,
-              color: original?.color || "#E5E5E5" // ใช้สีจาก original ถ้ามี
+              color: original?.color || "#E5E5E5", // ใช้สีจาก original ถ้ามี
             }
       );
     }
@@ -728,11 +751,14 @@ const DashboardSobos = () => {
   }, [tabIdx, zone, province]);
 
   // Handle province click on map
-  const handleProvinceClick = useCallback((data) => {
-    setProvince(data.province);
-    setZone(`zone${data.zone}`);
-    handleSearch();
-  }, [handleSearch]);
+  const handleProvinceClick = useCallback(
+    (data) => {
+      setProvince(data.province);
+      setZone(`zone${data.zone}`);
+      handleSearch();
+    },
+    [handleSearch]
+  );
 
   const currentTab = REPORT_TABS[tabIdx];
 
@@ -873,358 +899,389 @@ const DashboardSobos = () => {
     };
   }, [chartPieData, handleProvinceClick]);
   return (
-    <div className="bg-white rounded-2xl shadow p-4 md:p-6 max-w-full mb-8">
-      <div className="flex flex-col gap-4">
-        {/* รูปแบบการค้นหา */}
-        <div className="flex flex-wrap gap-x-6 gap-y-3 items-center">
-          <label className="font-semibold text-[#231d37] text-[15.5px]">
-            รูปแบบการค้นหา :
-          </label>
-          <div className="flex gap-3 items-center">
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="radio"
-                className="hidden peer"
-                checked={searchType === "year"}
-                onChange={() => setSearchType("year")}
-              />
-              <span
-                className={`w-5 h-5 mr-2 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  searchType === "year"
-                    ? "border-[#7e32e2] bg-[#f6eeff]"
-                    : "border-gray-300 bg-white"
-                }`}
-              >
-                {searchType === "year" && (
-                  <span className="w-3 h-3 bg-[#7e32e2] rounded-full block" />
-                )}
-              </span>
-              <span
-                className={`font-medium ${
-                  searchType === "year" ? "text-[#7e32e2]" : "text-[#aaa]"
-                }`}
-              >
-                ค้นหาแบบรายปี
-              </span>
-            </label>
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="radio"
-                className="hidden peer"
-                checked={searchType === "budget"}
-                onChange={() => setSearchType("budget")}
-              />
-              <span
-                className={`w-5 h-5 mr-2 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  searchType === "budget"
-                    ? "border-[#7e32e2] bg-[#f6eeff]"
-                    : "border-gray-300 bg-white"
-                }`}
-              >
-                {searchType === "budget" && (
-                  <span className="w-3 h-3 bg-[#7e32e2] rounded-full block" />
-                )}
-              </span>
-              <span
-                className={`font-medium ${
-                  searchType === "budget" ? "text-[#7e32e2]" : "text-[#aaa]"
-                }`}
-              >
-                ค้นหาแบบรายปีงบประมาณ
-              </span>
-            </label>
-          </div>
-        </div>
-
-        {/* ฟิลด์ ปี / เดือน / สัปดาห์ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <div className="text-[14px] text-[#222] font-medium mb-1">ปี</div>
-            <InputService
-              options={YEARS}
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              placeholder="เลือกปี"
-              name="year"
-            />
-          </div>
-          <div>
-            <div className="text-[14px] text-[#222] font-medium mb-1">
-              เดือน
+    <div className="max-w-full mb-8">
+      {/* Header Section with Gradient Background */}
+      <div className="relative mb-6 rounded-3xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
+        <div className="absolute inset-0 bg-white/5" />
+        <div className="relative p-6 sm:p-8">
+          <div className="text-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                <BarChart2 size={28} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold">
+                  Dashboard ระบบรายงาน อสม.
+                </h1>
+                <p className="text-white/80">
+                  ข้อมูลสรุปรายงานต่างๆ ของ อสม. ทั่วประเทศ
+                </p>
+              </div>
             </div>
-            <InputService
-              options={MONTHS}
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              placeholder="เลือกเดือน"
-              name="month"
-            />
           </div>
-          <div>
-            <div className="text-[14px] text-[#222] font-medium mb-1">
-              สัปดาห์
-            </div>
-            <InputService
-              options={WEEKS}
-              value={week}
-              onChange={(e) => setWeek(e.target.value)}
-              placeholder="เลือกสัปดาห์"
-              name="week"
-            />
-          </div>
-        </div>
-
-        {/* ฟิลด์ เขตสุขภาพ จังหวัด อำเภอ ตำบล */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
-          <div>
-            <div className="text-[14px] text-[#222] font-medium mb-1">
-              เขตสุขภาพ
-            </div>
-            <InputService
-              options={ZONES}
-              value={zone}
-              onChange={(e) => {
-                setZone(e.target.value);
-                // เมื่อเปลี่ยนเขต ให้ reset จังหวัด อำเภอ ตำบล
-                setProvince("");
-                setDistrict("");
-                setSubdistrict("");
-              }}
-              placeholder="เลือกเขตสุขภาพ"
-              name="zone"
-            />
-          </div>
-          <div>
-            <div className="text-[14px] text-[#222] font-medium mb-1">
-              จังหวัด
-            </div>
-            <InputService
-              options={provinceOptions}
-              value={province}
-              onChange={(e) => {
-                setProvince(e.target.value);
-                // เมื่อเปลี่ยนจังหวัด ให้ reset อำเภอ ตำบล
-                setDistrict("");
-                setSubdistrict("");
-              }}
-              placeholder="เลือกจังหวัด"
-              name="province"
-              disabled={!zone} // ถ้ายังไม่เลือกเขต ให้ disable จังหวัด
-            />
-          </div>
-          <div>
-            <div className="text-[14px] text-[#222] font-medium mb-1">
-              อำเภอ
-            </div>
-            <InputService
-              options={districtOptions}
-              value={district}
-              onChange={(e) => {
-                setDistrict(e.target.value);
-                setSubdistrict("");
-              }}
-              disabled={!province}
-            />
-          </div>
-          <div>
-            <div className="text-[14px] text-[#222] font-medium mb-1">ตำบล</div>
-            <InputService
-              options={subdistrictOptions}
-              value={subdistrict}
-              onChange={(e) => setSubdistrict(e.target.value)}
-              disabled={!district}
-            />
-          </div>
-        </div>
-
-        {/* ปุ่มค้นหา/ล้าง (ดีไซน์ตามรูป) */}
-        <div className="flex flex-col md:flex-row gap-3 mt-2">
-          <ButtonService
-            type="button"
-            variant="primary"
-            className="w-full md:w-fit flex-1 h-12 text-[18px] bg-[#7e32e2] hover:bg-[#6c28c8] border-none shadow-none text-white"
-            onClick={handleSearch}
-            icon={<Search className="w-5 h-5 mr-2 text-white" />}
-          >
-            ค้นหา
-          </ButtonService>
-          <ButtonService
-            type="button"
-            variant="secondary"
-            className="w-full md:w-fit flex-1 h-12 text-[18px] bg-white border border-[#7e32e2] text-[#7e32e2] hover:bg-[#f6eeff] shadow-none"
-            onClick={handleClear}
-          >
-            ล้างข้อมูลการค้นหา
-          </ButtonService>
         </div>
       </div>
-      {/* Responsive summary cards */}
-      <div className="mt-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {SUMMARY_CARDS.map((card, idx) => (
-            <div
-              key={idx}
-              className="relative flex flex-col justify-between bg-white rounded-xl shadow-sm border border-[#eee] p-4 min-h-[110px]"
-            >
-              <div className="flex items-center gap-2">
-                <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-full p-2 flex items-center justify-center">
-                  {card.icon}
-                </div>
-                <span className="text-[14px] font-medium text-[#231d37] line-clamp-2">
-                  {card.label}
-                </span>
-              </div>
-              <div className="mt-2 flex items-end justify-between">
-                <span className="text-[22px] font-bold text-[#7e32e2]">
-                  {card.value}
-                </span>
-                {card.report && (
-                  <button
-                    type="button"
-                    className="ml-3 px-2 py-1 rounded text-[13px] font-medium text-[#7e32e2] bg-[#f6eeff] hover:bg-[#ece1f7] transition"
+
+      <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl shadow-xl border border-purple-100/50 p-6 md:p-8">
+        <div className="flex flex-col gap-5">
+          {/* รูปแบบการค้นหา */}
+          <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5">
+            <div className="flex flex-wrap gap-x-6 gap-y-3 items-center">
+              <label className="font-bold text-purple-600 text-base flex items-center gap-2">
+                <Search className="w-5 h-5" />
+                รูปแบบการค้นหา :
+              </label>
+              <div className="flex gap-3 items-center">
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    className="hidden peer"
+                    checked={searchType === "year"}
+                    onChange={() => setSearchType("year")}
+                  />
+                  <span
+                    className={`w-5 h-5 mr-2 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      searchType === "year"
+                        ? "border-[#7e32e2] bg-[#f6eeff]"
+                        : "border-gray-300 bg-white"
+                    }`}
                   >
-                    รายงาน
-                  </button>
-                )}
+                    {searchType === "year" && (
+                      <span className="w-3 h-3 bg-[#7e32e2] rounded-full block" />
+                    )}
+                  </span>
+                  <span
+                    className={`font-medium ${
+                      searchType === "year" ? "text-[#7e32e2]" : "text-[#aaa]"
+                    }`}
+                  >
+                    ค้นหาแบบรายปี
+                  </span>
+                </label>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    className="hidden peer"
+                    checked={searchType === "budget"}
+                    onChange={() => setSearchType("budget")}
+                  />
+                  <span
+                    className={`w-5 h-5 mr-2 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      searchType === "budget"
+                        ? "border-[#7e32e2] bg-[#f6eeff]"
+                        : "border-gray-300 bg-white"
+                    }`}
+                  >
+                    {searchType === "budget" && (
+                      <span className="w-3 h-3 bg-[#7e32e2] rounded-full block" />
+                    )}
+                  </span>
+                  <span
+                    className={`font-medium ${
+                      searchType === "budget" ? "text-[#7e32e2]" : "text-[#aaa]"
+                    }`}
+                  >
+                    ค้นหาแบบรายปีงบประมาณ
+                  </span>
+                </label>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-      {/* Tabs section */}
-      <div className="w-full mt-10 mb-6 flex flex-wrap border-b border-[#ece1f7]">
-        {REPORT_TABS.map((tab, idx) => (
-          <button
-            key={tab.name}
-            onClick={() => setTabIdx(idx)}
-            className={`px-4 py-2 text-[15px] font-medium ${
-              tabIdx === idx
-                ? "text-[#7e32e2] border-b-2 border-[#7e32e2] bg-[#f6eeff]"
-                : "text-[#231d37] hover:text-[#7e32e2] hover:bg-[#f6eeff]"
-            } transition`}
-            style={{ minWidth: 90 }}
-          >
-            {tab.name}
-          </button>
-        ))}
-      </div>
-      {/* Main chart section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Map: ให้สูงและยาว พร้อมข้อมูลที่เปลี่ยนตาม tab */}
-        <div
-          className="bg-white rounded-xl shadow-sm border border-[#ece1f7] p-4 flex flex-col"
-          style={{ minHeight: 620 }}
-        >
-          <div className="font-semibold text-[#7e32e2] text-[15.5px] mb-2">
-            แผนภาพ
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="w-full" style={{ minHeight: 600 }}>
-              <MapThailandComponent
-                height={600}
-                customOptions={mapCustomOptions}
-                onProvinceClick={handleProvinceClick}
-                onMapReady={(service) => {
-                  console.log("Map service ready:", service);
-                  // setMapService(service); // Commented out since mapService state is not used
+
+            {/* ฟิลด์ ปี / เดือน / สัปดาห์ */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CustomSelect
+                label="ปี"
+                options={YEARS}
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                placeholder="เลือกปี"
+                icon={Calendar}
+              />
+              <CustomSelect
+                label="เดือน"
+                options={MONTHS}
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                placeholder="เลือกเดือน"
+                icon={Calendar}
+              />
+              <CustomSelect
+                label="สัปดาห์"
+                options={WEEKS}
+                value={week}
+                onChange={(e) => setWeek(e.target.value)}
+                placeholder="เลือกสัปดาห์"
+                icon={Calendar}
+              />
+            </div>
+
+            {/* ฟิลด์ เขตสุขภาพ จังหวัด อำเภอ ตำบล */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
+              <CustomSelect
+                label="เขตสุขภาพ"
+                options={ZONES}
+                value={zone}
+                onChange={(e) => {
+                  setZone(e.target.value);
+                  // เมื่อเปลี่ยนเขต ให้ reset จังหวัด อำเภอ ตำบล
+                  setProvince("");
+                  setDistrict("");
+                  setSubdistrict("");
                 }}
-                className="w-full h-full"
+                placeholder="เลือกเขตสุขภาพ"
+                icon={MapPin}
+              />
+              <CustomSelect
+                label="จังหวัด"
+                options={provinceOptions}
+                value={province}
+                onChange={(e) => {
+                  setProvince(e.target.value);
+                  // เมื่อเปลี่ยนจังหวัด ให้ reset อำเภอ ตำบล
+                  setDistrict("");
+                  setSubdistrict("");
+                }}
+                placeholder="เลือกจังหวัด"
+                icon={MapPin}
+                disabled={!zone}
+              />
+              <CustomSelect
+                label="อำเภอ"
+                options={districtOptions}
+                value={district}
+                onChange={(e) => {
+                  setDistrict(e.target.value);
+                  setSubdistrict("");
+                }}
+                placeholder="เลือกอำเภอ"
+                icon={MapPin}
+                disabled={!province}
+              />
+              <CustomSelect
+                label="ตำบล"
+                options={subdistrictOptions}
+                value={subdistrict}
+                onChange={(e) => setSubdistrict(e.target.value)}
+                placeholder="เลือกตำบล"
+                icon={MapPin}
+                disabled={!district}
               />
             </div>
+
+            {/* ปุ่มค้นหา/ล้าง (ดีไซน์ตามรูป) */}
+            <div className="flex flex-col md:flex-row gap-3 mt-2">
+              <ButtonService
+                type="button"
+                variant="primary"
+                className="w-full md:w-fit flex-1 h-12 text-[18px] bg-[#7e32e2] hover:bg-[#6c28c8] border-none shadow-none text-white"
+                onClick={handleSearch}
+                icon={<Search className="w-5 h-5 mr-2 text-white" />}
+              >
+                ค้นหา
+              </ButtonService>
+              <ButtonService
+                type="button"
+                variant="secondary"
+                className="w-full md:w-fit flex-1 h-12 text-[18px] bg-white border border-[#7e32e2] text-[#7e32e2] hover:bg-[#f6eeff] shadow-none"
+                onClick={handleClear}
+              >
+                ล้างข้อมูลการค้นหา
+              </ButtonService>
+            </div>
           </div>
         </div>
-        {/* ขวา: chart + legend stacked */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Pie Chart */}
+
+        {/* Responsive summary cards */}
+        <div className="mt-8">
+          <h2 className="text-xl font-bold text-purple-600 mb-5 flex items-center gap-2">
+            <BarChart2 className="w-6 h-6" />
+            ข้อมูลสรุป
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+            {SUMMARY_CARDS.map((card, idx) => (
+              <div
+                key={idx}
+                className="group relative flex flex-col justify-between bg-gradient-to-br from-white to-purple-50/30 rounded-2xl shadow-md hover:shadow-2xl border border-purple-100 p-5 min-h-[130px] transition-all duration-300 hover:scale-105 hover:border-purple-300 cursor-pointer overflow-hidden"
+              >
+                {/* Decorative gradient */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/20 to-transparent rounded-bl-full"></div>
+
+                <div className="flex items-start gap-3 relative z-10">
+                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-3 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <div className="text-white">{card.icon}</div>
+                  </div>
+                  <span className="text-[13px] font-semibold text-gray-700 line-clamp-2 leading-tight pt-1">
+                    {card.label}
+                  </span>
+                </div>
+                <div className="mt-4 flex items-end justify-between relative z-10">
+                  <span className="text-[28px] font-bold bg-gradient-to-r from-purple-600 to-purple-400 bg-clip-text text-transparent">
+                    {card.value}
+                  </span>
+                  {card.report && (
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-lg text-[13px] font-semibold text-white bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 shadow-md hover:shadow-lg transition-all duration-200"
+                    >
+                      รายงาน
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Tabs section */}
+        <div className="w-full mt-12 mb-6">
+          <div className="bg-white rounded-2xl shadow-md border border-purple-100 p-2 inline-flex flex-wrap gap-2">
+            {REPORT_TABS.map((tab, idx) => (
+              <button
+                key={tab.name}
+                onClick={() => setTabIdx(idx)}
+                className={`px-5 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
+                  tabIdx === idx
+                    ? "text-white bg-gradient-to-r from-purple-600 to-purple-500 shadow-lg scale-105"
+                    : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
+                }`}
+                style={{ minWidth: 90 }}
+              >
+                {tab.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Main chart section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Map: ให้สูงและยาว พร้อมข้อมูลที่เปลี่ยนตาม tab */}
           <div
-            className="bg-white rounded-xl shadow-sm border border-[#ece1f7] p-4 flex flex-col"
-            style={{ minHeight: 270 }}
+            className="bg-gradient-to-br from-white to-purple-50/20 rounded-2xl shadow-lg hover:shadow-2xl border border-purple-100 p-6 flex flex-col transition-all duration-300"
+            style={{ minHeight: 620 }}
           >
-            <div className="font-semibold text-[#7e32e2] text-[15.5px] mb-2">
-              สัดส่วนข้อมูล
+            <div className="font-bold text-purple-600 text-lg mb-4 flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              แผนภาพ
             </div>
-            <div className="flex flex-col items-center justify-center h-full relative">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={chartPieData} // <-- ใช้อันนี้แทน
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={70}
-                    outerRadius={100}
-                    paddingAngle={2}
-                    label={false}
-                  >
-                    {chartPieData.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={entry.color} />
+            <div className="flex-1 flex items-center justify-center">
+              <div className="w-full" style={{ minHeight: 600 }}>
+                <MapThailandComponent
+                  height={600}
+                  customOptions={mapCustomOptions}
+                  onProvinceClick={handleProvinceClick}
+                  onMapReady={(service) => {
+                    console.log("Map service ready:", service);
+                    // setMapService(service); // Commented out since mapService state is not used
+                  }}
+                  className="w-full h-full"
+                />
+              </div>
+            </div>
+          </div>
+          {/* ขวา: chart + legend stacked */}
+          <div className="lg:col-span-2 flex flex-col gap-6">
+            {/* Pie Chart */}
+            <div
+              className="bg-gradient-to-br from-white to-purple-50/20 rounded-2xl shadow-lg hover:shadow-2xl border border-purple-100 p-6 flex flex-col transition-all duration-300"
+              style={{ minHeight: 300 }}
+            >
+              <div className="font-bold text-purple-600 text-lg mb-4 flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                สัดส่วนข้อมูล
+              </div>
+              <div className="flex flex-col items-center justify-center h-full relative">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={chartPieData} // <-- ใช้อันนี้แทน
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={70}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      label={false}
+                    >
+                      {chartPieData.map((entry, idx) => (
+                        <Cell key={`cell-${idx}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center value */}
+                <div className="absolute top-0 left-0 flex flex-col items-center justify-center w-full h-full pointer-events-none">
+                  <span className="mt-[15px] text-[28px] font-bold text-[#7e32e2]">
+                    {chartSummaryValue}
+                  </span>
+                  <span className="text-[17px] font-medium text-[#7e32e2]">
+                    รายการ
+                  </span>
+                </div>
+              </div>
+            </div>
+            {/* Legend stacked under chart (ตามตัวอย่างรูป) */}
+            <div
+              className="bg-gradient-to-br from-white to-purple-50/20 rounded-2xl shadow-lg hover:shadow-2xl border border-purple-100 p-6 flex flex-col transition-all duration-300"
+              style={{ minHeight: 240 }}
+            >
+              <div className="font-bold text-purple-600 text-lg mb-4 flex items-center gap-2">
+                <BarChart2 className="w-5 h-5" />
+                {currentTab.legendTitle}
+              </div>
+              <div className="w-full border-t border-purple-100 pt-5">
+                <div className="flex flex-wrap gap-x-8 gap-y-2">
+                  {/* ฝั่งซ้าย */}
+                  <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
+                    {chartPieData.slice(0, 7).map((item) => (
+                      <div key={item.name} className="flex items-center gap-2">
+                        <span
+                          className="inline-block w-3 h-3 rounded-full border border-white"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-[15px] font-semibold text-[#231d37]">
+                          {item.name}
+                        </span>
+                        <span className="ml-1 text-[15px] text-[#7e32e2] font-bold">
+                          {item.value.toLocaleString()}
+                        </span>
+                      </div>
                     ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              {/* Center value */}
-              <div className="absolute top-0 left-0 flex flex-col items-center justify-center w-full h-full pointer-events-none">
-                <span className="mt-[15px] text-[28px] font-bold text-[#7e32e2]">
-                  {chartSummaryValue}
-                </span>
-                <span className="text-[17px] font-medium text-[#7e32e2]">
-                  รายการ
-                </span>
-              </div>
-            </div>
-          </div>
-          {/* Legend stacked under chart (ตามตัวอย่างรูป) */}
-          <div
-            className="bg-white rounded-xl shadow-sm border border-[#ece1f7] p-4 flex flex-col"
-            style={{ minHeight: 210 }}
-          >
-            <div className="font-semibold text-[#7e32e2] text-[16.5px] mb-2">
-              {currentTab.legendTitle}
-            </div>
-            <div className="w-full border-t border-[#ece1f7] pt-4">
-              <div className="flex flex-wrap gap-x-8 gap-y-2">
-                {/* ฝั่งซ้าย */}
-                <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
-                  {chartPieData.slice(0, 7).map((item) => (
-                    <div key={item.name} className="flex items-center gap-2">
-                      <span
-                        className="inline-block w-3 h-3 rounded-full border border-white"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-[15px] font-semibold text-[#231d37]">
-                        {item.name}
-                      </span>
-                      <span className="ml-1 text-[15px] text-[#7e32e2] font-bold">
-                        {item.value.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                {/* ฝั่งขวา */}
-                <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
-                  {chartPieData.slice(7).map((item) => (
-                    <div key={item.name} className="flex items-center gap-2">
-                      <span
-                        className="inline-block w-3 h-3 rounded-full border border-white"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-[15px] font-semibold text-[#231d37]">
-                        {item.name}
-                      </span>
-                      <span className="ml-1 text-[15px] text-[#7e32e2] font-bold">
-                        {item.value.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
+                  </div>
+                  {/* ฝั่งขวา */}
+                  <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
+                    {chartPieData.slice(7).map((item) => (
+                      <div key={item.name} className="flex items-center gap-2">
+                        <span
+                          className="inline-block w-3 h-3 rounded-full border border-white"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-[15px] font-semibold text-[#231d37]">
+                          {item.name}
+                        </span>
+                        <span className="ml-1 text-[15px] text-[#7e32e2] font-bold">
+                          {item.value.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      {/* Table section with Pagination */}
-      <div className="bg-white rounded-xl shadow-sm border border-[#eee] p-4 mt-6">
-        {/* ใช้ HEALTHZONE_PROVINCES / getHealthZoneTable สร้างข้อมูลจังหวัดในแต่ละเขต */}
-        <TableWithPagination data={summaryTableData} defaultItemsPerPage={5} />
+        {/* Table section with Pagination */}
+        <div className="bg-gradient-to-br from-white to-purple-50/20 rounded-2xl shadow-lg border border-purple-100 p-6 mt-8">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-purple-600 flex items-center gap-2">
+              <FileText className="w-6 h-6" />
+              ตารางข้อมูลรายละเอียด
+            </h2>
+          </div>
+          {/* ใช้ HEALTHZONE_PROVINCES / getHealthZoneTable สร้างข้อมูลจังหวัดในแต่ละเขต */}
+          <TableWithPagination
+            data={summaryTableData}
+            defaultItemsPerPage={5}
+          />
+        </div>
       </div>
     </div>
   );
