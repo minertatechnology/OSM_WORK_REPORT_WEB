@@ -677,6 +677,10 @@ const ElderlyScreeningComp = () => {
     try {
       console.log("📡 Fetching elderly screenings data...");
 
+      // ล้าง cache ข้อมูล OAuth2 ก่อน
+      oauth2Service.clearCache();
+      console.log("🗑️ Cleared OAuth2 cache");
+
       // ดึงข้อมูลผู้สูงอายุทั้งหมด
       const data = await elderlyScreeningService.getAll({ skip: 0, limit: 1000 });
 
@@ -756,15 +760,14 @@ const ElderlyScreeningComp = () => {
       console.log(`👤 [filteredRows] Processing ${assessorData.external_user_id}:`, {
         hasUserData: !!userData,
         userName: userData?.name,
+        prefix_name_th: userData?.prefix_name_th,
+        first_name: userData?.first_name,
+        last_name: userData?.last_name,
         userDataKeys: userData ? Object.keys(userData) : []
       });
 
-      // สร้างชื่อเต็มจาก prefix, first_name, last_name
-      const assessorName = userData
-        ? [userData.prefix_name_th, userData.first_name, userData.last_name].filter(Boolean).join(" ") ||
-          userData.name ||
-          `User ${assessorData.external_user_id?.substring(0, 8) || "Unknown"}`
-        : `User ${assessorData.external_user_id?.substring(0, 8) || "Unknown"}`;
+      // ใช้ชื่อที่ service สร้างไว้แล้ว (มีชื่อเต็มอยู่แล้ว)
+      const assessorName = userData?.name || "ไม่ระบุชื่อ";
 
       console.log(`✅ [filteredRows] Final name for ${assessorData.external_user_id}: "${assessorName}"`);
 
@@ -836,9 +839,7 @@ const ElderlyScreeningComp = () => {
 
     // ส่งข้อมูลผู้ประเมินและรายการผู้สูงอายุทั้งหมดที่เขาประเมิน
     const userData = userDataMap.get(detailId);
-    const assessorName = userData
-      ? [userData.prefix_name_th, userData.first_name, userData.last_name].filter(Boolean).join(" ") || userData.name
-      : undefined;
+    const assessorName = userData?.name; // ใช้ชื่อที่ service สร้างไว้แล้ว
 
     return (
       <ElderlyScreeningDetail
