@@ -743,11 +743,30 @@ const ElderlyScreeningComp = () => {
 
     const keywordLower = keyword.trim().toLowerCase();
 
+    console.log("🔍 [filteredRows] Starting filter...");
+    console.log("📊 [filteredRows] Aggregated data count:", aggregatedData?.length);
+    console.log("👥 [filteredRows] User data map size:", userDataMap?.size);
+    console.log("👥 [filteredRows] User data map entries:", Array.from(userDataMap?.entries() || []));
+
     // ใช้ aggregatedData แทน records
-    return (aggregatedData || []).map((assessorData) => {
+    const result = (aggregatedData || []).map((assessorData) => {
       // ดึงข้อมูลผู้ใช้จาก OAuth2
       const userData = userDataMap.get(assessorData.external_user_id);
-      const assessorName = userData?.name || `User ${assessorData.external_user_id?.substring(0, 8) || "Unknown"}`;
+
+      console.log(`👤 [filteredRows] Processing ${assessorData.external_user_id}:`, {
+        hasUserData: !!userData,
+        userName: userData?.name,
+        userDataKeys: userData ? Object.keys(userData) : []
+      });
+
+      // สร้างชื่อเต็มจาก prefix, first_name, last_name
+      const assessorName = userData
+        ? [userData.prefix_name_th, userData.first_name, userData.last_name].filter(Boolean).join(" ") ||
+          userData.name ||
+          `User ${assessorData.external_user_id?.substring(0, 8) || "Unknown"}`
+        : `User ${assessorData.external_user_id?.substring(0, 8) || "Unknown"}`;
+
+      console.log(`✅ [filteredRows] Final name for ${assessorData.external_user_id}: "${assessorName}"`);
 
       // แปลงวันที่เป็นรูปแบบไทย: "25 มิถุนายน 2568"
       const thaiDate = formatThaiDate(assessorData.latest_date);
@@ -766,6 +785,9 @@ const ElderlyScreeningComp = () => {
       const idMatch = (row.external_user_id || "").toLowerCase().includes(keywordLower);
       return nameMatch || idMatch;
     });
+
+    console.log("✅ [filteredRows] Final result:", result);
+    return result;
   }, [aggregatedData, userDataMap, keyword, hydrated]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
@@ -814,11 +836,14 @@ const ElderlyScreeningComp = () => {
 
     // ส่งข้อมูลผู้ประเมินและรายการผู้สูงอายุทั้งหมดที่เขาประเมิน
     const userData = userDataMap.get(detailId);
+    const assessorName = userData
+      ? [userData.prefix_name_th, userData.first_name, userData.last_name].filter(Boolean).join(" ") || userData.name
+      : undefined;
 
     return (
       <ElderlyScreeningDetail
         assessorId={detailId}
-        assessorName={userData?.name}
+        assessorName={assessorName}
         elderlyList={assessorData?.screenings || []}
         elderlyCount={assessorData?.count || 0}
         onBack={() => router.push("/elderly-screening")}
