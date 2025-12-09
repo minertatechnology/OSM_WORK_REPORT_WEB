@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from "react";
+import React, { Suspense } from "react";
 import { FullPageLoadingSpinner } from "@components/shared/LoadingSpinner";
 import {
   LazyDashboardSobos,
@@ -8,6 +8,8 @@ import {
   LazyDashboardSubdistrict,
   LazyDashboardHospital
 } from "@components/shared/LazyComponents";
+import { useSessionStorage } from "@hooks/useSessionStorage";
+import { useIsClient } from "@hooks/useIsClient";
 
 const getRoleType = (auth) => {
   if (!auth || !auth.roles || !auth.roles.length) return "sobos";
@@ -22,19 +24,16 @@ const getRoleType = (auth) => {
 };
 
 const DashboardComp = () => {
-  const [roleType, setRoleType] = useState(null);
+  const [userInfo, , isLoaded] = useSessionStorage("userInfo", {});
+  const isClient = useIsClient();
 
-  useEffect(() => {
-    // Only run on client
-    try {
-      const userInfo = JSON.parse(sessionStorage.getItem("userInfo") || "{}");
-      setRoleType(getRoleType(userInfo?.auth));
-    } catch {
-      setRoleType("sobos");
-    }
-  }, []);
+  // คำนวณ roleType จาก sessionStorage ที่โหลดแล้ว
+  const roleType = React.useMemo(() => {
+    if (!isClient || !isLoaded) return null;
+    return getRoleType(userInfo?.auth);
+  }, [isClient, isLoaded, userInfo]);
 
-  if (!roleType) {
+  if (!isClient || !roleType) {
     return <FullPageLoadingSpinner message="กำลังตรวจสอบสิทธิ์..." />;
   }
 

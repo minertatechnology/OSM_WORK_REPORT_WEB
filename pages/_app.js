@@ -6,8 +6,19 @@ import { DateTimeProvider } from "@context/DateTimeProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, Suspense } from "react";
 import { FullPageLoadingSpinner } from "@components/shared/LoadingSpinner";
+import useTokenRefresh from "@hooks/useTokenRefresh";
+import useIdleDetection from "@hooks/useIdleDetection";
 
 function MyApp({ Component, pageProps }) {
+  // Enable automatic token refresh
+  useTokenRefresh();
+
+  // Enable silent token guard
+  useIdleDetection({
+    checkInterval: 1 * 1000,
+    refreshThreshold: 60 * 1000,
+  });
+
   const getLayout = Component.getLayout || ((page) => page);
 
   // สร้าง QueryClient แค่ครั้งเดียวต่อ app instance

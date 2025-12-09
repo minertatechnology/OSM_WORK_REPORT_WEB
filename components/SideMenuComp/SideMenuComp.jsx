@@ -20,6 +20,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import alertService from "@services/alertService/alertService";
+import { useSessionStorage } from "@hooks/useSessionStorage";
+import { useIsClient } from "@hooks/useIsClient";
 
 /**
  * roleType: "sobos" | "zone" | "province" | "district" | "subdistrict" | "hospital"
@@ -411,19 +413,17 @@ function getRoleType(auth) {
 
 const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
   const router = useRouter();
-  const [roleType, setRoleType] = useState(null); // SSR-safe
+  const [userInfo, , isLoaded] = useSessionStorage("userInfo", {});
+  const isClient = useIsClient();
   const [osm1Open, setOsm1Open] = useState(false); // submenu state
   const [mosquitoOpen, setMosquitoOpen] = useState(false);
   const [pointsOpen, setPointsOpen] = useState(false);
 
-  useEffect(() => {
-    try {
-      const userInfo = JSON.parse(sessionStorage.getItem("userInfo") || "{}");
-      setRoleType(getRoleType(userInfo?.auth));
-    } catch {
-      setRoleType("sobos");
-    }
-  }, []);
+  // คำนวณ roleType จาก sessionStorage ที่โหลดแล้ว
+  const roleType = React.useMemo(() => {
+    if (!isClient || !isLoaded) return null;
+    return getRoleType(userInfo?.auth);
+  }, [isClient, isLoaded, userInfo]);
 
   const menuItems = roleType ? MENU_MAP[roleType] || MENU_MAP.sobos : [];
 

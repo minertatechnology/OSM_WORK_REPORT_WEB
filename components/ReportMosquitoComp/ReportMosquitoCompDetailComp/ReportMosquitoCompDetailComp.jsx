@@ -5,35 +5,46 @@ import jsPDF from "jspdf";
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 
-// Mock data สำหรับตารางรายละเอียด
+// ฟังก์ชัน hash สำหรับสร้างค่า deterministic
+const hashIndex = (index, seed = 0) => {
+  let hash = 5381 + seed;
+  const str = String(index);
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) + hash) ^ char;
+  }
+  return Math.abs(hash);
+};
+
+// Mock data สำหรับตารางรายละเอียด - ใช้ deterministic values
 const mockDetailData = Array.from({ length: 20 }, (_, i) => ({
   no: i + 1,
   week: `${(i % 4) + 1}`,
   house: `${100 + i}`,
   // ภาชนะนอกบ้าน
-  outdoor_drinking_survey: Math.floor(Math.random() * 5),
-  outdoor_drinking_found: Math.floor(Math.random() * 3),
-  outdoor_usage_survey: Math.floor(Math.random() * 5),
-  outdoor_usage_found: Math.floor(Math.random() * 3),
-  outdoor_cement_survey: Math.floor(Math.random() * 5),
-  outdoor_cement_found: Math.floor(Math.random() * 3),
-  outdoor_pot_survey: Math.floor(Math.random() * 5),
-  outdoor_pot_found: Math.floor(Math.random() * 3),
-  outdoor_other_survey: Math.floor(Math.random() * 5),
-  outdoor_other_found: Math.floor(Math.random() * 3),
+  outdoor_drinking_survey: hashIndex(i, 1) % 5,
+  outdoor_drinking_found: hashIndex(i, 2) % 3,
+  outdoor_usage_survey: hashIndex(i, 3) % 5,
+  outdoor_usage_found: hashIndex(i, 4) % 3,
+  outdoor_cement_survey: hashIndex(i, 5) % 5,
+  outdoor_cement_found: hashIndex(i, 6) % 3,
+  outdoor_pot_survey: hashIndex(i, 7) % 5,
+  outdoor_pot_found: hashIndex(i, 8) % 3,
+  outdoor_other_survey: hashIndex(i, 9) % 5,
+  outdoor_other_found: hashIndex(i, 10) % 3,
   // ภาชนะในบ้าน
-  indoor_drinking_survey: Math.floor(Math.random() * 5),
-  indoor_drinking_found: Math.floor(Math.random() * 3),
-  indoor_usage_survey: Math.floor(Math.random() * 5),
-  indoor_usage_found: Math.floor(Math.random() * 3),
-  indoor_cement_survey: Math.floor(Math.random() * 5),
-  indoor_cement_found: Math.floor(Math.random() * 3),
-  indoor_pot_survey: Math.floor(Math.random() * 5),
-  indoor_pot_found: Math.floor(Math.random() * 3),
-  indoor_other_survey: Math.floor(Math.random() * 5),
-  indoor_other_found: Math.floor(Math.random() * 3),
+  indoor_drinking_survey: hashIndex(i, 11) % 5,
+  indoor_drinking_found: hashIndex(i, 12) % 3,
+  indoor_usage_survey: hashIndex(i, 13) % 5,
+  indoor_usage_found: hashIndex(i, 14) % 3,
+  indoor_cement_survey: hashIndex(i, 15) % 5,
+  indoor_cement_found: hashIndex(i, 16) % 3,
+  indoor_pot_survey: hashIndex(i, 17) % 5,
+  indoor_pot_found: hashIndex(i, 18) % 3,
+  indoor_other_survey: hashIndex(i, 19) % 5,
+  indoor_other_found: hashIndex(i, 20) % 3,
   // ภาชนะอื่นๆ
-  other_container: Math.floor(Math.random() * 10),
+  other_container: hashIndex(i, 21) % 10,
 }));
 
 const ReportMosquitoCompDetailComp = ({ reportData }) => {

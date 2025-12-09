@@ -36,26 +36,42 @@ const GisMosquitoComp = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
 
+  // ฟังก์ชัน hash string - ใช้ djb2 algorithm
+  const hashString = (str) => {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) + hash) ^ char;
+    }
+    return Math.abs(hash);
+  };
+
+  // ฟังก์ชันสร้างค่า mock ที่สม่ำเสมอจากชื่อพื้นที่
+  const getMockValueFromName = (name) => {
+    const hash = hashString(name);
+    return (hash % 80) + 20; // คืนค่า 20-99
+  };
+
   // Get display data based on selection (tambon, amphoe or province)
   const getDisplayData = () => {
     if (selectedDistrict && availableSubdistricts.length > 0) {
       return availableSubdistricts.map((tambon) => ({
         name: tambon,
-        value: Math.floor(Math.random() * 100) + 20,
+        value: getMockValueFromName(tambon), // ใช้ค่า deterministic แทน random
       }));
     }
 
     if (selectedProvince && availableDistricts.length > 0) {
       return availableDistricts.map((amphoe) => ({
         name: amphoe,
-        value: Math.floor(Math.random() * 100) + 20,
+        value: getMockValueFromName(amphoe), // ใช้ค่า deterministic แทน random
       }));
     }
 
     if (selectedHealthRegion && availableProvincesInRegion.length > 0) {
       return availableProvincesInRegion.map((province) => ({
         name: province,
-        value: Math.floor(Math.random() * 100) + 20,
+        value: getMockValueFromName(province), // ใช้ค่า deterministic แทน random
       }));
     }
 
@@ -71,16 +87,6 @@ const GisMosquitoComp = () => {
   };
 
   const mapContainer = useRef(null);
-
-  // ฟังก์ชัน hash string - ใช้ djb2 algorithm
-  const hashString = (str) => {
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) + hash) ^ char;
-    }
-    return Math.abs(hash);
-  };
 
   // สร้างสีจาก HSL โดยใช้ hash โดยตรง
   const generateColor = (hash) => {

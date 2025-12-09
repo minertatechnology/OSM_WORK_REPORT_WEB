@@ -16,6 +16,8 @@ import {
   Gift,
 } from "lucide-react";
 import { useLoading } from "@context/LoadingProvider";
+import { useSessionStorage } from "@hooks/useSessionStorage";
+import { useIsClient } from "@hooks/useIsClient";
 
 const PRIMARY = "#6E28B7";
 
@@ -57,25 +59,15 @@ const getUserInfoFromSession = () => {
 
 // Component สำหรับแสดง position_name_th โดยตรงจาก sessionStorage
 const UserPosition = React.memo(({ isMobile }) => {
-  const [position, setPosition] = useState("");
+  const [userInfo, , isLoaded] = useSessionStorage("userInfo", {});
+  const isClient = useIsClient();
 
-  useEffect(() => {
-    const updatePosition = () => {
-      try {
-        const data = sessionStorage.getItem("userInfo");
-        if (data) {
-          const parsed = JSON.parse(data);
-          const pos = parsed?.user?.position_name_th || "";
-          setPosition(pos);
-        }
-      } catch {
-        // Silent error - no need to log
-      }
-    };
+  // รอให้โหลดเสร็จและอยู่ที่ฝั่ง client
+  if (!isClient || !isLoaded) {
+    return null;
+  }
 
-    updatePosition();
-    // ลบ interval - อัพเดทครั้งเดียวตอน mount เท่านั้น
-  }, []);
+  const position = userInfo?.user?.position_name_th || "";
 
   if (!position) return null;
 
@@ -150,13 +142,8 @@ const Layout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { setLoading } = useLoading();
-
-  // user info from sessionStorage
-  const [user, setUser] = useState({
-    name: "",
-    province: "",
-    role: "",
-  });
+  const [userInfo, , isUserLoaded] = useSessionStorage("userInfo", {});
+  const isClient = useIsClient();
 
   // state for nav title/icon
   const [navInfo, setNavInfo] = useState({
@@ -175,45 +162,42 @@ const Layout = ({ children }) => {
     return () => window.removeEventListener("resize", checkIfMobile);
   }, []);
 
-  useEffect(() => {
-    // ฟังก์ชันสำหรับอัปเดตข้อมูล user จาก sessionStorage
-    const updateUserInfo = () => {
-      const info = getUserInfoFromSession();
+  // คำนวณ user info จาก sessionStorage ที่โหลดแล้ว
+  const user = React.useMemo(() => {
+    if (!isClient || !isUserLoaded) {
+      return {
+        name: "",
+        province: "",
+        role: "",
+      };
+    }
 
-      // รองรับทั้งโครงสร้างเก่าและใหม่
-      // โครงสร้างใหม่: { user: { name, position_name_th, province_name, ... } }
-      // โครงสร้างเก่า: { user: { name }, auth: { roles, province, ... } }
+    // ชื่อ
+    let name = userInfo?.user?.name || "ไม่ทราบชื่อ";
 
-      // ชื่อ
-      let name = info?.user?.name || "ไม่ทราบชื่อ";
+    // ตำแหน่ง - เอาจาก position_name_th
+    let role = userInfo?.user?.position_name_th || "";
 
-      // ตำแหน่ง - เอาจาก position_name_th
-      let role = info?.user?.position_name_th || "";
+    // province (แสดงจังหวัดถ้ามี, fallback เป็นเขต, ตำบล, รพสต.)
+    let province =
+      userInfo?.user?.province_name ||
+      userInfo?.auth?.province ||
+      userInfo?.auth?.zone ||
+      userInfo?.auth?.district ||
+      userInfo?.auth?.subdistrict ||
+      userInfo?.auth?.unit ||
+      "";
+    if (province && !province.startsWith("จังหวัด") && role === "จังหวัด") {
+      province = `จังหวัด ${province}`;
+    }
+    if (!province) province = "-";
 
-      // province (แสดงจังหวัดถ้ามี, fallback เป็นเขต, ตำบล, รพสต.)
-      let province =
-        info?.user?.province_name ||
-        info?.auth?.province ||
-        info?.auth?.zone ||
-        info?.auth?.district ||
-        info?.auth?.subdistrict ||
-        info?.auth?.unit ||
-        "";
-      if (province && !province.startsWith("จังหวัด") && role === "จังหวัด") {
-        province = `จังหวัด ${province}`;
-      }
-      if (!province) province = "-";
-
-      setUser({
-        name,
-        province,
-        role,
-      });
+    return {
+      name,
+      province,
+      role,
     };
-
-    // อัปเดตทันทีตอน mount เท่านั้น - ลบ interval
-    updateUserInfo();
-  }, []);
+  }, [isClient, isUserLoaded, userInfo]);
 
   // รับ callback จาก SideMenuComp
   const handleMenuClick = (menuName) => {

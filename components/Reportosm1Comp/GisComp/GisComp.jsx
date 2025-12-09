@@ -35,13 +35,19 @@ const GisComp = () => {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
 
+  // ฟังก์ชันสร้างค่า mock ที่สม่ำเสมอจากชื่อพื้นที่
+  const getMockValueFromName = (name) => {
+    const hash = hashString(name);
+    return (hash % 80) + 20; // คืนค่า 20-99
+  };
+
   // Get display data based on selection (tambon, amphoe or province)
   const getDisplayData = () => {
     // ถ้าเลือกอำเภอแล้ว (รวมถึงเมื่อเลือกตำบลด้วย) ให้แสดงข้อมูลตำบลทั้งหมด
     if (selectedDistrict && availableSubdistricts.length > 0) {
       return availableSubdistricts.map((tambon) => ({
         name: tambon,
-        value: Math.floor(Math.random() * 100) + 20, // Mock random values
+        value: getMockValueFromName(tambon), // ใช้ค่า deterministic แทน random
       }));
     }
 
@@ -49,7 +55,7 @@ const GisComp = () => {
     if (selectedProvince && availableDistricts.length > 0) {
       return availableDistricts.map((amphoe) => ({
         name: amphoe,
-        value: Math.floor(Math.random() * 100) + 20, // Mock random values
+        value: getMockValueFromName(amphoe), // ใช้ค่า deterministic แทน random
       }));
     }
 
@@ -57,7 +63,7 @@ const GisComp = () => {
     if (selectedHealthRegion && availableProvincesInRegion.length > 0) {
       return availableProvincesInRegion.map((province) => ({
         name: province,
-        value: Math.floor(Math.random() * 100) + 20, // Mock random values
+        value: getMockValueFromName(province), // ใช้ค่า deterministic แทน random
       }));
     }
 

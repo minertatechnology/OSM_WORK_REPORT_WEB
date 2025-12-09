@@ -18,6 +18,9 @@ const CustomSelect = ({
   const selectedOption = options.find(option => option.value === value);
 
   useEffect(() => {
+    // ป้องกัน hydration error โดยตรวจสอบว่าอยู่ฝั่ง client
+    if (typeof window === "undefined") return;
+
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
