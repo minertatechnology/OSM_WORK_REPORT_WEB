@@ -48,10 +48,16 @@ export const getUserByExternalId = async (externalUserId) => {
     };
   }
 
-  // ตรวจสอบ cache ก่อน
+  // ตรวจสอบ cache ก่อน (ปิดการใช้งาน cache ชั่วคราวเพื่อ debug)
+  // if (userCache.has(externalUserId)) {
+  //   console.log(`📦 Cache hit for user: ${externalUserId}`);
+  //   return userCache.get(externalUserId);
+  // }
+
+  // ล้าง cache เก่าออกก่อน
   if (userCache.has(externalUserId)) {
-    console.log(`📦 Cache hit for user: ${externalUserId}`);
-    return userCache.get(externalUserId);
+    console.log(`🗑️ Clearing old cache for: ${externalUserId}`);
+    userCache.delete(externalUserId);
   }
 
   try {
@@ -91,15 +97,18 @@ export const getUserByExternalId = async (externalUserId) => {
 
     console.log(`👤 Full name constructed: "${fullName}"`);
 
-    // ถ้าไม่มีชื่อเลย ให้ใช้ fallback
-    const finalName = fullName || `User ${externalUserId.substring(0, 8)}`;
+    // ถ้าไม่มีชื่อเลย ให้แสดง "ไม่ระบุชื่อ" แทน UUID
+    const finalName = fullName || "ไม่ระบุชื่อ";
 
     const userData = {
+      // เก็บข้อมูลดิบทั้งหมดก่อน
+      ...apiData,
+      // จากนั้น override ด้วยค่าที่เรา transform แล้ว
       id: apiData.id || externalUserId,
       name: finalName,
-      prefix_name_th: prefix || null,
-      first_name: firstName || null,
-      last_name: lastName || null,
+      prefix_name_th: apiData.prefix_name_th || prefix || null,
+      first_name: apiData.first_name || firstName || null,
+      last_name: apiData.last_name || lastName || null,
       email: apiData.email || null,
       external_user_id: externalUserId,
       profile_picture: apiData.profile_picture || apiData.avatar || null,
@@ -124,7 +133,7 @@ export const getUserByExternalId = async (externalUserId) => {
     // Return fallback data
     const fallbackData = {
       id: externalUserId,
-      name: `User ${externalUserId.substring(0, 8)}`,
+      name: "ไม่ระบุชื่อ",
       email: null,
       external_user_id: externalUserId,
     };
@@ -159,7 +168,7 @@ export const getUsersBatch = async (externalUserIds) => {
         console.error(`Failed to fetch user ${userId}:`, error);
         results.set(userId, {
           id: userId,
-          name: `User ${userId.substring(0, 8)}`,
+          name: "ไม่ระบุชื่อ",
           email: null,
           external_user_id: userId,
         });
