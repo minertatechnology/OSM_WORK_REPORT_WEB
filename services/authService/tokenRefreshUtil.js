@@ -67,7 +67,10 @@ export const forceRefreshNow = async () => {
         const clientId = process.env.NEXT_PUBLIC_CLIENT_ID;
 
         if (!currentRefreshToken || !clientId) {
-            throw new Error("Missing refresh token or client ID");
+            if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+                console.warn("[Force Refresh] Skipping refresh - no refresh token or client ID");
+            }
+            return false;
         }
 
         if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {

@@ -70,9 +70,9 @@ const getTimeOffset = () => {
 };
 
 const DEFAULT_CHECK_INTERVAL = 1000;
-const DEFAULT_REFRESH_THRESHOLD = 60 * 1000;
+const DEFAULT_REFRESH_THRESHOLD = 120 * 1000; // เพิ่มเป็น 2 นาทีก่อนหมดอายุ
 const MIN_REFRESH_SPACING = 5 * 1000;
-const ACTIVITY_GRACE_PERIOD = 60 * 1000; // only refresh if user interacted within last minute
+const ACTIVITY_GRACE_PERIOD = 5 * 60 * 1000; // เพิ่มเป็น 5 นาที - ถ้าผู้ใช้มีกิจกรรมภายใน 5 นาทีที่แล้ว
 const ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "touchstart"];
 
 export const useIdleDetection = ({
@@ -162,24 +162,56 @@ export const useIdleDetection = ({
                 return;
             }
 
+            // ลดข้อกำหนดในการ refresh - ไม่จำเป็นต้องมี focus แค่ต้องเป็น visible page
             const shouldRefresh =
                 remaining <= refreshThreshold &&
-                document.visibilityState === "visible" &&
-                document.hasFocus();
+                document.visibilityState === "visible";
 
             if (shouldRefresh) {
                 const now = Date.now();
                 const sinceLastRefresh = now - lastRefreshAttemptRef.current;
                 const sinceLastActivity = now - lastActivityRef.current;
+
+                // รีเฟรช token ถ้า:
+                // 1. ไม่ได้รีเฟรชมานานกว่า 5 วินาที
+                // 2. มีกิจกรรมภายใน 5 นาที หรือ เหลือเวลาน้อยกว่า 30 วินาที (force refresh)
                 if (
                     sinceLastRefresh >= MIN_REFRESH_SPACING &&
-                    sinceLastActivity <= ACTIVITY_GRACE_PERIOD
+                    (sinceLastActivity <= ACTIVITY_GRACE_PERIOD || remaining <= 30 * 1000)
                 ) {
                     lastRefreshAttemptRef.current = now;
+
+                    if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+                        console.log(`[SessionExpiry] Attempting refresh - ${Math.floor(remaining / 1000)}s remaining`);
+                    }
+
                     try {
-                        await forceRefreshNow();
+                        const refreshSuccess = await forceRefreshNow();
+
+                        if (refreshSuccess === false) {
+                            // ไม่มี refresh token - ต้อง logout
+                            if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+                                console.warn("[SessionExpiry] No refresh token available - logging out");
+                            }
+                            forceLogout();
+                            return;
+                        }
+
+                        if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+                            console.log("[SessionExpiry] Token refreshed successfully");
+                        }
                     } catch (error) {
                         console.error("[SessionExpiry] Silent refresh failed", error);
+
+                        // ถ้าเหลือเวลามากกว่า 10 วินาที ให้ลองใหม่ในรอบถัดไป
+                        if (remaining > 10 * 1000) {
+                            if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+                                console.log("[SessionExpiry] Will retry refresh in next interval");
+                            }
+                            return;
+                        }
+
+                        // ถ้าเหลือเวลาน้อยกว่า 10 วินาที ต้อง logout
                         forceLogout();
                     }
                 }

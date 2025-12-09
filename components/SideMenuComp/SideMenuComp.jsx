@@ -665,7 +665,13 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                               }
                             `}
                             onClick={() => {
-                              router.push(sub.url);
+                              // รีเฟรชหน้าอัตโนมัติสำหรับเมนู "ข้อมูลรายงาน ลูกน้ำยุงลาย"
+                              if (sub.name === "ข้อมูลรายงาน ลูกน้ำยุงลาย") {
+                                // Add timestamp to force reload
+                                window.location.href = `${sub.url}?_t=${Date.now()}`;
+                              } else {
+                                router.push(sub.url);
+                              }
                               setMosquitoOpen(true);
                               onMenuClick(sub.name); // <--- ส่งชื่อ submenu
                               if (isMobile && onClose) onClose();

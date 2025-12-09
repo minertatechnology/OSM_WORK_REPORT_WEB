@@ -16,6 +16,8 @@ import {
   ChevronRight,
   FileText,
   Users,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import jsPDF from "jspdf";
@@ -24,6 +26,10 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 import ReportMosquitoCompDetailComp from "../ReportMosquitoCompDetailComp/ReportMosquitoCompDetailComp";
+import {
+  fetchMosquitoLarvaeHouseholds,
+  transformHouseholdData,
+} from "@services/mosquitoLarvaeService/mosquitoLarvaeService";
 
 // Mock data
 const YEARS = [
@@ -750,7 +756,6 @@ function Pagination({
 const ReportMosquitoCompDataComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const detailId = searchParams.get("detail");
 
   const [year, setYear] = useState("2568");
   const [month, setMonth] = useState("06");
@@ -765,16 +770,58 @@ const ReportMosquitoCompDataComp = () => {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // API data states
+  const [apiData, setApiData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch data on component mount and whenever we navigate back to list page
+  useEffect(() => {
+    const householdId = searchParams.get("household_id");
+
+    // Only fetch if we're NOT on detail page
+    if (!householdId) {
+      const loadData = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          setApiData([]); // Clear old data immediately
+
+          const data = await fetchMosquitoLarvaeHouseholds({
+            skip: 0,
+            limit: 1000,
+          });
+
+          const transformedData = transformHouseholdData(data);
+          setApiData(transformedData);
+        } catch (err) {
+          console.error("[MosquitoData] Error loading mosquito larvae data:", err);
+          setError("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadData();
+    }
+  }, [searchParams]);
+
+  // Use API data or fallback to mock data
+  const ALL_ROWS_DATA = useMemo(() => {
+    const dataSource = apiData.length > 0 ? apiData : MOCK_REPORTS;
+    return dataSource.map((row, idx) => ({ ...row, index: idx + 1 }));
+  }, [apiData]);
+
   const filteredRows = useMemo(() => {
     const term = keyword.trim().toLowerCase();
-    if (!term) return ALL_ROWS;
-    return ALL_ROWS.filter(
+    if (!term) return ALL_ROWS_DATA;
+    return ALL_ROWS_DATA.filter(
       (row) =>
         row.name.toLowerCase().includes(term) ||
-        row.date.toLowerCase().includes(term) ||
+        row.date?.toLowerCase().includes(term) ||
         String(row.index).includes(term)
     );
-  }, [keyword]);
+  }, [keyword, ALL_ROWS_DATA]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -799,9 +846,10 @@ const ReportMosquitoCompDataComp = () => {
     setPage(1);
   };
 
-  // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
-  if (detailId) {
-    const selectedRow = ALL_ROWS.find((row) => row.index === Number(detailId));
+  // ถ้ามี household_id ให้แสดงหน้ารายละเอียด
+  const householdId = searchParams.get("household_id");
+  if (householdId) {
+    const selectedRow = ALL_ROWS_DATA.find((row) => row.id === householdId);
     const monthLabel =
       MONTHS.find((m) => m.value === month)?.label || "มิถุนายน";
     const weekLabel =
@@ -814,6 +862,7 @@ const ReportMosquitoCompDataComp = () => {
           month: monthLabel,
           week: weekLabel,
           name: selectedRow?.name || "ไม่พบข้อมูล",
+          householdId: householdId,
         }}
       />
     );
@@ -826,6 +875,23 @@ const ReportMosquitoCompDataComp = () => {
         onClose={() => setModalOpen(false)}
         data={filteredRows}
       />
+
+      {/* Error Alert */}
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+          <div className="flex-1">
+            <h3 className="text-red-800 font-semibold mb-1">เกิดข้อผิดพลาด</h3>
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium transition"
+          >
+            โหลดใหม่
+          </button>
+        </div>
+      )}
 
       <div className="relative mb-6 rounded-3xl overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
@@ -982,7 +1048,16 @@ const ReportMosquitoCompDataComp = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 size={48} className="text-[#7e32e2] animate-spin" />
+                      <p className="text-gray-500 font-medium">กำลังโหลดข้อมูล...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -1019,7 +1094,7 @@ const ReportMosquitoCompDataComp = () => {
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
                         onClick={() =>
                           router.push(
-                            `/report-mosquito/data?detail=${row.index}`
+                            `/report-mosquito/data?household_id=${row.id}`
                           )
                         }
                       >
