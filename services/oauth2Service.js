@@ -1,0 +1,195 @@
+import axios from "axios";
+import { getAuthToken } from "../utils/tokenHelper";
+
+/**
+ * OAuth2 Service
+ * จัดการ API calls สำหรับดึงข้อมูลผู้ใช้จาก Third-party OAuth2
+ * API Base URL: https://thaiphc2dev.minertatech.com/api/v1
+ */
+
+// สร้าง axios instance สำหรับ OAuth2 API
+const oauth2Api = axios.create({
+  baseURL: "https://thaiphc2dev.minertatech.com/api/v1",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  timeout: 30000,
+});
+
+// เพิ่ม interceptor สำหรับ token authentication
+oauth2Api.interceptors.request.use(
+  (config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Cache สำหรับเก็บข้อมูลผู้ใช้ที่ดึงมาแล้ว
+const userCache = new Map();
+
+/**
+ * ดึงข้อมูลผู้ใช้จาก Third-party OAuth2 ด้วย external_user_id
+ * @param {string} externalUserId - UUID ของผู้ใช้
+ * @returns {Promise<Object>} ข้อมูลผู้ใช้
+ */
+export const getUserByExternalId = async (externalUserId) => {
+  if (!externalUserId) {
+    return {
+      id: null,
+      name: "ไม่ระบุผู้ประเมิน",
+      email: null,
+      external_user_id: null,
+    };
+  }
+
+  // ตรวจสอบ cache ก่อน
+  if (userCache.has(externalUserId)) {
+    console.log(`📦 Cache hit for user: ${externalUserId}`);
+    return userCache.get(externalUserId);
+  }
+
+  try {
+    // เรียก API: https://thaiphc2dev.minertatech.com/api/v1/osm/{external_user_id}
+    console.log(`👥 Fetching user from OAuth2: /osm/${externalUserId}`);
+    const response = await oauth2Api.get(`/osm/${externalUserId}`);
+
+    console.log(`✅ OAuth2 RAW Response for ${externalUserId}:`, JSON.stringify(response.data, null, 2));
+
+    // ตรวจสอบว่า response มีข้อมูลหรือไม่
+    if (!response.data || !response.data.data) {
+      throw new Error("No data in response");
+    }
+
+    // ข้อมูลจริงอยู่ใน response.data.data
+    const apiData = response.data.data;
+
+    // แปลงข้อมูลจาก API response
+    // API จะส่งมาในรูปแบบ: prefix_name_th, first_name, last_name
+    const prefix = apiData.prefix_name_th ?? apiData.prefix ?? "";
+    const firstName = apiData.first_name ?? apiData.firstName ?? "";
+    const lastName = apiData.last_name ?? apiData.lastName ?? "";
+
+    console.log(`🔍 API Data:`, apiData);
+    console.log(`🔍 Raw values:`, {
+      prefix_name_th: apiData.prefix_name_th,
+      first_name: apiData.first_name,
+      last_name: apiData.last_name
+    });
+
+    console.log(`📋 Name parts:`, { prefix, firstName, lastName });
+
+    const fullName = [prefix, firstName, lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    console.log(`👤 Full name constructed: "${fullName}"`);
+
+    // ถ้าไม่มีชื่อเลย ให้ใช้ fallback
+    const finalName = fullName || `User ${externalUserId.substring(0, 8)}`;
+
+    const userData = {
+      id: apiData.id || externalUserId,
+      name: finalName,
+      prefix_name_th: prefix || null,
+      first_name: firstName || null,
+      last_name: lastName || null,
+      email: apiData.email || null,
+      external_user_id: externalUserId,
+      profile_picture: apiData.profile_picture || apiData.avatar || null,
+      department: apiData.department || null,
+      role: apiData.role || null,
+      phone: apiData.phone || null,
+    };
+
+    // เก็บใน cache
+    userCache.set(externalUserId, userData);
+    console.log(`✅ User data fetched and cached: "${userData.name}"`);
+
+    return userData;
+  } catch (error) {
+    console.error(`❌ Failed to fetch user ${externalUserId}:`, error);
+    console.error(`❌ Error details:`, {
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message,
+      url: error.config?.url,
+    });
+
+    // Return fallback data
+    const fallbackData = {
+      id: externalUserId,
+      name: `User ${externalUserId.substring(0, 8)}`,
+      email: null,
+      external_user_id: externalUserId,
+    };
+
+    // เก็บ fallback ใน cache ด้วย
+    userCache.set(externalUserId, fallbackData);
+
+    return fallbackData;
+  }
+};
+
+/**
+ * ดึงข้อมูลผู้ใช้หลายคนพร้อมกัน
+ * @param {Array<string>} externalUserIds - Array ของ UUID
+ * @returns {Promise<Map>} Map ของ external_user_id -> user data
+ */
+export const getUsersBatch = async (externalUserIds) => {
+  if (!Array.isArray(externalUserIds) || externalUserIds.length === 0) {
+    return new Map();
+  }
+
+  const uniqueIds = [...new Set(externalUserIds)];
+  const results = new Map();
+
+  // ดึงข้อมูลทีละคน (หรือใช้ batch API ถ้ามี)
+  await Promise.all(
+    uniqueIds.map(async (userId) => {
+      try {
+        const userData = await getUserByExternalId(userId);
+        results.set(userId, userData);
+      } catch (error) {
+        console.error(`Failed to fetch user ${userId}:`, error);
+        results.set(userId, {
+          id: userId,
+          name: `User ${userId.substring(0, 8)}`,
+          email: null,
+          external_user_id: userId,
+        });
+      }
+    })
+  );
+
+  return results;
+};
+
+/**
+ * ล้าง cache ข้อมูลผู้ใช้
+ */
+export const clearUserCache = () => {
+  userCache.clear();
+  console.log("🗑️ User cache cleared");
+};
+
+/**
+ * ดึงข้อมูลผู้ใช้จาก cache (ไม่เรียก API)
+ * @param {string} externalUserId - UUID ของผู้ใช้
+ * @returns {Object|null} ข้อมูลผู้ใช้หรือ null ถ้าไม่มีใน cache
+ */
+export const getUserFromCache = (externalUserId) => {
+  return userCache.get(externalUserId) || null;
+};
+
+export default {
+  getById: getUserByExternalId,
+  getBatch: getUsersBatch,
+  clearCache: clearUserCache,
+  getFromCache: getUserFromCache,
+};

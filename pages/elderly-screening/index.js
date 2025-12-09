@@ -1,8 +1,17 @@
 import Layout from "@components/layout/Layout";
-import { useEffect, Suspense } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
-import { LazyElderlyScreeningComp } from "@components/shared/LazyComponents";
+import dynamic from "next/dynamic";
 import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
+
+// ใช้ dynamic import แบบ no SSR เพื่อป้องกัน hydration error
+const ElderlyScreeningComp = dynamic(
+  () => import("@components/ElderlyScreeningComp/ElderlyScreeningComp"),
+  {
+    ssr: false,
+    loading: () => <ComponentLoadingSpinner />,
+  }
+);
 
 const ElderlyScreening = () => {
   const { setLoading } = useLoading();
@@ -26,11 +35,7 @@ const ElderlyScreening = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return (
-    <Suspense fallback={<ComponentLoadingSpinner />}>
-      <LazyElderlyScreeningComp triggerLoading={triggerLoading} />
-    </Suspense>
-  );
+  return <ElderlyScreeningComp triggerLoading={triggerLoading} />;
 };
 
 ElderlyScreening.getLayout = (page) => <Layout>{page}</Layout>;

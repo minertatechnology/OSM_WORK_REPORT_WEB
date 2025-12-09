@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+"use client";
+
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -13,7 +15,6 @@ import {
   MapPin,
   Building2,
   Home,
-  Heart,
   UserCheck,
   RotateCcw,
   FileText,
@@ -26,6 +27,10 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import ElderlyScreeningDetail from "./ElderlyScreeningDetail/ElderlyScreeningDetail";
+import elderlyScreeningService from "@services/elderlyScreeningService";
+import oauth2Service from "@services/oauth2Service";
+import { formatThaiDate } from "@utils/dateFormatter";
+import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 
 // Mock Data
 const YEARS = ["2568", "2567", "2566"];
@@ -54,14 +59,6 @@ const PROVINCES = ["เชียงใหม่", "กรุงเทพฯ", "�
 const DISTRICTS = ["เมือง", "สันทราย", "บางนา", "พระประแดง"];
 const SUBDISTRICTS = ["ท่าศาลา", "หนองจ๊อม", "บางแก้ว", "บางครุ"];
 const SERVICES = ["รพ.เชียงใหม่", "รพ.สันทราย", "รพ.บางนา", "รพ.พระประแดง"];
-
-// Table mock (100 rows)
-const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
-  index: i + 1,
-  name: "นางสาวชนุชนาถ ผดุงจิตร",
-  date: "25 มิถุนายน 2568",
-  amount: 15 + (i % 10),
-}));
 
 const PER_PAGE_OPTIONS = [
   { label: "10", value: 10 },
@@ -95,7 +92,7 @@ function exportSummaryPDF(data) {
   const startY = 35;
   const rowHeight = 8;
   const colWidths = [20, 90, 40, 40];
-  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "วันที่", "จำนวนผู้สูงอายุ"];
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "วันที่", "สถานะ"];
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
@@ -140,7 +137,7 @@ function exportSummaryPDF(data) {
     xPos += colWidths[2];
 
     doc.rect(xPos, yPos, colWidths[3], rowHeight);
-    doc.text(String(row.amount), xPos + colWidths[3] / 2, yPos + 5.5, {
+    doc.text(String(row.amount ?? "-"), xPos + colWidths[3] / 2, yPos + 5.5, {
       align: "center",
     });
 
@@ -175,8 +172,8 @@ function exportOverviewPDF(data) {
   const startX = 15;
   const startY = 35;
   const rowHeight = 8;
-  const colWidths = [20, 60, 35, 35, 35];
-  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "ส่งแล้ว", "ยังไม่ส่ง", "รวม"];
+  const colWidths = [20, 70, 30, 40, 40];
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "สถานะ", "วันที่", "เลขบัตรประชาชน"];
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
@@ -215,17 +212,19 @@ function exportOverviewPDF(data) {
     xPos += colWidths[1];
 
     doc.rect(xPos, yPos, colWidths[2], rowHeight);
-    doc.text("1", xPos + colWidths[2] / 2, yPos + 5.5, { align: "center" });
+    doc.text(String(row.amount ?? "-"), xPos + colWidths[2] / 2, yPos + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[2];
 
     doc.rect(xPos, yPos, colWidths[3], rowHeight);
-    doc.text("0", xPos + colWidths[3] / 2, yPos + 5.5, { align: "center" });
+    doc.text(row.date || "-", xPos + colWidths[3] / 2, yPos + 5.5, {
+      align: "center",
+    });
     xPos += colWidths[3];
 
     doc.rect(xPos, yPos, colWidths[4], rowHeight);
-    doc.text(String(row.amount), xPos + colWidths[4] / 2, yPos + 5.5, {
-      align: "center",
-    });
+    doc.text(row.citizen_id || "-", xPos + 3, yPos + 5.5);
 
     yPos += rowHeight;
   });
@@ -256,7 +255,9 @@ function exportNotSubmittedPDF(data) {
     align: "center",
   });
 
-  const notSubmittedData = data.filter((row) => row.status === "notSubmitted");
+  const notSubmittedData = data.filter(
+    (row) => (row.amount || "").toString().toLowerCase() !== "done"
+  );
 
   const startX = 15;
   const startY = 35;
@@ -318,7 +319,7 @@ function exportToExcel(data, title = "รายงานคัดกรองผ
     ลำดับ: idx + 1,
     "ชื่อ-นามสกุล": row.name,
     วันที่ส่ง: row.date,
-    จำนวนผู้สูงอายุ: row.amount,
+    สถานะ: row.amount,
   }));
 
   const ws = XLSX.utils.json_to_sheet(excelData);
@@ -356,7 +357,37 @@ function getPageNumbers(currentPage, totalPages) {
 function DetailModal({ open, onClose, data = [] }) {
   if (!open) return null;
 
-  const rows = data?.length ? data : ALL_ROWS;
+  const rows = (data || []).map((row, idx) => {
+    let formattedDate = "-";
+    if (row._createdDate) {
+      formattedDate = row._createdDate;
+    } else if (row.created_at) {
+      try {
+        const date = new Date(row.created_at);
+        const year = date.getFullYear() + 543;
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        formattedDate = `${day}/${month}/${year}`;
+      } catch (e) {
+        formattedDate = row.date || "-";
+      }
+    } else {
+      formattedDate = row.date || "-";
+    }
+
+    return {
+      index: row.index ?? idx + 1,
+      name:
+        row._fullName ||
+        row.name ||
+        [row.prefix, row.first_name, row.last_name].filter(Boolean).join(" ") ||
+        row.citizen_id ||
+        `รายการที่ ${idx + 1}`,
+      date: formattedDate,
+      amount: row.overall_status || row.screening_status || "-",
+      citizen_id: row.citizen_id,
+    };
+  });
 
   const handleExportSummaryPDF = () => {
     if (rows.length) exportSummaryPDF(rows);
@@ -559,14 +590,14 @@ function PaginationWithPerPage({
           {getPageNumbers(currentPage, totalPages).map((page, idx) =>
             page === "..." ? (
               <span
-                key={idx}
+                key={`ellipsis-${idx}`}
                 className="px-2 py-1 text-gray-400 font-semibold select-none"
               >
                 ...
               </span>
             ) : (
               <button
-                key={idx}
+                key={`page-${page}`}
                 onClick={() => setCurrentPage(page)}
                 className={`min-w-[36px] h-9 rounded-full font-semibold text-base transition-all duration-200 ${
                   currentPage === page
@@ -617,8 +648,14 @@ function PaginationWithPerPage({
 const ElderlyScreeningComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const detailId = searchParams.get("detail");
+  const [detailId, setDetailId] = useState(null);
 
+  const [records, setRecords] = useState([]);
+  const [aggregatedData, setAggregatedData] = useState([]);
+  const [userDataMap, setUserDataMap] = useState(new Map());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [hydrated, setHydrated] = useState(false);
   const [searchType, setSearchType] = useState("year");
   const [year, setYear] = useState("2568");
   const [month, setMonth] = useState("มิถุนายน");
@@ -634,16 +671,102 @@ const ElderlyScreeningComp = () => {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const filteredRows = useMemo(
-    () =>
-      ALL_ROWS.filter(
-        (row) =>
-          row.name.includes(keyword) ||
-          row.date.includes(keyword) ||
-          String(row.index).includes(keyword)
-      ),
-    [keyword]
-  );
+  const fetchElderly = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      console.log("📡 Fetching elderly screenings data...");
+
+      // ดึงข้อมูลผู้สูงอายุทั้งหมด
+      const data = await elderlyScreeningService.getAll({ skip: 0, limit: 1000 });
+
+      console.log("📊 Data received:", data);
+      console.log("📊 Data length:", data.length);
+
+      if (data.length === 0) {
+        console.warn("⚠️ Empty data received from API!");
+        setError("ไม่พบข้อมูลในระบบ กรุณาตรวจสอบ token หรือติดต่อผู้ดูแลระบบ");
+        setRecords([]);
+        setAggregatedData([]);
+        return;
+      }
+
+      setRecords(data);
+
+      // รวมข้อมูลตาม external_user_id (ผู้ประเมิน)
+      console.log("📊 Aggregating data by assessor...");
+      const aggregated = elderlyScreeningService.aggregateByAssessor(data);
+      console.log("📊 Aggregated data:", aggregated);
+
+      setAggregatedData(aggregated);
+
+      // ดึงข้อมูลผู้ใช้จาก OAuth2
+      console.log("👥 Fetching user data from OAuth2...");
+      const externalUserIds = aggregated.map((item) => item.external_user_id);
+      const users = await oauth2Service.getBatch(externalUserIds);
+
+      console.log("👥 User data fetched:", users);
+      setUserDataMap(users);
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        "ไม่สามารถโหลดข้อมูล";
+      console.error("❌ Fetch Error:", err);
+      setError(message);
+      setRecords([]);
+      setAggregatedData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchElderly();
+  }, [fetchElderly]);
+
+  useEffect(() => {
+    // รอให้ component mount เสร็จก่อนถึงจะ hydrate
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    // ตรวจสอบ detailId หลังจาก component hydrate แล้ว
+    if (hydrated && searchParams) {
+      setDetailId(searchParams.get("detail"));
+    }
+  }, [searchParams, hydrated]);
+
+  const filteredRows = useMemo(() => {
+    if (!hydrated) return []; // รอให้ hydrate เสร็จก่อน
+
+    const keywordLower = keyword.trim().toLowerCase();
+
+    // ใช้ aggregatedData แทน records
+    return (aggregatedData || []).map((assessorData) => {
+      // ดึงข้อมูลผู้ใช้จาก OAuth2
+      const userData = userDataMap.get(assessorData.external_user_id);
+      const assessorName = userData?.name || `User ${assessorData.external_user_id?.substring(0, 8) || "Unknown"}`;
+
+      // แปลงวันที่เป็นรูปแบบไทย: "25 มิถุนายน 2568"
+      const thaiDate = formatThaiDate(assessorData.latest_date);
+
+      return {
+        id: assessorData.external_user_id,
+        external_user_id: assessorData.external_user_id,
+        _assessorName: assessorName,
+        _thaiDate: thaiDate,
+        _elderlyCount: assessorData.count,
+        screenings: assessorData.screenings,
+      };
+    }).filter((row) => {
+      if (!keywordLower) return true;
+      const nameMatch = row._assessorName.toLowerCase().includes(keywordLower);
+      const idMatch = (row.external_user_id || "").toLowerCase().includes(keywordLower);
+      return nameMatch || idMatch;
+    });
+  }, [aggregatedData, userDataMap, keyword, hydrated]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -654,12 +777,6 @@ const ElderlyScreeningComp = () => {
   useEffect(() => {
     if (page > totalPages) setPage(1);
   }, [filteredRows.length, totalPages, page]);
-
-  const totalReports = filteredRows.length;
-  const totalElderly = useMemo(
-    () => filteredRows.reduce((sum, row) => sum + row.amount, 0),
-    [filteredRows]
-  );
 
   const handleClear = () => {
     setYear("2568");
@@ -679,16 +796,32 @@ const ElderlyScreeningComp = () => {
     { key: "budget", label: "ค้นหาแบบรายปีงบประมาณ" },
   ];
 
+  // แสดง loading spinner จนกว่า component จะ hydrate เสร็จ
+  if (!hydrated) {
+    return <ComponentLoadingSpinner />;
+  }
+
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
-    const selectedRow = ALL_ROWS.find((row) => row.index === Number(detailId));
+    // หา aggregated data ของผู้ประเมินคนนี้
+    const assessorData = aggregatedData.find(
+      (item) => item.external_user_id === detailId
+    );
+
+    if (loading && aggregatedData.length === 0) {
+      return <ComponentLoadingSpinner />;
+    }
+
+    // ส่งข้อมูลผู้ประเมินและรายการผู้สูงอายุทั้งหมดที่เขาประเมิน
+    const userData = userDataMap.get(detailId);
+
     return (
       <ElderlyScreeningDetail
-        reportData={{
-          year,
-          month,
-          name: selectedRow?.name || "ไม่พบข้อมูล",
-        }}
+        assessorId={detailId}
+        assessorName={userData?.name}
+        elderlyList={assessorData?.screenings || []}
+        elderlyCount={assessorData?.count || 0}
+        onBack={() => router.push("/elderly-screening")}
       />
     );
   }
@@ -878,13 +1011,13 @@ const ElderlyScreeningComp = () => {
                   ลำดับ
                 </th>
                 <th className="py-4 px-4 font-semibold text-left text-white">
-                  ชื่อ-นามสกุล
+                  ชื่อ-นามสกุล ผู้ประเมิน
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
-                  วันที่
+                  วันที่บันทึกล่าสุด
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
-                  จำนวนผู้สูงอายุ
+                  จำนวนในครัวเรือน
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white rounded-tr-xl">
                   รายละเอียด
@@ -892,7 +1025,19 @@ const ElderlyScreeningComp = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center">
+                    <ComponentLoadingSpinner />
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-red-600 font-semibold">
+                    {error}
+                  </td>
+                </tr>
+              ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -904,7 +1049,7 @@ const ElderlyScreeningComp = () => {
               ) : (
                 paginatedRows.map((row, idx) => (
                   <tr
-                    key={row.index}
+                    key={row.external_user_id || idx}
                     className={`${
                       idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
                     } hover:bg-purple-50 transition-colors`}
@@ -913,22 +1058,24 @@ const ElderlyScreeningComp = () => {
                       {(page - 1) * itemsPerPage + idx + 1}
                     </td>
                     <td className="py-4 px-4 font-medium text-[#231d37]">
-                      {row.name}
+                      {row._assessorName}
                     </td>
-                    <td className="py-4 px-4 text-center text-gray-600">
-                      {row.date}
+                    <td className="py-4 px-4 text-center text-gray-700">
+                      {row._thaiDate}
                     </td>
                     <td className="py-4 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-100 text-pink-700 font-semibold text-sm">
-                        <Users size={14} />
-                        {row.amount}
+                      <span className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-sm">
+                        <Users size={16} />
+                        {row._elderlyCount} คน
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <button
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
                         onClick={() =>
-                          router.push(`/elderly-screening?detail=${row.index}`)
+                          router.push(
+                            `/elderly-screening?detail=${row.external_user_id}`
+                          )
                         }
                       >
                         <Eye size={16} />
