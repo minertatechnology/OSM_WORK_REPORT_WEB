@@ -26,9 +26,11 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
+import { getUserByExternalId } from "@services/oauth2Service";
+import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
 
 // Mock Data
-const YEARS = ["2568", "2567", "2566"];
+// YEARS จะถูกสร้างจาก created_at ของข้อมูลจริง
 const MONTHS = [
   "มกราคม",
   "กุมภาพันธ์",
@@ -61,12 +63,21 @@ const TABS = [
   { key: "notSubmitted", label: "ยังไม่ส่งรายงาน" },
 ];
 
-// Table mock (100 rows)
+// Table mock (100 rows) - เพิ่ม external_user_id สำหรับดึงข้อมูลจาก OAuth2
+// ในตัวอย่างนี้ใช้ UUID จำลอง แต่ในการใช้งานจริงควรมาจาก API
+const MOCK_USER_IDS = [
+  "550e8400-e29b-41d4-a716-446655440001",
+  "550e8400-e29b-41d4-a716-446655440002",
+  "550e8400-e29b-41d4-a716-446655440003",
+  "550e8400-e29b-41d4-a716-446655440004",
+];
+
 const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
   index: i + 1,
+  external_user_id: MOCK_USER_IDS[i % 4], // ใช้ external_user_id แทน name
   name: `นางสาว${
     ["ชุชนาถ ผดุงจิตร", "สมหญิง ใจดี", "วรรณา สุขใจ", "มาลี รักษ์ดี"][i % 4]
-  }`,
+  }`, // เก็บไว้เป็น fallback
   date: `${(i % 28) + 1} มิถุนายน 2568`,
   amount: 15 + (i % 10),
   status: i % 3 === 0 ? "notSubmitted" : "submitted", // 1/3 ยังไม่ส่ง, 2/3 ส่งแล้ว
@@ -99,7 +110,7 @@ function getPageNumbers(currentPage, totalPages) {
 
 // Export functions
 // 1. สรุปจำนวนการส่งรายงาน
-function exportSummaryPDF(data) {
+function exportSummaryPDF(data, userDataMap) {
   const doc = new jsPDF();
 
   // Add Thai font
@@ -166,9 +177,11 @@ function exportSummaryPDF(data) {
     });
     xPos += colWidths[0];
 
-    // ชื่อ
+    // ชื่อ - ใช้ข้อมูลจาก userDataMap
+    const userData = userDataMap?.get(row.external_user_id);
+    const displayName = userData?.name || row.name || "ไม่ระบุชื่อ";
     doc.rect(xPos, yPos, colWidths[1], rowHeight);
-    doc.text(row.name, xPos + 3, yPos + 5.5);
+    doc.text(displayName, xPos + 3, yPos + 5.5);
     xPos += colWidths[1];
 
     // วันที่
@@ -193,7 +206,7 @@ function exportSummaryPDF(data) {
 }
 
 // 2. สรุปภาพรวมรายงานในพื้นที่
-function exportOverviewPDF(data) {
+function exportOverviewPDF(data, userDataMap) {
   const doc = new jsPDF();
 
   // Add Thai font
@@ -260,9 +273,11 @@ function exportOverviewPDF(data) {
     });
     xPos += colWidths[0];
 
-    // ชื่อ
+    // ชื่อ - ใช้ข้อมูลจาก userDataMap
+    const userData = userDataMap?.get(row.external_user_id);
+    const displayName = userData?.name || row.name || "ไม่ระบุชื่อ";
     doc.rect(xPos, yPos, colWidths[1], rowHeight);
-    doc.text(row.name, xPos + 3, yPos + 5.5);
+    doc.text(displayName, xPos + 3, yPos + 5.5);
     xPos += colWidths[1];
 
     // ส่งแล้ว
@@ -290,7 +305,7 @@ function exportOverviewPDF(data) {
 }
 
 // 3. อสม. ที่ยังไม่ส่งรายงาน
-function exportNotSubmittedPDF(data) {
+function exportNotSubmittedPDF(data, userDataMap) {
   const doc = new jsPDF();
 
   // Add Thai font
@@ -358,9 +373,11 @@ function exportNotSubmittedPDF(data) {
     });
     xPos += colWidths[0];
 
-    // ชื่อ
+    // ชื่อ - ใช้ข้อมูลจาก userDataMap
+    const userData = userDataMap?.get(row.external_user_id);
+    const displayName = userData?.name || row.name || "ไม่ระบุชื่อ";
     doc.rect(xPos, yPos, colWidths[1], rowHeight);
-    doc.text(row.name, xPos + 3, yPos + 5.5);
+    doc.text(displayName, xPos + 3, yPos + 5.5);
     xPos += colWidths[1];
 
     // หมายเหตุ
@@ -375,14 +392,18 @@ function exportNotSubmittedPDF(data) {
   );
 }
 
-function exportToExcel(data, title = "รายงานประเมินหญิงตั้งครรภ์") {
+function exportToExcel(data, userDataMap, title = "รายงานประเมินหญิงตั้งครรภ์") {
   // Prepare data for Excel
-  const excelData = data.map((row, idx) => ({
-    ลำดับ: idx + 1,
-    "ชื่อ-นามสกุล": row.name,
-    วันที่ส่ง: row.date,
-    จำนวนหญิงตั้งครรภ์: row.amount,
-  }));
+  const excelData = data.map((row, idx) => {
+    const userData = userDataMap?.get(row.external_user_id);
+    const displayName = userData?.name || row.name || "ไม่ระบุชื่อ";
+    return {
+      ลำดับ: idx + 1,
+      "ชื่อ-นามสกุล": displayName,
+      วันที่ส่ง: row.date,
+      จำนวนหญิงตั้งครรภ์: row.amount,
+    };
+  });
 
   // Create worksheet
   const ws = XLSX.utils.json_to_sheet(excelData);
@@ -411,18 +432,18 @@ function exportToExcel(data, title = "รายงานประเมินห
 }
 
 // Modal component styled like the image (for both download and detail)
-function DetailModal({ open, onClose, data = [] }) {
+function DetailModal({ open, onClose, data = [], userDataMap = new Map() }) {
   if (!open) return null;
 
   const handleExportSummaryPDF = () => {
     if (data.length > 0) {
-      exportSummaryPDF(data);
+      exportSummaryPDF(data, userDataMap);
     }
   };
 
   const handleExportOverviewPDF = () => {
     if (data.length > 0) {
-      exportOverviewPDF(data);
+      exportOverviewPDF(data, userDataMap);
     }
   };
 
@@ -430,19 +451,19 @@ function DetailModal({ open, onClose, data = [] }) {
     // Use ALL_ROWS instead of data to get all records including notSubmitted
     const allData = ALL_ROWS;
     if (allData.length > 0) {
-      exportNotSubmittedPDF(allData);
+      exportNotSubmittedPDF(allData, userDataMap);
     }
   };
 
   const handleExportSummaryExcel = () => {
     if (data.length > 0) {
-      exportToExcel(data, "สรุปจำนวนการส่งรายงาน");
+      exportToExcel(data, userDataMap, "สรุปจำนวนการส่งรายงาน");
     }
   };
 
   const handleExportOverviewExcel = () => {
     if (data.length > 0) {
-      exportToExcel(data, "สรุปภาพรวมรายงานในพื้นที่");
+      exportToExcel(data, userDataMap, "สรุปภาพรวมรายงานในพื้นที่");
     }
   };
 
@@ -452,7 +473,7 @@ function DetailModal({ open, onClose, data = [] }) {
       (row) => row.status === "notSubmitted"
     );
     if (notSubmittedData.length > 0) {
-      exportToExcel(notSubmittedData, "อสม. ที่ยังไม่ส่งรายงาน");
+      exportToExcel(notSubmittedData, userDataMap, "อสม. ที่ยังไม่ส่งรายงาน");
     }
   };
 
@@ -768,9 +789,12 @@ const PregnantReportComp = () => {
   const searchParams = useSearchParams();
   const detailId = searchParams.get("detail");
 
+  // คำนวณปีปัจจุบัน (พ.ศ.)
+  const currentBuddhistYear = new Date().getFullYear() + 543;
+
   // State
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("2568");
+  const [year, setYear] = useState(currentBuddhistYear.toString());
   const [month, setMonth] = useState("มิถุนายน");
   const [week, setWeek] = useState("สัปดาห์ 4 (22/6/68-30/6/68)");
   const [zone, setZone] = useState("");
@@ -788,14 +812,126 @@ const PregnantReportComp = () => {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Filter rows by tab and keyword
-  const filteredRows = ALL_ROWS.filter(
-    (row) =>
+  // State สำหรับเก็บข้อมูลจาก API
+  const [pregnantData, setPregnantData] = useState([]);
+  const [allEvaluations, setAllEvaluations] = useState([]); // เก็บข้อมูล evaluations ทั้งหมด
+  const [aggregatedData, setAggregatedData] = useState([]); // เก็บข้อมูลที่ aggregate แล้ว
+  const [userDataMap, setUserDataMap] = useState(new Map());
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [availableYears, setAvailableYears] = useState([currentBuddhistYear.toString()]); // เก็บรายการปีจากข้อมูล
+
+  // ดึงข้อมูลการประเมินหญิงตั้งครรภ์และข้อมูลผู้ใช้จาก API
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoadingData(true);
+      setIsLoadingUsers(true);
+
+      try {
+        // 1. ดึงข้อมูลการประเมินทั้งหมด
+        const evaluations = await getAllPregnantWomenEvaluations({ skip: 0, limit: 1000 });
+        setAllEvaluations(evaluations); // เก็บข้อมูล evaluations ทั้งหมด
+
+        // 1.1 สร้างรายการปีจาก created_at
+        const yearsSet = new Set();
+        evaluations.forEach(evaluation => {
+          if (evaluation.created_at) {
+            const date = new Date(evaluation.created_at);
+            const buddhistYear = date.getFullYear() + 543;
+            yearsSet.add(buddhistYear.toString());
+          }
+        });
+        const yearsList = Array.from(yearsSet).sort((a, b) => b - a); // เรียงจากมากไปน้อย
+        setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear.toString()]);
+
+        // 2. รวมข้อมูลตาม external_user_id
+        const aggregated = aggregateByAssessor(evaluations);
+        setAggregatedData(aggregated); // เก็บข้อมูลที่ aggregate แล้ว
+
+        // 3. แปลงเป็นรูปแบบที่ใช้แสดงในตาราง
+        const formattedData = aggregated.map((item, index) => {
+          const date = new Date(item.latest_date);
+          const thaiYear = date.getFullYear() + 543; // แปลงเป็นปีพุทธศักราช
+          const formattedDate = date.toLocaleDateString("th-TH", {
+            day: "numeric",
+            month: "long",
+          }) + " " + thaiYear;
+
+          return {
+            index: index + 1,
+            external_user_id: item.external_user_id,
+            name: "กำลังโหลด...", // จะถูกแทนที่ด้วยชื่อจริงจาก OAuth2
+            date: formattedDate,
+            amount: item.count,
+            status: item.status || "submitted",
+          };
+        });
+
+        setPregnantData(formattedData);
+
+        // 4. ดึงข้อมูลผู้ใช้จาก OAuth2 API
+        const newUserDataMap = new Map();
+        const uniqueUserIds = [...new Set(aggregated.map(item => item.external_user_id))];
+
+        await Promise.allSettled(
+          uniqueUserIds.map(async (userId) => {
+            try {
+              const userData = await getUserByExternalId(userId);
+              newUserDataMap.set(userId, userData);
+            } catch (error) {
+              // ไม่ log error 404
+              if (error?.response?.status !== 404) {
+                console.error(`Failed to fetch user ${userId}:`, error);
+              }
+              // ใช้ข้อมูล fallback
+              newUserDataMap.set(userId, {
+                id: userId,
+                name: "ไม่ระบุชื่อ",
+                external_user_id: userId,
+              });
+            }
+          })
+        );
+
+        setUserDataMap(newUserDataMap);
+      } catch (error) {
+        console.error("Failed to fetch pregnant women data:", error);
+        // ถ้า error ใช้ mock data แทน
+        setPregnantData(ALL_ROWS);
+      } finally {
+        setIsLoadingData(false);
+        setIsLoadingUsers(false);
+      }
+    };
+
+    fetchData();
+  }, []); // ดึงข้อมูลครั้งเดียวตอน mount
+
+  // Helper function เพื่อดึงชื่อผู้ใช้จาก userDataMap
+  const getUserName = (external_user_id, fallbackName) => {
+    const userData = userDataMap.get(external_user_id);
+    return userData?.name || fallbackName || "กำลังโหลด...";
+  };
+
+  // ใช้ข้อมูลจาก API หรือ fallback เป็น mock data
+  const dataSource = pregnantData.length > 0 ? pregnantData : ALL_ROWS;
+
+  // Filter rows by tab, year, and keyword
+  const filteredRows = dataSource.filter((row) => {
+    const userName = getUserName(row.external_user_id, row.name);
+
+    // กรองตามปี (ดึงปีจาก row.date)
+    const rowYear = row.date.match(/\d{4}/)?.[0] || "";
+    const yearMatch = !year || rowYear === year;
+
+    return (
       row.status === activeTab &&
-      (row.name.includes(keyword) ||
+      yearMatch &&
+      (userName.includes(keyword) ||
         row.date.includes(keyword) ||
         String(row.index).includes(keyword))
-  );
+    );
+  });
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = filteredRows.slice(
     (page - 1) * itemsPerPage,
@@ -815,7 +951,7 @@ const PregnantReportComp = () => {
   }, [filteredRows.length, totalPages, itemsPerPage, page]);
 
   const handleClear = () => {
-    setYear("2568");
+    setYear(currentBuddhistYear.toString());
     setMonth("มิถุนายน");
     setWeek("สัปดาห์ 4 (22/6/68-30/6/68)");
     setZone("");
@@ -828,14 +964,33 @@ const PregnantReportComp = () => {
 
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
-    const selectedRow = ALL_ROWS.find((row) => row.index === Number(detailId));
+    const selectedRow = pregnantData.find((row) => row.index === Number(detailId)) ||
+                        ALL_ROWS.find((row) => row.index === Number(detailId));
+
+    // หาข้อมูล evaluations ของ user นี้
+    const userEvaluations = allEvaluations.filter(
+      (evaluation) => evaluation.external_user_id === selectedRow?.external_user_id
+    );
+
+    // ดึงชื่อจาก userDataMap
+    const userName = getUserName(selectedRow?.external_user_id, selectedRow?.name);
+
+    // ดึงปีจาก created_at ของ evaluation แรก (หรือใช้ปีปัจจุบันถ้าไม่มีข้อมูล)
+    let reportYear = currentBuddhistYear.toString();
+    if (userEvaluations.length > 0 && userEvaluations[0].created_at) {
+      const date = new Date(userEvaluations[0].created_at);
+      reportYear = (date.getFullYear() + 543).toString();
+    }
+
     return (
       <PregnantReportDetail
         reportData={{
-          year,
+          year: reportYear,
           month,
-          name: selectedRow?.name || "ไม่พบข้อมูล",
+          name: userName || "ไม่พบข้อมูล",
+          external_user_id: selectedRow?.external_user_id,
         }}
+        evaluations={userEvaluations}
       />
     );
   }
@@ -847,6 +1002,7 @@ const PregnantReportComp = () => {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         data={filteredRows}
+        userDataMap={userDataMap}
       />
 
       {/* Header Section with Gradient */}
@@ -954,7 +1110,7 @@ const PregnantReportComp = () => {
             label="ปี"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            options={YEARS.map((y) => ({ label: y, value: y }))}
+            options={availableYears.map((y) => ({ label: y, value: y }))}
             placeholder="-- เลือกปี --"
             icon={Calendar}
           />
@@ -1114,7 +1270,19 @@ const PregnantReportComp = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.length === 0 ? (
+              {isLoadingData ? (
+                <tr>
+                  <td
+                    colSpan={activeTab === "submitted" ? 5 : 4}
+                    className="py-16 text-center"
+                  >
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                      <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={activeTab === "submitted" ? 5 : 4}
@@ -1127,43 +1295,50 @@ const PregnantReportComp = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row, idx) => (
-                  <tr
-                    key={row.index}
-                    className={`${
-                      idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
-                    } hover:bg-purple-50 transition-colors`}
-                  >
-                    <td className="py-4 px-4 text-center font-medium text-gray-600">
-                      {(page - 1) * itemsPerPage + idx + 1}
-                    </td>
-                    <td className="py-4 px-4 font-medium text-[#231d37]">
-                      {row.name}
-                    </td>
-                    <td className="py-4 px-4 text-center text-gray-600">
-                      {row.date}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-100 text-pink-700 font-semibold text-sm">
-                        <Baby size={14} />
-                        {row.amount}
-                      </span>
-                    </td>
-                    {activeTab === "submitted" && (
-                      <td className="py-4 px-4 text-center">
-                        <button
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
-                          onClick={() =>
-                            router.push(`/pregnant-report?detail=${row.index}`)
-                          }
-                        >
-                          <Eye size={16} />
-                          ดูรายละเอียด
-                        </button>
+                paginatedRows.map((row, idx) => {
+                  const displayName = getUserName(row.external_user_id, row.name);
+                  return (
+                    <tr
+                      key={row.index}
+                      className={`${
+                        idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
+                      } hover:bg-purple-50 transition-colors`}
+                    >
+                      <td className="py-4 px-4 text-center font-medium text-gray-600">
+                        {(page - 1) * itemsPerPage + idx + 1}
                       </td>
-                    )}
-                  </tr>
-                ))
+                      <td className="py-4 px-4 font-medium text-[#231d37]">
+                        {isLoadingUsers ? (
+                          <span className="text-gray-400">กำลังโหลด...</span>
+                        ) : (
+                          displayName
+                        )}
+                      </td>
+                      <td className="py-4 px-4 text-center text-gray-600">
+                        {row.date}
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-100 text-pink-700 font-semibold text-sm">
+                          <Baby size={14} />
+                          {row.amount}
+                        </span>
+                      </td>
+                      {activeTab === "submitted" && (
+                        <td className="py-4 px-4 text-center">
+                          <button
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                            onClick={() =>
+                              router.push(`/pregnant-report?detail=${row.index}`)
+                            }
+                          >
+                            <Eye size={16} />
+                            ดูรายละเอียด
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
