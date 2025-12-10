@@ -25,9 +25,23 @@ import {
   Users,
   FileText,
   RotateCcw,
+  Loader2,
+  Mail,
+  Heart,
+  Droplet,
+  Briefcase,
+  GraduationCap,
+  UserCheck,
+  Smartphone,
+  CalendarCheck,
+  CreditCard,
+  Phone,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import { getUsersList } from "@services/userService/userService";
+import { getAuthToken } from "@utils/tokenHelper";
+import { getUserByExternalId } from "@services/oauth2Service";
 
 // Mock data for select options and table
 const YEARS = [
@@ -81,56 +95,6 @@ const PER_PAGE_OPTIONS = [
   { label: "20", value: 20 },
   { label: "50", value: 50 },
 ];
-
-// Mock table data
-function getInitialUsers() {
-  return [
-    {
-      name: "นางสาวชมบุษบก ผดุงจิตร",
-      cid: "1539900551382",
-      position: "อสม. ทั่วไป",
-      gender: "หญิง",
-      hospital: "โรงพยาบาลส่งเสริมสุขภาพตำบลไผ่ล้อม",
-      province: "นนทบุรี",
-      district: "เมืองนนทบุรี",
-      subdistrict: "ท่าทราย",
-      status: "active",
-    },
-    {
-      name: "นายสมชาย กู้ชีพ",
-      cid: "1103700222345",
-      position: "อสม. ทั่วไป",
-      gender: "ชาย",
-      hospital: "รพ.สต.ท่าศาลา",
-      province: "เชียงใหม่",
-      district: "สันทราย",
-      subdistrict: "ท่าศาลา",
-      status: "deleted",
-    },
-    {
-      name: "นางสาวสายใจ ทองดี",
-      cid: "1103700229999",
-      position: "อสม. ทั่วไป",
-      gender: "หญิง",
-      hospital: "รพ.สต.หนองจ๊อม",
-      province: "เชียงใหม่",
-      district: "สันทราย",
-      subdistrict: "หนองจ๊อม",
-      status: "active",
-    },
-    ...Array.from({ length: 97 }, (_, i) => ({
-      name: `อสม. ทดสอบ ${i + 1}`,
-      cid: `110370022${(1000 + i).toString().padStart(4, "0")}`,
-      position: "อสม. ทั่วไป",
-      gender: "หญิง",
-      hospital: "รพ.สต.ท่าศาลา",
-      province: "เชียงใหม่",
-      district: "สันทราย",
-      subdistrict: "หนองจ๊อม",
-      status: "active",
-    })),
-  ];
-}
 
 function getPageNumbers(currentPage, totalPages) {
   const delta = 2;
@@ -256,81 +220,119 @@ function UserDetailModal({
         <div className="text-[22px] font-bold text-[#7e32e2] mb-4">
           รายละเอียดผู้ใช้งาน
         </div>
-        <div className="grid grid-cols-2 gap-y-4 gap-x-8 mb-7">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[16px]">
-              <User size={18} />
-              ชื่อ-นามสกุล
-            </div>
-            <div className="ml-6 text-[#231d37] text-[16px] mb-3">
-              {user.name}
-            </div>
-            <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[16px]">
-              <Venus size={18} />
-              เพศ
-            </div>
-            <div className="ml-6 text-[#231d37] text-[16px] mb-3">
-              {user.gender}
-            </div>
-            <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[16px]">
-              <Hospital size={18} />
-              สังกัดปัจจุบัน
-            </div>
-            <div className="ml-6 text-[#231d37] text-[16px] mb-3">
-              {user.hospital}
-            </div>
-            <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[16px]">
-              <Landmark size={18} />
-              อำเภอ
-            </div>
-            <div className="ml-6 text-[#231d37] text-[16px] mb-3">
-              {user.district}
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[16px]">
-              <BadgeInfo size={18} />
-              เลขประจำตัวประชาชน
-            </div>
-            <div className="ml-6 text-[#231d37] text-[16px] mb-3">
-              <div className="flex items-center gap-2">
-                <span className="font-mono">
-                  {maskCID(user.cid, showFullCID)}
-                </span>
-                <button
-                  onClick={handleToggleCID}
-                  className="text-purple-600 hover:text-purple-800 transition-colors p-1 hover:bg-purple-50 rounded"
-                  title={
-                    showFullCID ? "ซ่อนเลขบัตรประชาชน" : "แสดงเลขบัตรประชาชน"
-                  }
-                >
-                  {showFullCID ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+
+        {/* Personal Information Section */}
+        <div className="mb-6">
+          <h3 className="text-[18px] font-semibold text-[#7e32e2] mb-3 border-b border-purple-200 pb-2">
+            ข้อมูลส่วนตัว
+          </h3>
+          <div className="grid grid-cols-2 gap-y-3 gap-x-8">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                <User size={16} />
+                ชื่อ-นามสกุล
+              </div>
+              <div className="ml-6 text-[#231d37] text-[15px]">
+                {user.name}
               </div>
             </div>
-            <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[16px]">
-              <MapPin size={18} />
-              ระดับตำแหน่ง
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                <BadgeInfo size={16} />
+                เลขประจำตัวประชาชน
+              </div>
+              <div className="ml-6 text-[#231d37] text-[15px]">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono">
+                    {maskCID(user.cid, showFullCID)}
+                  </span>
+                  <button
+                    onClick={handleToggleCID}
+                    className="text-purple-600 hover:text-purple-800 transition-colors p-1 hover:bg-purple-50 rounded"
+                    title={showFullCID ? "ซ่อนเลขบัตรประชาชน" : "แสดงเลขบัตรประชาชน"}
+                  >
+                    {showFullCID ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="ml-6 text-[#231d37] text-[16px] mb-3">
-              {user.position}
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                <Venus size={16} />
+                เพศ
+              </div>
+              <div className="ml-6 text-[#231d37] text-[15px]">
+                {user.gender}
+              </div>
             </div>
-            <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[16px]">
-              <Map size={18} />
-              จังหวัด
+            {user.phone && (
+              <div>
+                <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                  <Phone size={16} />
+                  เบอร์โทรศัพท์
+                </div>
+                <div className="ml-6 text-[#231d37] text-[15px]">
+                  {user.phone}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Work Information Section */}
+        <div className="mb-6">
+          <h3 className="text-[18px] font-semibold text-[#7e32e2] mb-3 border-b border-purple-200 pb-2">
+            ข้อมูลการทำงาน
+          </h3>
+          <div className="grid grid-cols-2 gap-y-3 gap-x-8">
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                <MapPin size={16} />
+                ระดับตำแหน่ง
+              </div>
+              <div className="ml-6 text-[#231d37] text-[15px]">
+                {user.position}
+              </div>
             </div>
-            <div className="ml-6 text-[#231d37] text-[16px] mb-3">
-              {user.province}
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                <Hospital size={16} />
+                สังกัดปัจจุบัน
+              </div>
+              <div className="ml-6 text-[#231d37] text-[15px]">
+                {user.hospital}
+              </div>
             </div>
-            <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[16px]">
-              <Home size={18} />
-              ตำบล
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                <Map size={16} />
+                จังหวัด
+              </div>
+              <div className="ml-6 text-[#231d37] text-[15px]">
+                {user.province}
+              </div>
             </div>
-            <div className="ml-6 text-[#231d37] text-[16px] mb-3">
-              {user.subdistrict}
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                <Landmark size={16} />
+                อำเภอ
+              </div>
+              <div className="ml-6 text-[#231d37] text-[15px]">
+                {user.district}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-[#7e32e2] font-medium text-[15px]">
+                <Home size={16} />
+                ตำบล
+              </div>
+              <div className="ml-6 text-[#231d37] text-[15px]">
+                {user.subdistrict}
+              </div>
             </div>
           </div>
         </div>
+
         <div className="flex justify-between gap-3">
           {isRestoreBtn ? (
             <button
@@ -557,39 +559,308 @@ const UserListComp = () => {
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [modalType, setModalType] = useState("detail");
-  const [users, setUsers] = useState(getInitialUsers());
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // CID visibility state - track which rows show full CID
   const [cidVisibility, setCidVisibility] = useState({});
 
-  const filteredUsers = useMemo(() => {
-    const term = keyword.trim().toLowerCase();
-    const tabFiltered = users.filter((user) =>
-      tab === "active" ? user.status !== "deleted" : user.status === "deleted"
-    );
-    if (!term) return tabFiltered;
-    return tabFiltered.filter(
-      (user) =>
-        user.name.toLowerCase().includes(term) || user.cid.includes(term)
-    );
-  }, [users, keyword, tab]);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredUsers.length / itemsPerPage)
-  );
-  const paginatedUsers = useMemo(
-    () =>
-      filteredUsers.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-      ),
-    [filteredUsers, itemsPerPage, currentPage]
-  );
-
+  // Fetch users from API
   useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(1);
-  }, [currentPage, totalPages]);
+    const fetchUsers = async () => {
+      setLoading(true);
+      try {
+        // Get token from auth helper
+        const token = getAuthToken();
+
+        if (!token) {
+          throw new Error("No authentication token found. Please login again.");
+        }
+
+        // 1. ดึง user list จาก /auth/users
+        const response = await getUsersList({
+          page: currentPage,
+          per_page: itemsPerPage,
+          keyword: keyword,
+          is_active: tab === "active" ? true : false,
+          province_code: province,
+          district_code: district,
+          subdistrict_code: subdistrict,
+          token: token
+        });
+
+        // 2. ดึงข้อมูลเต็มจาก OAuth2 API สำหรับแต่ละ user
+        const usersWithDetails = await Promise.allSettled(
+          response.users.map(async (user) => {
+            if (!user.external_user_id) {
+              // ถ้าไม่มี external_user_id ให้ใช้ข้อมูล base
+              return {
+                external_user_id: user.external_user_id,
+                name: "ไม่ระบุชื่อ",
+                cid: user.citizen_id || "-",
+                position: user.user_type || "อสม. ทั่วไป",
+                gender: "-",
+                hospital: "-",
+                province: user.province_name || "-",
+                district: user.district_name || "-",
+                subdistrict: user.subdistrict_name || "-",
+                status: user.is_active ? "active" : "deleted",
+                email: user.email,
+                phone: user.phone || "-",
+              };
+            }
+
+            try {
+              // ยิง getUserByExternalId เพื่อดึงข้อมูลเต็ม
+              const oauthData = await getUserByExternalId(user.external_user_id);
+
+              // Helper function to safely get value with fallback
+              const getWithFallback = (oauthVal, userVal, defaultVal = "-") => {
+                return oauthVal || userVal || defaultVal;
+              };
+
+              // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
+              const prefix = oauthData?.prefix_name_th || user.prefix || "";
+              const firstName = oauthData?.first_name || user.first_name || "";
+              const lastName = oauthData?.last_name || user.last_name || "";
+              const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+
+              // แปลง gender
+              const rawGender = oauthData?.gender || user.gender;
+              const gender = rawGender === "male" ? "ชาย" :
+                            rawGender === "female" ? "หญิง" :
+                            rawGender || "-";
+
+              // แปลง marital_status
+              const rawMaritalStatus = oauthData?.marital_status;
+              const maritalStatus = rawMaritalStatus === "single" ? "โสด" :
+                                   rawMaritalStatus === "married" ? "สมรส" :
+                                   rawMaritalStatus === "divorced" ? "หย่าร้าง" :
+                                   rawMaritalStatus === "widowed" ? "หม้าย" :
+                                   rawMaritalStatus || "-";
+
+              // แปลง volunteer_status
+              const rawVolunteerStatus = oauthData?.volunteer_status;
+              const volunteerStatus = rawVolunteerStatus === "already_volunteer" ? "เป็น อสม. แล้ว" :
+                                     rawVolunteerStatus === "want_to_be_volunteer" ? "ต้องการเป็น อสม." :
+                                     rawVolunteerStatus === "not_volunteer" ? "ไม่เป็น อสม." :
+                                     rawVolunteerStatus || "-";
+
+              // Merge ข้อมูลจาก 2 sources โดยให้ OAuth2 เป็น priority
+              return {
+                // Base user data
+                external_user_id: user.external_user_id,
+                email: getWithFallback(oauthData?.email, user.email),
+                is_active: user.is_active,
+                osm_code: user.osm_code,
+                last_login: user.last_login,
+                created_at: user.created_at,
+
+                // Personal info (OAuth2 เป็น priority, fallback ไป user API)
+                name: fullName,
+                cid: getWithFallback(oauthData?.citizen_id, user.citizen_id),
+                position: getWithFallback(oauthData?.permission_level, user.user_type, "อสม. ทั่วไป"),
+                gender: gender,
+                hospital: getWithFallback(oauthData?.health_service_name_th, user.hospital),
+                phone: getWithFallback(oauthData?.phone, user.phone),
+
+                // Location data - prefer OAuth2 with Thai names
+                province: oauthData?.province_name_th || user.province_name || "-",
+                district: oauthData?.district_name_th || user.district_name || "-",
+                subdistrict: oauthData?.subdistrict_name_th || user.subdistrict_name || "-",
+
+                // Status
+                status: user.is_active ? "active" : "deleted",
+
+                // Keep original fields
+                prefix: prefix,
+                prefix_name_th: oauthData?.prefix_name_th,
+                prefix_id: oauthData?.prefix_id,
+                first_name: firstName,
+                last_name: lastName,
+
+                // NEW: Demographics from OAuth2
+                birth_date: oauthData?.birth_date,
+                marital_status: maritalStatus,
+                number_of_children: oauthData?.number_of_children,
+                blood_type: oauthData?.blood_type,
+                osm_year: oauthData?.osm_year,
+
+                // NEW: Occupation & Education
+                occupation_id: oauthData?.occupation_id,
+                occupation_name_th: oauthData?.occupation_name_th,
+                education_id: oauthData?.education_id,
+                education_name_th: oauthData?.education_name_th,
+
+                // NEW: Health Service & Bank
+                health_service_id: oauthData?.health_service_id,
+                health_service_name_th: oauthData?.health_service_name_th,
+                bank_id: oauthData?.bank_id,
+                bank_name_th: oauthData?.bank_name_th,
+                bank_account_number: oauthData?.bank_account_number,
+
+                // NEW: Volunteer & Device Status
+                volunteer_status: volunteerStatus,
+                is_smartphone_owner: oauthData?.is_smartphone_owner,
+
+                // NEW: Detailed Address
+                address_number: oauthData?.address_number,
+                alley: oauthData?.alley,
+                street: oauthData?.street,
+                village_no: oauthData?.village_no,
+                village_name: oauthData?.village_name,
+                village_code: oauthData?.village_code,
+                province_id: oauthData?.province_id,
+                district_id: oauthData?.district_id,
+                subdistrict_id: oauthData?.subdistrict_id,
+                postal_code: oauthData?.postal_code,
+
+                // NEW: Approval Status
+                approval_status: oauthData?.approval_status,
+                approval_by: oauthData?.approval_by,
+                approval_date: oauthData?.approval_date,
+
+                // NEW: Created/Updated Info
+                created_by: oauthData?.created_by,
+                created_by_name: oauthData?.created_by_name,
+                created_by_position_name: oauthData?.created_by_position_name,
+                created_by_scope_level: oauthData?.created_by_scope_level,
+                created_by_scope_label: oauthData?.created_by_scope_label,
+                updated_by: oauthData?.updated_by,
+                updated_by_name: oauthData?.updated_by_name,
+                updated_by_position_name: oauthData?.updated_by_position_name,
+                updated_by_scope_level: oauthData?.updated_by_scope_level,
+                updated_by_scope_label: oauthData?.updated_by_scope_label,
+                updated_at: oauthData?.updated_at,
+
+                // NEW: Related Data Objects
+                spouse: oauthData?.spouse,
+                children: oauthData?.children,
+                official_positions: oauthData?.official_positions,
+                special_skills: oauthData?.special_skills,
+                club_positions: oauthData?.club_positions,
+                trainings: oauthData?.trainings,
+
+                // Health data จาก OAuth2
+                chronic_diseases: oauthData?.chronic_diseases,
+                drug_allergies: oauthData?.drug_allergies,
+                food_allergies: oauthData?.food_allergies,
+                blood_pressure_systolic: oauthData?.blood_pressure_systolic,
+                blood_pressure_diastolic: oauthData?.blood_pressure_diastolic,
+                weight: oauthData?.weight,
+                height: oauthData?.height,
+                bmi: oauthData?.bmi,
+                waist: oauthData?.waist,
+
+                // Additional OAuth2 fields
+                family_history_cancer: oauthData?.family_history_cancer,
+                family_history_diabetes: oauthData?.family_history_diabetes,
+                family_history_hypertension: oauthData?.family_history_hypertension,
+                family_history_cvd: oauthData?.family_history_cvd,
+                family_history_stroke: oauthData?.family_history_stroke,
+                bse_result: oauthData?.bse_result,
+                cv_risk_score: oauthData?.cv_risk_score,
+                stress_level: oauthData?.stress_level,
+                depression_2q: oauthData?.depression_2q,
+                fasting_blood_sugar: oauthData?.fasting_blood_sugar,
+                stool_result: oauthData?.stool_result,
+                fit_result: oauthData?.fit_result,
+                hpv_result: oauthData?.hpv_result,
+                living_with_care: oauthData?.living_with_care,
+                house_safety: oauthData?.house_safety,
+                income_sufficiency: oauthData?.income_sufficiency,
+                time_up_go_test: oauthData?.time_up_go_test,
+                fall_history_6m: oauthData?.fall_history_6m,
+                swallow_problem_3m: oauthData?.swallow_problem_3m,
+                vision_problem: oauthData?.vision_problem,
+                hearing_status: oauthData?.hearing_status,
+                depression_2w: oauthData?.depression_2w,
+                urinary_incontinence: oauthData?.urinary_incontinence,
+                adl_status: oauthData?.adl_status,
+                oral_chewing_difficulty: oauthData?.oral_chewing_difficulty,
+                oral_pain: oauthData?.oral_pain,
+                cognitive_status: oauthData?.cognitive_status,
+                latitude: oauthData?.latitude,
+                longitude: oauthData?.longitude,
+              };
+            } catch (error) {
+              console.warn(`⚠️ Failed to fetch OAuth2 data for user ${user.external_user_id}:`, error.message);
+
+              // Fallback to base user data if OAuth2 fetch fails
+              const prefix = user.prefix || "";
+              const firstName = user.first_name || "";
+              const lastName = user.last_name || "";
+              const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+
+              const rawGender = user.gender;
+              const gender = rawGender === "male" ? "ชาย" :
+                            rawGender === "female" ? "หญิง" :
+                            rawGender || "-";
+
+              return {
+                external_user_id: user.external_user_id,
+                name: fullName,
+                cid: user.citizen_id || "-",
+                position: user.user_type || "อสม. ทั่วไป",
+                gender: gender,
+                hospital: user.hospital || "-",
+                province: user.province_name || "-",
+                district: user.district_name || "-",
+                subdistrict: user.subdistrict_name || "-",
+                status: user.is_active ? "active" : "deleted",
+                email: user.email,
+                phone: user.phone || "-",
+                prefix: prefix,
+                first_name: firstName,
+                last_name: lastName,
+              };
+            }
+          })
+        );
+
+        // Filter out rejected promises and extract values
+        const successfulUsers = usersWithDetails
+          .filter(result => result.status === 'fulfilled')
+          .map(result => result.value);
+
+        setUsers(successfulUsers);
+        setTotalItems(response.total);
+        setTotalPages(response.total_pages);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+
+        // Clear users on error
+        setUsers([]);
+        setTotalItems(0);
+        setTotalPages(1);
+
+        // Show appropriate error message
+        let errorMessage = "ไม่สามารถดึงข้อมูลผู้ใช้งานได้ กรุณาลองใหม่อีกครั้ง";
+
+        if (error.message.includes("authentication token")) {
+          errorMessage = "ไม่พบ Token กรุณาเข้าสู่ระบบใหม่อีกครั้ง";
+        } else if (error.message.includes("403")) {
+          errorMessage = "คุณไม่มีสิทธิ์ในการเข้าถึงข้อมูลนี้";
+        }
+
+        Swal.fire({
+          icon: "error",
+          title: "เกิดข้อผิดพลาด",
+          text: errorMessage,
+          confirmButtonColor: "#7e32e2"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [currentPage, itemsPerPage, keyword, tab, province, district, subdistrict]);
+
+  // ใช้ users โดยตรง เพราะ API ส่งมาแบบ paginated แล้ว
+  const displayUsers = users;
 
   const handleRestoreUser = () => {
     if (!selectedUser) return;
@@ -861,7 +1132,7 @@ const UserListComp = () => {
                   ลำดับ
                 </th>
                 <th className="py-4 px-4 font-semibold text-left text-white">
-                  รายชื่อ ({filteredUsers.length} รายการ)
+                  รายชื่อ ({totalItems} รายการ)
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
                   เลขประจำตัวประชาชน
@@ -875,7 +1146,16 @@ const UserListComp = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedUsers.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 size={48} className="text-purple-500 animate-spin" />
+                      <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : displayUsers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -885,7 +1165,7 @@ const UserListComp = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedUsers.map((row, idx) => (
+                displayUsers.map((row, idx) => (
                   <tr
                     key={row.cid}
                     className={`${
@@ -896,7 +1176,18 @@ const UserListComp = () => {
                       {(currentPage - 1) * itemsPerPage + idx + 1}
                     </td>
                     <td className="py-4 px-4 font-medium text-[#231d37]">
-                      {row.name}
+                      <div className="flex items-center gap-2">
+                        {/* Status indicator - สีเขียว = active, เทา = deleted */}
+                        <div
+                          className={`w-3 h-3 rounded-full ${
+                            row.status === "active"
+                              ? "bg-green-500 shadow-lg shadow-green-500/50"
+                              : "bg-gray-400"
+                          }`}
+                          title={row.status === "active" ? "กำลังใช้งาน" : "ปิดการใช้งาน"}
+                        />
+                        <span>{row.name}</span>
+                      </div>
                     </td>
                     <td className="py-4 px-4 text-center text-gray-600">
                       <div className="flex items-center justify-center gap-2">
