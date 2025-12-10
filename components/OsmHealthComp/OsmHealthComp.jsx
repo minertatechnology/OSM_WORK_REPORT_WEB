@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import {
   Download,
-  CalendarDays,
   Search,
   X,
   ChevronLeft,
@@ -16,10 +15,11 @@ import {
   Calendar,
 } from "lucide-react";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import { getHealthRecords } from "@services/healthRecordService";
+import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
 
-// Mock data
-const years = ["2568", "2567", "2566"];
-const months = [
+// Thai month names
+const THAI_MONTHS = [
   "มกราคม",
   "กุมภาพันธ์",
   "มีนาคม",
@@ -33,10 +33,22 @@ const months = [
   "พฤศจิกายน",
   "ธันวาคม",
 ];
-const mockList = Array.from({ length: 23 }).map((_, idx) => ({
-  date: "25 มิถุนายน 2568",
-  name: `นางสาวชุชนาถ ผดุงจิตร ${idx + 1}`,
-}));
+
+/**
+ * แปลงวันที่เป็นรูปแบบไทย
+ * @param {string} dateString - ISO date string
+ * @returns {string} - วันที่ในรูปแบบ "DD เดือน YYYY"
+ */
+const formatThaiDate = (dateString) => {
+  if (!dateString) return "-";
+
+  const date = new Date(dateString);
+  const day = date.getDate();
+  const month = THAI_MONTHS[date.getMonth()];
+  const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
+
+  return `${day} ${month} ${year}`;
+};
 
 // Pagination helpers
 const PER_PAGE_OPTIONS = [
@@ -173,18 +185,79 @@ function PaginationWithPerPage({
 
 const OsmHealthComp = () => {
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("มิถุนายน");
+  const currentBuddhistYear = new Date().getFullYear() + 543;
+  const currentMonth = THAI_MONTHS[new Date().getMonth()];
+
+  const [year, setYear] = useState(currentBuddhistYear.toString());
+  const [month, setMonth] = useState(currentMonth);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  // Data state
+  const [healthRecords, setHealthRecords] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [availableYears, setAvailableYears] = useState([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Fetch health records on mount
+  useEffect(() => {
+    const fetchHealthRecords = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getHealthRecords({ limit: 1000 });
+        setHealthRecords(data || []);
+
+        // Generate available years from data
+        const yearsSet = new Set();
+        data.forEach((record) => {
+          if (record.updated_at) {
+            const date = new Date(record.updated_at);
+            const buddhistYear = date.getFullYear() + 543;
+            yearsSet.add(buddhistYear.toString());
+          }
+        });
+        const yearsList = Array.from(yearsSet).sort((a, b) => b - a);
+        setAvailableYears(
+          yearsList.length > 0 ? yearsList : [currentBuddhistYear.toString()]
+        );
+      } catch (error) {
+        console.error("Failed to fetch health records:", error);
+        setHealthRecords([]);
+        setAvailableYears([currentBuddhistYear.toString()]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchHealthRecords();
+  }, []);
+
+  // Filter health records based on year and month
+  const filteredRecords = React.useMemo(() => {
+    if (!healthRecords.length) return [];
+
+    return healthRecords.filter((record) => {
+      if (!record.updated_at) return false;
+
+      const date = new Date(record.updated_at);
+      const recordYear = (date.getFullYear() + 543).toString();
+      const recordMonth = THAI_MONTHS[date.getMonth()];
+
+      // Check year match
+      if (year && recordYear !== year) return false;
+
+      // Check month match (only if search type is year, not budget)
+      if (searchType === "year" && month && recordMonth !== month) return false;
+
+      return true;
+    });
+  }, [healthRecords, year, month, searchType]);
+
   // Pagination calculation
-  const totalPages = Math.ceil(mockList.length / itemsPerPage);
-  const paginatedData = mockList.slice(
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const paginatedData = filteredRecords.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -204,8 +277,24 @@ const OsmHealthComp = () => {
   // Reset filters
   const resetFilters = () => {
     setSearchType("year");
-    setYear("2568");
-    setMonth("มิถุนายน");
+    setYear(currentBuddhistYear.toString());
+    setMonth(currentMonth);
+    setCurrentPage(1);
+  };
+
+  // Handle search
+  const handleSearch = () => {
+    setCurrentPage(1);
+  };
+
+  // Handle download PDF for single record
+  const handleDownloadPDF = (record) => {
+    try {
+      exportHealthRecordToPDF(record);
+    } catch (error) {
+      console.error("Failed to export PDF:", error);
+      alert("เกิดข้อผิดพลาดในการสร้าง PDF กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
   return (
@@ -238,7 +327,7 @@ const OsmHealthComp = () => {
               <div>
                 <p className="text-sm text-gray-500">จำนวนผู้ตรวจทั้งหมด</p>
                 <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
-                  {mockList.length}
+                  {isLoading ? "..." : filteredRecords.length}
                 </p>
               </div>
             </div>
@@ -249,8 +338,10 @@ const OsmHealthComp = () => {
                 <Heart className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">สุขภาพดี</p>
-                <p className="text-2xl font-bold text-green-600">18</p>
+                <p className="text-sm text-gray-500">ข้อมูลทั้งหมด</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {isLoading ? "..." : healthRecords.length}
+                </p>
               </div>
             </div>
           </div>
@@ -340,7 +431,7 @@ const OsmHealthComp = () => {
               label="ปี"
               value={year}
               onChange={(e) => setYear(e.target.value)}
-              options={years.map((y) => ({ label: y, value: y }))}
+              options={availableYears.map((y) => ({ label: y, value: y }))}
               placeholder="-- เลือกปี --"
               icon={Calendar}
             />
@@ -348,7 +439,7 @@ const OsmHealthComp = () => {
               label="เดือน"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              options={months.map((m) => ({ label: m, value: m }))}
+              options={THAI_MONTHS.map((m) => ({ label: m, value: m }))}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
             />
@@ -358,10 +449,12 @@ const OsmHealthComp = () => {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-200"
+              onClick={handleSearch}
+              disabled={isLoading}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Search size={20} />
-              <span>ค้นหา</span>
+              <span>{isLoading ? "กำลังค้นหา..." : "ค้นหา"}</span>
             </button>
             <button
               type="button"
@@ -384,7 +477,7 @@ const OsmHealthComp = () => {
                 ตารางข้อมูลผลตรวจสุขภาพ อสม.
               </h2>
               <span className="text-sm text-gray-500">
-                ({mockList.length} รายการ)
+                ({isLoading ? "..." : filteredRecords.length} รายการ)
               </span>
             </div>
             <div className="relative" ref={dropdownRef}>
@@ -460,25 +553,48 @@ const OsmHealthComp = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedData.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-b border-purple-50 hover:bg-purple-50/50 transition-colors"
-                  >
-                    <td className="py-3 px-3 text-center text-gray-600 text-sm">
-                      {row.date}
-                    </td>
-                    <td className="py-3 px-3 text-gray-800 text-sm font-medium">
-                      {row.name}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <button className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-600 font-semibold text-sm rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-all">
-                        <Download size={16} />
-                        <span className="hidden sm:inline">ดาวน์โหลด</span>
-                      </button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan="3" className="py-8 text-center text-gray-500">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                        <span>กำลังโหลดข้อมูล...</span>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : paginatedData.length === 0 ? (
+                  <tr>
+                    <td colSpan="3" className="py-8 text-center text-gray-500">
+                      ไม่พบข้อมูล
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedData.map((record, idx) => {
+                    const fullName = `${record.prefix || ""}${record.first_name || ""} ${record.last_name || ""}`.trim() || "ไม่ระบุชื่อ";
+                    return (
+                      <tr
+                        key={record.id || idx}
+                        className="border-b border-purple-50 hover:bg-purple-50/50 transition-colors"
+                      >
+                        <td className="py-3 px-3 text-center text-gray-600 text-sm">
+                          {formatThaiDate(record.updated_at)}
+                        </td>
+                        <td className="py-3 px-3 text-gray-800 text-sm font-medium">
+                          {fullName}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <button
+                            onClick={() => handleDownloadPDF(record)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-600 font-semibold text-sm rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-all"
+                          >
+                            <Download size={16} />
+                            <span className="hidden sm:inline">ดาวน์โหลด</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

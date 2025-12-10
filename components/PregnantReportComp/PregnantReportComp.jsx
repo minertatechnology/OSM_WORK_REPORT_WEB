@@ -28,6 +28,12 @@ import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
 import { getUserByExternalId } from "@services/oauth2Service";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
+import {
+  getProvinces,
+  getDistricts,
+  getSubdistricts,
+  getHealthServices
+} from "@services/lookupService";
 
 // Mock Data
 // YEARS จะถูกสร้างจาก created_at ของข้อมูลจริง
@@ -52,10 +58,6 @@ const WEEKS = [
   "สัปดาห์ 4 (22/6/68 - 30/6/68)",
 ];
 const ZONES = Array.from({ length: 13 }, (_, i) => `เขตสุขภาพที่ ${i + 1}`);
-const PROVINCES = ["เชียงใหม่", "กรุงเทพฯ", "ขอนแก่น", "นครราชสีมา", "ชลบุรี"];
-const DISTRICTS = ["เมือง", "สันทราย", "หางดง", "ดอยสะเก็ด"];
-const SUBDISTRICTS = ["ท่าศาลา", "หนองจ๊อม", "สันทรายน้อย", "สันทรายหลวง"];
-const SERVICES = ["รพ.เชียงใหม่", "รพ.สันทราย", "รพ.หางดง", "รพ.ดอยสะเก็ด"];
 
 // Tabs for report status
 const TABS = [
@@ -821,6 +823,13 @@ const PregnantReportComp = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [availableYears, setAvailableYears] = useState([currentBuddhistYear.toString()]); // เก็บรายการปีจากข้อมูล
 
+  // State สำหรับเก็บข้อมูล lookup
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [subdistricts, setSubdistricts] = useState([]);
+  const [healthServices, setHealthServices] = useState([]);
+  const [isLoadingLookups, setIsLoadingLookups] = useState(false);
+
   // ดึงข้อมูลการประเมินหญิงตั้งครรภ์และข้อมูลผู้ใช้จาก API
   useEffect(() => {
     const fetchData = async () => {
@@ -906,6 +915,92 @@ const PregnantReportComp = () => {
 
     fetchData();
   }, []); // ดึงข้อมูลครั้งเดียวตอน mount
+
+  // ดึงข้อมูล lookup (จังหวัด)
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      try {
+        setIsLoadingLookups(true);
+        const data = await getProvinces({ limit: 100 });
+        setProvinces(data || []);
+      } catch (error) {
+        console.error("Failed to fetch provinces:", error);
+        setProvinces([]);
+      } finally {
+        setIsLoadingLookups(false);
+      }
+    };
+
+    fetchProvinces();
+  }, []);
+
+  // ดึงข้อมูลอำเภอเมื่อเลือกจังหวัด
+  useEffect(() => {
+    const fetchDistricts = async () => {
+      if (!province) {
+        setDistricts([]);
+        setSubdistricts([]);
+        setHealthServices([]);
+        return;
+      }
+
+      try {
+        const data = await getDistricts(province);
+        setDistricts(data || []);
+      } catch (error) {
+        console.error("Failed to fetch districts:", error);
+        setDistricts([]);
+      }
+    };
+
+    fetchDistricts();
+  }, [province]);
+
+  // ดึงข้อมูลตำบลเมื่อเลือกอำเภอ
+  useEffect(() => {
+    const fetchSubdistricts = async () => {
+      if (!district) {
+        setSubdistricts([]);
+        setHealthServices([]);
+        return;
+      }
+
+      try {
+        const data = await getSubdistricts(district);
+        setSubdistricts(data || []);
+      } catch (error) {
+        console.error("Failed to fetch subdistricts:", error);
+        setSubdistricts([]);
+      }
+    };
+
+    fetchSubdistricts();
+  }, [district]);
+
+  // ดึงข้อมูลหน่วยบริการ
+  useEffect(() => {
+    const fetchHealthServices = async () => {
+      if (!province) {
+        setHealthServices([]);
+        return;
+      }
+
+      try {
+        const params = {
+          province_code: province,
+          ...(district && { district_code: district }),
+          ...(subdistrict && { subdistrict_code: subdistrict }),
+        };
+        const data = await getHealthServices(params);
+        setHealthServices(data || []);
+      } catch (error) {
+        console.error("Failed to fetch health services:", error);
+        setHealthServices([]);
+      }
+    };
+
+    fetchHealthServices();
+  }, [province, district, subdistrict]);
 
   // Helper function เพื่อดึงชื่อผู้ใช้จาก userDataMap
   const getUserName = (external_user_id, fallbackName) => {
@@ -1141,34 +1236,61 @@ const PregnantReportComp = () => {
           <CustomSelect
             label="จังหวัด"
             value={province}
-            onChange={(e) => setProvince(e.target.value)}
-            options={PROVINCES.map((p) => ({ label: p, value: p }))}
+            onChange={(e) => {
+              setProvince(e.target.value);
+              setDistrict("");
+              setSubdistrict("");
+              setService("");
+            }}
+            options={provinces.map((p) => ({
+              label: p.name_th || p.name || "ไม่ระบุ",
+              value: String(p.code || p.id || "")
+            }))}
             placeholder="-- เลือกจังหวัด --"
             icon={MapPin}
           />
           <CustomSelect
             label="อำเภอ"
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            options={DISTRICTS.map((d) => ({ label: d, value: d }))}
+            onChange={(e) => {
+              setDistrict(e.target.value);
+              setSubdistrict("");
+              setService("");
+            }}
+            options={districts.map((d) => ({
+              label: d.name_th || d.name || "ไม่ระบุ",
+              value: String(d.code || d.id || "")
+            }))}
             placeholder="-- เลือกอำเภอ --"
             icon={MapPin}
+            disabled={!province}
           />
           <CustomSelect
             label="ตำบล"
             value={subdistrict}
-            onChange={(e) => setSubdistrict(e.target.value)}
-            options={SUBDISTRICTS.map((s) => ({ label: s, value: s }))}
+            onChange={(e) => {
+              setSubdistrict(e.target.value);
+              setService("");
+            }}
+            options={subdistricts.map((s) => ({
+              label: s.name_th || s.name || "ไม่ระบุ",
+              value: String(s.code || s.id || "")
+            }))}
             placeholder="-- เลือกตำบล --"
             icon={MapPin}
+            disabled={!district}
           />
           <CustomSelect
             label="หน่วยบริการ"
             value={service}
             onChange={(e) => setService(e.target.value)}
-            options={SERVICES.map((s) => ({ label: s, value: s }))}
+            options={healthServices.map((s) => ({
+              label: s.name_th || s.name || s.service_name || "ไม่ระบุ",
+              value: String(s.id || s.code || "")
+            }))}
             placeholder="-- เลือกหน่วยบริการ --"
             icon={Building2}
+            disabled={!province}
           />
         </div>
 
