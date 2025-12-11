@@ -28,6 +28,7 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import MapThailandComponent from "@services/MapThailand/MapThailandService";
 import { HEALTHZONE_PROVINCES } from "@utils/healthzone-province-data";
+import reportsMapService from "@services/reportsMapService";
 // ปี options (mock)
 const YEARS = [
   { label: "2568", value: "2568" },
@@ -611,6 +612,11 @@ const DashboardSobos = () => {
   const [filteredPie, setFilteredPie] = useState(null);
   const [provinceData, setProvinceData] = useState([]);
 
+  // เพิ่ม state สำหรับข้อมูลจาก API
+  const [reportsData, setReportsData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
   // โหลดข้อมูลจังหวัด/อำเภอ/ตำบล จาก API ครั้งเดียว
   useEffect(() => {
     fetch(THAI_PROVINCE_DATA_URL)
@@ -683,8 +689,92 @@ const DashboardSobos = () => {
     setFilteredTable(null);
   };
 
+  // ฟังก์ชันดึงข้อมูลจาก API
+  const fetchReportsData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const filters = {};
+
+      // แปลง zone เป็น province_code ถ้ามีการเลือกเขต
+      if (province) {
+        // หาจังหวัดจาก provinceData
+        const foundProv = provinceData.find((p) => p.name_th === province);
+        if (foundProv) {
+          filters.province_code = foundProv.id.toString();
+        }
+      }
+
+      if (district) {
+        const foundProv = provinceData.find((p) => p.name_th === province);
+        if (foundProv) {
+          const foundDist = foundProv.amphure.find((a) => a.name_th === district);
+          if (foundDist) {
+            filters.district_code = foundDist.id.toString();
+          }
+        }
+      }
+
+      if (subdistrict) {
+        const foundProv = provinceData.find((p) => p.name_th === province);
+        if (foundProv) {
+          const foundDist = foundProv.amphure.find((a) => a.name_th === district);
+          if (foundDist) {
+            const foundSub = foundDist.tambon.find((t) => t.name_th === subdistrict);
+            if (foundSub) {
+              filters.subdistrict_code = foundSub.id.toString();
+            }
+          }
+        }
+      }
+
+      // เพิ่ม filter ตามช่วงเวลา
+      if (year && month) {
+        const buddhistYear = parseInt(year);
+        const gregorianYear = buddhistYear - 543;
+        const monthNum = parseInt(month);
+
+        const startDate = new Date(gregorianYear, monthNum - 1, 1);
+        const endDate = new Date(gregorianYear, monthNum, 0, 23, 59, 59);
+
+        filters.start_date = startDate.toISOString();
+        filters.end_date = endDate.toISOString();
+      } else if (year) {
+        const buddhistYear = parseInt(year);
+        const gregorianYear = buddhistYear - 543;
+
+        const startDate = new Date(gregorianYear, 0, 1);
+        const endDate = new Date(gregorianYear, 11, 31, 23, 59, 59);
+
+        filters.start_date = startDate.toISOString();
+        filters.end_date = endDate.toISOString();
+      }
+
+      filters.limit = 10000;
+
+      const data = await reportsMapService.getReportsMapData(filters);
+      setReportsData(data);
+      console.log("📊 Reports data from API:", data);
+
+    } catch (err) {
+      console.error("Error fetching reports:", err);
+      setError("เกิดข้อผิดพลาดในการดึงข้อมูล");
+    } finally {
+      setLoading(false);
+    }
+  }, [province, district, subdistrict, year, month, provinceData]);
+
+  // โหลดข้อมูลครั้งแรก
+  useEffect(() => {
+    fetchReportsData();
+  }, [fetchReportsData]);
+
   // กดค้นหา
   const handleSearch = useCallback(() => {
+    fetchReportsData();
+
+    // เก็บ logic เดิมไว้สำหรับ fallback
     let table = REPORT_TABS[tabIdx].table;
     let pie = REPORT_TABS[tabIdx].pie;
 
@@ -1092,46 +1182,99 @@ const DashboardSobos = () => {
           </div>
         </div>
 
-        {/* Responsive summary cards */}
-        <div className="mt-8">
-          <h2 className="text-xl font-bold text-purple-600 mb-5 flex items-center gap-2">
-            <BarChart2 className="w-6 h-6" />
-            ข้อมูลสรุป
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-            {SUMMARY_CARDS.map((card, idx) => (
-              <div
-                key={idx}
-                className="group relative flex flex-col justify-between bg-gradient-to-br from-white to-purple-50/30 rounded-2xl shadow-md hover:shadow-2xl border border-purple-100 p-5 min-h-[130px] transition-all duration-300 hover:scale-105 hover:border-purple-300 cursor-pointer overflow-hidden"
-              >
-                {/* Decorative gradient */}
-                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/20 to-transparent rounded-bl-full"></div>
+        {/* Error Message */}
+        {error && (
+          <div className="mt-8 bg-red-50 border border-red-200 rounded-xl p-4">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
 
+        {/* Loading State */}
+        {loading && (
+          <div className="mt-8 flex items-center justify-center p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Responsive summary cards - ใช้ข้อมูลจาก API */}
+        {!loading && reportsData && (
+          <div className="mt-8">
+            <h2 className="text-xl font-bold text-purple-600 mb-5 flex items-center gap-2">
+              <BarChart2 className="w-6 h-6" />
+              ข้อมูลสรุป
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+              {/* การ์ดรวมทั้งหมด */}
+              <div className="group relative flex flex-col justify-between bg-gradient-to-br from-white to-purple-50/30 rounded-2xl shadow-md hover:shadow-2xl border border-purple-100 p-5 min-h-[130px] transition-all duration-300 hover:scale-105 hover:border-purple-300 cursor-pointer overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/20 to-transparent rounded-bl-full"></div>
                 <div className="flex items-start gap-3 relative z-10">
                   <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-3 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    <div className="text-white">{card.icon}</div>
+                    <Activity className="w-6 h-6 text-white" />
                   </div>
                   <span className="text-[13px] font-semibold text-gray-700 line-clamp-2 leading-tight pt-1">
-                    {card.label}
+                    รวมรายงานทั้งหมด
                   </span>
                 </div>
                 <div className="mt-4 flex items-end justify-between relative z-10">
                   <span className="text-[28px] font-bold bg-gradient-to-r from-purple-600 to-purple-400 bg-clip-text text-transparent">
-                    {card.value}
+                    {reportsData.total_reports.toLocaleString()}
                   </span>
-                  {card.report && (
-                    <button
-                      type="button"
-                      className="px-3 py-1.5 rounded-lg text-[13px] font-semibold text-white bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 shadow-md hover:shadow-lg transition-all duration-200"
-                    >
-                      รายงาน
-                    </button>
-                  )}
                 </div>
               </div>
-            ))}
+
+              {/* การ์ดตามประเภทรายงาน (แสดงทั้งหมด 7 ประเภท) */}
+              {(() => {
+                const reportTypeConfigs = [
+                  { type: "report_osm1", label: "รายงาน อสม. 1", icon: FileText },
+                  { type: "mosquito_larvae", label: "รายงานลูกน้ำยุงลาย", icon: FileText },
+                  { type: "health_record", label: "แบบบันทึกสุขภาพ อสม.", icon: FileText },
+                  { type: "ncds", label: "คัดกรอง NCDs", icon: FileText },
+                  { type: "pregnant_women", label: "หญิงตั้งครรภ์/หลังคลอด", icon: FileText },
+                  { type: "count_carbs", label: "อสม.ชวนนับคาร์บ", icon: FileText },
+                  { type: "elderly_screening", label: "คัดกรองผู้สูงอายุ", icon: FileText },
+                ];
+
+                return reportTypeConfigs.map(({ type, label, icon: Icon }) => {
+                  const count = reportsData.summary_by_type?.[type] || 0;
+
+                  return (
+                    <div
+                      key={type}
+                      className="group relative flex flex-col justify-between bg-gradient-to-br from-white to-purple-50/30 rounded-2xl shadow-md hover:shadow-2xl border border-purple-100 p-5 min-h-[130px] transition-all duration-300 hover:scale-105 hover:border-purple-300 cursor-pointer overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/20 to-transparent rounded-bl-full"></div>
+                      <div className="flex items-start gap-3 relative z-10">
+                        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-3 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                          <Icon className="w-6 h-6 text-white" />
+                        </div>
+                        <span className="text-[13px] font-semibold text-gray-700 line-clamp-2 leading-tight pt-1">
+                          {label}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex items-end justify-between relative z-10">
+                        <span className="text-[28px] font-bold bg-gradient-to-r from-purple-600 to-purple-400 bg-clip-text text-transparent">
+                          {count.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* No Data State */}
+        {!loading && !reportsData && (
+          <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
+            <Activity className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-700 mb-2">ไม่มีข้อมูล</h3>
+            <p className="text-gray-600">กรุณาตรวจสอบการเชื่อมต่อ API หรือลองค้นหาใหม่อีกครั้ง</p>
+          </div>
+        )}
         {/* Tabs section */}
         <div className="w-full mt-12 mb-6">
           <div className="bg-white rounded-2xl shadow-md border border-purple-100 p-2 inline-flex flex-wrap gap-2">
