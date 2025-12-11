@@ -25,6 +25,7 @@ import { font as sarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 import Reportosm1CompDetailComp from "../Reportosm1CompDetailComp/Reportosm1CompDetailComp";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import { getUsersBatch } from "@services/oauth2Service";
 
 // Mock data
 const YEARS = [
@@ -70,13 +71,6 @@ const SERVICES = [
   { label: "รพ.ปากช่อง", value: "รพ.ปากช่อง" },
   { label: "รพ.สต.โนนไทย", value: "รพ.สต.โนนไทย" },
 ];
-
-const MOCK_REPORTS = Array.from({ length: 100 }, (_, i) => ({
-  name: `นางสาวชบุษบก ผดุงจิตร (อสม.${i + 1})`,
-  date: "25 มิถุนายน 2568",
-}));
-
-const ALL_ROWS = MOCK_REPORTS.map((row, idx) => ({ ...row, index: idx + 1 }));
 
 // Export functions
 function exportSummaryPDF(data) {
@@ -347,7 +341,7 @@ function exportToExcel(data, title = "รายงาน อสม.1") {
 function DetailModal({ open, onClose, data = [] }) {
   if (!open) return null;
 
-  const rows = data?.length ? data : ALL_ROWS;
+  const rows = data;
 
   const handleExportSummaryPDF = () => {
     if (rows.length) exportSummaryPDF(rows);
@@ -642,6 +636,64 @@ const Reportosm1DataComp = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [apiData, setApiData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          "http://192.168.1.134:8000/api/v1/report-osm1/submissionsall?skip=0&limit=1000"
+        );
+        const data = await response.json();
+
+        // ดึงรายการ external_user_id ทั้งหมด
+        const externalUserIds = data.map(item => item.external_user_id).filter(Boolean);
+
+        // ดึงข้อมูลผู้ใช้จาก OAuth2 API
+        const usersMap = await getUsersBatch(externalUserIds);
+
+        // ผสานข้อมูลชื่อเข้ากับข้อมูล submission
+        const enrichedData = data.map(item => ({
+          ...item,
+          userName: usersMap.get(item.external_user_id)?.name || item.external_user_id || "ไม่ระบุชื่อ"
+        }));
+
+        setApiData(enrichedData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setApiData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Transform API data to table format
+  const ALL_ROWS = useMemo(() => {
+    return apiData.map((item, idx) => ({
+      index: idx + 1,
+      id: item.id,
+      name: item.userName || "ไม่ระบุชื่อ",
+      date: item.submitted_at
+        ? new Date(item.submitted_at).toLocaleDateString("th-TH", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "-",
+      fiscal_year: item.fiscal_year,
+      total_activities: item.total_activities,
+      filled_activities: item.filled_activities,
+      completion_rate: item.completion_rate,
+      status: item.status,
+      rawData: item,
+    }));
+  }, [apiData]);
 
   const filteredRows = useMemo(() => {
     const term = keyword.trim().toLowerCase();
@@ -652,7 +704,7 @@ const Reportosm1DataComp = () => {
         row.date.toLowerCase().includes(term) ||
         String(row.index).includes(term)
     );
-  }, [keyword]);
+  }, [keyword, ALL_ROWS]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -678,7 +730,7 @@ const Reportosm1DataComp = () => {
 
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
-    const selectedRow = ALL_ROWS.find((row) => row.index === Number(detailId));
+    const selectedRow = ALL_ROWS.find((row) => row.id === detailId);
     const monthLabel =
       MONTHS.find((m) => m.value === month)?.label || "มิถุนายน";
 
@@ -688,6 +740,7 @@ const Reportosm1DataComp = () => {
           year,
           month: monthLabel,
           name: selectedRow?.name || "ไม่พบข้อมูล",
+          rawData: selectedRow?.rawData,
         }}
       />
     );
@@ -845,7 +898,16 @@ const Reportosm1DataComp = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7e32e2]"></div>
+                      <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -857,7 +919,7 @@ const Reportosm1DataComp = () => {
               ) : (
                 paginatedRows.map((row, idx) => (
                   <tr
-                    key={row.index}
+                    key={row.id || row.index}
                     className={`${
                       idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
                     } hover:bg-purple-50 transition-colors`}
@@ -875,7 +937,7 @@ const Reportosm1DataComp = () => {
                       <button
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
                         onClick={() =>
-                          router.push(`/report-osm1/data?detail=${row.index}`)
+                          router.push(`/report-osm1/data?detail=${row.id}`)
                         }
                       >
                         <Eye size={16} />

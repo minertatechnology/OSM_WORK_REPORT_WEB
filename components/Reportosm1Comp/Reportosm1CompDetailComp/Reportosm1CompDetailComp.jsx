@@ -1,60 +1,155 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 
-// Mock data สำหรับตารางรายละเอียด อสม.1
-const mockDetailData = [
-  // 1. การส่งเสริมสุขภาพ
-  { no: "1", activity: "การส่งเสริมสุขภาพ", unit: "", result: "", isMainCategory: true },
-  { no: "1.1", activity: "อสม. เยี่ยมให้คำแนะนำหญิงตั้งครรภ์ (รายใหม่)", unit: "คน", result: 12 },
-  { no: "", activity: "- อสม. ค้นหาหญิงตั้งครรภ์อายุต่ำกว่า 15 ปี (รายใหม่)", unit: "คน", result: 2 },
-  { no: "", activity: "- อสม. ค้นหาหญิงตั้งครรภ์อายุ 15-19 ปี (รายใหม่)", unit: "คน", result: 3 },
-  { no: "1.2", activity: "อสม. เยี่ยมให้คำแนะนำหญิงหลังคลอด", unit: "คน", result: 8 },
-  { no: "1.3", activity: "อสม. ติดตามเด็กแรกเกิด - 5 ปี", unit: "คน", result: 25 },
-  { no: "1.4", activity: "อสม. ให้บริการวางแผนครอบครัว", unit: "คน", result: 15 },
-
-  // 2. การป้องกันโรคและควบคุมโรค
-  { no: "2", activity: "การป้องกันโรคและควบคุมโรค", unit: "", result: "", isMainCategory: true },
-  { no: "2.1", activity: "อสม. ค้นหาผู้ป่วยเบาหวาน (รายใหม่)", unit: "คน", result: 5 },
-  { no: "2.2", activity: "อสม. ค้นหาผู้ป่วยความดันโลหิตสูง (รายใหม่)", unit: "คน", result: 7 },
-  { no: "2.3", activity: "อสม. เยี่ยมผู้ป่วยเบาหวาน", unit: "คน", result: 18 },
-  { no: "2.4", activity: "อสม. เยี่ยมผู้ป่วยความดันโลหิตสูง", unit: "คน", result: 22 },
-  { no: "2.5", activity: "อสม. ตรวจคัดกรองวัณโรค", unit: "คน", result: 10 },
-
-  // 3. การดูแลผู้สูงอายุ
-  { no: "3", activity: "การดูแลผู้สูงอายุ", unit: "", result: "", isMainCategory: true },
-  { no: "3.1", activity: "อสม. เยี่ยมผู้สูงอายุติดบ้าน/ติดเตียง", unit: "คน", result: 15 },
-  { no: "3.2", activity: "อสม. ประเมินภาวะสุขภาพผู้สูงอายุ", unit: "คน", result: 35 },
-  { no: "3.3", activity: "อสม. ดูแลผู้สูงอายุที่มีภาวะพึ่งพิง", unit: "คน", result: 8 },
-
-  // 4. การส่งเสริมสุขภาพจิตและป้องกันปัญหาสุขภาพจิต
-  { no: "4", activity: "การส่งเสริมสุขภาพจิตและป้องกันปัญหาสุขภาพจิต", unit: "", result: "", isMainCategory: true },
-  { no: "4.1", activity: "อสม. คัดกรองภาวะซึมเศร้า", unit: "คน", result: 20 },
-  { no: "4.2", activity: "อสม. เยี่ยมผู้ป่วยจิตเวช/ผู้พิการทางจิต", unit: "คน", result: 6 },
-
-  // 5. การดูแลผู้ป่วยระยะกลาง-ระยะยาว
-  { no: "5", activity: "การดูแลผู้ป่วยระยะกลาง-ระยะยาว (LTC)", unit: "", result: "", isMainCategory: true },
-  { no: "5.1", activity: "อสม. เยี่ยมผู้ป่วยติดเตียง", unit: "คน", result: 12 },
-  { no: "5.2", activity: "อสม. ดูแลผู้ป่วยประคับประคอง (Palliative Care)", unit: "คน", result: 3 },
-
-  // 6. การพัฒนาศักยภาพชุมชน
-  { no: "6", activity: "การพัฒนาศักยภาพชุมชน", unit: "", result: "", isMainCategory: true },
-  { no: "6.1", activity: "อสม. จัดกิจกรรมส่งเสริมสุขภาพในชุมชน", unit: "ครั้ง", result: 4 },
-  { no: "6.2", activity: "อสม. เข้าร่วมประชุมประจำเดือน", unit: "ครั้ง", result: 1 },
-  { no: "6.3", activity: "อสม. รับการอบรม/พัฒนาศักยภาพ", unit: "ครั้ง", result: 2 },
-];
-
 const Reportosm1CompDetailComp = ({ reportData }) => {
   const router = useRouter();
   const tableRef = useRef(null);
+  const [activityData, setActivityData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // ถ้าไม่มีข้อมูล ให้ใช้ค่า default
   const year = reportData?.year || "2568";
   const month = reportData?.month || "มิถุนายน";
   const name = reportData?.name || "นางสาวชบุษบก ผดุงจิตร";
+  const externalUserId = reportData?.rawData?.external_user_id;
+  const fiscalYear = reportData?.rawData?.fiscal_year;
+
+  // Debug: แสดงข้อมูลที่ได้รับ
+  useEffect(() => {
+    console.log("🔍 reportData received:", reportData);
+    console.log("🔍 externalUserId:", externalUserId);
+    console.log("🔍 fiscalYear:", fiscalYear);
+    console.log("🔍 rawData:", reportData?.rawData);
+  }, [reportData, externalUserId, fiscalYear]);
+
+  // Fetch activity data from API
+  useEffect(() => {
+    // Clear ข้อมูลเก่าก่อนเมื่อเปลี่ยนคน
+    setActivityData([]);
+
+    const fetchActivityData = async () => {
+      if (!externalUserId) {
+        console.log("❌ No externalUserId provided - reportData:", reportData);
+        console.log("❌ rawData:", reportData?.rawData);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        console.log("🔍 Fetching activity data for:", {
+          externalUserId,
+          fiscalYear,
+          name
+        });
+
+        const response = await fetch(
+          "http://192.168.1.134:8000/api/v1/report-osm1/activity-data/all?skip=0&limit=1000"
+        );
+        const data = await response.json();
+
+        console.log("📦 Total API records received:", data.length);
+
+        // กรองข้อมูลเฉพาะของ external_user_id และ fiscal_year นี้
+        const userActivities = data.filter(
+          (item) =>
+            item.external_user_id === externalUserId &&
+            item.fiscal_year === fiscalYear
+        );
+
+        console.log("✅ Filtered activities for user:", name);
+        console.log("✅ External User ID:", externalUserId);
+        console.log("✅ Filtered count:", userActivities.length);
+        console.log("📊 Sample data:", userActivities.slice(0, 3));
+
+        setActivityData(userActivities);
+      } catch (error) {
+        console.error("❌ Error fetching activity data:", error);
+        setActivityData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActivityData();
+  }, [externalUserId, fiscalYear, name, reportData]);
+
+  // แปลงข้อมูลจาก API โดยไม่ต้อง map กับ category (แสดงทุกอย่างตรงๆ)
+  const transformedData = React.useMemo(() => {
+    if (activityData.length === 0) {
+      console.log("⚠️ No activity data to transform");
+      return [];
+    }
+
+    console.log("🔄 Transforming activity data...");
+    console.log("📊 Total items to display:", activityData.length);
+
+    // แสดงข้อมูล 10 รายการแรกเพื่อดูโครงสร้างและหน่วยนับ
+    console.log("📋 First 10 items structure:", activityData.slice(0, 10).map(item => ({
+      activity_id: item.activity_id,
+      category: item.category,
+      order_index: item.activity?.order_index,
+      display_order: item.activity?.display_order,
+      value: item.value,
+      unit: item.activity?.description,
+      activity_title: item.activity?.title
+    })));
+
+    // เรียงลำดับข้อมูลตาม order_index
+    const sortedData = [...activityData].sort((a, b) => {
+      const orderA = a.activity?.order_index || 0;
+      const orderB = b.activity?.order_index || 0;
+      return orderA - orderB;
+    });
+
+    console.log("📑 ✅ NEW VERSION - Data sorted by order_index:", sortedData.slice(0, 10).map(item => ({
+      order_index: item.activity?.order_index,
+      display_order: item.activity?.display_order,
+      activity_id: item.activity_id,
+      title: item.activity?.title,
+      unit: item.activity?.description
+    })));
+
+    // แสดงข้อมูลทั้งหมดพร้อมหมายเลขลำดับแบบอารบิก
+    const result = sortedData.map((item, index) => {
+      // ใช้ display_order จาก API ถ้ามี, ไม่งั้นใช้ลำดับที่เรียงแล้ว
+      const displayOrder = item.activity?.display_order || `${index + 1}`;
+
+      // แสดงตัวอย่างข้อมูล 10 รายการแรก
+      if (index < 10) {
+        console.log(`📋 Row ${index + 1}:`, {
+          display_order: displayOrder,
+          activity_id: item.activity_id,
+          order_index: item.activity?.order_index,
+          value: item.value,
+          unit: item.activity?.description,
+          title: item.activity?.title
+        });
+      }
+
+      return {
+        no: displayOrder, // ใช้หมายเลขจาก API (1, 1.1, 1.2, 2, 2.1, etc.)
+        activity: item.activity?.title || item.activity_id || "-",
+        unit: item.activity?.description || "-", // หน่วยนับจาก API (ครั้ง, ครัวเรือน, คน, etc.)
+        result: item.value || 0,
+        isMainCategory: false,
+        category: item.category,
+        activityId: item.activity_id,
+        orderIndex: item.activity?.order_index || 0,
+      };
+    });
+
+    console.log("✅ Transformed data rows:", result.length);
+    console.log("✅ First 3 display rows:", result.slice(0, 3));
+    return result;
+  }, [activityData]);
+
+  // ใช้ข้อมูลจาก API เท่านั้น (ไม่ fallback ไปใช้ mock data)
+  const displayData = loading ? [] : transformedData;
 
   const handleExportPDF = () => {
     try {
@@ -129,7 +224,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       const maxRowsPerPage = 30;
       let rowCount = 0;
 
-      mockDetailData.forEach((row) => {
+      displayData.forEach((row) => {
         // ถ้าเต็มหน้าให้สร้างหน้าใหม่
         if (rowCount >= maxRowsPerPage) {
           doc.addPage();
@@ -283,29 +378,49 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
               </tr>
             </thead>
             <tbody>
-              {mockDetailData.map((row, idx) => (
-                <tr
-                  key={idx}
-                  className="bg-white hover:bg-gray-50 transition-colors"
-                >
-                  <td className={`border border-black py-2 px-3 text-center ${
-                    row.isMainCategory ? "font-bold" : "font-semibold"
-                  } text-black`}>
-                    {row.no}
-                  </td>
-                  <td className={`border border-black py-2 px-3 ${
-                    row.isMainCategory ? "font-bold" : ""
-                  } text-black`}>
-                    {row.activity}
-                  </td>
-                  <td className="border border-black py-2 px-3 text-center text-black">
-                    {row.unit}
-                  </td>
-                  <td className="border border-black py-2 px-3 text-center text-black font-semibold">
-                    {row.result !== "" && row.result !== undefined ? row.result : ""}
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7e32e2]"></div>
+                      <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : displayData.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <FileText size={48} className="text-gray-300" />
+                      <p className="text-gray-500">ไม่พบข้อมูล</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                displayData.map((row, idx) => (
+                  <tr
+                    key={idx}
+                    className="bg-white hover:bg-gray-50 transition-colors"
+                  >
+                    <td className={`border border-black py-2 px-3 text-center ${
+                      row.isMainCategory ? "font-bold" : "font-semibold"
+                    } text-black`}>
+                      {row.no}
+                    </td>
+                    <td className={`border border-black py-2 px-3 ${
+                      row.isMainCategory ? "font-bold" : ""
+                    } text-black`}>
+                      {row.activity}
+                    </td>
+                    <td className="border border-black py-2 px-3 text-center text-black">
+                      {row.unit}
+                    </td>
+                    <td className="border border-black py-2 px-3 text-center text-black font-semibold">
+                      {row.result !== "" && row.result !== undefined ? row.result : ""}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
