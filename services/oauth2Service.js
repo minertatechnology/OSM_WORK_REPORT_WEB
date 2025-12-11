@@ -123,8 +123,56 @@ export const getUserByExternalId = async (externalUserId) => {
 
     return userData;
   } catch (error) {
-    // ไม่ต้อง log error 404 เพราะเป็นกรณีปกติสำหรับ mock data
-    if (error.response?.status !== 404) {
+    // ถ้าไม่พบข้อมูลจาก /osm/{externalUserId} ให้ลองเรียก /officer/{externalUserId}
+    if (error.response?.status === 404) {
+      try {
+        console.log(`⚠️ User not found in /osm, trying /officer/${externalUserId}`);
+        const officerResponse = await oauth2Api.get(`/officer/${externalUserId}`);
+
+        if (officerResponse.data && officerResponse.data.data) {
+          const apiData = officerResponse.data.data;
+
+          // แปลงข้อมูลจาก Officer API
+          const prefix = apiData.prefix_name_th ?? apiData.prefix ?? "";
+          const firstName = apiData.first_name ?? apiData.firstName ?? "";
+          const lastName = apiData.last_name ?? apiData.lastName ?? "";
+
+          const fullName = [prefix, firstName, lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+
+          const finalName = fullName || "ไม่ระบุชื่อ";
+
+          const userData = {
+            ...apiData,
+            id: apiData.id || externalUserId,
+            name: finalName,
+            prefix_name_th: apiData.prefix_name_th || prefix || null,
+            first_name: apiData.first_name || firstName || null,
+            last_name: apiData.last_name || lastName || null,
+            email: apiData.email || null,
+            external_user_id: externalUserId,
+            profile_picture: apiData.profile_picture || apiData.avatar || null,
+            department: apiData.department || null,
+            role: apiData.role || null,
+            phone: apiData.phone || null,
+          };
+
+          // เก็บใน cache
+          userCache.set(externalUserId, userData);
+          console.log(`✅ User data fetched from /officer: "${userData.name}"`);
+
+          return userData;
+        }
+      } catch (officerError) {
+        console.error(`❌ Failed to fetch from /officer/${externalUserId}:`, {
+          status: officerError.response?.status,
+          message: officerError.response?.data?.message || officerError.message,
+        });
+      }
+    } else {
+      // Log error สำหรับกรณีที่ไม่ใช่ 404
       console.error(`❌ Failed to fetch user ${externalUserId}:`, error);
       console.error(`❌ Error details:`, {
         status: error.response?.status,
@@ -133,7 +181,7 @@ export const getUserByExternalId = async (externalUserId) => {
       });
     }
 
-    // Return fallback data
+    // Return fallback data ถ้าทั้ง 2 endpoints ล้มเหลว
     const fallbackData = {
       id: externalUserId,
       name: "ไม่ระบุชื่อ",
