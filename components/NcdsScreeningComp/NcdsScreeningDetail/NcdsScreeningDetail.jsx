@@ -5,25 +5,6 @@ import jsPDF from "jspdf";
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 
-// Mock data สำหรับตารางรายละเอียดการคัดกรอง NCDs
-const mockDetailData = Array.from({ length: 20 }, (_, i) => ({
-  no: i + 1,
-  name: `นาง${["สมใจ มีสุข", "วรรณา ใจดี", "มาลี รักษ์ดี", "สุดา สุขใจ"][i % 4]}`,
-  // คอลัมน์ทั้ง 12 หลัก (นอกจากลำดับและรายชื่อ)
-  riskBehavior: i % 2 === 0 ? "มี" : "ไม่มี", // พฤติกรรมเสี่ยงโรคไม่ติดต่อเรื้อรัง
-  obesity: i % 3 === 0 ? "ปกติ" : i % 3 === 1 ? "อ้วนลงพุง" : "เสี่ยง", // ภาวะอ้วนลงพุง
-  bloodPressure: i % 3 === 0 ? "ปกติ" : i % 3 === 1 ? "สูง" : "ต่ำ", // ระดับความดันโลหิต
-  bloodSugar: i % 2 === 0 ? "ปกติ" : "สูง", // ระดับน้ำตาลในเลือด
-  diabetesRisk: i % 3 === 0 ? "ต่ำ" : i % 3 === 1 ? "ปานกลาง" : "สูง", // ความเสี่ยงการเกิดโรคเบาหวาน
-  physicalActivity: i % 2 === 0 ? "ปกติ" : "เหนื่อยง่าย", // กิจกรรมทางกายเหนื่อยกว่าปกติ
-  sleepQuality: i % 3 === 0 ? "ดี" : i % 3 === 1 ? "พอใช้" : "แย่", // ประเมินการนอนหลับ
-  depression2Q: i % 2 === 0 ? "ปกติ" : "มีอาการ", // คัดกรองภาวะซึมเศร้า2Q
-  stressST5: i % 3 === 0 ? "ต่ำ" : i % 3 === 1 ? "ปานกลาง" : "สูง", // ประเมินความเครียดST-5
-  cvdRisk: i % 2 === 0 ? "ต่ำ" : "สูง", // ความเสี่ยงต่อการเกิดโรคหัวใจและหลอดเลือด
-  vegetableConsumption: i % 2 === 0 ? "เพียงพอ" : "ไม่เพียงพอ", // พฤติกรรมบริโภคผัก
-  sugarConsumption: i % 3 === 0 ? "น้อย" : i % 3 === 1 ? "ปานกลาง" : "มาก", // พฤติกรรมบริโภคน้ำตาล
-}));
-
 const NcdsScreeningDetail = ({ reportData }) => {
   const router = useRouter();
   const tableRef = useRef(null);
@@ -32,6 +13,34 @@ const NcdsScreeningDetail = ({ reportData }) => {
   const year = reportData?.year || "2568";
   const month = reportData?.month || "มิถุนายน";
   const name = reportData?.name || "นางสาวชุชนาถ ผดุงจิตร";
+  const date = reportData?.date || "";
+  const rawData = reportData?.rawData || {};
+
+  // ฟังก์ชันแปลง JSON string เป็น object
+  const parseResult = (resultString) => {
+    if (!resultString) return {};
+    try {
+      return JSON.parse(resultString);
+    } catch (e) {
+      return {};
+    }
+  };
+
+  // แปลงข้อมูล result ต่างๆ
+  const bmiResult = parseResult(rawData.result_bmi);
+  const waistResult = parseResult(rawData.result_waist);
+  const bloodPressureResult = parseResult(rawData.result_blood_pressure);
+  const glucoseResult = parseResult(rawData.result_glucose);
+  const diabetesRiskResult = parseResult(rawData.result_diabetes_risk);
+  const exerciseResult = parseResult(rawData.result_exercise);
+  const sleepResult = parseResult(rawData.result_sleep);
+  const depressionResult = parseResult(rawData.result_depression);
+  const stressResult = parseResult(rawData.result_stress);
+  const cvRiskResult = parseResult(rawData.result_cv_risk);
+  const dietVegetableResult = parseResult(rawData.result_diet_vegetable);
+  const dietSugarResult = parseResult(rawData.result_diet_sugar);
+  const dietFatResult = parseResult(rawData.result_diet_fat);
+  const dietSodiumResult = parseResult(rawData.result_diet_sodium);
 
   const handleExportPDF = () => {
     try {
@@ -71,8 +80,8 @@ const NcdsScreeningDetail = ({ reportData }) => {
       const rowHeight = 9;
       const headerHeight = 16;
 
-      // Column widths - 14 columns total - ลดความกว้างไม่ให้ทะลุ
-      const colWidths = [10, 38, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18];
+      // Column widths - 17 columns total (เพิ่ม BMI, ปรับให้พอดีกับกระดาษ A4 แนวนอน)
+      const colWidths = [8, 30, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14];
       const tableWidth = colWidths.reduce((sum, w) => sum + w, 0);
 
       // Draw table border
@@ -90,6 +99,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
         "ลำดับ",
         "รายชื่อ",
         "พฤติกรรม\nเสี่ยงโรค\nไม่ติดต่อ\nเรื้อรัง",
+        "BMI",
         "ภาวะอ้วน\nลงพุง",
         "ระดับ\nความดัน\nโลหิต",
         "ระดับ\nน้ำตาลใน\nเลือด",
@@ -100,7 +110,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
         "ประเมิน\nความ\nเครียดST-5",
         "ความเสี่ยง\nต่อการเกิด\nโรคหัวใจ\nและหลอด\nเลือด",
         "พฤติกรรม\nบริโภคผัก",
-        "พฤติกรรม\nบริโภค\nน้ำตาล"
+        "พฤติกรรม\nบริโภค\nน้ำตาล",
+        "พฤติกรรม\nบริโภค\nไขมัน",
+        "พฤติกรรม\nบริโภค\nเกลือ"
       ];
 
       currentX = startX;
@@ -115,73 +127,114 @@ const NcdsScreeningDetail = ({ reportData }) => {
         currentX += colWidths[i];
       }
 
-      // Draw body rows
+      // Draw body row - ใช้ข้อมูลจริงจาก API
       currentY += headerHeight;
       doc.setFont("Sarabun", "normal");
-      doc.setFontSize(7);
+      doc.setFontSize(6.5); // ลดขนาดฟอนต์จาก 7 เป็น 6.5
 
-      mockDetailData.forEach((row) => {
-        if (currentY > 185) {
-          doc.addPage('a4', 'landscape');
-          currentY = 20;
+      currentX = startX;
 
-          // Redraw header on new page
-          currentX = startX;
-          doc.setFont("Sarabun", "bold");
-          doc.setFontSize(8.5);
-          for (let i = 0; i < headers.length; i++) {
-            doc.rect(currentX, currentY, colWidths[i], headerHeight);
-            const lines = headers[i].split('\n');
-            const lineHeight = 2.5;
-            const startLineY = currentY + (headerHeight - (lines.length - 1) * lineHeight) / 2 + 1.5;
-            lines.forEach((line, lineIdx) => {
-              doc.text(line, currentX + colWidths[i] / 2, startLineY + lineIdx * lineHeight, { align: "center" });
-            });
-            currentX += colWidths[i];
-          }
-          currentY += headerHeight;
-          doc.setFont("Sarabun", "normal");
-          doc.setFontSize(7);
-        }
+      // ลำดับ
+      doc.rect(currentX, currentY, colWidths[0], rowHeight);
+      doc.setFont("Sarabun", "bold");
+      doc.text("1", currentX + colWidths[0] / 2, currentY + 5.5, { align: "center" });
+      currentX += colWidths[0];
 
-        currentX = startX;
+      // รายชื่อ - แบ่งชื่อยาวเป็นหลายบรรทัด
+      doc.rect(currentX, currentY, colWidths[1], rowHeight);
+      doc.setFont("Sarabun", "normal");
 
-        // ลำดับ
-        doc.rect(currentX, currentY, colWidths[0], rowHeight);
-        doc.setFont("Sarabun", "bold");
-        doc.text(row.no.toString(), currentX + colWidths[0] / 2, currentY + 5.5, { align: "center" });
-        currentX += colWidths[0];
+      // แบ่งชื่อถ้ายาวเกิน
+      const nameLines = [];
+      if (name.length > 20) {
+        const nameParts = name.split(" ");
+        let line1 = nameParts[0] || "";
+        let line2 = nameParts.slice(1).join(" ") || "";
+        nameLines.push(line1);
+        if (line2) nameLines.push(line2);
+      } else {
+        nameLines.push(name);
+      }
 
-        // รายชื่อ
-        doc.rect(currentX, currentY, colWidths[1], rowHeight);
-        doc.setFont("Sarabun", "normal");
-        doc.text(row.name, currentX + colWidths[1] / 2, currentY + 5.5, { align: "center" });
-        currentX += colWidths[1];
+      const nameLineHeight = 2.8;
+      const nameTotalHeight = nameLines.length * nameLineHeight;
+      const nameStartY = currentY + (rowHeight - nameTotalHeight) / 2 + nameLineHeight / 2 + 1;
 
-        // Data columns - 12 columns
-        const values = [
-          row.riskBehavior,
-          row.obesity,
-          row.bloodPressure,
-          row.bloodSugar,
-          row.diabetesRisk,
-          row.physicalActivity,
-          row.sleepQuality,
-          row.depression2Q,
-          row.stressST5,
-          row.cvdRisk,
-          row.vegetableConsumption,
-          row.sugarConsumption
-        ];
-
-        for (let i = 0; i < 12; i++) {
-          doc.rect(currentX, currentY, colWidths[i + 2], rowHeight);
-          doc.text(values[i], currentX + colWidths[i + 2] / 2, currentY + 5.5, { align: "center" });
-          currentX += colWidths[i + 2];
-        }
-
-        currentY += rowHeight;
+      nameLines.forEach((line, idx) => {
+        doc.text(line, currentX + colWidths[1] / 2, nameStartY + idx * nameLineHeight, { align: "center" });
       });
+
+      currentX += colWidths[1];
+
+      // Data columns - 15 columns - ใช้ข้อมูลจริง (เพิ่ม BMI)
+      const values = [
+        rawData.q1_has_ncds === "yes" ? "มี" : rawData.q1_has_ncds === "no" ? "ไม่มี" : "-",
+        bmiResult.level_th || "-",
+        waistResult.level_th || "-",
+        bloodPressureResult.level_th || "-",
+        glucoseResult.level_th || "-",
+        diabetesRiskResult.level_th || "-",
+        exerciseResult.level_th || "-",
+        sleepResult.level_th || "-",
+        depressionResult.level_th || "-",
+        stressResult.level_th || "-",
+        cvRiskResult.level_th || "-",
+        dietVegetableResult.level_th || "-",
+        dietSugarResult.level_th || "-",
+        dietFatResult.level_th || "-",
+        dietSodiumResult.level_th || "-"
+      ];
+
+      // ฟังก์ชันแบ่งข้อความยาวเป็นหลายบรรทัดแบบตัดคำภาษาไทย
+      const splitThaiText = (text, maxWidth) => {
+        if (!text || text === "-") return [text];
+
+        // ถ้าข้อความสั้นมาก ให้ return เลย
+        const textWidth = doc.getTextWidth(text);
+        if (textWidth <= maxWidth) return [text];
+
+        const lines = [];
+        let currentLine = "";
+
+        // แบ่งเป็นคำๆ หรือตัวอักษรถ้าไม่มีช่องว่าง
+        const chars = text.split("");
+
+        for (let i = 0; i < chars.length; i++) {
+          const testLine = currentLine + chars[i];
+          const width = doc.getTextWidth(testLine);
+
+          if (width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = chars[i];
+          } else {
+            currentLine = testLine;
+          }
+        }
+
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+
+        return lines;
+      };
+
+      for (let i = 0; i < 15; i++) {
+        doc.rect(currentX, currentY, colWidths[i + 2], rowHeight);
+
+        // แบ่งข้อความเป็นหลายบรรทัดถ้ายาวเกิน
+        const textLines = splitThaiText(values[i], colWidths[i + 2] - 1);
+        const lineHeight = 2.5;
+        const totalHeight = textLines.length * lineHeight;
+        const startY = currentY + (rowHeight - totalHeight) / 2 + lineHeight / 2 + 1;
+
+        textLines.forEach((line, lineIdx) => {
+          doc.text(line, currentX + colWidths[i + 2] / 2, startY + lineIdx * lineHeight, { align: "center" });
+        });
+
+        currentX += colWidths[i + 2];
+      }
+
+      currentY += rowHeight;
 
       // บันทึกไฟล์
       doc.save(`รายงานคัดกรอง_NCDs_${month}_${year}_${name}.pdf`);
@@ -250,7 +303,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
           </button>
         </div>
         <div className="overflow-x-auto p-4">
-          <table className="w-full border-collapse" style={{ minWidth: "1100px" }}>
+          <table className="w-full border-collapse" style={{ minWidth: "1360px" }}>
             <thead>
               <tr className="bg-white">
                 <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ width: "30px", fontSize: "11px" }}>
@@ -261,6 +314,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
                 </th>
                 <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ fontSize: "10px", lineHeight: "1.3", width: "70px" }}>
                   พฤติกรรม<br/>เสี่ยงโรค<br/>ไม่ติดต่อ<br/>เรื้อรัง
+                </th>
+                <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ fontSize: "10px", lineHeight: "1.3", width: "60px" }}>
+                  BMI
                 </th>
                 <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ fontSize: "10px", lineHeight: "1.3", width: "60px" }}>
                   ภาวะ<br/>อ้วนลงพุง
@@ -295,58 +351,68 @@ const NcdsScreeningDetail = ({ reportData }) => {
                 <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ fontSize: "10px", lineHeight: "1.3", width: "65px" }}>
                   พฤติกรรม<br/>บริโภค<br/>น้ำตาล
                 </th>
+                <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ fontSize: "10px", lineHeight: "1.3", width: "65px" }}>
+                  พฤติกรรม<br/>บริโภค<br/>ไขมัน
+                </th>
+                <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ fontSize: "10px", lineHeight: "1.3", width: "65px" }}>
+                  พฤติกรรม<br/>บริโภค<br/>เกลือ
+                </th>
               </tr>
             </thead>
             <tbody>
-              {mockDetailData.map((row, idx) => (
-                <tr
-                  key={row.no}
-                  className="bg-white hover:bg-[#faf8ff] transition-colors"
-                >
-                  <td className="border border-black py-2 px-1 text-center font-semibold text-[#231d37]" style={{ fontSize: "11px" }}>
-                    {row.no}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37] font-medium" style={{ fontSize: "11px" }}>
-                    {row.name}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.riskBehavior}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.obesity}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.bloodPressure}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.bloodSugar}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.diabetesRisk}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.physicalActivity}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.sleepQuality}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.depression2Q}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.stressST5}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.cvdRisk}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.vegetableConsumption}
-                  </td>
-                  <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
-                    {row.sugarConsumption}
-                  </td>
-                </tr>
-              ))}
+              <tr className="bg-white hover:bg-[#faf8ff] transition-colors">
+                <td className="border border-black py-2 px-1 text-center font-semibold text-[#231d37]" style={{ fontSize: "11px" }}>
+                  1
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37] font-medium" style={{ fontSize: "11px" }}>
+                  {name}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {rawData.q1_has_ncds === "yes" ? "มี" : rawData.q1_has_ncds === "no" ? "ไม่มี" : "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {bmiResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {waistResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {bloodPressureResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {glucoseResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {diabetesRiskResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {exerciseResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {sleepResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {depressionResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {stressResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {cvRiskResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {dietVegetableResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {dietSugarResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {dietFatResult.level_th || "-"}
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "10px" }}>
+                  {dietSodiumResult.level_th || "-"}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

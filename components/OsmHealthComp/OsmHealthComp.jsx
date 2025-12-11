@@ -17,6 +17,8 @@ import {
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getHealthRecords } from "@services/healthRecordService";
 import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
+import { getUserByExternalId } from "@services/oauth2Service";
+import * as XLSX from "xlsx";
 
 // Thai month names
 const THAI_MONTHS = [
@@ -297,6 +299,273 @@ const OsmHealthComp = () => {
     }
   };
 
+  // Handle download Excel for all filtered records
+  const handleDownloadExcel = async () => {
+    try {
+      if (filteredRecords.length === 0) {
+        alert("ไม่มีข้อมูลที่จะดาวน์โหลด");
+        return;
+      }
+
+      // แสดง loading
+      const loadingMsg = alert("กำลังเตรียมข้อมูล... กรุณารอสักครู่");
+
+      // ฟังก์ชันคำนวณอายุ
+      const calculateAge = (birthDate) => {
+        if (!birthDate) return "-";
+        const birth = new Date(birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        return age.toString();
+      };
+
+      // สร้างที่อยู่แบบเต็ม
+      const buildFullAddress = (osmData) => {
+        if (!osmData) return "-";
+        const parts = [
+          osmData.address_number ? `เลขที่ ${osmData.address_number}` : "",
+          osmData.village_no ? `หมู่ ${osmData.village_no}` : "",
+          osmData.alley ? `ซอย ${osmData.alley}` : "",
+          osmData.street ? `ถนน ${osmData.street}` : "",
+          osmData.subdistrict_name_th ? `ต.${osmData.subdistrict_name_th}` : "",
+          osmData.district_name_th ? `อ.${osmData.district_name_th}` : "",
+          osmData.province_name_th ? `จ.${osmData.province_name_th}` : "",
+          osmData.postal_code || "",
+        ];
+        return parts.filter(Boolean).join(" ") || "-";
+      };
+
+      // ดึงข้อมูลจาก OSM API สำหรับทุก record
+      const excelData = await Promise.all(
+        filteredRecords.map(async (record, index) => {
+          // ดึงข้อมูล OSM ถ้ามี external_user_id
+          let osmData = null;
+          if (record.external_user_id) {
+            try {
+              osmData = await getUserByExternalId(record.external_user_id);
+            } catch (error) {
+              console.error(`Failed to fetch OSM data for ${record.external_user_id}:`, error);
+            }
+          }
+
+          const fullName = `${record.prefix || ""}${record.first_name || ""} ${record.last_name || ""}`.trim() || "ไม่ระบุชื่อ";
+
+          // ใช้ข้อมูลจาก OSM ถ้ามี ไม่งั้นใช้ของ record
+          const birthDate = osmData?.birth_date || "";
+          const age = calculateAge(birthDate);
+          const fullAddress = osmData ? buildFullAddress(osmData) : (record.address || "-");
+
+          // แปลงค่าสถานภาพ
+          const maritalStatusMap = {
+            "single": "โสด",
+            "married": "สมรส",
+            "divorced": "หย่าร้าง",
+            "widowed": "หม้าย"
+          };
+
+          // แปลงค่า Yes/No
+          const yesNoMap = {
+            "yes": "มี",
+            "no": "ไม่มี",
+            "unknown": "ไม่ทราบ"
+          };
+
+          // แปลงค่าความเสี่ยง CV
+          const cvRiskMap = {
+            "low": "เสี่ยงต่ำ",
+            "mid": "เสี่ยงปานกลาง",
+            "high": "เสี่ยงสูง"
+          };
+
+          // แปลงค่าความเครียด
+          const stressMap = {
+            "normal": "ไม่มีความเครียด",
+            "mid": "เครียดปานกลาง",
+            "high": "เครียดสูง"
+          };
+
+          // แปลงค่าภาวะซึมเศร้า
+          const depressionMap = {
+            "ok": "ปกติ",
+            "abnormal": "เสี่ยงเป็นโรคซึมเศร้า"
+          };
+
+          // แปลงค่าผลตรวจ
+          const resultMap = {
+            "normal": "ปกติ",
+            "abnormal": "ผิดปกติ",
+            "neg": "ผลเป็นลบ",
+            "pos": "ผลเป็นบวก"
+          };
+
+          // แปลงค่า community screening
+          const livingMap = {
+            "hasCare": "ไม่ได้อยู่คนเดียว/มีคนดูแล",
+            "alone": "อยู่คนเดียว/ไม่มีคนดูแล"
+          };
+
+          const houseSafetyMap = {
+            "safe": "มั่นคงแข็งแรง/ปลอดภัย",
+            "unsafe": "ไม่มั่นคง/ไม่ปลอดภัย"
+          };
+
+          const incomeMap = {
+            "enough": "เพียงพอ",
+            "notEnough": "ไม่เพียงพอ"
+          };
+
+          return {
+            "ลำดับ": index + 1,
+            "เลขบัตรประชาชน": osmData?.citizen_id || record.id_card || "-",
+            "ชื่อ-นามสกุล": fullName,
+            "วัน/เดือน/ปีเกิด": birthDate ? formatThaiDate(birthDate) : "-",
+            "อายุ": age,
+            "สถานภาพ": maritalStatusMap[osmData?.marital_status || record.marital_status] || osmData?.marital_status || record.marital_status || "-",
+            "ที่อยู่": fullAddress,
+
+            // ประวัติสุขภาพ
+            "โรคประจำตัว": record.chronic_diseases || "-",
+            "แพ้ยา": record.drug_allergies || "-",
+            "แพ้อาหาร": record.food_allergies || "-",
+
+            // ประวัติครอบครัว
+            "ประวัติครอบครัว - มะเร็ง": yesNoMap[record.family_history_cancer] || "-",
+            "ประวัติครอบครัว - เบาหวาน": yesNoMap[record.family_history_diabetes] || "-",
+            "ประวัติครอบครัว - ความดันสูง": yesNoMap[record.family_history_hypertension] || "-",
+            "ประวัติครอบครัว - หัวใจหลอดเลือด": yesNoMap[record.family_history_cvd] || "-",
+
+            // การตรวจร่างกาย
+            "ความดันโลหิตบน": record.blood_pressure_systolic || "-",
+            "ความดันโลหิตล่าง": record.blood_pressure_diastolic || "-",
+            "ความดันโลหิต": record.blood_pressure_systolic && record.blood_pressure_diastolic
+              ? `${record.blood_pressure_systolic}/${record.blood_pressure_diastolic}`
+              : "-",
+            "น้ำหนัก (กก.)": record.weight || "-",
+            "ส่วนสูง (ซม.)": record.height || "-",
+            "BMI": record.bmi ? record.bmi.toFixed(2) : "-",
+            "รอบเอว (ซม.)": record.waist || "-",
+
+            // การตรวจคัดกรอง
+            "ผลตรวจเต้านม": record.bse_result || "-",
+            "ความเสี่ยงโรคหัวใจ": cvRiskMap[record.cv_risk_score] || record.cv_risk_score || "-",
+            "ภาวะเครียด": stressMap[record.stress_level] || record.stress_level || "-",
+            "ภาวะซึมเศร้า": depressionMap[record.depression_2q] || record.depression_2q || "-",
+
+            // ผลตรวจทางห้องปฏิบัติการ
+            "น้ำตาลในเลือด (mg/dl)": record.fasting_blood_sugar || "-",
+            "ผลตรวจอุจจาระ": resultMap[record.stool_result] || record.stool_result || "-",
+            "ผลตรวจ FIT": resultMap[record.fit_result] || record.fit_result || "-",
+            "ผลตรวจ HPV": resultMap[record.hpv_result] || record.hpv_result || "-",
+
+            // Community Screening (60+)
+            "การอยู่อาศัย": livingMap[record.living_with_care] || record.living_with_care || "-",
+            "ลักษณะที่อยู่อาศัย": houseSafetyMap[record.house_safety] || record.house_safety || "-",
+            "ความเพียงพอของรายได้": incomeMap[record.income_sufficiency] || record.income_sufficiency || "-",
+
+            // วันที่บันทึก
+            "วันที่บันทึก": formatThaiDate(record.updated_at),
+            "วันที่สร้าง": formatThaiDate(record.created_at),
+          };
+        })
+      );
+
+      // สร้าง workbook และ worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "ผลตรวจสุขภาพ");
+
+      // ตั้งความกว้างของคอลัมน์
+      const colWidths = [
+        { wch: 8 },   // ลำดับ
+        { wch: 18 },  // เลขบัตรประชาชน
+        { wch: 25 },  // ชื่อ-นามสกุล
+        { wch: 18 },  // วัน/เดือน/ปีเกิด
+        { wch: 8 },   // อายุ
+        { wch: 12 },  // สถานภาพ
+        { wch: 60 },  // ที่อยู่
+        { wch: 20 },  // โรคประจำตัว
+        { wch: 15 },  // แพ้ยา
+        { wch: 15 },  // แพ้อาหาร
+        { wch: 15 },  // ประวัติครอบครัว - มะเร็ง
+        { wch: 15 },  // ประวัติครอบครัว - เบาหวาน
+        { wch: 15 },  // ประวัติครอบครัว - ความดันสูง
+        { wch: 20 },  // ประวัติครอบครัว - หัวใจหลอดเลือด
+        { wch: 12 },  // ความดันโลหิตบน
+        { wch: 12 },  // ความดันโลหิตล่าง
+        { wch: 15 },  // ความดันโลหิต
+        { wch: 12 },  // น้ำหนัก
+        { wch: 12 },  // ส่วนสูง
+        { wch: 10 },  // BMI
+        { wch: 12 },  // รอบเอว
+        { wch: 15 },  // ผลตรวจเต้านม
+        { wch: 15 },  // ความเสี่ยงโรคหัวใจ
+        { wch: 15 },  // ภาวะเครียด
+        { wch: 18 },  // ภาวะซึมเศร้า
+        { wch: 15 },  // น้ำตาลในเลือด
+        { wch: 15 },  // ผลตรวจอุจจาระ
+        { wch: 12 },  // ผลตรวจ FIT
+        { wch: 12 },  // ผลตรวจ HPV
+        { wch: 25 },  // การอยู่อาศัย
+        { wch: 25 },  // ลักษณะที่อยู่อาศัย
+        { wch: 18 },  // ความเพียงพอของรายได้
+        { wch: 18 },  // วันที่บันทึก
+        { wch: 18 },  // วันที่สร้าง
+      ];
+      ws["!cols"] = colWidths;
+
+      // สร้างชื่อไฟล์ด้วยวันที่ปัจจุบัน
+      const now = new Date();
+      const dateStr = `${now.getDate()}_${now.getMonth() + 1}_${now.getFullYear() + 543}`;
+      const fileName = `ผลตรวจสุขภาพ_อสม_${dateStr}.xlsx`;
+
+      // ดาวน์โหลดไฟล์
+      XLSX.writeFile(wb, fileName);
+      setOpen(false);
+    } catch (error) {
+      console.error("Failed to export Excel:", error);
+      alert("เกิดข้อผิดพลาดในการสร้างไฟล์ Excel กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
+  // Handle download PDF for all filtered records
+  const handleDownloadAllPDF = async () => {
+    try {
+      if (filteredRecords.length === 0) {
+        alert("ไม่มีข้อมูลที่จะดาวน์โหลด");
+        return;
+      }
+
+      setOpen(false);
+
+      // แสดงข้อความแจ้งเตือน
+      const confirmDownload = window.confirm(
+        `คุณต้องการดาวน์โหลด PDF ทั้งหมด ${filteredRecords.length} ไฟล์ใช่หรือไม่?\n\nไฟล์จะถูกดาวน์โหลดทีละไฟล์`
+      );
+
+      if (!confirmDownload) return;
+
+      // ดาวน์โหลด PDF ทีละไฟล์
+      for (let i = 0; i < filteredRecords.length; i++) {
+        const record = filteredRecords[i];
+        await exportHealthRecordToPDF(record);
+
+        // หน่วงเวลาเล็กน้อยระหว่างการดาวน์โหลดแต่ละไฟล์
+        if (i < filteredRecords.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      alert(`ดาวน์โหลด PDF เสร็จสิ้น (${filteredRecords.length} ไฟล์)`);
+    } catch (error) {
+      console.error("Failed to export all PDFs:", error);
+      alert("เกิดข้อผิดพลาดในการสร้าง PDF กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
@@ -498,7 +767,7 @@ const OsmHealthComp = () => {
                 <div className="absolute z-30 right-0 mt-2 w-64 bg-white shadow-xl rounded-xl border border-purple-100 py-2 overflow-hidden">
                   <button
                     className="flex items-center w-full px-4 py-3 gap-3 text-gray-700 hover:bg-purple-50 transition font-medium"
-                    onClick={() => setOpen(false)}
+                    onClick={handleDownloadExcel}
                   >
                     <Image
                       src="/xlsx.png"
@@ -511,7 +780,7 @@ const OsmHealthComp = () => {
                   </button>
                   <button
                     className="flex items-center w-full px-4 py-3 gap-3 text-gray-700 hover:bg-purple-50 transition font-medium"
-                    onClick={() => setOpen(false)}
+                    onClick={handleDownloadAllPDF}
                   >
                     <Image
                       src="/pdf.png"
