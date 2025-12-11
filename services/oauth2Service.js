@@ -115,6 +115,7 @@ export const getUserByExternalId = async (externalUserId) => {
       department: apiData.department || null,
       role: apiData.role || null,
       phone: apiData.phone || null,
+      position_level: "อสม. ทั่วไป", // ข้อมูลจาก /osm
     };
 
     // เก็บใน cache
@@ -157,6 +158,7 @@ export const getUserByExternalId = async (externalUserId) => {
             department: apiData.department || null,
             role: apiData.role || null,
             phone: apiData.phone || null,
+            position_level: "เจ้าหน้าที่", // ข้อมูลจาก /officer
           };
 
           // เก็บใน cache

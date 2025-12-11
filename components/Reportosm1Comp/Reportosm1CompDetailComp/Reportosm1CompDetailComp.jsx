@@ -48,7 +48,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         });
 
         const response = await fetch(
-          "http://192.168.1.134:8000/api/v1/report-osm1/activity-data/all?skip=0&limit=1000"
+          `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/activity-data/all?skip=0&limit=1000`
         );
         const data = await response.json();
 

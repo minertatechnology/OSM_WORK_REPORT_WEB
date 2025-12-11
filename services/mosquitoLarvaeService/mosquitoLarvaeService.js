@@ -2,7 +2,7 @@ import axios from "axios";
 import { getAccessToken } from "@utils/tokenStorage";
 import { formatThaiDateShort } from "@utils/dateFormatter";
 
-const MOSQUITO_API_BASE_URL = "http://192.168.1.134:8000/api/v1";
+const MOSQUITO_API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL;
 
 /**
  * Fetch all mosquito larvae household reports

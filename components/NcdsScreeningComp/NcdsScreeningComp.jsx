@@ -631,7 +631,7 @@ const NcdsScreeningComp = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://192.168.1.134:8000/api/v1/ncd-screeningsall?skip=0&limit=100");
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?skip=0&limit=100`);
         const data = await response.json();
 
         // แปลงข้อมูลจาก API ให้เป็นรูปแบบที่ใช้แสดงในตาราง

@@ -8,7 +8,7 @@ if (typeof window !== "undefined") {
 
 // เชื่อมต่อตรงกับ Smart OSM API
 const apiSmartOsm = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL || "http://192.168.1.134:8000/api/v1",
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL,
   headers: {
     "Content-Type": "application/json",
   },
