@@ -78,7 +78,51 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     fetchActivityData();
   }, [externalUserId, fiscalYear, name, reportData]);
 
-  // แปลงข้อมูลจาก API โดยไม่ต้อง map กับ category (แสดงทุกอย่างตรงๆ)
+  // Mapping หน่วยนับตายตัวตามเอกสาร อสม.1 (ฉบับที่2) พ.ศ.2567
+  const UNIT_MAPPING = React.useMemo(() => ({
+    // ก. การส่งเสริมสุขภาพ (11 ข้อ - ทุกข้อใช้ "คน")
+    "promote_health_1": "คน",
+    "promote_health_2": "คน",
+    "promote_health_3": "คน",
+    "promote_health_4": "คน",
+    "promote_health_5": "คน",
+    "promote_health_6": "คน",
+    "promote_health_7": "คน",
+    "promote_health_8": "คน",
+    "promote_health_9": "คน",
+    "promote_health_10": "คน",
+    "promote_health_11": "คน",
+    // ข. การเฝ้าระวังป้องกันและควบคุม (7 ข้อ)
+    "protect_1": "ครัวเรือน",
+    "protect_2": "ครัวเรือน",
+    "protect_3": "คน",
+    "protect_4": "ครัวเรือน",
+    "protect_5": "ครัวเรือน",
+    "protect_6": "คน",
+    "protect_7": "คน",
+    // ค. การฟื้นฟูสุขภาพ (1 ข้อ)
+    "recover_1": "ครั้ง",
+    // ง. การคุ้มครองผู้บริโภค (1 ข้อ)
+    "consumer_1": "ครั้ง",
+    // จ. การจัดการสุขภาพชุมชน (2 ข้อ)
+    "community_health_1": "ครั้ง",
+    "community_health_2": "ครั้ง",
+    // ฉ. การสนับสนุน อสค. (3 ข้อ - ทุกข้อใช้ "ครอบครัว")
+    "family_doc_1": "ครอบครัว",
+    "family_doc_2": "ครอบครัว",
+    "family_doc_3": "ครอบครัว",
+    // ช. การใช้ยาสมเหตุสมผล (2 ข้อ)
+    "statistics_1": "ครอบครัว",
+    "statistics_2": "ครั้ง",
+    // ซ. การเข้าร่วมทีมหมอครอบครัว (3 ข้อ)
+    "doctor_family_1": "ครั้ง",
+    "doctor_family_2": "ครอบครัว",
+    "doctor_family_3": "ครอบครัว",
+    // ฌ. กิจกรรมอื่นๆ (1 ข้อ)
+    "other_activity_1": "คน",
+  }), []);
+
+  // แปลงข้อมูลจาก API และใช้หน่วยนับจาก UNIT_MAPPING แทน
   const transformedData = React.useMemo(() => {
     if (activityData.length === 0) {
       console.log("⚠️ No activity data to transform");
@@ -88,17 +132,6 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     console.log("🔄 Transforming activity data...");
     console.log("📊 Total items to display:", activityData.length);
 
-    // แสดงข้อมูล 10 รายการแรกเพื่อดูโครงสร้างและหน่วยนับ
-    console.log("📋 First 10 items structure:", activityData.slice(0, 10).map(item => ({
-      activity_id: item.activity_id,
-      category: item.category,
-      order_index: item.activity?.order_index,
-      display_order: item.activity?.display_order,
-      value: item.value,
-      unit: item.activity?.description,
-      activity_title: item.activity?.title
-    })));
-
     // เรียงลำดับข้อมูลตาม order_index
     const sortedData = [...activityData].sort((a, b) => {
       const orderA = a.activity?.order_index || 0;
@@ -106,35 +139,19 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       return orderA - orderB;
     });
 
-    console.log("📑 ✅ NEW VERSION - Data sorted by order_index:", sortedData.slice(0, 10).map(item => ({
-      order_index: item.activity?.order_index,
-      display_order: item.activity?.display_order,
-      activity_id: item.activity_id,
-      title: item.activity?.title,
-      unit: item.activity?.description
-    })));
+    console.log("📑 ✅ Data sorted by order_index");
 
-    // แสดงข้อมูลทั้งหมดพร้อมหมายเลขลำดับแบบอารบิก
+    // แสดงข้อมูลทั้งหมดพร้อมหน่วยนับจาก UNIT_MAPPING
     const result = sortedData.map((item, index) => {
-      // ใช้ display_order จาก API ถ้ามี, ไม่งั้นใช้ลำดับที่เรียงแล้ว
       const displayOrder = item.activity?.display_order || `${index + 1}`;
-
-      // แสดงตัวอย่างข้อมูล 10 รายการแรก
-      if (index < 10) {
-        console.log(`📋 Row ${index + 1}:`, {
-          display_order: displayOrder,
-          activity_id: item.activity_id,
-          order_index: item.activity?.order_index,
-          value: item.value,
-          unit: item.activity?.description,
-          title: item.activity?.title
-        });
-      }
+      const activityId = item.activity_id;
+      // ใช้หน่วยนับจาก UNIT_MAPPING ตามเอกสาร อสม.1
+      const fixedUnit = UNIT_MAPPING[activityId] || "-";
 
       return {
-        no: displayOrder, // ใช้หมายเลขจาก API (1, 1.1, 1.2, 2, 2.1, etc.)
+        no: displayOrder,
         activity: item.activity?.title || item.activity_id || "-",
-        unit: item.activity?.description || "-", // หน่วยนับจาก API (ครั้ง, ครัวเรือน, คน, etc.)
+        unit: fixedUnit, // ใช้หน่วยนับตายตัวตามเอกสาร
         result: item.value || 0,
         isMainCategory: false,
         category: item.category,
@@ -144,9 +161,8 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     });
 
     console.log("✅ Transformed data rows:", result.length);
-    console.log("✅ First 3 display rows:", result.slice(0, 3));
     return result;
-  }, [activityData]);
+  }, [activityData, UNIT_MAPPING]);
 
   // ใช้ข้อมูลจาก API เท่านั้น (ไม่ fallback ไปใช้ mock data)
   const displayData = loading ? [] : transformedData;
