@@ -567,6 +567,9 @@ const UserListComp = () => {
   // CID visibility state - track which rows show full CID
   const [cidVisibility, setCidVisibility] = useState({});
 
+  // Auto-refresh state for online status - รีเฟรชทุก 1 นาทีเพื่ออัพเดทสถานะ online/offline
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   // Fetch users from API
   useEffect(() => {
     const fetchUsers = async () => {
@@ -609,6 +612,7 @@ const UserListComp = () => {
                 status: user.is_active ? "active" : "deleted",
                 email: user.email,
                 phone: user.phone || "-",
+                last_active_at: user.last_active_at, // เพิ่ม last_active_at
               };
             }
 
@@ -656,6 +660,7 @@ const UserListComp = () => {
                 is_active: user.is_active,
                 osm_code: user.osm_code,
                 last_login: user.last_login,
+                last_active_at: user.last_active_at, // สำหรับ online status
                 created_at: user.created_at,
 
                 // Personal info (OAuth2 เป็น priority, fallback ไป user API)
@@ -812,6 +817,7 @@ const UserListComp = () => {
                 status: user.is_active ? "active" : "deleted",
                 email: user.email,
                 phone: user.phone || "-",
+                last_active_at: user.last_active_at, // สำหรับ online status
                 prefix: prefix,
                 first_name: firstName,
                 last_name: lastName,
@@ -858,6 +864,16 @@ const UserListComp = () => {
 
     fetchUsers();
   }, [currentPage, itemsPerPage, keyword, tab, province, district, subdistrict]);
+
+  // Auto-refresh online status ทุก 1 นาที
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Force re-render เพื่ออัพเดทการคำนวณ online/offline status
+      setRefreshTrigger(prev => prev + 1);
+    }, 60 * 1000); // 60 วินาที = 1 นาที
+
+    return () => clearInterval(interval);
+  }, []);
 
   // ใช้ users โดยตรง เพราะ API ส่งมาแบบ paginated แล้ว
   const displayUsers = users;
@@ -1177,15 +1193,46 @@ const UserListComp = () => {
                     </td>
                     <td className="py-4 px-4 font-medium text-[#231d37]">
                       <div className="flex items-center gap-2">
-                        {/* Status indicator - สีเขียว = active, เทา = deleted */}
-                        <div
-                          className={`w-3 h-3 rounded-full ${
-                            row.status === "active"
-                              ? "bg-green-500 shadow-lg shadow-green-500/50"
-                              : "bg-gray-400"
-                          }`}
-                          title={row.status === "active" ? "กำลังใช้งาน" : "ปิดการใช้งาน"}
-                        />
+                        {/* Status indicator - สีเขียว = online, เหลือง = active (offline), เทา = deleted */}
+                        {(() => {
+                          if (row.status !== "active") {
+                            // บัญชีถูกปิด
+                            return (
+                              <div
+                                className="w-3 h-3 rounded-full bg-gray-400"
+                                title="ปิดการใช้งาน"
+                              />
+                            );
+                          }
+
+                          // บัญชีใช้งานได้ - เช็คสถานะ online/offline
+                          const lastActiveAt = row.last_active_at ? new Date(row.last_active_at) : null;
+                          const now = new Date();
+                          const minutesSinceActive = lastActiveAt
+                            ? (now.getTime() - lastActiveAt.getTime()) / (1000 * 60)
+                            : Infinity;
+
+                          // ถ้า last_active_at อยู่ภายใน 3 นาที = Online (ส่งทุก 2 นาที + buffer 1 นาที)
+                          // refreshTrigger จะทำให้ component re-render ทุก 1 นาทีเพื่ออัพเดทสถานะ
+                          const isOnline = refreshTrigger !== undefined && minutesSinceActive <= 3;
+
+                          return (
+                            <div
+                              className={`w-3 h-3 rounded-full ${
+                                isOnline
+                                  ? "bg-green-500 shadow-lg shadow-green-500/50 animate-pulse"
+                                  : "bg-yellow-400"
+                              }`}
+                              title={
+                                isOnline
+                                  ? `ออนไลน์ (ใช้งานเมื่อ ${Math.floor(minutesSinceActive)} นาทีที่แล้ว)`
+                                  : lastActiveAt
+                                  ? `ออฟไลน์ (ใช้งานครั้งล่าสุดเมื่อ ${lastActiveAt.toLocaleString('th-TH')})`
+                                  : "ออฟไลน์ (ยังไม่เคยใช้งาน)"
+                              }
+                            />
+                          );
+                        })()}
                         <span>{row.name}</span>
                       </div>
                     </td>
