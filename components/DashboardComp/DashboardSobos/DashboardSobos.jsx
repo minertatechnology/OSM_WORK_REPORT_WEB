@@ -854,14 +854,41 @@ const DashboardSobos = () => {
 
   const summaryTableData = useMemo(() => {
     if (filteredTable !== null) return filteredTable;
+
     let selectedZoneNum = 1;
     if (zone && zone.startsWith("zone"))
       selectedZoneNum = parseInt(zone.replace("zone", ""));
+
     const zoneObj = HEALTHZONE_PROVINCES.find(
       (z) => z.zone === selectedZoneNum
     );
+
     let zoneTable = [];
-    if (zoneObj && currentTab.table) {
+
+    // ถ้ามีข้อมูลจาก API ให้ใช้ข้อมูลจริง
+    if (reportsData && reportsData.reports && zoneObj) {
+      // นับจำนวนรายงานแต่ละจังหวัด
+      const provinceCountMap = {};
+      reportsData.reports.forEach(report => {
+        if (report.province_name_th) {
+          const provinceName = report.province_name_th.trim();
+          provinceCountMap[provinceName] = (provinceCountMap[provinceName] || 0) + 1;
+        }
+      });
+
+      // สร้างข้อมูลตารางจากข้อมูลจริง
+      zoneTable = zoneObj.provinces.map((prov) => {
+        const count = provinceCountMap[prov.trim()] || 0;
+        return {
+          zone: `เขตสุขภาพที่ ${selectedZoneNum}`,
+          province: prov,
+          total: count,
+          submitted: count,
+          percent: 100,
+        };
+      });
+    } else if (zoneObj && currentTab.table) {
+      // fallback: ใช้ mock data
       zoneTable = zoneObj.provinces.map((prov) => {
         const found = currentTab.table.find(
           (t) => t.zone === `เขตสุขภาพที่ ${selectedZoneNum}`
@@ -875,14 +902,57 @@ const DashboardSobos = () => {
         };
       });
     }
+
     return zoneTable;
-  }, [zone, currentTab, filteredTable]);
+  }, [zone, currentTab, filteredTable, reportsData]);
 
   const chartPieData = useMemo(() => {
     if (filteredPie !== null) return filteredPie;
-    // default: ครบ 13 เขต
+
+    // ถ้ามีข้อมูลจาก API ให้ใช้ข้อมูลจริง
+    if (reportsData && reportsData.reports) {
+      // นับจำนวนรายงานแต่ละเขตสุขภาพ
+      const zoneCountMap = {};
+
+      // เริ่มต้นทุกเขตด้วย 0
+      for (let i = 1; i <= 13; i++) {
+        zoneCountMap[i] = 0;
+      }
+
+      // นับรายงานตามเขต
+      reportsData.reports.forEach(report => {
+        if (!report.province_name_th) return;
+
+        // หาว่าจังหวัดนี้อยู่ในเขตไหน
+        const zone = HEALTHZONE_PROVINCES.find(z =>
+          z.provinces.some(p => p.trim() === report.province_name_th.trim())
+        );
+
+        if (zone) {
+          const zoneNum = parseInt(zone.zone.match(/\d+/)?.[0] || "0");
+          if (zoneNum >= 1 && zoneNum <= 13) {
+            zoneCountMap[zoneNum]++;
+          }
+        }
+      });
+
+      // สร้าง pieData จากข้อมูลจริง
+      const colors = [
+        "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7",
+        "#DFE6E9", "#74B9FF", "#A29BFE", "#FD79A8", "#FDCB6E",
+        "#6C5CE7", "#00B894", "#E17055"
+      ];
+
+      return Object.keys(zoneCountMap).map(zoneNum => ({
+        name: `เขตสุขภาพที่ ${zoneNum}`,
+        value: zoneCountMap[zoneNum],
+        color: colors[parseInt(zoneNum) - 1] || "#999"
+      }));
+    }
+
+    // fallback: ใช้ mock data
     return currentTab.pie;
-  }, [currentTab, filteredPie]);
+  }, [currentTab, filteredPie, reportsData]);
 
   // Pie chart center value (sum ของ pie ที่เหลือ)
   const chartSummaryValue = useMemo(() => {
