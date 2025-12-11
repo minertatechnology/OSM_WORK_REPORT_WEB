@@ -622,15 +622,62 @@ const NcdsScreeningComp = () => {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // State สำหรับเก็บข้อมูลจาก API
+  const [allRows, setAllRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // ดึงข้อมูลจาก API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("http://192.168.1.134:8000/api/v1/ncd-screeningsall?skip=0&limit=100");
+        const data = await response.json();
+
+        // แปลงข้อมูลจาก API ให้เป็นรูปแบบที่ใช้แสดงในตาราง
+        const transformedData = data.map((item, index) => ({
+          index: index + 1,
+          id: item.id,
+          name: `${item.prefix}${item.first_name} ${item.last_name}`,
+          date: formatThaiDate(item.assessment_date),
+          rawData: item, // เก็บข้อมูลดิบไว้ใช้ในหน้ารายละเอียด
+        }));
+
+        setAllRows(transformedData);
+      } catch (error) {
+        console.error("Failed to fetch NCD screening data:", error);
+        setAllRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // ฟังก์ชันแปลงวันที่เป็นภาษาไทย
+  const formatThaiDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const monthNames = [
+      "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+      "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+    ];
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear() + 543;
+    return `${day} ${month} ${year}`;
+  };
+
   const filteredRows = useMemo(
     () =>
-      ALL_ROWS.filter(
+      allRows.filter(
         (row) =>
           row.name.includes(keyword) ||
           row.date.includes(keyword) ||
           String(row.index).includes(keyword)
       ),
-    [keyword]
+    [keyword, allRows]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
@@ -669,13 +716,15 @@ const NcdsScreeningComp = () => {
 
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
-    const selectedRow = ALL_ROWS.find((row) => row.index === Number(detailId));
+    const selectedRow = allRows.find((row) => row.index === Number(detailId));
     return (
       <NcdsScreeningDetail
         reportData={{
           year,
           month,
           name: selectedRow?.name || "ไม่พบข้อมูล",
+          date: selectedRow?.date || "",
+          rawData: selectedRow?.rawData || {}, // ส่งข้อมูลดิบจาก API
         }}
       />
     );
@@ -871,9 +920,6 @@ const NcdsScreeningComp = () => {
                 <th className="py-4 px-4 font-semibold text-center text-white">
                   วันที่
                 </th>
-                <th className="py-4 px-4 font-semibold text-center text-white">
-                  จำนวนครัวเรือน
-                </th>
                 <th className="py-4 px-4 font-semibold text-center text-white rounded-tr-xl">
                   รายละเอียด
                 </th>
@@ -882,7 +928,7 @@ const NcdsScreeningComp = () => {
             <tbody>
               {paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center">
+                  <td colSpan={4} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <FileText size={48} className="text-gray-300" />
                       <p className="text-gray-500">ไม่พบข้อมูล</p>
@@ -905,12 +951,6 @@ const NcdsScreeningComp = () => {
                     </td>
                     <td className="py-4 px-4 text-center text-gray-600">
                       {row.date}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-100 text-pink-700 font-semibold text-sm">
-                        <Heart size={14} />
-                        {row.amount}
-                      </span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <button
