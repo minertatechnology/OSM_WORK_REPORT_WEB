@@ -1,6 +1,5 @@
 const path = require("path");
 
-const isDev = process.env.ENV_MODE === "development";
 const isExport = process.env.EXPORT_MODE === "true";
 
 const nextConfig = {
@@ -44,33 +43,15 @@ const nextConfig = {
     return config;
   },
 
-  // ✅ HTTP Caching Headers สำหรับ Performance
+  // ❌ Disable cache ทั้งหมดเพราะดึงข้อมูลจาก API แบบ real-time
   async headers() {
     return [
       {
-        source: '/:all*(svg|jpg|jpeg|png|gif|ico|webp|avif)',
+        source: '/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/_next/image(.*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate',
           },
         ],
       },
