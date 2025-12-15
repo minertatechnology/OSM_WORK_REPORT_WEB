@@ -448,8 +448,279 @@ doc.setFontSize(12);
   doc.text("ไม่เพียงพอ", margin + 10, y);
   y += 8;
 
-  // Footer - วันที่
+  // Footer หน้า 1 - วันที่
   const footerY = 285;
+  doc.setFontSize(12);
+  doc.text(`วันที่พิมพ์: ${formatThaiDateShort(new Date())}`, margin, footerY);
+  doc.text(`ข้อมูล ณ วันที่: ${formatThaiDateShort(record.updated_at)}`, pageWidth - margin, footerY, { align: "right" });
+
+  // ===== เพิ่มหน้าใหม่ (Page 2) =====
+  doc.addPage();
+  y = 15;
+
+  // Title หน้า 2
+  doc.setFontSize(14);
+  doc.setFont("Sarabun", "normal");
+  doc.text("2. แบบคัดกรองผู้สูงอายุ", margin, y);
+  y += 10;
+
+  // กำหนดตำแหน่งและขนาดตาราง (3 คอลัมน์)
+  const tableStartY = y;
+  const tableWidth = pageWidth - (2 * margin);
+  const col1Width = 42; // ความผิดปกติของร่างกาย
+  const col2Width = 88; // การทดสอบ
+  const col3Width = tableWidth - col1Width - col2Width; // ส่งต่อเพื่อประเมินเชิงลึก
+
+  const col1X = margin;
+  const col2X = col1X + col1Width;
+  const col3X = col2X + col2Width;
+
+  // วาดหัวตาราง
+  doc.setLineWidth(0.3);
+  doc.setFontSize(12);
+  doc.setFont("Sarabun", "normal");
+
+  const headerHeight = 15;
+
+  // หัวตาราง - พื้นหลังสีเทาอ่อน
+  doc.setFillColor(220, 220, 220);
+  doc.rect(col1X, y, col1Width, headerHeight, 'FD');
+  doc.rect(col2X, y, col2Width, headerHeight, 'FD');
+  doc.rect(col3X, y, col3Width, headerHeight, 'FD');
+
+  // เส้นแนวตั้งหัวตาราง
+  doc.setLineWidth(0.3);
+  doc.line(col2X, y, col2X, y + headerHeight);
+  doc.line(col3X, y, col3X, y + headerHeight);
+
+  doc.setFontSize(12);
+  // ข้อความหัวตาราง - จัดกึ่งกลาง
+  doc.text("ความผิดปกติของร่างกาย", col1X + col1Width / 2, y + 8, { align: "center" });
+  doc.text("การทดสอบ", col2X + col2Width / 2, y + 8, { align: "center" });
+
+  // หัวคอลัมน์ที่ 3 แบ่ง 2 บรรทัด
+  doc.text("ส่งต่อเพื่อประเมินเชิงลึก", col3X + col3Width / 2, y + 6, { align: "center" });
+  doc.text("กรณีพบอย่างน้อยหนึ่งข้อ", col3X + col3Width / 2, y + 11, { align: "center" });
+
+  y += headerHeight;
+
+  // ข้อมูลในตาราง - ตรงตามรูป พร้อมเงื่อนไขการติ๊ก
+  const elderlyScreeningData = [
+    {
+      issue: "ด้านการเคลื่อนไหวร่างกาย\n(LIMITED MOBILITY)",
+      tests: [
+        "ให้ผู้สูงอายุเดินไปและกลับด้วยตนเองและขวา 6 เมตร ภายในระยะเวลา 12 วินาที (TIME UP AND GO TEST)",
+        "มีประวัติหกล้มภายใน 6 เดือน อย่างน้อย 1 ครั้ง"
+      ],
+      referOptions: [
+        { text: "ไม่สามารถทำได้", checked: record.time_up_go_test === "cannot" },
+        { text: "มี", checked: record.fall_history_6m === "yes" }
+      ],
+      height: 18
+    },
+    {
+      issue: "ด้านการขาดสารอาหาร\n(MALNUTRITION)",
+      tests: [
+        "น้ำหนักลดมากกว่า 3 กิโลกรัมภายในช่วงเวลา 3 เดือนที่ผ่านมา (โดยไม่ตั้งใจลดน้ำหนัก)",
+        "มีความอยากอาหารลดลงหรือไม่"
+      ],
+      referOptions: [
+        { text: "มี", checked: record.weight_loss_3m === "yes" },
+        { text: "มี", checked: record.swallow_problem_3m === "yes" }
+      ],
+      height: 18
+    },
+    {
+      issue: "ด้านการมองเห็น\n(VISUAL IMPAIRMENT)",
+      tests: [
+        "คุณมีปัญหาใด ๆ เกี่ยวกับดวงตาของคุณ เช่น การมองระยะไกล การอ่านหนังสือ"
+      ],
+      referOptions: [
+        { text: "มี", checked: record.vision_problem === "yes" }
+      ],
+      height: 18
+    },
+    {
+      issue: "ด้านการได้ยิน\n(HEARING LOSS)",
+      tests: [
+        "ให้ถูนิ้วโป้งกับนิ้วชี้ห่างจากหูของผู้สูงอายุประมาณ 1 ฟุต ทีละข้าง ทั้งหูขวาและหูซ้าย (Finger rub test)"
+      ],
+      referOptions: [
+        { text: "ได้ยินทั้ง 2 ข้าง", checked: record.hearing_status === "normal" },
+        { text: "ไม่ได้ยินทั้ง 2 ข้าง", checked: record.hearing_status === "bothNo" },
+        { text: "ไม่ได้ยินข้างเดียว", checked: record.hearing_status === "oneNo" }
+      ],
+      height: 24
+    },
+    {
+      issue: "ด้านภาวะซึมเศร้า\n(DEPRESSIVE SYMPTOMS)",
+      tests: [
+        "ใน 2 สัปดาห์ที่ผ่านมารวมวันนี้ ท่านรู้สึกหดหู่ เศร้า หรือท้อแท้ สิ้นหวัง หรือไม่",
+        "ใน 2 สัปดาห์ที่ผ่านมารวมวันนี้ ท่านรู้สึก เบื่อ ทำอะไรก็ไม่เพลิดเพลิน หรือไม่"
+      ],
+      referOptions: [
+        { text: "มี", checked: record.depression_2w === "yes" },
+        { text: "มี", checked: record.depression_2w === "yes" }
+      ],
+      height: 24
+    },
+    {
+      issue: "ด้านการกลั้นปัสสาวะ\n(URINARY INCONTINENCE)",
+      tests: [
+        "ผู้สูงอายุมีปัสสาวะเล็ดหรือปัสสาวะราด จนทำให้เกิดปัญหาในการใช้ชีวิตประจำวัน"
+      ],
+      referOptions: [
+        { text: "มี", checked: record.urinary_incontinence === "yes" }
+      ],
+      height: 18
+    },
+    {
+      issue: "ด้านการปฏิบัติกิจวัตรประจำวัน\n(ADL)",
+      tests: [
+        "ความสามารถในการช่วยตนเองของท่านในการทำกิจวัตรประจำวันโดยไม่ต้องพึ่งคนอื่น ลดลงหรือไม่ (กินอาหาร ล้างหน้าแปรงฟันหวีผม ลุกนั่งจากที่นอนหรือเตียง เข้าห้องน้ำ เคลื่อนที่ไปมาในบ้าน สวมใส่เสื้อผ้า ขึ้นลงบันได 1 ชั้น อาบน้ำ กลั้นอุจจาระ กลั้นปัสสาวะ)"
+      ],
+      referOptions: [
+        { text: "ลดลง", checked: record.adl_status === "decrease" }
+      ],
+      height: 24
+    },
+    {
+      issue: "ช่องปาก",
+      tests: [
+        "ท่านมีความยากลำบากในการเคี้ยวอาหารแข็งหรือไม่",
+        "ท่านมีอาการเจ็บปวดในช่องปากหรือไม่"
+      ],
+      referOptions: [
+        { text: "มี", checked: record.oral_chewing_difficulty === "yes" },
+        { text: "มี", checked: record.oral_pain === "yes" }
+      ],
+      height: 18
+    },
+    {
+      issue: "ด้านความคิดความจำ\n(COGNITIVE DECLINE)",
+      tests: [
+        "ให้ทำแบบทดสอบด้านความคิดความจำ (Mini cog)"
+      ],
+      referOptions: [
+        { text: "ผิดปกติ", checked: record.cognitive_status === "abnormal" }
+      ],
+      height: 16
+    }
+  ];
+
+  doc.setFontSize(12);
+  let currentY = y;
+
+  elderlyScreeningData.forEach((item) => {
+    const rowHeight = item.height;
+
+    // วาดกรอบแถว
+    doc.setLineWidth(0.3);
+    doc.rect(col1X, currentY, col1Width, rowHeight);
+    doc.rect(col2X, currentY, col2Width, rowHeight);
+    doc.rect(col3X, currentY, col3Width, rowHeight);
+
+    // คอลัมน์ 1: ความผิดปกติของร่างกาย
+    const issueLines = item.issue.split('\n');
+    let issueY = currentY + 5;
+    issueLines.forEach(line => {
+      doc.text(line, col1X + col1Width / 2, issueY, { align: "center" });
+      issueY += 4;
+    });
+
+    // คอลัมน์ 2: การทดสอบ
+    let testY = currentY + 5;
+    item.tests.forEach((test) => {
+      const lines = doc.splitTextToSize(test, col2Width - 6);
+      lines.forEach((line, lineIndex) => {
+        // ใส่จุด • เฉพาะบรรทัดแรกของแต่ละ test (และเฉพาะเมื่อมีมากกว่า 1 test)
+        if (lineIndex === 0 && item.tests.length > 1) {
+          doc.text("• " + line, col2X + 2, testY);
+        } else if (lineIndex === 0 && item.tests.length === 1) {
+          // ถ้ามี test เดียว ไม่ใส่จุด
+          doc.text(line, col2X + 2, testY);
+        } else {
+          // บรรทัดที่ wrap ต่อจากบรรทัดแรก ไม่ใส่จุด และเยื้องเข้ามา
+          const indent = item.tests.length > 1 ? 6 : 2;
+          doc.text(line, col2X + indent, testY);
+        }
+        testY += 4;
+      });
+    });
+
+    // คอลัมน์ 3: ส่งต่อเพื่อประเมินเชิงลึก
+    let referY = currentY + 5;
+    item.referOptions.forEach(option => {
+      drawCheckbox(doc, col3X + 2, referY - 2.5, checkboxSize, option.checked);
+      doc.text(option.text, col3X + 7, referY);
+      referY += 6;
+    });
+
+    currentY += rowHeight;
+  });
+
+  // วาดกรอบรอบนอกทั้งตาราง
+  doc.setLineWidth(0.5);
+  doc.rect(col1X, tableStartY, tableWidth, currentY - tableStartY);
+
+  y = currentY + 8;
+
+  // ส่วนสรุปความผิดปกติและแนะนำ
+  doc.setFontSize(11);
+  doc.setFont("Sarabun", "normal");
+
+  // บรรทัดที่ 1: สรุปความผิดปกติ
+  doc.text("สรุปความผิดปกติและแนะนำของบุคลากรสาธารณสุข", margin, y);
+
+  // เส้นประสำหรับเขียนบรรทัดแรก
+  doc.setLineWidth(0.3);
+  doc.line(margin + 92, y + 2, pageWidth - margin, y + 2);
+  y += 8;
+
+  // เส้นประสำหรับเขียนบรรทัดที่ 2
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 12;
+
+  // ส่วนลงชื่อ - แบ่งเป็น 2 คอลัมน์
+  const signatureLeftX = margin + 25;
+  const signatureRightX = pageWidth / 2 + 20;
+
+  // คอลัมน์ซ้าย: ผู้เข้ารับการตรวจสุขภาพ
+  doc.text("ลงชื่อ", signatureLeftX, y);
+  doc.line(signatureLeftX + 12, y + 2, signatureLeftX + 55, y + 2);
+  doc.text("ชม. ผู้เข้ารับการตรวจสุขภาพ", signatureLeftX + 8, y + 8);
+
+  // แสดงชื่อผู้รับการตรวจ (ถ้ามี)
+  const patientName = record.name || osmData?.name || "";
+  const patientSurname = record.surname || osmData?.surname || "";
+  const fullName = `${patientName} ${patientSurname}`.trim();
+
+  doc.text("(", signatureLeftX + 10, y + 15);
+  if (fullName) {
+    doc.text(fullName, signatureLeftX + 30, y + 15, { align: "center" });
+  } else {
+    doc.line(signatureLeftX + 13, y + 17, signatureLeftX + 55, y + 17);
+  }
+  doc.text(")", signatureLeftX + 57, y + 15);
+
+  doc.text("วันที่", signatureLeftX + 12, y + 23);
+  doc.line(signatureLeftX + 22, y + 25, signatureLeftX + 55, y + 25);
+
+  // คอลัมน์ขวา: บุคลากรสาธารณสุข
+  doc.text("ลงชื่อ", signatureRightX, y);
+  doc.line(signatureRightX + 12, y + 2, signatureRightX + 55, y + 2);
+  doc.text("บุคลากรสาธารณสุข", signatureRightX + 15, y + 8);
+
+  doc.text("(", signatureRightX + 10, y + 15);
+  doc.line(signatureRightX + 13, y + 17, signatureRightX + 55, y + 17);
+  doc.text(")", signatureRightX + 57, y + 15);
+
+  doc.text("วันที่", signatureRightX + 12, y + 23);
+  doc.line(signatureRightX + 22, y + 25, signatureRightX + 55, y + 25);
+
+  y += 35;
+
+  // Footer หน้า 2
   doc.setFontSize(12);
   doc.text(`วันที่พิมพ์: ${formatThaiDateShort(new Date())}`, margin, footerY);
   doc.text(`ข้อมูล ณ วันที่: ${formatThaiDateShort(record.updated_at)}`, pageWidth - margin, footerY, { align: "right" });
