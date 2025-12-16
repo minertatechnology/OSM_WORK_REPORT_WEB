@@ -84,12 +84,12 @@ export const exportHealthRecordToPDF = async (record) => {
   const checkboxSize = 3.5;
 
   // Title - จัดกึ่งกลาง (ทำให้หนาโดยการวาดซ้อนกัน)
-  doc.setFontSize(16);
+  doc.setFontSize(14);
   doc.setFont("Sarabun", "normal");
   const title = "แบบบันทึกผลการตรวจสุขภาพ อสม.";
   doc.text(title, pageWidth / 2, y, { align: "center" });
-  doc.text(title, pageWidth / 2 + 0.2, y, { align: "center" });
-  doc.text(title, pageWidth / 2, y + 0.2, { align: "center" });
+  doc.text(title, pageWidth / 2 + 0.1, y, { align: "center" });
+  doc.text(title, pageWidth / 2, y + 0.1, { align: "center" });
   y += 7;
 
   // ===== ข้อมูลทั่วไป =====
@@ -97,8 +97,8 @@ export const exportHealthRecordToPDF = async (record) => {
   doc.setFont("Sarabun", "normal");
   const heading1 = "ข้อมูลทั่วไป";
   doc.text(heading1, margin, y);
-  doc.text(heading1, margin + 0.2, y);
-  doc.text(heading1, margin, y + 0.2);
+  doc.text(heading1, margin + 0.1, y);
+  doc.text(heading1, margin, y + 0.1);
   y += 6;
 
   doc.setFontSize(12);
@@ -170,8 +170,8 @@ export const exportHealthRecordToPDF = async (record) => {
   // ทำให้ "ประวัติสุขภาพ" หนา
   const healthHistoryLabel = "ประวัติสุขภาพ";
   doc.text(healthHistoryLabel, margin, y);
-  doc.text(healthHistoryLabel, margin + 0.2, y);
-  doc.text(healthHistoryLabel, margin, y + 0.2);
+  doc.text(healthHistoryLabel, margin + 0.1, y);
+  doc.text(healthHistoryLabel, margin, y + 0.1);
 
   // ข้อความที่เหลือเป็นปกติ
   doc.text(`โรคประจำตัว  ${record.chronic_diseases || "-"}`, margin + 25, y);
@@ -185,8 +185,8 @@ export const exportHealthRecordToPDF = async (record) => {
   doc.setFontSize(12);
   const heading2 = "ประวัติครอบครัว (บิดา/มารดา/ญาติสายตรงป่วยหรือเสียชีวิตด้วยโรคดังต่อไปนี้หรือไม่)";
   doc.text(heading2, margin, y);
-  doc.text(heading2, margin + 0.2, y);
-  doc.text(heading2, margin, y + 0.2);
+  doc.text(heading2, margin + 0.1, y);
+  doc.text(heading2, margin, y + 0.1);
   y += 6;
 
   doc.setFont("Sarabun", "normal");
@@ -240,8 +240,8 @@ export const exportHealthRecordToPDF = async (record) => {
   // ทำให้ "ประเมินและคัดกรองตนเอง" หนา
   const heading3Label = "ประเมินและคัดกรองตนเอง";
   doc.text(heading3Label, margin, y);
-  doc.text(heading3Label, margin + 0.2, y);
-  doc.text(heading3Label, margin, y + 0.2);
+  doc.text(heading3Label, margin + 0.1, y);
+  doc.text(heading3Label, margin, y + 0.1);
 
   // ข้อมูลที่เหลือเป็นปกติ (ขนาด 12)
   doc.setFontSize(12);
@@ -338,8 +338,8 @@ export const exportHealthRecordToPDF = async (record) => {
   doc.setFontSize(12);
   const heading4 = "ผลตรวจทางห้องปฏิบัติการ (อสม. อายุ 35 ปีขึ้นไป)";
   doc.text(heading4, margin, y);
-  doc.text(heading4, margin + 0.2, y);
-  doc.text(heading4, margin, y + 0.2);
+  doc.text(heading4, margin + 0.1, y);
+  doc.text(heading4, margin, y + 0.1);
   y += 6;
 
   doc.setFont("Sarabun", "normal");
@@ -414,15 +414,15 @@ export const exportHealthRecordToPDF = async (record) => {
   doc.setFontSize(12);
   const heading5 = "สำหรับ อสม. อายุ 60 ปีขึ้นไป (Community screening)";
   doc.text(heading5, margin, y);
-  doc.text(heading5, margin + 0.2, y);
-  doc.text(heading5, margin, y + 0.2);
+  doc.text(heading5, margin + 0.1, y);
+  doc.text(heading5, margin, y + 0.1);
   y += 6;
 doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
   const heading6 = "1. ข้อมูลเชิงสังคม";
   doc.text(heading6, margin, y);
-  doc.text(heading6, margin + 0.2, y);
-  doc.text(heading6, margin, y + 0.2);
+  doc.text(heading6, margin + 0.1, y);
+  doc.text(heading6, margin, y + 0.1);
   y += 6;
 
   doc.setFont("Sarabun", "normal");
@@ -499,8 +499,8 @@ doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
   const heading7 = "2. แบบคัดกรองผู้สูงอายุ";
   doc.text(heading7, margin, y);
-  doc.text(heading7, margin + 0.2, y);
-  doc.text(heading7, margin, y + 0.2);
+  doc.text(heading7, margin + 0.1, y);
+  doc.text(heading7, margin, y + 0.1);
   y += 7;
 
   // กำหนดตำแหน่งและขนาดตาราง (3 คอลัมน์)
@@ -711,8 +711,8 @@ doc.setFontSize(12);
   // บรรทัดที่ 1: สรุปความผิดปกติ
   const heading8 = "สรุปความผิดปกติและแนะนำของบุคลากรสาธารณสุข";
   doc.text(heading8, margin, y);
-  doc.text(heading8, margin + 0.2, y);
-  doc.text(heading8, margin, y + 0.2);
+  doc.text(heading8, margin + 0.1, y);
+  doc.text(heading8, margin, y + 0.1);
 
   // เส้นประสำหรับเขียนบรรทัดแรก - วาดติดท้ายข้อความ
   doc.setLineWidth(0.3);
