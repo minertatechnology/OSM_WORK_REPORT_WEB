@@ -448,11 +448,10 @@ doc.setFontSize(12);
   doc.text("ไม่เพียงพอ", margin + 10, y);
   y += 8;
 
-  // Footer หน้า 1 - วันที่
+  // Footer หน้า 1
   const footerY = 285;
   doc.setFontSize(12);
-  doc.text(`วันที่พิมพ์: ${formatThaiDateShort(new Date())}`, margin, footerY);
-  doc.text(`ข้อมูล ณ วันที่: ${formatThaiDateShort(record.updated_at)}`, pageWidth - margin, footerY, { align: "right" });
+  doc.text("แอปพลิเคชัน สมาร์ท อสม. ( แบบบันทึกผลการตรวจสุขภาพ อสม. ) | หน้าที่ 1 จาก 2", pageWidth / 2, footerY, { align: "center" });
 
   // ===== เพิ่มหน้าใหม่ (Page 2) =====
   doc.addPage();
@@ -462,7 +461,7 @@ doc.setFontSize(12);
   doc.setFontSize(14);
   doc.setFont("Sarabun", "normal");
   doc.text("2. แบบคัดกรองผู้สูงอายุ", margin, y);
-  y += 10;
+  y += 7;
 
   // กำหนดตำแหน่งและขนาดตาราง (3 คอลัมน์)
   const tableStartY = y;
@@ -666,64 +665,63 @@ doc.setFontSize(12);
   y = currentY + 8;
 
   // ส่วนสรุปความผิดปกติและแนะนำ
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
 
   // บรรทัดที่ 1: สรุปความผิดปกติ
   doc.text("สรุปความผิดปกติและแนะนำของบุคลากรสาธารณสุข", margin, y);
 
-  // เส้นประสำหรับเขียนบรรทัดแรก
+  // เส้นประสำหรับเขียนบรรทัดแรก - วาดติดท้ายข้อความ
   doc.setLineWidth(0.3);
-  doc.line(margin + 92, y + 2, pageWidth - margin, y + 2);
-  y += 8;
+  doc.line(margin + 65, y + 2, pageWidth - margin, y + 2);
+  y += 10;
 
   // เส้นประสำหรับเขียนบรรทัดที่ 2
   doc.line(margin, y, pageWidth - margin, y);
-  y += 12;
+  y += 10;
 
   // ส่วนลงชื่อ - แบ่งเป็น 2 คอลัมน์
-  const signatureLeftX = margin + 25;
-  const signatureRightX = pageWidth / 2 + 20;
+  const signatureLeftX = margin + 10;
+  const signatureRightX = pageWidth / 2 + 11;
 
   // คอลัมน์ซ้าย: ผู้เข้ารับการตรวจสุขภาพ
   doc.text("ลงชื่อ", signatureLeftX, y);
-  doc.line(signatureLeftX + 12, y + 2, signatureLeftX + 55, y + 2);
-  doc.text("ชม. ผู้เข้ารับการตรวจสุขภาพ", signatureLeftX + 8, y + 8);
+  doc.line(signatureLeftX + 10, y + 2, signatureLeftX + 40, y + 2);
+  doc.text("อสม. ผู้เข้ารับการตรวจสุขภาพ", signatureLeftX + 42, y);
 
   // แสดงชื่อผู้รับการตรวจ (ถ้ามี)
   const patientName = record.name || osmData?.name || "";
   const patientSurname = record.surname || osmData?.surname || "";
   const fullName = `${patientName} ${patientSurname}`.trim();
 
-  doc.text("(", signatureLeftX + 10, y + 15);
+  doc.text("(", signatureLeftX + 4, y + 12);
   if (fullName) {
-    doc.text(fullName, signatureLeftX + 30, y + 15, { align: "center" });
+    doc.text(fullName, signatureLeftX + 30, y + 12, { align: "center" });
   } else {
-    doc.line(signatureLeftX + 13, y + 17, signatureLeftX + 55, y + 17);
+    doc.line(signatureLeftX + 13, y + 15, signatureLeftX + 55, y + 15);
   }
-  doc.text(")", signatureLeftX + 57, y + 15);
+  doc.text(")", signatureLeftX + 57, y + 12);
 
-  doc.text("วันที่", signatureLeftX + 12, y + 23);
-  doc.line(signatureLeftX + 22, y + 25, signatureLeftX + 55, y + 25);
+  doc.text("วันที่", signatureLeftX + 4, y + 23);
+  doc.line(signatureLeftX + 14, y + 25, signatureLeftX + 50, y + 25);
 
   // คอลัมน์ขวา: บุคลากรสาธารณสุข
   doc.text("ลงชื่อ", signatureRightX, y);
-  doc.line(signatureRightX + 12, y + 2, signatureRightX + 55, y + 2);
-  doc.text("บุคลากรสาธารณสุข", signatureRightX + 15, y + 8);
+  doc.line(signatureRightX + 12, y + 2, signatureRightX + 45, y + 2);
+  doc.text("บุคลากรสาธารณสุข", signatureRightX + 48, y);
 
-  doc.text("(", signatureRightX + 10, y + 15);
-  doc.line(signatureRightX + 13, y + 17, signatureRightX + 55, y + 17);
-  doc.text(")", signatureRightX + 57, y + 15);
+  doc.text("(", signatureRightX + 4, y + 12);
+  doc.line(signatureRightX + 8, y + 15, signatureRightX + 55, y + 15);
+  doc.text(")", signatureRightX + 57, y + 12);
 
-  doc.text("วันที่", signatureRightX + 12, y + 23);
-  doc.line(signatureRightX + 22, y + 25, signatureRightX + 55, y + 25);
+  doc.text("วันที่", signatureRightX + 4, y + 23);
+  doc.line(signatureRightX + 14, y + 25, signatureRightX + 50, y + 25);
 
   y += 35;
 
   // Footer หน้า 2
   doc.setFontSize(12);
-  doc.text(`วันที่พิมพ์: ${formatThaiDateShort(new Date())}`, margin, footerY);
-  doc.text(`ข้อมูล ณ วันที่: ${formatThaiDateShort(record.updated_at)}`, pageWidth - margin, footerY, { align: "right" });
+  doc.text("แอปพลิเคชัน สมาร์ท อสม. ( แบบบันทึกผลการตรวจสุขภาพ อสม. ) | หน้าที่ 2 จาก 2", pageWidth / 2, footerY, { align: "center" });
 
   // Save PDF
   const fileName = `health_record_${record.id_card || record.id || "unknown"}_${Date.now()}.pdf`;
