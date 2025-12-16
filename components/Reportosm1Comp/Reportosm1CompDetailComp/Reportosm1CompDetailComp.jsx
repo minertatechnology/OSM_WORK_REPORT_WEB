@@ -78,94 +78,315 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     fetchActivityData();
   }, [externalUserId, fiscalYear, name, reportData]);
 
-  // Mapping หน่วยนับตายตัวตามเอกสาร อสม.1 (ฉบับที่2) พ.ศ.2567
-  const UNIT_MAPPING = React.useMemo(() => ({
-    // ก. การส่งเสริมสุขภาพ (11 ข้อ - ทุกข้อใช้ "คน")
-    "promote_health_1": "คน",
-    "promote_health_2": "คน",
-    "promote_health_3": "คน",
-    "promote_health_4": "คน",
-    "promote_health_5": "คน",
-    "promote_health_6": "คน",
-    "promote_health_7": "คน",
-    "promote_health_8": "คน",
-    "promote_health_9": "คน",
-    "promote_health_10": "คน",
-    "promote_health_11": "คน",
-    // ข. การเฝ้าระวังป้องกันและควบคุม (7 ข้อ)
-    "protect_1": "ครัวเรือน",
-    "protect_2": "ครัวเรือน",
-    "protect_3": "คน",
-    "protect_4": "ครัวเรือน",
-    "protect_5": "ครัวเรือน",
-    "protect_6": "คน",
-    "protect_7": "คน",
-    // ค. การฟื้นฟูสุขภาพ (1 ข้อ)
-    "recover_1": "ครั้ง",
-    // ง. การคุ้มครองผู้บริโภค (1 ข้อ)
-    "consumer_1": "ครั้ง",
-    // จ. การจัดการสุขภาพชุมชน (2 ข้อ)
-    "community_health_1": "ครั้ง",
-    "community_health_2": "ครั้ง",
-    // ฉ. การสนับสนุน อสค. (3 ข้อ - ทุกข้อใช้ "ครอบครัว")
-    "family_doc_1": "ครอบครัว",
-    "family_doc_2": "ครอบครัว",
-    "family_doc_3": "ครอบครัว",
-    // ช. การใช้ยาสมเหตุสมผล (2 ข้อ)
-    "statistics_1": "ครอบครัว",
-    "statistics_2": "ครั้ง",
-    // ซ. การเข้าร่วมทีมหมอครอบครัว (3 ข้อ)
-    "doctor_family_1": "ครั้ง",
-    "doctor_family_2": "ครอบครัว",
-    "doctor_family_3": "ครอบครัว",
-    // ฌ. กิจกรรมอื่นๆ (1 ข้อ)
-    "other_activity_1": "คน",
-  }), []);
-
-  // แปลงข้อมูลจาก API และใช้หน่วยนับจาก UNIT_MAPPING แทน
-  const transformedData = React.useMemo(() => {
-    if (activityData.length === 0) {
-      console.log("⚠️ No activity data to transform");
-      return [];
+  // โครงสร้างข้อมูลหัวข้อกิจกรรมตามเอกสาร PDF - แบบรายงานผลการปฏิบัติงานของ อสม.
+  const ACTIVITY_STRUCTURE = React.useMemo(() => [
+    // 1. การส่งเสริมสุขภาพ
+    {
+      no: "1.",
+      activity: "การส่งเสริมสุขภาพ",
+      unit: "",
+      isMainCategory: true,
+      activityId: "promote_health"
+    },
+    {
+      no: "1.1",
+      activity: "อสม. เยี่ยมให้คําแนะนําหญิงตั้งครรภ์ (รายใหม่)",
+      unit: "คน",
+      activityId: "promote_health_1"
+    },
+    {
+      no: "-",
+      activity: "อสม. ค้นหาหญิงตั้งครรภ์อายุต่ำกว่า ๑๕ ปี (รายใหม่)",
+      unit: "คน",
+      activityId: "promote_health_2"
+    },
+    {
+      no: "-",
+      activity: "อสม. ติดตามหญิงตั้งครรภ์ให้ได้รับยาเม็ดเสริมไอโอดีน",
+      unit: "คน",
+      activityId: "promote_health_3"
+    },
+    {
+      no: "1.2",
+      activity: "อสม.บริการเยี่ยมให้คำแนะนำหญิงหลังคลอด (รายใหม่)",
+      unit: "คน",
+      activityId: "promote_health_4"
+    },
+    {
+      no: "-",
+      activity: "มารดาที่ไม่สามารถเลี้ยงดูบุตรด้วยนมแม่อย่างเดียวครบ 6 เดือน (รายใหม่)",
+      unit: "คน",
+      activityId: "promote_health_5"
+    },
+    {
+      no: "-",
+      activity: "อสม. ติดตามหญิงหลังคลอดในนมบุตร 6 เดือน ให้ได้รับยาเม็ดเสริมไอโอดีน",
+      unit: "คน",
+      activityId: "promote_health_6"
+    },
+    {
+      no: "1.3",
+      activity: "อสม.เยี่ยมบ้านและให้คำแนะนำผู้สูงอายุด้านการดูแลสุขภาพ",
+      unit: "คน",
+      activityId: "promote_health_7"
+    },
+    {
+      no: "-",
+      activity: "ผู้สูงอายุที่เป็นโรคเรื้อรังและถูกทอดทิ้งอยู่เพียงลำพัง (รายใหม่)",
+      unit: "คน",
+      activityId: "promote_health_8"
+    },
+    {
+      no: "-",
+      activity: "คัดกรอง ประเมินภาวะสุขภาพผู้สูงอายุ (ภาวะถดถอย 9 ด้าน)",
+      unit: "คน",
+      activityId: "promote_health_9"
+    },
+    {
+      no: "-",
+      activity: "สร้างความรอบรู้ และให้บริการดูแลสุขภาพตามสภาพปัญหาภาวะถดถอยในแต่ละด้านของผู้สูงอายุ และประสานภาคีเครือข่ายในการดูแลผู้สูงอายุให้มีชีวิตความเป็นอยู่ที่ดี",
+      unit: "คน",
+      activityId: "promote_health_10"
+    },
+    {
+      no: "1.4",
+      activity: "อสม.เยี่ยมบ้านและให้คำแนะนำผู้พิการด้านการดูแลสุขภาพ",
+      unit: "คน",
+      activityId: "promote_health_11"
+    },
+    // 2. การเฝ้าระวัง ป้องกัน และควบคุมโรค
+    {
+      no: "2.",
+      activity: "การเฝ้าระวัง ป้องกัน และควบคุมโรค",
+      unit: "",
+      isMainCategory: true,
+      activityId: "protect"
+    },
+    {
+      no: "2.1",
+      activity: "เฝ้าระวัง ป้องกัน ควบคุมโรคไข้เลือดออก (ปิด เปลี่ยน ปล่อย ปรับปรุง ปฏิบัติเป็นนิสัย)",
+      unit: "ครัวเรือน",
+      activityId: "protect_1"
+    },
+    {
+      no: "2.2",
+      activity: "เฝ้าระวัง ป้องกัน ควบคุมโรคไข้หวัดใหญ่ (ปิด ล้าง เลี่ยง หยุด)",
+      unit: "ครัวเรือน",
+      activityId: "protect_2"
+    },
+    {
+      no: "2.3",
+      activity: "เฝ้าระวัง คัดกรอง และให้คำแนะนำกลุ่มเสี่ยงโรค (โรคเบาหวาน โรคความดันโลหิตสูง โรคมะเร็ง โรคหัวใจ โรคหลอดเลือดสมอง)",
+      unit: "คน",
+      activityId: "protect_3"
+    },
+    {
+      no: "2.4",
+      activity: "ให้คำแนะนำประชาชนบริโภคผลิตภัณฑ์/อาหาร/เกลือที่ผสมไอโอดีน",
+      unit: "ครัวเรือน",
+      activityId: "protect_4"
+    },
+    {
+      no: "2.5",
+      activity: "ให้คำแนะนำประชาชนลดกิน หวาน อาหารมันและเค็ม",
+      unit: "ครัวเรือน",
+      activityId: "protect_5"
+    },
+    {
+      no: "2.6",
+      activity: "สำรวจ เฝ้าระวัง ป้องกันโรคในกลุ่มเป้าหมาย 607 และปักหมุดแจ้งพิกัดกลุ่มเปราะบางในแอปพลิเคชันพันภัย",
+      unit: "คน",
+      activityId: "protect_6"
+    },
+    // 3. การฟื้นฟูสุขภาพ
+    {
+      no: "3.",
+      activity: "การฟื้นฟูสุขภาพ",
+      unit: "",
+      isMainCategory: true,
+      activityId: "recover"
+    },
+    {
+      no: "3.1",
+      activity: "เยี่ยมบ้าน ให้คำแนะนำการดูแลผู้ป่วยโรคเบาหวาน ความดันโลหิต มะเร็ง หัวใจ ฯลฯ",
+      unit: "ครั้ง",
+      activityId: "recover_1"
+    },
+    // 4. การคุ้มครองผู้บริโภค
+    {
+      no: "4.",
+      activity: "การคุ้มครองผู้บริโภค",
+      unit: "",
+      isMainCategory: true,
+      activityId: "consumer"
+    },
+    {
+      no: "4.1",
+      activity: "เฝ้าระวังและให้คำแนะนำการบริโภคอาหารปลอดภัย",
+      unit: "ครั้ง",
+      activityId: "consumer_1"
+    },
+    // 5. การจัดการสุขภาพชุมชนและการมีส่วนร่วมในแผนสุขภาพตำบล
+    {
+      no: "5",
+      activity: "การจัดการสุขภาพชุมชนและการมีส่วนร่วมในแผนสุขภาพตำบล",
+      unit: "",
+      isMainCategory: true,
+      activityId: "community_health"
+    },
+    {
+      no: "5.1",
+      activity: "อสม.ร่วมกิจกรรมจิตอาสากับเครือข่ายอื่น",
+      unit: "ครั้ง",
+      activityId: "community_health_1"
+    },
+    {
+      no: "5.2",
+      activity: "จัดทำแผนสุขภาพ จัดหางบประมาณ จัดกิจกรรมสุขภาพ และประเมินผล",
+      unit: "ครั้ง",
+      activityId: "community_health_2"
+    },
+    // 6. การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)
+    {
+      no: "6.",
+      activity: "การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)",
+      unit: "",
+      isMainCategory: true,
+      activityId: "family_doc"
+    },
+    {
+      no: "",
+      activity: "ติดตามให้คำแนะนำ อสค. ในการดูแล อาหาร/ออกกำลังกาย/วิธีปฏิบัติ การดูแล การพยาบาล / การส่งต่อ ผู้ป่วยในครัวเรือน",
+      unit: "",
+      isMainCategory: false,
+      activityId: null
+    },
+    {
+      no: "(1)",
+      activity: "กลุ่มผู้สูงอายุ ที่มีปัญหา ติดบ้านติดเตียง",
+      unit: "คน",
+      activityId: "family_doc_1"
+    },
+    {
+      no: "(2)",
+      activity: "กลุ่มผู้ป่วยโรคไม่ติดต่อเรื้อรัง",
+      unit: "คน",
+      activityId: "family_doc_2"
+    },
+    {
+      no: "(3)",
+      activity: "กลุ่มผู้ป่วยที่มีปัญหาโรคไต",
+      unit: "คน",
+      activityId: "family_doc_3"
+    },
+    // 7. การใช้ยาอย่างสมเหตุสมผล / การบริโภคผลิตภัณฑ์สุขภาพ
+    {
+      no: "7.",
+      activity: "การใช้ยาอย่างสมเหตุสมผล / การบริโภคผลิตภัณฑ์สุขภาพ",
+      unit: "",
+      isMainCategory: true,
+      activityId: "statistics"
+    },
+    {
+      no: "(1)",
+      activity: "ให้ความรู้พื้นฐานการใช้ยาปฎิชีวนะ หรือข้อควรระวังการซื้อยากินเองสำหรับโรคหวัด/ท้องเสีย และการใช้สมุนไพรที่เสี่ยงต่อการผสมสาร สเตียรอยด์",
+      unit: "ครอบครัว",
+      activityId: "statistics_1"
+    },
+    {
+      no: "(2)",
+      activity: "เฝ้าระวังและให้คำแนะนำการบริโภคผลิตภัณฑ์สุขภาพ และร่วมสำรวจร้านชำในชุมชน เพื่อปลอดยาปฏิชีวนะ ยาชุด",
+      unit: "ครั้ง",
+      activityId: "statistics_2"
+    },
+    // 8. การเข้าร่วมกับทีมหมอครอบครัว
+    {
+      no: "8.",
+      activity: "การเข้าร่วมกับทีมหมอครอบครัว",
+      unit: "",
+      isMainCategory: true,
+      activityId: "doctor_family"
+    },
+    {
+      no: "-",
+      activity: "ร่วมเป็นทีมหมอครอบครัว ในการช่วยเหลือ ดูแลผู้ป่วย และครอบครัวในชุมชน",
+      unit: "ครั้ง",
+      activityId: "doctor_family_1"
+    },
+    {
+      no: "",
+      activity: "กรณีเข้าร่วมทีมหมอครอบครัว อสม. ให้ความช่วยเหลือในเรื่องใด/กี่ครอบครัว",
+      unit: "",
+      isMainCategory: false,
+      activityId: null
+    },
+    {
+      no: "(1)",
+      activity: "ช่วยปรับปรุงที่อยู่อาศัย และสิ่งแวดล้อมให้เอื้อต่อการดูแล การพยาบาล",
+      unit: "ครอบครัว",
+      activityId: "doctor_family_2"
+    },
+    {
+      no: "(2)",
+      activity: "เสริมพลังและกำลังใจ และเทคนิคการดูแล การพยาบาลตามปัญหาสุขภาพ ทำให้ผู้ป่วยมีกำลังใจในการดำรงชีวิต",
+      unit: "ครอบครัว",
+      activityId: "doctor_family_3"
+    },
+    // 9. กิจกรรมอื่นๆ
+    {
+      no: "9.",
+      activity: "กิจกรรมอื่นๆ",
+      unit: "",
+      isMainCategory: true,
+      activityId: "other_activity"
+    },
+    {
+      no: "9.1",
+      activity: "ชวนคนเลิกบุหรี่",
+      unit: "คน",
+      activityId: "other_activity_1"
+    },
+    {
+      no: "9.2",
+      activity: "ร่วมกับเจ้าหน้าที่ในการติดตามผู้ผ่านการบำบัดยาเสพติดในระบบสมัครใจบำบัด โดยการสร้างกระบวนการมีส่วนร่วมของคนในชุมชน",
+      unit: "คน",
+      activityId: "other_activity_2"
     }
+  ], []);
 
-    console.log("🔄 Transforming activity data...");
-    console.log("📊 Total items to display:", activityData.length);
+  // แปลงข้อมูลจาก API โดยใช้โครงสร้างจากเอกสาร และดึงเฉพาะจำนวนจาก API
+  const transformedData = React.useMemo(() => {
+    console.log("🔄 Transforming data with document structure...");
 
-    // เรียงลำดับข้อมูลตาม order_index
-    const sortedData = [...activityData].sort((a, b) => {
-      const orderA = a.activity?.order_index || 0;
-      const orderB = b.activity?.order_index || 0;
-      return orderA - orderB;
+    // สร้าง Map จากข้อมูล API เพื่อหา value ตาม activityId
+    const activityValueMap = new Map();
+    activityData.forEach((item) => {
+      activityValueMap.set(item.activity_id, item.value || 0);
     });
 
-    console.log("📑 ✅ Data sorted by order_index");
+    console.log("📊 Activity values from API:", Object.fromEntries(activityValueMap));
 
-    // แสดงข้อมูลทั้งหมดพร้อมหน่วยนับจาก UNIT_MAPPING
-    const result = sortedData.map((item, index) => {
-      const displayOrder = item.activity?.display_order || `${index + 1}`;
-      const activityId = item.activity_id;
-      // ใช้หน่วยนับจาก UNIT_MAPPING ตามเอกสาร อสม.1
-      const fixedUnit = UNIT_MAPPING[activityId] || "-";
+    // ใช้โครงสร้างจากเอกสาร และ map ค่าจาก API
+    const result = ACTIVITY_STRUCTURE.map((item) => {
+      // ถ้ามี activityId ให้ดึงค่าจาก API
+      const resultValue = item.activityId ? (activityValueMap.get(item.activityId) || 0) : "";
 
       return {
-        no: displayOrder,
-        activity: item.activity?.title || item.activity_id || "-",
-        unit: fixedUnit, // ใช้หน่วยนับตายตัวตามเอกสาร
-        result: item.value || 0,
-        isMainCategory: false,
-        category: item.category,
-        activityId: item.activity_id,
-        orderIndex: item.activity?.order_index || 0,
+        no: item.no,
+        activity: item.activity,
+        unit: item.unit,
+        result: resultValue,
+        isMainCategory: item.isMainCategory || false,
+        activityId: item.activityId,
       };
     });
 
     console.log("✅ Transformed data rows:", result.length);
     return result;
-  }, [activityData, UNIT_MAPPING]);
+  }, [activityData, ACTIVITY_STRUCTURE]);
 
-  // ใช้ข้อมูลจาก API เท่านั้น (ไม่ fallback ไปใช้ mock data)
-  const displayData = loading ? [] : transformedData;
+  // แสดงข้อมูลตามโครงสร้างเอกสารเสมอ (ไม่ว่า API จะมีข้อมูลหรือไม่)
+  const displayData = transformedData;
 
   const handleExportPDF = () => {
     try {
@@ -194,14 +415,14 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       const margin = 10;
       const startX = margin;
       let startY = 35;
-      const rowHeight = 8;
+      const rowHeight = 7;
 
       // กำหนดความกว้างของแต่ละคอลัมน์
       const colWidths = {
-        no: 15,
-        activity: 130,
+        no: 12,
+        activity: 138,
         unit: 25,
-        result: 20,
+        result: 15,
       };
 
       doc.setDrawColor(0, 0, 0);
@@ -274,24 +495,54 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
         let dataX = startX;
 
-        // ใช้ font size เท่ากันหมด
-        doc.setFont("Sarabun", "normal");
+        // กำหนด font ตามประเภทแถว
+        if (row.isMainCategory) {
+          doc.setFont("Sarabun", "bold");
+        } else {
+          doc.setFont("Sarabun", "normal");
+        }
         doc.setFontSize(11);
+
+        // ลำดับและกิจกรรมรวมกัน
+        let noIndent = 0;
+        let activityIndent = 0;
+
+        if (row.isMainCategory) {
+          noIndent = 0;
+          activityIndent = 0;
+        } else if (row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-")) {
+          // หัวข้อย่อยระดับ 1 (1.1, 1.2)
+          noIndent = 3;
+          activityIndent = 3;
+        } else if (row.no === "-") {
+          // หัวข้อย่อยระดับ 2 (-)
+          noIndent = 3;
+          activityIndent = 3;
+        } else if (row.no && row.no.startsWith("(")) {
+          // หัวข้อย่อยระดับ 3 ((1), (2))
+          noIndent = 12;
+          activityIndent = 12;
+        } else if (row.no === "") {
+          // หัวข้อคำอธิบาย
+          noIndent = 6;
+          activityIndent = 6;
+        }
 
         // ลำดับ
         doc.rect(dataX, currentY, colWidths.no, rowHeight);
         if (row.no) {
-          doc.text(row.no, dataX + colWidths.no / 2, currentY + 5, { align: "center" });
+          doc.text(row.no, dataX + 2 + noIndent, currentY + 5);
         }
         dataX += colWidths.no;
 
         // กิจกรรม
         doc.rect(dataX, currentY, colWidths.activity, rowHeight);
-        const actParts = doc.splitTextToSize(row.activity, colWidths.activity - 3);
-        doc.text(actParts[0], dataX + 2, currentY + 5);
+        const actParts = doc.splitTextToSize(row.activity, colWidths.activity - activityIndent - 4);
+        doc.text(actParts[0], dataX + 2 + activityIndent, currentY + 5);
         dataX += colWidths.activity;
 
         // หน่วยนับ
+        doc.setFont("Sarabun", "normal");
         doc.rect(dataX, currentY, colWidths.unit, rowHeight);
         if (row.unit) {
           doc.text(row.unit, dataX + colWidths.unit / 2, currentY + 5, { align: "center" });
@@ -300,7 +551,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
         // ผลงาน
         doc.rect(dataX, currentY, colWidths.result, rowHeight);
-        if (row.result !== "" && row.result !== undefined) {
+        if (row.result !== "" && row.result !== undefined && row.result !== 0) {
           doc.text(String(row.result), dataX + colWidths.result / 2, currentY + 5, { align: "center" });
         }
 
@@ -317,128 +568,117 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-white">
-      {/* Header Section with Gradient */}
-      <div className="relative mb-8 rounded-3xl overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
-        <div className="absolute inset-0 bg-white/5" />
+    <div className="w-full min-h-screen bg-gray-50">
+      {/* Simple Header */}
+      <div className="bg-white border-b border-gray-300 p-4 mb-4">
+        <button
+          onClick={() => router.push("/report-osm1/data")}
+          className="flex items-center gap-2 px-3 py-2 mb-3 text-gray-700 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft size={20} />
+          <span className="font-medium">กลับ</span>
+        </button>
+      </div>
 
-        <div className="relative p-6 sm:p-8">
-          <div className="text-white">
-            <button
-              onClick={() => router.push("/report-osm1/data")}
-              className="flex items-center gap-2 px-4 py-2 mb-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl transition-all duration-200 w-fit"
-            >
-              <ArrowLeft size={20} />
-              <span className="font-semibold">กลับ</span>
-            </button>
+      {/* Document style */}
+      <div className="max-w-[900px] mx-auto px-4 pb-8">
+        <div ref={tableRef} className="bg-white shadow-sm">
+          {/* Header with Report Info and Export Button */}
+          <div className="pt-8 pb-6 px-6">
+            {/* Report Info - Center aligned */}
+            <div className="text-center mb-6">
+              <h2 className="font-bold text-black text-base mb-2">
+                แบบรายงานการปฏิบัติงานของ อสม.
+              </h2>
+              <p className="text-black text-sm mb-1">
+                ประจำเดือน {month} พ.ศ. {year}
+              </p>
+              <p className="text-black text-sm">ชื่อ-นามสกุล: {name}</p>
+            </div>
 
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                <FileText size={28} className="text-white" />
+            {/* Export Button - Center */}
+            <div className="flex justify-center mb-6">
+              <button
+                onClick={handleExportPDF}
+                className="export-button flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-medium rounded-lg hover:opacity-90 transition-opacity text-sm"
+              >
+                <Download size={16} />
+                Export PDF
+              </button>
+            </div>
+
+            {/* Table Header */}
+            <div className="flex py-2 px-3 bg-white border-b border-t border-black">
+              <div className="w-16 font-bold text-center text-black text-sm flex-shrink-0">
+                ลำดับ
               </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">
-                  รายละเอียดรายงาน อสม.1
-                </h1>
-                <p className="text-white/80 text-sm mt-1">
-                  แบบรายงานการปฏิบัติงานของ อสม. ประจำเดือน
-                </p>
+              <div className="flex-1 font-bold text-center text-black text-sm">
+                กิจกรรมการปฏิบัติงาน
+              </div>
+              <div className="w-24 font-bold text-center text-black text-sm flex-shrink-0">
+                หน่วยนับ
+              </div>
+              <div className="w-20 font-bold text-center text-black text-sm flex-shrink-0">
+                ผลงาน
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Table PDF-style */}
-      <div ref={tableRef} className="bg-white shadow-lg border border-gray-300 overflow-hidden rounded-lg">
-        {/* Header with Report Info and Export Button */}
-        <div className="flex items-start justify-between p-6 border-b border-gray-300">
-          {/* Report Info - Center aligned */}
-          <div className="flex-1 text-center">
-            <h2 className="font-bold text-black text-xl mb-2">
-              แบบรายงานการปฏิบัติงานของ อสม.
-            </h2>
-            <p className="text-black font-medium text-base mb-1">
-              ประจำเดือน {month} พ.ศ. {year}
-            </p>
-            <p className="text-black font-medium text-base">ชื่อ-นามสกุล: {name}</p>
-          </div>
+          <div className="px-6 pb-6">
+            {loading ? (
+              <div className="py-12 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7e32e2]"></div>
+                  <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
+                </div>
+              </div>
+            ) : (
+              displayData.map((row, idx) => {
+                // กำหนด indent level ตามประเภทของแถว
+                let indentStyle = "";
+                let noWidth = "w-16";
 
-          {/* Export Button - Right top */}
-          <button
-            onClick={handleExportPDF}
-            className="export-button flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-base"
-          >
-            <Download size={20} />
-            Export PDF
-          </button>
-        </div>
+                if (row.isMainCategory) {
+                  // หมวดหมู่หลัก (1. 2. 3. ...)
+                  indentStyle = "";
+                  noWidth = "w-16";
+                } else if (row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-")) {
+                  // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...)
+                  indentStyle = "ml-6";
+                  noWidth = "w-14";
+                } else if (row.no === "-") {
+                  // หัวข้อย่อยระดับ 2 (ขึ้นต้นด้วย -)
+                  indentStyle = "ml-6";
+                  noWidth = "w-14";
+                } else if (row.no && row.no.startsWith("(")) {
+                  // หัวข้อย่อยระดับ 3 ((1), (2), (3))
+                  indentStyle = "ml-20";
+                  noWidth = "w-8";
+                } else if (row.no === "") {
+                  // หัวข้อคำอธิบายพิเศษ (ไม่มีเลขลำดับ)
+                  indentStyle = "ml-12";
+                  noWidth = "w-12";
+                }
 
-        <div className="overflow-x-auto p-4">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-white">
-                <th className="border border-black py-3 px-3 font-bold text-center text-black w-[100px]">
-                  ลำดับ
-                </th>
-                <th className="border border-black py-3 px-3 font-bold text-center text-black">
-                  กิจกรรมการปฏิบัติงาน
-                </th>
-                <th className="border border-black py-3 px-3 font-bold text-center text-black w-[120px]">
-                  หน่วยนับ
-                </th>
-                <th className="border border-black py-3 px-3 font-bold text-center text-black w-[100px]">
-                  ผลงาน
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7e32e2]"></div>
-                      <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : displayData.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <FileText size={48} className="text-gray-300" />
-                      <p className="text-gray-500">ไม่พบข้อมูล</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                displayData.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className="bg-white hover:bg-gray-50 transition-colors"
-                  >
-                    <td className={`border border-black py-2 px-3 text-center ${
-                      row.isMainCategory ? "font-bold" : "font-semibold"
-                    } text-black`}>
+                return (
+                  <div key={idx} className="flex py-1 px-3 border-b border-gray-100 hover:bg-gray-50">
+                    <div className={`${noWidth} text-black text-sm flex-shrink-0 ${row.isMainCategory ? "font-bold" : ""}`}>
                       {row.no}
-                    </td>
-                    <td className={`border border-black py-2 px-3 ${
-                      row.isMainCategory ? "font-bold" : ""
-                    } text-black`}>
+                    </div>
+                    <div className={`flex-1 text-black text-sm ${indentStyle} ${row.isMainCategory ? "font-bold" : ""}`}>
                       {row.activity}
-                    </td>
-                    <td className="border border-black py-2 px-3 text-center text-black">
+                    </div>
+                    <div className="w-24 text-center text-black text-sm flex-shrink-0">
                       {row.unit}
-                    </td>
-                    <td className="border border-black py-2 px-3 text-center text-black font-semibold">
-                      {row.result !== "" && row.result !== undefined ? row.result : ""}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    </div>
+                    <div className="w-20 text-center text-black text-sm flex-shrink-0">
+                      {row.result !== "" && row.result !== undefined && row.result !== 0 ? row.result : ""}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </div>
