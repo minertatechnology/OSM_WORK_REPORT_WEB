@@ -89,22 +89,22 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
-    {
-      name: "จัดการคะแนนสะสม อสม.",
-      url: "/osm-points",
-      icon: <Gift className="w-5 h-5" />,
-      hasSub: true,
-    },
+    // {
+    //   name: "จัดการคะแนนสะสม อสม.",
+    //   url: "/osm-points",
+    //   icon: <Gift className="w-5 h-5" />,
+    //   hasSub: true,
+    // },
     {
       name: "ผลตรวจสุขภาพ อสม.",
       url: "/osm-health",
       icon: <BarChart2 className="w-5 h-5" />,
     },
-    {
-      name: "รายงานผลตรวจ ATK",
-      url: "/atk-report",
-      icon: <FileSearch className="w-5 h-5" />,
-    },
+    // {
+    //   name: "รายงานผลตรวจ ATK",
+    //   url: "/atk-report",
+    //   icon: <FileSearch className="w-5 h-5" />,
+    // },
     { name: "ประกาศข่าวสาร", url: "/news", icon: <Bell className="w-5 h-5" /> },
     {
       name: "กำหนดสิทธิ์การเข้าถึง",
