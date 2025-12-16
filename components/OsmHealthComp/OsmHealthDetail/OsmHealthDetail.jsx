@@ -83,16 +83,22 @@ export const exportHealthRecordToPDF = async (record) => {
   let y = 15;
   const checkboxSize = 3.5;
 
-  // Title - จัดกึ่งกลาง
+  // Title - จัดกึ่งกลาง (ทำให้หนาโดยการวาดซ้อนกัน)
   doc.setFontSize(16);
   doc.setFont("Sarabun", "normal");
-  doc.text("แบบบันทึกผลการตรวจสุขภาพ อสม.", pageWidth / 2, y, { align: "center" });
+  const title = "แบบบันทึกผลการตรวจสุขภาพ อสม.";
+  doc.text(title, pageWidth / 2, y, { align: "center" });
+  doc.text(title, pageWidth / 2 + 0.2, y, { align: "center" });
+  doc.text(title, pageWidth / 2, y + 0.2, { align: "center" });
   y += 7;
 
   // ===== ข้อมูลทั่วไป =====
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
-  doc.text("ข้อมูลทั่วไป", margin, y);
+  const heading1 = "ข้อมูลทั่วไป";
+  doc.text(heading1, margin, y);
+  doc.text(heading1, margin + 0.2, y);
+  doc.text(heading1, margin, y + 0.2);
   y += 6;
 
   doc.setFontSize(12);
@@ -159,7 +165,16 @@ export const exportHealthRecordToPDF = async (record) => {
 
   // ===== ประวัติสุขภาพ =====
   doc.setFont("Sarabun", "normal");
-  doc.text(`ประวัติสุขภาพ โรคประจำตัว  ${record.chronic_diseases || "-"}`, margin, y);
+  doc.setFontSize(12);
+
+  // ทำให้ "ประวัติสุขภาพ" หนา
+  const healthHistoryLabel = "ประวัติสุขภาพ";
+  doc.text(healthHistoryLabel, margin, y);
+  doc.text(healthHistoryLabel, margin + 0.2, y);
+  doc.text(healthHistoryLabel, margin, y + 0.2);
+
+  // ข้อความที่เหลือเป็นปกติ
+  doc.text(`โรคประจำตัว  ${record.chronic_diseases || "-"}`, margin + 25, y);
   doc.text(`ประวัติแพ้ยา  ${record.drug_allergies || "-"}`, margin + 70, y);
   doc.text(`ประวัติแพ้อาหาร  ${record.food_allergies || "-"}`, margin + 125, y);
   y += 7;
@@ -167,8 +182,11 @@ export const exportHealthRecordToPDF = async (record) => {
 
   // ===== ประวัติครอบครัว =====
   doc.setFont("Sarabun", "normal");
-  doc.setFontSize(14);
-  doc.text("ประวัติครอบครัว (บิดา/มารดา/ญาติสายตรงป่วยหรือเสียชีวิตด้วยโรคดังต่อไปนี้หรือไม่)", margin, y);
+  doc.setFontSize(12);
+  const heading2 = "ประวัติครอบครัว (บิดา/มารดา/ญาติสายตรงป่วยหรือเสียชีวิตด้วยโรคดังต่อไปนี้หรือไม่)";
+  doc.text(heading2, margin, y);
+  doc.text(heading2, margin + 0.2, y);
+  doc.text(heading2, margin, y + 0.2);
   y += 6;
 
   doc.setFont("Sarabun", "normal");
@@ -215,10 +233,20 @@ export const exportHealthRecordToPDF = async (record) => {
   }
   y += 5;
 
-  // ===== ประเมินและคัดกรองสุขภาพ =====
+  // ===== ประเมินและคัดกรองตนเอง =====
   doc.setFont("Sarabun", "normal");
-  doc.setFontSize(14);
-  doc.text(`ประเมินและคัดกรองตนเอง ความดันโลหิต ${record.blood_pressure_systolic || "-"} / ${record.blood_pressure_diastolic || "-"}  น้ำหนัก  ${record.weight || "-"}  กก.  ส่วนสูง  ${record.height || "-"}  ซม.  ดัชนีมวลกาย (BMI)  ${record.bmi ? record.bmi.toFixed(2) : "-"}  รอบเอว  ${record.waist || "-"}  ซม.`, margin, y);
+  doc.setFontSize(12);
+
+  // ทำให้ "ประเมินและคัดกรองตนเอง" หนา
+  const heading3Label = "ประเมินและคัดกรองตนเอง";
+  doc.text(heading3Label, margin, y);
+  doc.text(heading3Label, margin + 0.2, y);
+  doc.text(heading3Label, margin, y + 0.2);
+
+  // ข้อมูลที่เหลือเป็นปกติ (ขนาด 12)
+  doc.setFontSize(12);
+  const assessmentData = `ความดันโลหิต ${record.blood_pressure_systolic || "-"} / ${record.blood_pressure_diastolic || "-"}  น้ำหนัก  ${record.weight || "-"}  กก.  ส่วนสูง  ${record.height || "-"}  ซม.  ดัชนีมวลกาย (BMI)  ${record.bmi ? record.bmi.toFixed(2) : "-"}  รอบเอว  ${record.waist || "-"}  ซม.`;
+  doc.text(assessmentData, margin + 35, y);
   y += 6;
 
 
@@ -307,8 +335,11 @@ export const exportHealthRecordToPDF = async (record) => {
 
   // ===== ผลตรวจทางห้องปฏิบัติการ =====
   doc.setFont("Sarabun", "normal");
-  doc.setFontSize(14);
-  doc.text("ผลตรวจทางห้องปฏิบัติการ (อสม. อายุ 35 ปีขึ้นไป)", margin, y);
+  doc.setFontSize(12);
+  const heading4 = "ผลตรวจทางห้องปฏิบัติการ (อสม. อายุ 35 ปีขึ้นไป)";
+  doc.text(heading4, margin, y);
+  doc.text(heading4, margin + 0.2, y);
+  doc.text(heading4, margin, y + 0.2);
   y += 6;
 
   doc.setFont("Sarabun", "normal");
@@ -380,12 +411,18 @@ export const exportHealthRecordToPDF = async (record) => {
 
   // ===== สำหรับ อสม. อายุ 60 ปีขึ้นไป =====
   doc.setFont("Sarabun", "normal");
-  doc.setFontSize(14);
-  doc.text("สำหรับ อสม. อายุ 60 ปีขึ้นไป (Community screening)", margin, y);
+  doc.setFontSize(12);
+  const heading5 = "สำหรับ อสม. อายุ 60 ปีขึ้นไป (Community screening)";
+  doc.text(heading5, margin, y);
+  doc.text(heading5, margin + 0.2, y);
+  doc.text(heading5, margin, y + 0.2);
   y += 6;
 doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
-  doc.text("1. ข้อมูลเชิงสังคม", margin, y);
+  const heading6 = "1. ข้อมูลเชิงสังคม";
+  doc.text(heading6, margin, y);
+  doc.text(heading6, margin + 0.2, y);
+  doc.text(heading6, margin, y + 0.2);
   y += 6;
 
   doc.setFont("Sarabun", "normal");
@@ -458,9 +495,12 @@ doc.setFontSize(12);
   y = 15;
 
   // Title หน้า 2
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
-  doc.text("2. แบบคัดกรองผู้สูงอายุ", margin, y);
+  const heading7 = "2. แบบคัดกรองผู้สูงอายุ";
+  doc.text(heading7, margin, y);
+  doc.text(heading7, margin + 0.2, y);
+  doc.text(heading7, margin, y + 0.2);
   y += 7;
 
   // กำหนดตำแหน่งและขนาดตาราง (3 คอลัมน์)
@@ -669,7 +709,10 @@ doc.setFontSize(12);
   doc.setFont("Sarabun", "normal");
 
   // บรรทัดที่ 1: สรุปความผิดปกติ
-  doc.text("สรุปความผิดปกติและแนะนำของบุคลากรสาธารณสุข", margin, y);
+  const heading8 = "สรุปความผิดปกติและแนะนำของบุคลากรสาธารณสุข";
+  doc.text(heading8, margin, y);
+  doc.text(heading8, margin + 0.2, y);
+  doc.text(heading8, margin, y + 0.2);
 
   // เส้นประสำหรับเขียนบรรทัดแรก - วาดติดท้ายข้อความ
   doc.setLineWidth(0.3);
