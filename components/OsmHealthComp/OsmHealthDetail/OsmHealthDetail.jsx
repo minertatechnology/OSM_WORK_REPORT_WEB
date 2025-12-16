@@ -79,9 +79,40 @@ export const exportHealthRecordToPDF = async (record) => {
   doc.setFont("Sarabun", "normal");
 
   const pageWidth = 210;
+  const pageHeight = 297;
   const margin = 15;
   let y = 15;
   const checkboxSize = 3.5;
+
+  // ฟังก์ชันสำหรับวาดลายน้ำโลโก้
+  const addWatermark = (doc) => {
+    const watermarkImage = "/logoworkreport.png";
+    const imgWidth = 220; // ขนาดความกว้างของโลโก้
+    const imgHeight = 110; // ขนาดความสูงของโลโก้
+
+    // คำนวณตำแหน่งกึ่งกลางหน้ากระดาษ
+    const centerX = 200 / 2;
+    const centerY = 350 / 2;
+
+    // คำนวณตำแหน่งให้โลโก้อยู่กึ่งกลางพอดี
+    const x = centerX - (imgWidth / 2);
+    const y = centerY - (imgHeight / 2);
+
+    // บันทึกสถานะปัจจุบัน
+    doc.saveGraphicsState();
+
+    // ตั้งค่าความโปร่งใส
+    doc.setGState(new doc.GState({ opacity: 0.10 }));
+
+    // วาดรูปพร้อมหมุน 45 องศา
+    doc.addImage(watermarkImage, 'PNG', x, y, imgWidth, imgHeight, '', 'NONE', 0);
+
+    // คืนสถานะ
+    doc.restoreGraphicsState();
+  };
+
+  // เพิ่มลายน้ำหน้าแรก
+  addWatermark(doc);
 
   // Title - จัดกึ่งกลาง (ทำให้หนาโดยการวาดซ้อนกัน)
   doc.setFontSize(14);
@@ -493,6 +524,9 @@ doc.setFontSize(12);
   // ===== เพิ่มหน้าใหม่ (Page 2) =====
   doc.addPage();
   y = 15;
+
+  // เพิ่มลายน้ำหน้า 2
+  addWatermark(doc);
 
   // Title หน้า 2
   doc.setFontSize(12);
