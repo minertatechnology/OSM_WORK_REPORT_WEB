@@ -334,7 +334,7 @@ function UserDetailModal({
         </div>
 
         <div className="flex justify-between gap-3">
-          {isRestoreBtn ? (
+          {/* {isRestoreBtn ? (
             <button
               className="px-6 py-3 rounded-xl bg-[#21c978] text-white text-[17px] font-semibold shadow hover:bg-[#169e5f] transition"
               onClick={handleRestore}
@@ -348,13 +348,13 @@ function UserDetailModal({
             >
               ปิดบัญชี
             </button>
-          )}
-          <button
+          )} */}
+          {/* <button
             className="px-6 py-3 rounded-xl border border-[#7e32e2] text-[#7e32e2] text-[17px] font-semibold shadow bg-white hover:bg-[#f6eeff] transition"
             onClick={onClose}
           >
             ปิด
-          </button>
+          </button> */}
         </div>
         <button
           className="absolute top-4 right-4 text-[#aaa] hover:text-[#e74c3c] transition"
@@ -1094,7 +1094,7 @@ const UserListComp = () => {
           >
             รายชื่อผู้ใช้งาน
           </button>
-          <button
+          {/* <button
             className={`px-4 py-3 font-semibold rounded-t-lg transition-all ${
               tab === "deleted"
                 ? "bg-gradient-to-r from-purple-100 to-violet-100 text-[#7e32e2] border-b-2 border-[#7e32e2]"
@@ -1106,7 +1106,7 @@ const UserListComp = () => {
             }}
           >
             บัญชีที่ยกเลิกสิทธิ์แล้ว
-          </button>
+          </button> */}
         </div>
 
         {/* Search Bar */}

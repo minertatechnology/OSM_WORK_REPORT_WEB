@@ -27,9 +27,11 @@ import { font as sarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 import ReportMosquitoCompDetailComp from "../ReportMosquitoCompDetailComp/ReportMosquitoCompDetailComp";
 import {
-  fetchMosquitoLarvaeHouseholds,
-  transformHouseholdData,
+  fetchMosquitoLarvaeReports,
 } from "@services/mosquitoLarvaeService/mosquitoLarvaeService";
+import oauth2Service from "@services/oauth2Service";
+import { formatThaiDate } from "@utils/dateFormatter";
+import { ArrowLeft } from "lucide-react";
 
 // Mock data
 const YEARS = [
@@ -772,56 +774,159 @@ const ReportMosquitoCompDataComp = () => {
 
   // API data states
   const [apiData, setApiData] = useState([]);
+  const [selectedUserName, setSelectedUserName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch data on component mount and whenever we navigate back to list page
+  // Get current view from URL params
+  const userId = searchParams.get("user_id");
+  const householdId = searchParams.get("household_id");
+
+  // Fetch data based on current view
   useEffect(() => {
-    const householdId = searchParams.get("household_id");
+    const loadData = async () => {
+      // View 3: Detail page - no need to fetch list data
+      if (householdId) {
+        setLoading(false);
+        return;
+      }
 
-    // Only fetch if we're NOT on detail page
-    if (!householdId) {
-      const loadData = async () => {
-        try {
-          setLoading(true);
-          setError(null);
-          setApiData([]); // Clear old data immediately
+      try {
+        setLoading(true);
+        setError(null);
+        setApiData([]);
 
-          const data = await fetchMosquitoLarvaeHouseholds({
-            skip: 0,
-            limit: 1000,
+        // Fetch all reports
+        const data = await fetchMosquitoLarvaeReports({
+          skip: 0,
+          limit: 1000,
+        });
+
+        console.log("📊 All data received:", data.length);
+
+        // View 2: Household list for specific user
+        if (userId) {
+          // ดึงข้อมูลผู้ใช้
+          const users = await oauth2Service.getBatch([userId]);
+          const userData = users.get(userId);
+          setSelectedUserName(userData?.name || "ไม่ระบุชื่อ");
+
+          // กรองข้อมูล reports ของ user นี้
+          const userReports = data.filter(
+            (report) => report.external_user_id === userId
+          );
+
+          console.log("📊 User reports:", userReports.length);
+
+          // Group by household_id และเก็บข้อมูลบ้าน + วันที่ล่าสุด
+          const householdsMap = new Map();
+          userReports.forEach((report) => {
+            if (!report.household) return; // Skip if no household data
+
+            const householdId = report.household_id;
+            const existing = householdsMap.get(householdId);
+
+            // ถ้ายังไม่มี หรือ report นี้ใหม่กว่า ให้อัพเดท
+            if (!existing || new Date(report.report_date) > new Date(existing.lastReportDate)) {
+              householdsMap.set(householdId, {
+                id: householdId,
+                household_id: householdId,
+                name: report.household.address || `บ้านเลขที่ ${report.household.house_number} หมู่ ${report.household.village_number}`,
+                houseNumber: report.household.house_number,
+                villageNumber: report.household.village_number,
+                lastReportDate: report.report_date,
+                residentCount: report.household.number_of_residents || 0,
+              });
+            }
           });
 
-          const transformedData = transformHouseholdData(data);
+          console.log("📊 Unique households:", householdsMap.size);
+
+          // แปลงเป็น array และเพิ่มวันที่แบบไทย
+          const transformedData = Array.from(householdsMap.values()).map((household, idx) => ({
+            ...household,
+            index: idx + 1,
+            date: household.lastReportDate ? formatThaiDate(household.lastReportDate) : "-",
+          }));
+
           setApiData(transformedData);
-        } catch (err) {
-          console.error("[MosquitoData] Error loading mosquito larvae data:", err);
-          setError("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
-        } finally {
-          setLoading(false);
         }
-      };
+        // View 1: User list (group by user)
+        else {
+          // จัดกลุ่มตาม external_user_id และนับจำนวนบ้าน (household_id ที่ไม่ซ้ำ)
+          const groupedByUser = {};
+          data.forEach((report) => {
+            const uid = report.external_user_id || "unknown";
+            if (!groupedByUser[uid]) {
+              groupedByUser[uid] = {
+                userId: uid,
+                households: new Set(), // ใช้ Set เพื่อเก็บ household_id ที่ไม่ซ้ำ
+                lastReportDate: report.report_date,
+                reportCount: 0,
+              };
+            }
+            // เพิ่ม household_id เข้า Set (จะไม่ซ้ำอัตโนมัติ)
+            if (report.household_id) {
+              groupedByUser[uid].households.add(report.household_id);
+            }
+            // อัพเดทวันที่ล่าสุด
+            if (report.report_date && new Date(report.report_date) > new Date(groupedByUser[uid].lastReportDate || 0)) {
+              groupedByUser[uid].lastReportDate = report.report_date;
+            }
+            groupedByUser[uid].reportCount++;
+          });
 
-      loadData();
-    }
-  }, [searchParams]);
+          // ดึงข้อมูลผู้ใช้ทั้งหมด
+          const externalUserIds = Object.keys(groupedByUser).filter(id => id !== "unknown");
+          let users = new Map();
 
-  // Use API data or fallback to mock data
-  const ALL_ROWS_DATA = useMemo(() => {
-    const dataSource = apiData.length > 0 ? apiData : MOCK_REPORTS;
-    return dataSource.map((row, idx) => ({ ...row, index: idx + 1 }));
-  }, [apiData]);
+          if (externalUserIds.length > 0) {
+            users = await oauth2Service.getBatch(externalUserIds);
+          }
 
+          // แปลงข้อมูลพร้อมชื่อผู้ใช้
+          const transformedData = Object.values(groupedByUser).map((userGroup, idx) => {
+            const userData = users.get(userGroup.userId);
+            return {
+              id: userGroup.userId,
+              external_user_id: userGroup.userId,
+              index: idx + 1,
+              name: userData?.name || "ไม่ระบุชื่อ",
+              lastReportDate: userGroup.lastReportDate,
+              date: userGroup.lastReportDate ? formatThaiDate(userGroup.lastReportDate) : "-",
+              amount: userGroup.households.size,
+            };
+          });
+
+          setApiData(transformedData);
+        }
+      } catch (err) {
+        console.error("[MosquitoData] Error loading data:", err);
+        setError("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [userId, householdId]);
+
+  // Filter and search
   const filteredRows = useMemo(() => {
     const term = keyword.trim().toLowerCase();
-    if (!term) return ALL_ROWS_DATA;
-    return ALL_ROWS_DATA.filter(
-      (row) =>
-        row.name.toLowerCase().includes(term) ||
-        row.date?.toLowerCase().includes(term) ||
-        String(row.index).includes(term)
-    );
-  }, [keyword, ALL_ROWS_DATA]);
+    if (!term) return apiData;
+
+    return apiData.filter((row) => {
+      // For View 1 (user list) and View 2 (household list)
+      const nameMatch = row.name?.toLowerCase().includes(term);
+      const dateMatch = row.date?.toLowerCase().includes(term);
+      const indexMatch = String(row.index).includes(term);
+      const houseNumMatch = row.houseNumber?.toLowerCase().includes(term);
+      const villageNumMatch = row.villageNumber?.toLowerCase().includes(term);
+
+      return nameMatch || dateMatch || indexMatch || houseNumMatch || villageNumMatch;
+    });
+  }, [keyword, apiData]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -846,10 +951,8 @@ const ReportMosquitoCompDataComp = () => {
     setPage(1);
   };
 
-  // ถ้ามี household_id ให้แสดงหน้ารายละเอียด
-  const householdId = searchParams.get("household_id");
+  // View 3: แสดงหน้ารายละเอียดบ้าน
   if (householdId) {
-    const selectedRow = ALL_ROWS_DATA.find((row) => row.id === householdId);
     const monthLabel =
       MONTHS.find((m) => m.value === month)?.label || "มิถุนายน";
     const weekLabel =
@@ -861,10 +964,190 @@ const ReportMosquitoCompDataComp = () => {
           year,
           month: monthLabel,
           week: weekLabel,
-          name: selectedRow?.name || "ไม่พบข้อมูล",
+          name: "รายละเอียดการสำรวจลูกน้ำยุงลาย",
+          userId: userId,
           householdId: householdId,
         }}
       />
+    );
+  }
+
+  // View 2: แสดงรายการบ้านของผู้รับผิดชอบ
+  if (userId) {
+    return (
+      <div className="w-full h-full bg-gradient-to-b from-[#f7f2ff] via-white to-white p-0">
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+            <div className="flex-1">
+              <h3 className="text-red-800 font-semibold mb-1">เกิดข้อผิดพลาด</h3>
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium transition"
+            >
+              โหลดใหม่
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={() => router.push("/report-mosquito/data")}
+          className="mb-4 inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-purple-200 rounded-xl text-[#7e32e2] font-semibold hover:bg-purple-50 transition-all"
+        >
+          <ArrowLeft size={20} />
+          กลับไปหน้ารายชื่อผู้รับผิดชอบ
+        </button>
+
+        <div className="relative mb-6 rounded-3xl overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
+          <div className="absolute inset-0 bg-white/5" />
+          <div className="relative p-6 sm:p-8">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="text-white">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                    <Home size={28} className="text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold">
+                      รายการบ้านที่รับผิดชอบ
+                    </h1>
+                    <p className="text-white/80">
+                      ผู้รับผิดชอบ: {selectedUserName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-4 my-6">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative flex-1 w-full">
+              <Search
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="พิมพ์คำค้นหาชื่อบ้าน เลขที่บ้าน หมู่..."
+                className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
+              />
+            </div>
+            <button
+              className="flex items-center justify-center gap-2 px-6 py-3 h-12 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 whitespace-nowrap w-full sm:w-auto"
+              onClick={() => setPage(1)}
+            >
+              <Search size={20} />
+              ค้นหา
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#eee5ff] shadow-xl rounded-2xl p-5 sm:p-6">
+          <div className="overflow-x-auto">
+            <table
+              className="w-full text-[15px] border-separate"
+              style={{ borderSpacing: 0, minWidth: "900px" }}
+            >
+              <thead>
+                <tr className="bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white">
+                  <th className="py-4 px-4 font-semibold text-center text-white rounded-tl-xl">
+                    ลำดับ
+                  </th>
+                  <th className="py-4 px-4 font-semibold text-left text-white">
+                    ที่อยู่บ้าน
+                  </th>
+                  <th className="py-4 px-4 font-semibold text-center text-white">
+                    วันที่บันทึกล่าสุด
+                  </th>
+                  <th className="py-4 px-4 font-semibold text-center text-white">
+                    จำนวนสมาชิก
+                  </th>
+                  <th className="py-4 px-4 font-semibold text-center text-white rounded-tr-xl">
+                    การทำงาน
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <Loader2 size={48} className="text-[#7e32e2] animate-spin" />
+                        <p className="text-gray-500 font-medium">กำลังโหลดข้อมูล...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : paginatedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <FileText size={48} className="text-gray-300" />
+                        <p className="text-gray-500">ไม่พบข้อมูล</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRows.map((row, idx) => (
+                    <tr
+                      key={row.index}
+                      className={`${
+                        idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
+                      } hover:bg-purple-50 transition-colors`}
+                    >
+                      <td className="py-4 px-4 text-center font-medium text-gray-600">
+                        {(page - 1) * itemsPerPage + idx + 1}
+                      </td>
+                      <td className="py-4 px-4 font-medium text-[#231d37]">
+                        {row.name}
+                      </td>
+                      <td className="py-4 px-4 text-center text-gray-600">
+                        {row.date}
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
+                          <Users size={14} />
+                          {row.residentCount}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <button
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                          onClick={() =>
+                            router.push(
+                              `/report-mosquito/data?user_id=${userId}&household_id=${row.id}`
+                            )
+                          }
+                        >
+                          <Eye size={16} />
+                          ดูรายละเอียด
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination
+            currentPage={page}
+            setCurrentPage={setPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            setItemsPerPage={setItemsPerPage}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -901,14 +1184,14 @@ const ReportMosquitoCompDataComp = () => {
             <div className="text-white">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                  <Download size={28} className="text-white" />
+                  <Users size={28} className="text-white" />
                 </div>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold">
-                    รายงานลูกน้ำยุงลาย
+                    รายชื่อผู้รับผิดชอบ
                   </h1>
                   <p className="text-white/80">
-                    สรุปข้อมูลรายงานและดาวน์โหลดไฟล์ได้ทันที
+                    รายการผู้รับผิดชอบการสำรวจลูกน้ำยุงลาย
                   </p>
                 </div>
               </div>
@@ -1008,7 +1291,7 @@ const ReportMosquitoCompDataComp = () => {
                 setKeyword(e.target.value);
                 setPage(1);
               }}
-              placeholder="พิมพ์คำค้นหาชื่อรายงาน วันที่ หรือจำนวน..."
+              placeholder="พิมพ์คำค้นหาชื่อผู้รับผิดชอบ วันที่..."
               className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
             />
           </div>
@@ -1034,13 +1317,13 @@ const ReportMosquitoCompDataComp = () => {
                   ลำดับ
                 </th>
                 <th className="py-4 px-4 font-semibold text-left text-white">
-                  ชื่อรายงาน
+                  ชื่อผู้รับผิดชอบ
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
-                  วันที่
+                  วันที่บันทึกล่าสุด
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
-                  จำนวน
+                  จำนวนบ้านที่รับผิดชอบ
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white rounded-tr-xl">
                   การทำงาน
@@ -1085,7 +1368,7 @@ const ReportMosquitoCompDataComp = () => {
                     </td>
                     <td className="py-4 px-4 text-center">
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-100 text-pink-700 font-semibold text-sm">
-                        <Users size={14} />
+                        <Home size={14} />
                         {row.amount}
                       </span>
                     </td>
@@ -1094,12 +1377,12 @@ const ReportMosquitoCompDataComp = () => {
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
                         onClick={() =>
                           router.push(
-                            `/report-mosquito/data?household_id=${row.id}`
+                            `/report-mosquito/data?user_id=${row.id}`
                           )
                         }
                       >
                         <Eye size={16} />
-                        รายละเอียด
+                        ดูรายละเอียด
                       </button>
                     </td>
                   </tr>
