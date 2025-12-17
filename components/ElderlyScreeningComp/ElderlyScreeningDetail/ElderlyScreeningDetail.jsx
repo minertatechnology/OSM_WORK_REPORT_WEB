@@ -64,22 +64,18 @@ const ElderlyScreeningDetail = ({
       ];
 
       const pdfAssessmentColumns = [
-        { key: "social_living_with_care", label: "มีผู้ดูแล", width: assessWidth },
-        { key: "social_house_safety", label: "บ้าน\nปลอดภัย", width: assessWidth },
-        { key: "social_income_sufficiency", label: "รายได้\nเพียงพอ", width: assessWidth },
-        { key: "cognitive_result", label: "ความคิด/\nความจำ", width: assessWidth },
-        { key: "mobility_test", label: "ความ\nสามารถ\nทางการ\nเคลื่อน\nไหว", width: assessWidth },
-        { key: "fall_history_6m", label: "ประวัติ\nหกล้ม\n(6เดือน)", width: assessWidth },
-        { key: "weight_loss_3m", label: "น้ำหนัก\nลด\n(3เดือน)", width: assessWidth },
-        { key: "appetite_loss", label: "ความ\nอยาก\nอาหารลด", width: assessWidth },
-        { key: "vision_problem", label: "ปัญหา\nการ\nมองเห็น", width: assessWidth },
-        { key: "hearing_result", label: "ปัญหา\nการ\nได้ยิน", width: assessWidth },
-        { key: "depression_symptom_2w", label: "อาการ\nซึมเศร้า\n(2สัปดาห์)", width: assessWidth },
-        { key: "boredom_symptom_2w", label: "อาการ\nเบื่อ\n(2สัปดาห์)", width: assessWidth },
-        { key: "suicide_thought_1m", label: "ความคิด\nฆ่าตัว\nตาย", width: assessWidth },
-        { key: "urinary_incontinence", label: "กลั้น\nปัสสาวะ\nไม่ได้", width: assessWidth },
-        { key: "chewing_difficulty", label: "เคี้ยว\nอาหาร\nลำบาก", width: assessWidth },
-        { key: "oral_pain", label: "ปวดใน\nช่องปาก", width: assessWidth },
+        { key: "social_living_with_care", label: "มีผู้ดูแล", width: assessWidth, domain: null },
+        { key: "social_house_safety", label: "บ้าน\nปลอดภัย", width: assessWidth, domain: null },
+        { key: "social_income_sufficiency", label: "รายได้\nเพียงพอ", width: assessWidth, domain: null },
+        { key: "cognitive_result", label: "ความคิด/\nความจำ", width: assessWidth, domain: "cognitive" },
+        { key: "mobility", label: "การ\nเคลื่อน\nไหว", width: assessWidth, domain: "mobility" },
+        { key: "swallowing", label: "การกลืน\nอาหาร", width: assessWidth, domain: "swallowing" },
+        { key: "vision_problem", label: "การ\nมองเห็น", width: assessWidth, domain: "vision" },
+        { key: "hearing_result", label: "การ\nได้ยิน", width: assessWidth, domain: "hearing" },
+        { key: "depression", label: "ภาวะ\nซึมเศร้า", width: assessWidth, domain: "depression" },
+        { key: "urinary_incontinence", label: "กลั้น\nปัสสาวะ", width: assessWidth, domain: "urinary" },
+        { key: "adl_status", label: "กิจวัตรประจำวัน", width: assessWidth, domain: "adl" },
+        { key: "oral", label: "ช่องปาก", width: assessWidth, domain: "oral" },
       ];
 
       // Start table
@@ -206,7 +202,12 @@ const ElderlyScreeningDetail = ({
         // แบบคัดกรอง
         pdfAssessmentColumns.forEach(col => {
           doc.rect(currentX, currentY, col.width, rowHeight);
-          const value = formatValue(elderly[col.key], col.key);
+
+          // ถ้ามี domain ให้คำนวณความเสี่ยง ถ้าไม่มีให้แสดงค่าตามปกติ
+          const value = col.domain
+            ? calculateRiskByDomain(elderly, col.domain)
+            : formatValue(elderly[col.key], col.key);
+
           const lines = doc.splitTextToSize(String(value), col.width - 1);
           doc.text(lines[0] || value, currentX + col.width / 2, currentY + 4.5, { align: "center" });
           currentX += col.width;
@@ -222,24 +223,58 @@ const ElderlyScreeningDetail = ({
     }
   };
 
-  // กำหนดคอลัมน์ตามรูป
+  // ฟังก์ชันคำนวณความเสี่ยงแต่ละด้าน (ตามสูตรจาก Mobile App)
+  const calculateRiskByDomain = (elderly, domain) => {
+    if (!elderly) return "-";
+
+    switch (domain) {
+      case "cognitive": // ด้านที่ 1: ความคิดความจำ
+        return elderly.cognitive_result === "N" ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      case "mobility": // ด้านที่ 2: การเคลื่อนไหว (2 คำถาม)
+        return elderly.mobility_test === "N" || elderly.fall_history_6m === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      case "swallowing": // ด้านที่ 3: การกลืนอาหาร (2 คำถาม)
+        return elderly.weight_loss_3m === "Y" || elderly.appetite_loss === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      case "vision": // ด้านที่ 4: การมองเห็น
+        return elderly.vision_problem === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      case "hearing": // ด้านที่ 5: การได้ยิน
+        return elderly.hearing_result !== "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      case "depression": // ด้านที่ 6: ภาวะซึมเศร้า (3 คำถาม)
+        return elderly.depression_symptom_2w === "Y" || elderly.boredom_symptom_2w === "Y" || elderly.suicide_thought_1m === "Y"
+          ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      case "urinary": // ด้านที่ 7: การกลั้นปัสสาวะ
+        return elderly.urinary_incontinence === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      case "adl": // ด้านที่ 8: ADL
+        return elderly.adl_status === "N" ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      case "oral": // ด้านที่ 9: ช่องปาก (2 คำถาม)
+        return elderly.chewing_difficulty === "Y" || elderly.oral_pain === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
+
+      default:
+        return "-";
+    }
+  };
+
+  // กำหนดคอลัมน์ตามรูป - แสดงผลความเสี่ยงแต่ละด้าน
   const assessmentColumns = [
-    { key: "social_living_with_care", label: "ข้อมูลการคัดกรองผู้สูงอายุ\nมีผู้ดูแล" },
-    { key: "social_house_safety", label: "ลักษณะที่อยู่อาศัย" },
-    { key: "social_income_sufficiency", label: "ความเพียงพอของรายได้" },
-    { key: "cognitive_result", label: "ความคิด/ความจำ" },
-    { key: "mobility_test", label: "ความสามารถทางการเคลื่อนไหว" },
-    { key: "fall_history_6m", label: "ประวัติหกล้ม (6 เดือน)" },
-    { key: "weight_loss_3m", label: "น้ำหนักลด (3 เดือน)" },
-    { key: "appetite_loss", label: "ความอยากอาหารลด" },
-    { key: "vision_problem", label: "ด้านาการมองเห็น" },
-    { key: "hearing_result", label: "ด้านการได้ยิน" },
-    { key: "depression_symptom_2w", label: "อาการซึมเศร้า (2 สัปดาห์)" },
-    { key: "boredom_symptom_2w", label: "อาการเบื่อ (2 สัปดาห์)" },
-    { key: "suicide_thought_1m", label: "ความคิดฆ่าตัวตาย" },
-    { key: "urinary_incontinence", label: "กลั้นปัสสาวะไม่ได้" },
-    { key: "chewing_difficulty", label: "เคี้ยวอาหารลำบาก" },
-    { key: "oral_pain", label: "ปวดในช่องปาก" },
+    { key: "social_living_with_care", label: "ข้อมูลการคัดกรองผู้สูงอายุ\nมีผู้ดูแล", domain: null },
+    { key: "social_house_safety", label: "ลักษณะที่อยู่อาศัย", domain: null },
+    { key: "social_income_sufficiency", label: "ความเพียงพอของรายได้", domain: null },
+    { key: "cognitive_result", label: "ความคิด/ความจำ", domain: "cognitive" },
+    { key: "mobility", label: "ความสามารถทางการเคลื่อนไหว", domain: "mobility" },
+    { key: "swallowing", label: "การกลืนอาหาร", domain: "swallowing" },
+    { key: "vision_problem", label: "ด้านการมองเห็น", domain: "vision" },
+    { key: "hearing_result", label: "ด้านการได้ยิน", domain: "hearing" },
+    { key: "depression", label: "ภาวะซึมเศร้า", domain: "depression" },
+    { key: "urinary_incontinence", label: "กลั้นปัสสาวะไม่ได้", domain: "urinary" },
+    { key: "adl_status", label: "กิจวัตรประจำวัน", domain: "adl" },
+    { key: "oral", label: "ช่องปาก", domain: "oral" },
   ];
 
   const formatValue = (value, fieldKey = "") => {
@@ -247,29 +282,10 @@ const ElderlyScreeningDetail = ({
 
     const str = String(value).toUpperCase();
 
-    // การได้ยิน (hearing_result) มี 3 ตัวเลือก: Y=ปกติ, N=ได้ยิน 1 ข้าง, A=ไม่ได้ยินทั้ง 2 ข้าง
-    if (fieldKey === "hearing_result") {
-      if (str === "Y") return "ปกติ";
-      if (str === "N") return "ได้ยิน 1 ข้าง";
-      if (str === "A") return "ไม่ได้ยินทั้ง 2 ข้าง";
-    }
-
     // ผู้สูงอายุอยู่กับใคร (living_arrangement): Y=อยู่คนเดียว, N=อยู่มากกว่า 1 คน
     if (fieldKey === "living_arrangement") {
       if (str === "Y") return "อยู่คนเดียว";
       if (str === "N") return "อยู่มากกว่า 1 คน";
-    }
-
-    // ความคิดความจำ, ADL: Y=ปกติ, N=ผิดปกติ
-    if (fieldKey === "cognitive_result" || fieldKey === "adl_status") {
-      if (str === "Y") return "ปกติ";
-      if (str === "N") return "ผิดปกติ";
-    }
-
-    // การเคลื่อนไหว (mobility_test): Y=สามารถทำได้, N=ไม่สามารถทำได้
-    if (fieldKey === "mobility_test") {
-      if (str === "Y") return "สามารถทำได้";
-      if (str === "N") return "ไม่สามารถทำได้";
     }
 
     // ลักษณะที่อยู่อาศัย (social_house_safety): Y=ไม่ปลอดภัย, N=มั่นคงแข็งแรง
@@ -289,10 +305,6 @@ const ElderlyScreeningDetail = ({
       if (str === "Y") return "ไม่มีผู้ดูแล";
       if (str === "N") return "มีผู้ดูแล";
     }
-
-    // คำถามอื่นๆ ที่เป็น Y/N ทั่วไป: Y=มี, N=ไม่มี
-    if (str === "Y") return "มี";
-    if (str === "N") return "ไม่มี";
 
     // ถ้าไม่ใช่ Y/N ให้แสดงค่าเดิม
     return value;
@@ -355,7 +367,7 @@ const ElderlyScreeningDetail = ({
                 <th colSpan={3} className="border border-white/20 py-2 px-3 text-white font-semibold text-center">
                   ข้อมูลครัวเรือน
                 </th>
-                <th colSpan={16} className="border border-white/20 py-2 px-3 text-white font-semibold text-center">
+                <th colSpan={12} className="border border-white/20 py-2 px-3 text-white font-semibold text-center">
                   แบบคัดกรองสุขภาพผู้สูงอายุ
                 </th>
               </tr>
@@ -385,7 +397,7 @@ const ElderlyScreeningDetail = ({
             <tbody>
               {elderlyList.length === 0 ? (
                 <tr>
-                  <td colSpan={21} className="py-12 text-center text-gray-500">
+                  <td colSpan={17} className="py-12 text-center text-gray-500">
                     ไม่พบข้อมูลผู้สูงอายุ
                   </td>
                 </tr>
@@ -413,11 +425,22 @@ const ElderlyScreeningDetail = ({
                       <td className="border border-gray-200 py-2 px-2 text-center text-gray-700 text-[11px]">
                         {elderly.age || "-"}
                       </td>
-                      {assessmentColumns.map((col) => (
-                        <td key={col.key} className="border border-gray-200 py-2 px-2 text-center text-gray-700 text-[11px]">
-                          {formatValue(elderly[col.key], col.key)}
-                        </td>
-                      ))}
+                      {assessmentColumns.map((col) => {
+                        // ถ้ามี domain ให้คำนวณความเสี่ยง ถ้าไม่มีให้แสดงค่าตามปกติ
+                        const displayValue = col.domain
+                          ? calculateRiskByDomain(elderly, col.domain)
+                          : formatValue(elderly[col.key], col.key);
+
+                        // กำหนดสีตามผลลัพธ์
+                        const isRisk = displayValue === "เสี่ยง";
+                        const textColor = isRisk ? "text-red-600 font-bold" : displayValue === "ไม่เสี่ยง" ? "text-green-600 font-semibold" : "text-gray-700";
+
+                        return (
+                          <td key={col.key} className={`border border-gray-200 py-2 px-2 text-center text-[11px] ${textColor}`}>
+                            {displayValue}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })
