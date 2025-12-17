@@ -228,7 +228,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     },
     // 5. การจัดการสุขภาพชุมชนและการมีส่วนร่วมในแผนสุขภาพตำบล
     {
-      no: "5",
+      no: "5.",
       activity: "การจัดการสุขภาพชุมชนและการมีส่วนร่วมในแผนสุขภาพตำบล",
       unit: "",
       isMainCategory: true,
@@ -354,6 +354,30 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     }
   ], []);
 
+  // ดึงข้อมูล note จาก other_activity_1
+  const smokeData = React.useMemo(() => {
+    const otherActivity1 = activityData.find(item => item.activity_id === "other_activity_1");
+
+    if (!otherActivity1) {
+      return [];
+    }
+
+    // ลองทั้ง notes และ note
+    const noteField = otherActivity1.notes || otherActivity1.note;
+
+    if (!noteField) {
+      return [];
+    }
+
+    try {
+      const noteData = JSON.parse(noteField);
+      return Array.isArray(noteData) ? noteData : [];
+    } catch (error) {
+      console.error("❌ Error parsing note data:", error);
+      return [];
+    }
+  }, [activityData]);
+
   // แปลงข้อมูลจาก API โดยใช้โครงสร้างจากเอกสาร และดึงเฉพาะจำนวนจาก API
   const transformedData = React.useMemo(() => {
     console.log("🔄 Transforming data with document structure...");
@@ -365,11 +389,26 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     });
 
     console.log("📊 Activity values from API:", Object.fromEntries(activityValueMap));
+    console.log("📊 smokeData count:", smokeData.length);
+
+    // นับจำนวนจาก smokeData สำหรับ 9.1
+    const smokeCount = smokeData.length;
 
     // ใช้โครงสร้างจากเอกสาร และ map ค่าจาก API
     const result = ACTIVITY_STRUCTURE.map((item) => {
-      // ถ้ามี activityId ให้ดึงค่าจาก API
-      const resultValue = item.activityId ? (activityValueMap.get(item.activityId) || 0) : "";
+      let resultValue = "";
+
+      // กรณีพิเศษสำหรับ other_activity_1 และ other_activity_2
+      if (item.activityId === "other_activity_1") {
+        // ข้อ 9.1 แสดงจำนวนที่นับจาก notes (smokeData.length)
+        resultValue = smokeCount;
+      } else if (item.activityId === "other_activity_2") {
+        // ข้อ 9.2 แสดงค่า value จาก other_activity_1
+        resultValue = activityValueMap.get("other_activity_1") || 0;
+      } else if (item.activityId) {
+        // กรณีปกติ
+        resultValue = activityValueMap.get(item.activityId) || 0;
+      }
 
       return {
         no: item.no,
@@ -383,7 +422,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
     console.log("✅ Transformed data rows:", result.length);
     return result;
-  }, [activityData, ACTIVITY_STRUCTURE]);
+  }, [activityData, ACTIVITY_STRUCTURE, smokeData]);
 
   // แสดงข้อมูลตามโครงสร้างเอกสารเสมอ (ไม่ว่า API จะมีข้อมูลหรือไม่)
   const displayData = transformedData;
@@ -400,97 +439,86 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       doc.setFont("Sarabun");
 
       // Header - Title
-      doc.setFontSize(14);
+      doc.setFontSize(16);
+      doc.setFont("Sarabun", "bold");
+      doc.text("แบบรายงานการปฏิบัติงานของ อสม.", 105, 18, { align: "center" });
+
+      doc.setFontSize(13);
       doc.setFont("Sarabun", "normal");
-      doc.text("แบบรายงานการปฏิบัติงานของ อสม.", 105, 15, { align: "center" });
+      doc.text(`ประจำเดือน ${month} พ.ศ. ${year}`, 105, 26, { align: "center" });
 
       doc.setFontSize(12);
-      doc.setFont("Sarabun", "normal");
-      doc.text(`ประจำเดือน ${month} พ.ศ. ${year}`, 105, 22, { align: "center" });
-
-      doc.setFontSize(12);
-      doc.text(`ชื่อ-นามสกุล: ${name}`, 105, 28, { align: "center" });
+      doc.text(`ชื่อ-นามสกุล: ${name}`, 105, 33, { align: "center" });
 
       // Table settings
-      const margin = 10;
+      const margin = 15;
       const startX = margin;
-      let startY = 35;
-      const rowHeight = 7;
+      let startY = 42;
+      const rowHeight = 6;
 
       // กำหนดความกว้างของแต่ละคอลัมน์
       const colWidths = {
-        no: 12,
-        activity: 138,
+        no: 20,
+        activity: 130,
         unit: 25,
         result: 15,
       };
 
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.2);
-
-      // วาดตาราง Header
-      doc.setFont("Sarabun", "normal");
-      doc.setFontSize(11);
+      // วาดตาราง Header (ไม่มีกรอบ)
+      doc.setFont("Sarabun", "bold");
+      doc.setFontSize(12);
 
       let currentX = startX;
 
       // ลำดับ
-      doc.rect(currentX, startY, colWidths.no, rowHeight);
-      doc.text("ลำดับ", currentX + colWidths.no / 2, startY + 5, { align: "center" });
+      doc.text("ลำดับ", currentX, startY);
       currentX += colWidths.no;
 
       // กิจกรรมการปฏิบัติงาน
-      doc.rect(currentX, startY, colWidths.activity, rowHeight);
-      doc.text("กิจกรรมการปฏิบัติงาน", currentX + colWidths.activity / 2, startY + 5, { align: "center" });
+      doc.text("กิจกรรมการปฏิบัติงาน", currentX, startY);
       currentX += colWidths.activity;
 
       // หน่วยนับ
-      doc.rect(currentX, startY, colWidths.unit, rowHeight);
-      doc.text("หน่วยนับ", currentX + colWidths.unit / 2, startY + 5, { align: "center" });
+      doc.text("หน่วยนับ", currentX + 5, startY);
       currentX += colWidths.unit;
 
       // ผลงาน
-      doc.rect(currentX, startY, colWidths.result, rowHeight);
-      doc.text("ผลงาน", currentX + colWidths.result / 2, startY + 5, { align: "center" });
+      doc.text("ผลงาน", currentX + 3, startY);
 
       // วาดข้อมูลในตาราง
       doc.setFont("Sarabun", "normal");
-      doc.setFontSize(11);
+      doc.setFontSize(10);
 
-      let currentY = startY + rowHeight;
-      const maxRowsPerPage = 30;
+      let currentY = startY + 5;
+      const maxRowsPerPage = 38;
       let rowCount = 0;
 
       displayData.forEach((row) => {
         // ถ้าเต็มหน้าให้สร้างหน้าใหม่
         if (rowCount >= maxRowsPerPage) {
           doc.addPage();
-          currentY = 10;
+          currentY = 25;
           rowCount = 0;
 
-          // วาด header ใหม่
-          doc.setFont("Sarabun", "normal");
-          doc.setFontSize(11);
+          // วาด header ใหม่ (ไม่มีกรอบ)
+          doc.setFont("Sarabun", "bold");
+          doc.setFontSize(12);
 
           let headerX = startX;
-          doc.rect(headerX, currentY, colWidths.no, rowHeight);
-          doc.text("ลำดับ", headerX + colWidths.no / 2, currentY + 5, { align: "center" });
+          doc.text("ลำดับ", headerX, currentY);
           headerX += colWidths.no;
 
-          doc.rect(headerX, currentY, colWidths.activity, rowHeight);
-          doc.text("กิจกรรมการปฏิบัติงาน", headerX + colWidths.activity / 2, currentY + 5, { align: "center" });
+          doc.text("กิจกรรมการปฏิบัติงาน", headerX, currentY);
           headerX += colWidths.activity;
 
-          doc.rect(headerX, currentY, colWidths.unit, rowHeight);
-          doc.text("หน่วยนับ", headerX + colWidths.unit / 2, currentY + 5, { align: "center" });
+          doc.text("หน่วยนับ", headerX + 5, currentY);
           headerX += colWidths.unit;
 
-          doc.rect(headerX, currentY, colWidths.result, rowHeight);
-          doc.text("ผลงาน", headerX + colWidths.result / 2, currentY + 5, { align: "center" });
+          doc.text("ผลงาน", headerX + 3, currentY);
 
-          currentY += rowHeight;
+          currentY += 8;
           doc.setFont("Sarabun", "normal");
-          doc.setFontSize(11);
+          doc.setFontSize(10);
         }
 
         let dataX = startX;
@@ -498,65 +526,142 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         // กำหนด font ตามประเภทแถว
         if (row.isMainCategory) {
           doc.setFont("Sarabun", "bold");
+          doc.setFontSize(14);
         } else {
           doc.setFont("Sarabun", "normal");
+          doc.setFontSize(10);
         }
-        doc.setFontSize(11);
 
-        // ลำดับและกิจกรรมรวมกัน
+        // กำหนด indent เฉพาะตัวเลขลำดับ (ตรงตามหน้าหลัก)
         let noIndent = 0;
-        let activityIndent = 0;
 
         if (row.isMainCategory) {
+          // หมวดหมู่หลัก (1., 2., 3., ...) - ไม่ indent
           noIndent = 0;
-          activityIndent = 0;
         } else if (row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-")) {
-          // หัวข้อย่อยระดับ 1 (1.1, 1.2)
-          noIndent = 3;
-          activityIndent = 3;
+          // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...) - indent 4mm (ml-16 ~ 16px ~ 4mm)
+          noIndent = 4;
         } else if (row.no === "-") {
-          // หัวข้อย่อยระดับ 2 (-)
-          noIndent = 3;
-          activityIndent = 3;
-        } else if (row.no && row.no.startsWith("(")) {
-          // หัวข้อย่อยระดับ 3 ((1), (2))
-          noIndent = 12;
-          activityIndent = 12;
-        } else if (row.no === "") {
-          // หัวข้อคำอธิบาย
+          // หัวข้อย่อยระดับ 2 (-) - indent 6mm (ml-24 ~ 24px ~ 6mm)
           noIndent = 6;
-          activityIndent = 6;
+        } else if (row.no && row.no.startsWith("(")) {
+          // หัวข้อย่อยระดับ 3 ((1), (2), (3)) - indent 6mm (ml-24 ~ 24px ~ 6mm)
+          noIndent = 6;
+        } else if (row.no === "") {
+          // หัวข้อคำอธิบายพิเศษ (ไม่มีเลขลำดับ) - indent 4mm
+          noIndent = 4;
         }
 
-        // ลำดับ
-        doc.rect(dataX, currentY, colWidths.no, rowHeight);
+        // ลำดับ (ไม่มีกรอบ)
         if (row.no) {
-          doc.text(row.no, dataX + 2 + noIndent, currentY + 5);
+          doc.text(row.no, dataX + noIndent, currentY);
         }
         dataX += colWidths.no;
 
-        // กิจกรรม
-        doc.rect(dataX, currentY, colWidths.activity, rowHeight);
-        const actParts = doc.splitTextToSize(row.activity, colWidths.activity - activityIndent - 4);
-        doc.text(actParts[0], dataX + 2 + activityIndent, currentY + 5);
+        // กิจกรรม (ไม่มีกรอบ, ไม่ indent)
+        const actParts = doc.splitTextToSize(row.activity, colWidths.activity - 2);
+        doc.text(actParts[0], dataX, currentY);
         dataX += colWidths.activity;
 
-        // หน่วยนับ
+        // หน่วยนับ (ไม่มีกรอบ)
         doc.setFont("Sarabun", "normal");
-        doc.rect(dataX, currentY, colWidths.unit, rowHeight);
+        doc.setFontSize(10);
         if (row.unit) {
-          doc.text(row.unit, dataX + colWidths.unit / 2, currentY + 5, { align: "center" });
+          doc.text(row.unit, dataX + 8, currentY);
         }
         dataX += colWidths.unit;
 
-        // ผลงาน
-        doc.rect(dataX, currentY, colWidths.result, rowHeight);
+        // ผลงาน (ไม่มีกรอบ)
         if (row.result !== "" && row.result !== undefined && row.result !== 0) {
-          doc.text(String(row.result), dataX + colWidths.result / 2, currentY + 5, { align: "center" });
+          doc.text(String(row.result), dataX + 5, currentY);
         }
 
         currentY += rowHeight;
         rowCount++;
+
+        // แสดงรายละเอียดสำหรับ Activity 9.1 (other_activity_1)
+        if (row.activityId === "other_activity_1" && smokeData.length > 0) {
+          // เพิ่มระยะห่าง
+          currentY += 2;
+
+          smokeData.forEach((item, idx) => {
+            // ตรวจสอบว่าเต็มหน้าหรือไม่
+            if (rowCount >= maxRowsPerPage) {
+              doc.addPage();
+              currentY = 25;
+              rowCount = 0;
+
+              // วาด header ใหม่
+              doc.setFont("Sarabun", "bold");
+              doc.setFontSize(12);
+
+              let headerX = startX;
+              doc.text("ลำดับ", headerX, currentY);
+              headerX += colWidths.no;
+
+              doc.text("กิจกรรมการปฏิบัติงาน", headerX, currentY);
+              headerX += colWidths.activity;
+
+              doc.text("หน่วยนับ", headerX + 5, currentY);
+              headerX += colWidths.unit;
+
+              doc.text("ผลงาน", headerX + 3, currentY);
+
+              currentY += 8;
+              doc.setFont("Sarabun", "normal");
+              doc.setFontSize(10);
+            }
+
+            const status = item["สถานะการสูบบุหรี่"] === "smoke" ? "สูบ" : "ไม่สูบ";
+            const detailText = `ลำดับ: ${idx + 1}, ชื่อ: ${item["ชื่อ"] || "-"}, เบอร์โทรศัพท์: ${item["เบอร์โทรศัพท์"] || "-"}, บ้านเลขที่: ${item["บ้านเลขที่"] || "-"}, สถานะ: ${status}`;
+
+            doc.setFont("Sarabun", "normal");
+            doc.setFontSize(8);
+
+            // วาดข้อความรายละเอียด - เริ่มต้นที่คอลัมน์กิจกรรม (ตรงกับ pl-16)
+            const detailParts = doc.splitTextToSize(detailText, colWidths.activity + colWidths.unit + colWidths.result - 10);
+            detailParts.forEach((part, partIdx) => {
+              if (partIdx === 0) {
+                doc.text(part, startX + colWidths.no, currentY);
+              } else {
+                currentY += 3.5;
+                rowCount++;
+                if (rowCount >= maxRowsPerPage) {
+                  doc.addPage();
+                  currentY = 25;
+                  rowCount = 0;
+
+                  // วาด header ใหม่
+                  doc.setFont("Sarabun", "bold");
+                  doc.setFontSize(12);
+
+                  let headerX = startX;
+                  doc.text("ลำดับ", headerX, currentY);
+                  headerX += colWidths.no;
+
+                  doc.text("กิจกรรมการปฏิบัติงาน", headerX, currentY);
+                  headerX += colWidths.activity;
+
+                  doc.text("หน่วยนับ", headerX + 5, currentY);
+                  headerX += colWidths.unit;
+
+                  doc.text("ผลงาน", headerX + 3, currentY);
+
+                  currentY += 8;
+                  doc.setFont("Sarabun", "normal");
+                  doc.setFontSize(8);
+                }
+                doc.text(part, startX + colWidths.no, currentY);
+              }
+            });
+
+            currentY += 4;
+            rowCount++;
+          });
+
+          // เพิ่มระยะห่างหลังข้อมูล note ก่อนข้อ 9.2
+          currentY += 3;
+        }
       });
 
       // บันทึกไฟล์
@@ -634,47 +739,85 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
               </div>
             ) : (
               displayData.map((row, idx) => {
-                // กำหนด indent level ตามประเภทของแถว
-                let indentStyle = "";
-                let noWidth = "w-16";
+                // กำหนด indent สำหรับลำดับและกิจกรรม
+                let noIndent = "";
+                let activityIndent = "";
 
                 if (row.isMainCategory) {
-                  // หมวดหมู่หลัก (1. 2. 3. ...)
-                  indentStyle = "";
-                  noWidth = "w-16";
+                  // หมวดหมู่หลัก (1., 2., 3., ...)
+                  noIndent = "pl-0";
+                  activityIndent = "";
                 } else if (row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-")) {
                   // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...)
-                  indentStyle = "ml-6";
-                  noWidth = "w-14";
+                  noIndent = "pl-4";
+                  activityIndent = "";
                 } else if (row.no === "-") {
-                  // หัวข้อย่อยระดับ 2 (ขึ้นต้นด้วย -)
-                  indentStyle = "ml-6";
-                  noWidth = "w-14";
+                  // หัวข้อย่อยระดับ 2 (-)
+                  noIndent = "pl-6";
+                  activityIndent = "";
                 } else if (row.no && row.no.startsWith("(")) {
                   // หัวข้อย่อยระดับ 3 ((1), (2), (3))
-                  indentStyle = "ml-20";
-                  noWidth = "w-8";
+                  noIndent = "pl-6";
+                  activityIndent = "";
                 } else if (row.no === "") {
-                  // หัวข้อคำอธิบายพิเศษ (ไม่มีเลขลำดับ)
-                  indentStyle = "ml-12";
-                  noWidth = "w-12";
+                  // หัวข้อคำอธิบายพิเศษ
+                  noIndent = "pl-4";
+                  activityIndent = "";
+                }
+
+                // กำหนดขนาดตัวอักษร
+                const isSubItem = row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-");
+                const isLevel2 = row.no === "-";
+                const isLevel3 = row.no && row.no.startsWith("(");
+                const isEmptyNo = row.no === "";
+
+                let fontSize = "";
+                let noFontSize = "";
+
+                if (row.isMainCategory) {
+                  fontSize = "text-base";
+                  noFontSize = "text-lg";
+                } else if (isSubItem || isLevel2 || isLevel3 || isEmptyNo) {
+                  fontSize = "text-sm";
+                  noFontSize = "text-sm";
+                } else {
+                  fontSize = "text-sm";
+                  noFontSize = "text-sm";
                 }
 
                 return (
-                  <div key={idx} className="flex py-1 px-3 border-b border-gray-100 hover:bg-gray-50">
-                    <div className={`${noWidth} text-black text-sm flex-shrink-0 ${row.isMainCategory ? "font-bold" : ""}`}>
-                      {row.no}
+                  <React.Fragment key={idx}>
+                    <div className={`flex px-3 border-b border-gray-100 hover:bg-gray-50 ${row.isMainCategory ? "py-2" : "py-1.5"}`}>
+                      <div className={`w-16 flex-shrink-0 ${noIndent} ${row.isMainCategory ? "font-bold" : ""} ${noFontSize} text-black`}>
+                        {row.no}
+                      </div>
+                      <div className={`flex-1 ${row.isMainCategory ? "font-bold" : ""} ${fontSize} text-black ${activityIndent}`}>
+                        {row.activity}
+                      </div>
+                      <div className={`w-24 text-center flex-shrink-0 ${row.isMainCategory ? "font-bold" : ""} ${fontSize} text-black`}>
+                        {row.unit}
+                      </div>
+                      <div className={`w-20 text-center flex-shrink-0 ${row.isMainCategory ? "font-bold" : ""} ${fontSize} text-black`}>
+                        {row.result !== "" && row.result !== undefined && row.result !== 0 ? row.result : ""}
+                      </div>
                     </div>
-                    <div className={`flex-1 text-black text-sm ${indentStyle} ${row.isMainCategory ? "font-bold" : ""}`}>
-                      {row.activity}
-                    </div>
-                    <div className="w-24 text-center text-black text-sm flex-shrink-0">
-                      {row.unit}
-                    </div>
-                    <div className="w-20 text-center text-black text-sm flex-shrink-0">
-                      {row.result !== "" && row.result !== undefined && row.result !== 0 ? row.result : ""}
-                    </div>
-                  </div>
+
+                    {/* แสดงรายละเอียดข้อมูลสำหรับ Activity 9.1 - แสดงเป็นแถวเดียว */}
+                    {row.activityId === "other_activity_1" && smokeData.length > 0 && (
+                      <div className="px-3 py-3 border-b border-gray-200">
+                        <div className="pl-16">
+                          {smokeData.map((item, index) => {
+                            const status = item["สถานะการสูบบุหรี่"] === "smoke" ? "สูบ" : "ไม่สูบ";
+                            return (
+                              <div key={index} className="text-xs text-gray-600 mb-1.5">
+                                <span className="font-medium">ลำดับ:</span> {index + 1}, <span className="font-medium">ชื่อ:</span> {item["ชื่อ"] || "-"}, <span className="font-medium">เบอร์โทรศัพท์:</span> {item["เบอร์โทรศัพท์"] || "-"}, <span className="font-medium">บ้านเลขที่:</span> {item["บ้านเลขที่"] || "-"}, <span className="font-medium">สถานะ:</span> {status}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </React.Fragment>
                 );
               })
             )}
