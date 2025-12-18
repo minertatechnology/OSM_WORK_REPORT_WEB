@@ -73,6 +73,39 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
       doc.setFont("Sarabun");
 
+      const pageWidth = 210;
+      const pageHeight = 297;
+
+      // ฟังก์ชันสำหรับวาดลายน้ำโลโก้
+      const addWatermark = (doc) => {
+        const watermarkImage = "/Smart_Osm_Plus.png";
+        const imgWidth = 150;
+        const imgHeight = 100;
+
+        // คำนวณตำแหน่งกึ่งกลางหน้ากระดาษ
+        const centerX = 220 / 2;
+        const centerY = 360 / 2;
+
+        // คำนวณตำแหน่งให้โลโก้อยู่กึ่งกลางพอดี
+        const x = centerX - (imgWidth / 2);
+        const y = centerY - (imgHeight / 2);
+
+        // บันทึกสถานะปัจจุบัน
+        doc.saveGraphicsState();
+
+        // ตั้งค่าความโปร่งใส
+        doc.setGState(new doc.GState({ opacity: 0.10 }));
+
+        // วาดรูป
+        doc.addImage(watermarkImage, 'PNG', x, y, imgWidth, imgHeight, '', 'NONE', 0);
+
+        // คืนสถานะ
+        doc.restoreGraphicsState();
+      };
+
+      // เพิ่มลายน้ำหน้าแรก
+      addWatermark(doc);
+
       // Header - Title
       doc.setFontSize(14);
       doc.setFont("Sarabun", "bold");

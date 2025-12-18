@@ -438,6 +438,28 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
       doc.setFont("Sarabun");
 
+      // Add watermark function
+      const addWatermark = (doc) => {
+        const watermarkImage = "/Smart_Osm_Plus.png";
+        const imgWidth = 150;
+        const imgHeight = 100;
+
+        // Portrait: 210x297
+        const centerX = 220 / 2;
+        const centerY = 360 / 2;
+
+        const x = centerX - (imgWidth / 2);
+        const y = centerY - (imgHeight / 2);
+
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({ opacity: 0.10 }));
+        doc.addImage(watermarkImage, 'PNG', x, y, imgWidth, imgHeight, '', 'NONE', 0);
+        doc.restoreGraphicsState();
+      };
+
+      // Add watermark to the first page
+      addWatermark(doc);
+
       // Header - Title
       doc.setFontSize(16);
       doc.setFont("Sarabun", "bold");
@@ -497,6 +519,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         // ถ้าเต็มหน้าให้สร้างหน้าใหม่
         if (rowCount >= maxRowsPerPage) {
           doc.addPage();
+          addWatermark(doc); // Add watermark to new page
           currentY = 25;
           rowCount = 0;
 
@@ -588,6 +611,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
             // ตรวจสอบว่าเต็มหน้าหรือไม่
             if (rowCount >= maxRowsPerPage) {
               doc.addPage();
+              addWatermark(doc); // Add watermark to new page
               currentY = 25;
               rowCount = 0;
 
@@ -628,6 +652,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
                 rowCount++;
                 if (rowCount >= maxRowsPerPage) {
                   doc.addPage();
+                  addWatermark(doc); // Add watermark to new page
                   currentY = 25;
                   rowCount = 0;
 

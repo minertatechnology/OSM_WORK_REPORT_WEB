@@ -477,11 +477,12 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
         >
           <div className="flex items-center justify-center rounded-md">
             <Image
-              src="/logoworkreport.png"
+              src="/Smart_Osm_Plus.png"
               alt="Logo"
               width={528}
               height={128}
               priority
+              unoptimized
               className="drop-shadow-md"
             />
           </div>

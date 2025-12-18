@@ -86,13 +86,13 @@ export const exportHealthRecordToPDF = async (record) => {
 
   // ฟังก์ชันสำหรับวาดลายน้ำโลโก้
   const addWatermark = (doc) => {
-    const watermarkImage = "/logoworkreport.png";
-    const imgWidth = 220; // ขนาดความกว้างของโลโก้
-    const imgHeight = 110; // ขนาดความสูงของโลโก้
+    const watermarkImage = "/Smart_Osm_Plus.png";
+    const imgWidth = 150; // ขนาดความกว้างของโลโก้
+    const imgHeight = 100; // ขนาดความสูงของโลโก้
 
     // คำนวณตำแหน่งกึ่งกลางหน้ากระดาษ
-    const centerX = 200 / 2;
-    const centerY = 350 / 2;
+    const centerX = 220 / 2;
+    const centerY = 360 / 2;
 
     // คำนวณตำแหน่งให้โลโก้อยู่กึ่งกลางพอดี
     const x = centerX - (imgWidth / 2);

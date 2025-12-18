@@ -35,6 +35,36 @@ const ElderlyScreeningDetail = ({
       doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
       doc.setFont("Sarabun");
 
+      // ฟังก์ชันสำหรับวาดลายน้ำโลโก้ (Landscape)
+      const addWatermark = (doc) => {
+        const watermarkImage = "/Smart_Osm_Plus.png";
+        const imgWidth = 150;
+        const imgHeight = 100;
+
+        // คำนวณตำแหน่งกึ่งกลางหน้ากระดาษ (Landscape: 297x210)
+        const centerX = 297 / 2;
+        const centerY = 210 / 2;
+
+        // คำนวณตำแหน่งให้โลโก้อยู่กึ่งกลางพอดี
+        const x = centerX - (imgWidth / 2);
+        const y = centerY - (imgHeight / 2);
+
+        // บันทึกสถานะปัจจุบัน
+        doc.saveGraphicsState();
+
+        // ตั้งค่าความโปร่งใส
+        doc.setGState(new doc.GState({ opacity: 0.10 }));
+
+        // วาดรูป
+        doc.addImage(watermarkImage, 'PNG', x, y, imgWidth, imgHeight, '', 'NONE', 0);
+
+        // คืนสถานะ
+        doc.restoreGraphicsState();
+      };
+
+      // เพิ่มลายน้ำ
+      addWatermark(doc);
+
       // Header
       doc.setFontSize(14);
       doc.setFont("Sarabun", "bold");
@@ -57,6 +87,10 @@ const ElderlyScreeningDetail = ({
       const ageWidth = 8; // อายุ
       const assessWidth = 12.5; // แต่ละคอลัมน์แบบคัดกรอง
 
+      // คำนวณความกว้างรวมของตาราง
+      const totalTableWidth = colWidth + nameWidth + livingWidth + genderWidth + ageWidth + (assessWidth * 12);
+      // Total = 8 + 45 + 17 + 8 + 8 + (12.5 * 12) = 86 + 150 = 236mm
+
       const householdColumns = [
         { key: "living_arrangement", label: "ผู้สูงอายุ\nอยู่ร่วม", width: livingWidth },
         { key: "gender", label: "เพศ", width: genderWidth },
@@ -78,8 +112,9 @@ const ElderlyScreeningDetail = ({
         { key: "oral", label: "ช่องปาก", width: assessWidth, domain: "oral" },
       ];
 
-      // Start table
-      const startX = 5;
+      // Start table - คำนวณให้อยู่กึ่งกลาง
+      const pageWidth = 297; // A4 landscape width
+      const startX = (pageWidth - totalTableWidth) / 2; // จัดกึ่งกลาง
       const startY = 28;
       let currentY = startY;
 

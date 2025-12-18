@@ -146,11 +146,12 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center justify-center mb-7 select-none">
             <Image
-              src="/logoworkreport.png"
+              src="/Smart_Osm_Plus.png"
               alt="Smart อสม."
               width={528}
               height={128}
               priority
+              unoptimized
               className="w-[528px] h-auto"
             />
           </div>

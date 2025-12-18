@@ -143,6 +143,28 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
       doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
       doc.setFont("Sarabun");
 
+      // Add watermark function
+      const addWatermark = (doc) => {
+        const watermarkImage = "/Smart_Osm_Plus.png";
+        const imgWidth = 150;
+        const imgHeight = 100;
+
+        // Landscape: 297x210
+        const centerX = 297 / 2;
+        const centerY = 210 / 2;
+
+        const x = centerX - (imgWidth / 2);
+        const y = centerY - (imgHeight / 2);
+
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({ opacity: 0.10 }));
+        doc.addImage(watermarkImage, 'PNG', x, y, imgWidth, imgHeight, '', 'NONE', 0);
+        doc.restoreGraphicsState();
+      };
+
+      // Add watermark to the first page
+      addWatermark(doc);
+
       // Header - Title
       doc.setFontSize(12);
       doc.setFont("Sarabun", "bold");
@@ -299,6 +321,7 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
         // ถ้าเต็มหน้าให้สร้างหน้าใหม่
         if (rowCount >= maxRowsPerPage) {
           doc.addPage();
+          addWatermark(doc); // Add watermark to new page
           currentY = 10;
           rowCount = 0;
 
@@ -421,6 +444,7 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
       // เช็คว่าต้องขึ้นหน้าใหม่หรือไม่
       if (currentY + rowHeight > 280) {
         doc.addPage();
+        addWatermark(doc); // Add watermark to new page
         currentY = 10;
       }
 

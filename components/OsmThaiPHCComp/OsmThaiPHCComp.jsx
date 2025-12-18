@@ -1269,9 +1269,30 @@ const OsmThaiPHCComp = () => {
     doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
     doc.setFont("Sarabun");
 
+    // Add watermark function
+    const addWatermark = (doc) => {
+      const watermarkImage = "/Smart_Osm_Plus.png";
+      const imgWidth = 150;
+      const imgHeight = 100;
+
+      // Landscape: 297x210
+      const centerX = 297 / 2;
+      const centerY = 210 / 2;
+
+      const x = centerX - (imgWidth / 2);
+      const y = centerY - (imgHeight / 2);
+
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({ opacity: 0.10 }));
+      doc.addImage(watermarkImage, 'PNG', x, y, imgWidth, imgHeight, '', 'NONE', 0);
+      doc.restoreGraphicsState();
+    };
+
+
     // Add title
-    doc.setFontSize(18);
-    doc.text("รายงานข้อมูล อสม. Thai PHC", 14, 15);
+    doc.setFontSize(16);
+    doc.setFont("Sarabun", "bold");
+    doc.text("รายงานข้อมูล อสม. Thai PHC", 148.5, 12, { align: "center" });
 
     // Add date
     const today = new Date();
@@ -1279,17 +1300,17 @@ const OsmThaiPHCComp = () => {
       today.getFullYear() + 543
     }`;
     doc.setFontSize(10);
-    doc.text(`วันที่: ${dateStr}`, 14, 22);
+    doc.setFont("Sarabun", "normal");
+    doc.text(`วันที่: ${dateStr}`, 148.5, 18, { align: "center" });
 
     // Add category subtitle if filter is applied
     let startY = 28;
     if (legend) {
       const categoryText = getCategoryText(legend);
-      doc.setFontSize(12);
-      doc.setFont("Sarabun", "bold");
-      doc.text(`ประเภท: ${categoryText}`, 14, 28);
+      doc.setFontSize(11);
       doc.setFont("Sarabun", "normal");
-      startY = 35; // Move table start position down
+      doc.text(`ประเภท: ${categoryText}`, 148.5, 24, { align: "center" });
+      startY = 32; // Move table start position down
     }
 
     // Prepare table data - use filtered users
@@ -1302,6 +1323,21 @@ const OsmThaiPHCComp = () => {
       user.subdistrict,
       user.osmStatus,
     ]);
+
+    // Calculate table width and center position
+    const colWidths = {
+      no: 15,        // ลำดับ
+      name: 60,      // ชื่อ-นามสกุล
+      cid: 45,       // เลขบัตรประชาชน
+      province: 40,  // จังหวัด
+      district: 40,  // อำเภอ
+      subdistrict: 40, // ตำบล
+      status: 20,    // สถานะ
+    };
+
+    const totalTableWidth = Object.values(colWidths).reduce((sum, width) => sum + width, 0);
+    const pageWidth = 297; // A4 landscape width
+    const leftMargin = (pageWidth - totalTableWidth) / 2;
 
     // Add table using autoTable
     autoTable(doc, {
@@ -1321,39 +1357,53 @@ const OsmThaiPHCComp = () => {
       theme: "grid",
       styles: {
         font: "Sarabun",
+        lineColor: [0, 0, 0], // Black border lines
+        lineWidth: 0.3,
+        fontSize: 10,
+        cellPadding: 3,
       },
       headStyles: {
-        fillColor: [126, 50, 226],
-        textColor: 255,
+        fillColor: [255, 255, 255], // White background
+        textColor: [0, 0, 0], // Black text
         fontSize: 11,
         fontStyle: "bold",
         halign: "center",
         font: "Sarabun",
+        cellPadding: 4,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3,
       },
       bodyStyles: {
-        fontSize: 9,
+        fontSize: 10,
         cellPadding: 3,
         font: "Sarabun",
+        textColor: [0, 0, 0],
+        fillColor: [255, 255, 255], // White background
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3,
       },
       columnStyles: {
-        0: { halign: "center", cellWidth: 15 }, // ลำดับ
-        1: { halign: "left", cellWidth: 50 }, // ชื่อ-นามสกุล
-        2: { halign: "center", cellWidth: 45 }, // เลขบัตรประชาชน
-        3: { halign: "left", cellWidth: 35 }, // จังหวัด
-        4: { halign: "left", cellWidth: 35 }, // อำเภอ
-        5: { halign: "left", cellWidth: 35 }, // ตำบล
-        6: { halign: "center", cellWidth: 25 }, // สถานะ
+        0: { halign: "center", cellWidth: colWidths.no }, // ลำดับ
+        1: { halign: "left", cellWidth: colWidths.name }, // ชื่อ-นามสกุล
+        2: { halign: "center", cellWidth: colWidths.cid }, // เลขบัตรประชาชน
+        3: { halign: "left", cellWidth: colWidths.province }, // จังหวัด
+        4: { halign: "left", cellWidth: colWidths.district }, // อำเภอ
+        5: { halign: "left", cellWidth: colWidths.subdistrict }, // ตำบล
+        6: { halign: "center", cellWidth: colWidths.status }, // สถานะ
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: leftMargin, right: leftMargin },
       didDrawPage: function (data) {
+        // Add watermark to all pages
+        addWatermark(doc);
+
         // Footer
-        const pageCount = doc.internal.pages.length - 1;
+        const pageCount = doc.internal.getNumberOfPages();
         doc.setFont("Sarabun");
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.text(
           `หน้า ${data.pageNumber} จาก ${pageCount}`,
           doc.internal.pageSize.width / 2,
-          doc.internal.pageSize.height - 10,
+          doc.internal.pageSize.height - 8,
           { align: "center" }
         );
       },

@@ -53,6 +53,33 @@ const NcdsScreeningDetail = ({ reportData }) => {
       doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
       doc.setFont("Sarabun");
 
+      // ฟังก์ชันสำหรับวาดลายน้ำโลโก้ (Landscape)
+      const addWatermark = (doc) => {
+        const watermarkImage = "/Smart_Osm_Plus.png";
+        const imgWidth = 150;
+        const imgHeight = 100;
+
+        // คำนวณตำแหน่งกึ่งกลางหน้ากระดาษ (Landscape: 297x210)
+        const centerX = 297 / 2;
+        const centerY = 210 / 2;
+
+        // คำนวณตำแหน่งให้โลโก้อยู่กึ่งกลางพอดี
+        const x = centerX - (imgWidth / 2);
+        const y = centerY - (imgHeight / 2);
+
+        // บันทึกสถานะปัจจุบัน
+        doc.saveGraphicsState();
+
+        // ตั้งค่าความโปร่งใส
+        doc.setGState(new doc.GState({ opacity: 0.10 }));
+
+        // วาดรูป
+        doc.addImage(watermarkImage, 'PNG', x, y, imgWidth, imgHeight, '', 'NONE', 0);
+
+        // คืนสถานะ
+        doc.restoreGraphicsState();
+      };
+
       // Header - Title
       doc.setFontSize(14);
       doc.setFont("Sarabun", "bold");
@@ -66,6 +93,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
       // Table settings - Landscape orientation for wide table
       doc.addPage('a4', 'landscape');
       doc.deletePage(1);
+
+      // เพิ่มลายน้ำหลังสร้างหน้า landscape
+      addWatermark(doc);
 
       // Add title on the landscape page
       doc.setFontSize(14);
