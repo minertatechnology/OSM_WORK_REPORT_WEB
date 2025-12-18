@@ -1,8 +1,17 @@
 import Layout from "@components/layout/Layout";
-import { useEffect, Suspense } from "react";
+import { useEffect } from "react";
 import { useLoading } from "@context/LoadingProvider";
-import { LazyPregnantReportComp } from "@components/shared/LazyComponents";
+import dynamic from "next/dynamic";
 import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
+
+// Use dynamic import with ssr: false to avoid hydration issues
+const PregnantReportComp = dynamic(
+  () => import("@components/PregnantReportComp/PregnantReportComp"),
+  {
+    ssr: false,
+    loading: () => <ComponentLoadingSpinner />
+  }
+);
 
 const PregnantReport = () => {
   const { setLoading } = useLoading();
@@ -22,11 +31,7 @@ const PregnantReport = () => {
     setTimeout(() => setLoading(false), 2000);
   };
 
-  return (
-    <Suspense fallback={<ComponentLoadingSpinner />}>
-      <LazyPregnantReportComp triggerLoading={triggerLoading} />
-    </Suspense>
-  );
+  return <PregnantReportComp triggerLoading={triggerLoading} />;
 };
 
 PregnantReport.getLayout = (page) => <Layout>{page}</Layout>;
