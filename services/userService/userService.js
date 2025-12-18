@@ -1,5 +1,5 @@
 // User Service for API calls
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL;
 
 export const getUsersList = async ({
   page = 1,

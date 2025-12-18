@@ -582,6 +582,16 @@ const UserListComp = () => {
           throw new Error("No authentication token found. Please login again.");
         }
 
+        console.log("🔍 Fetching users with params:", {
+          page: currentPage,
+          per_page: itemsPerPage,
+          keyword,
+          is_active: tab === "active" ? true : false,
+          province_code: province,
+          district_code: district,
+          subdistrict_code: subdistrict,
+        });
+
         // 1. ดึง user list จาก /auth/users
         const response = await getUsersList({
           page: currentPage,
@@ -594,39 +604,21 @@ const UserListComp = () => {
           token: token
         });
 
+        console.log("✅ Users API response:", {
+          total: response.total,
+          total_pages: response.total_pages,
+          users_count: response.users?.length
+        });
+
         // 2. ดึงข้อมูลเต็มจาก OAuth2 API สำหรับแต่ละ user
         const usersWithDetails = await Promise.allSettled(
           response.users.map(async (user) => {
-            if (!user.external_user_id) {
-              // ถ้าไม่มี external_user_id ให้ใช้ข้อมูล base
-              return {
-                external_user_id: user.external_user_id,
-                name: "ไม่ระบุชื่อ",
-                cid: user.citizen_id || "-",
-                position: "ไม่ระบุตำแหน่ง",
-                gender: "-",
-                hospital: "-",
-                province: user.province_name || "-",
-                district: user.district_name || "-",
-                subdistrict: user.subdistrict_name || "-",
-                status: user.is_active ? "active" : "deleted",
-                email: user.email,
-                phone: user.phone || "-",
-                last_active_at: user.last_active_at, // เพิ่ม last_active_at
-              };
-            }
-
             try {
-              // ยิง getUserByExternalId เพื่อดึงข้อมูลเต็ม
+              // ยิง getUserByExternalId เพื่อดึงข้อมูลเต็มของแต่ละคน
               const oauthData = await getUserByExternalId(user.external_user_id);
 
-              // Helper function to safely get value with fallback
-              const getWithFallback = (oauthVal, userVal, defaultVal = "-") => {
-                return oauthVal || userVal || defaultVal;
-              };
-
-              // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
-              const prefix = oauthData?.prefix_name_th || user.prefix || "";
+              // สร้างชื่อเต็ม จาก OAuth2 API
+              const prefix = oauthData?.prefix_name_th || "";
               const firstName = oauthData?.first_name || user.first_name || "";
               const lastName = oauthData?.last_name || user.last_name || "";
               const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
@@ -637,167 +629,56 @@ const UserListComp = () => {
                             rawGender === "female" ? "หญิง" :
                             rawGender || "-";
 
-              // แปลง marital_status
-              const rawMaritalStatus = oauthData?.marital_status;
-              const maritalStatus = rawMaritalStatus === "single" ? "โสด" :
-                                   rawMaritalStatus === "married" ? "สมรส" :
-                                   rawMaritalStatus === "divorced" ? "หย่าร้าง" :
-                                   rawMaritalStatus === "widowed" ? "หม้าย" :
-                                   rawMaritalStatus || "-";
-
-              // แปลง volunteer_status
-              const rawVolunteerStatus = oauthData?.volunteer_status;
-              const volunteerStatus = rawVolunteerStatus === "already_volunteer" ? "เป็น อสม. แล้ว" :
-                                     rawVolunteerStatus === "want_to_be_volunteer" ? "ต้องการเป็น อสม." :
-                                     rawVolunteerStatus === "not_volunteer" ? "ไม่เป็น อสม." :
-                                     rawVolunteerStatus || "-";
-
-              // Merge ข้อมูลจาก 2 sources โดยให้ OAuth2 เป็น priority
-              return {
-                // Base user data
+              console.log(`✅ User data: ${fullName}`, {
                 external_user_id: user.external_user_id,
-                email: getWithFallback(oauthData?.email, user.email),
-                is_active: user.is_active,
-                osm_code: user.osm_code,
-                last_login: user.last_login,
-                last_active_at: user.last_active_at, // สำหรับ online status
-                created_at: user.created_at,
+                has_oauth_data: !!oauthData,
+                last_active_at: user.last_active_at,
+                province: oauthData?.province_name_th || user.province_name,
+              });
 
-                // Personal info (OAuth2 เป็น priority, fallback ไป user API)
+              return {
+                external_user_id: user.external_user_id,
                 name: fullName,
-                cid: getWithFallback(oauthData?.citizen_id, user.citizen_id),
-                position: oauthData?.position_level || getWithFallback(oauthData?.permission_level, user.user_type, "ไม่ระบุตำแหน่ง"),
+                cid: oauthData?.citizen_id || user.citizen_id || "-",
+                position: oauthData?.position_level || user.permission_level || user.user_type || "ไม่ระบุตำแหน่ง",
                 gender: gender,
-                hospital: getWithFallback(oauthData?.health_service_name_th, user.hospital),
-                phone: getWithFallback(oauthData?.phone, user.phone),
-
-                // Location data - prefer OAuth2 with Thai names
+                hospital: oauthData?.health_service_name_th || "-",
                 province: oauthData?.province_name_th || user.province_name || "-",
                 district: oauthData?.district_name_th || user.district_name || "-",
                 subdistrict: oauthData?.subdistrict_name_th || user.subdistrict_name || "-",
-
-                // Status
+                village: oauthData?.village_name || user.village_name || "-",
                 status: user.is_active ? "active" : "deleted",
+                email: oauthData?.email || user.email,
+                phone: oauthData?.phone || user.phone || "-",
+                osm_code: user.osm_code || "-",
+                last_active_at: user.last_active_at, // สำหรับ online/offline status
+                last_login: user.last_login,
+                created_at: user.created_at,
+                is_active: user.is_active,
+
+                // Location codes
+                province_code: user.province_code,
+                district_code: user.district_code,
+                subdistrict_code: user.subdistrict_code,
+                village_code: user.village_code,
 
                 // Keep original fields
                 prefix: prefix,
-                prefix_name_th: oauthData?.prefix_name_th,
-                prefix_id: oauthData?.prefix_id,
                 first_name: firstName,
                 last_name: lastName,
+                user_type: user.user_type,
+                permission_level: user.permission_level,
 
-                // NEW: Demographics from OAuth2
-                birth_date: oauthData?.birth_date,
-                marital_status: maritalStatus,
-                number_of_children: oauthData?.number_of_children,
-                blood_type: oauthData?.blood_type,
-                osm_year: oauthData?.osm_year,
-
-                // NEW: Occupation & Education
-                occupation_id: oauthData?.occupation_id,
-                occupation_name_th: oauthData?.occupation_name_th,
-                education_id: oauthData?.education_id,
-                education_name_th: oauthData?.education_name_th,
-
-                // NEW: Health Service & Bank
-                health_service_id: oauthData?.health_service_id,
-                health_service_name_th: oauthData?.health_service_name_th,
-                bank_id: oauthData?.bank_id,
-                bank_name_th: oauthData?.bank_name_th,
-                bank_account_number: oauthData?.bank_account_number,
-
-                // NEW: Volunteer & Device Status
-                volunteer_status: volunteerStatus,
-                is_smartphone_owner: oauthData?.is_smartphone_owner,
-
-                // NEW: Detailed Address
-                address_number: oauthData?.address_number,
-                alley: oauthData?.alley,
-                street: oauthData?.street,
-                village_no: oauthData?.village_no,
-                village_name: oauthData?.village_name,
-                village_code: oauthData?.village_code,
-                province_id: oauthData?.province_id,
-                district_id: oauthData?.district_id,
-                subdistrict_id: oauthData?.subdistrict_id,
-                postal_code: oauthData?.postal_code,
-
-                // NEW: Approval Status
-                approval_status: oauthData?.approval_status,
-                approval_by: oauthData?.approval_by,
-                approval_date: oauthData?.approval_date,
-
-                // NEW: Created/Updated Info
-                created_by: oauthData?.created_by,
-                created_by_name: oauthData?.created_by_name,
-                created_by_position_name: oauthData?.created_by_position_name,
-                created_by_scope_level: oauthData?.created_by_scope_level,
-                created_by_scope_label: oauthData?.created_by_scope_label,
-                updated_by: oauthData?.updated_by,
-                updated_by_name: oauthData?.updated_by_name,
-                updated_by_position_name: oauthData?.updated_by_position_name,
-                updated_by_scope_level: oauthData?.updated_by_scope_level,
-                updated_by_scope_label: oauthData?.updated_by_scope_label,
-                updated_at: oauthData?.updated_at,
-
-                // NEW: Related Data Objects
-                spouse: oauthData?.spouse,
-                children: oauthData?.children,
-                official_positions: oauthData?.official_positions,
-                special_skills: oauthData?.special_skills,
-                club_positions: oauthData?.club_positions,
-                trainings: oauthData?.trainings,
-
-                // Health data จาก OAuth2
-                chronic_diseases: oauthData?.chronic_diseases,
-                drug_allergies: oauthData?.drug_allergies,
-                food_allergies: oauthData?.food_allergies,
-                blood_pressure_systolic: oauthData?.blood_pressure_systolic,
-                blood_pressure_diastolic: oauthData?.blood_pressure_diastolic,
-                weight: oauthData?.weight,
-                height: oauthData?.height,
-                bmi: oauthData?.bmi,
-                waist: oauthData?.waist,
-
-                // Additional OAuth2 fields
-                family_history_cancer: oauthData?.family_history_cancer,
-                family_history_diabetes: oauthData?.family_history_diabetes,
-                family_history_hypertension: oauthData?.family_history_hypertension,
-                family_history_cvd: oauthData?.family_history_cvd,
-                family_history_stroke: oauthData?.family_history_stroke,
-                bse_result: oauthData?.bse_result,
-                cv_risk_score: oauthData?.cv_risk_score,
-                stress_level: oauthData?.stress_level,
-                depression_2q: oauthData?.depression_2q,
-                fasting_blood_sugar: oauthData?.fasting_blood_sugar,
-                stool_result: oauthData?.stool_result,
-                fit_result: oauthData?.fit_result,
-                hpv_result: oauthData?.hpv_result,
-                living_with_care: oauthData?.living_with_care,
-                house_safety: oauthData?.house_safety,
-                income_sufficiency: oauthData?.income_sufficiency,
-                time_up_go_test: oauthData?.time_up_go_test,
-                fall_history_6m: oauthData?.fall_history_6m,
-                swallow_problem_3m: oauthData?.swallow_problem_3m,
-                vision_problem: oauthData?.vision_problem,
-                hearing_status: oauthData?.hearing_status,
-                depression_2w: oauthData?.depression_2w,
-                urinary_incontinence: oauthData?.urinary_incontinence,
-                adl_status: oauthData?.adl_status,
-                oral_chewing_difficulty: oauthData?.oral_chewing_difficulty,
-                oral_pain: oauthData?.oral_pain,
-                cognitive_status: oauthData?.cognitive_status,
-                latitude: oauthData?.latitude,
-                longitude: oauthData?.longitude,
+                // ข้อมูลเพิ่มเติมจาก OAuth2
+                ...oauthData,
               };
             } catch (error) {
-              console.warn(`⚠️ Failed to fetch OAuth2 data for user ${user.external_user_id}:`, error.message);
+              // ถ้า OAuth2 API ล้มเหลว ใช้ข้อมูลจาก /auth/users
+              console.warn(`⚠️ Failed to fetch OAuth2 data for ${user.external_user_id}:`, error.message);
 
-              // Fallback to base user data if OAuth2 fetch fails
-              const prefix = user.prefix || "";
               const firstName = user.first_name || "";
               const lastName = user.last_name || "";
-              const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+              const fullName = `${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
 
               const rawGender = user.gender;
               const gender = rawGender === "male" ? "ชาย" :
@@ -808,30 +689,50 @@ const UserListComp = () => {
                 external_user_id: user.external_user_id,
                 name: fullName,
                 cid: user.citizen_id || "-",
-                position: user.user_type || "ไม่ระบุตำแหน่ง",
+                position: user.permission_level || user.user_type || "ไม่ระบุตำแหน่ง",
                 gender: gender,
-                hospital: user.hospital || "-",
+                hospital: "-",
                 province: user.province_name || "-",
                 district: user.district_name || "-",
                 subdistrict: user.subdistrict_name || "-",
+                village: user.village_name || "-",
                 status: user.is_active ? "active" : "deleted",
                 email: user.email,
                 phone: user.phone || "-",
-                last_active_at: user.last_active_at, // สำหรับ online status
-                prefix: prefix,
+                osm_code: user.osm_code || "-",
+                last_active_at: user.last_active_at,
+                last_login: user.last_login,
+                created_at: user.created_at,
+                is_active: user.is_active,
+                province_code: user.province_code,
+                district_code: user.district_code,
+                subdistrict_code: user.subdistrict_code,
+                village_code: user.village_code,
                 first_name: firstName,
                 last_name: lastName,
+                user_type: user.user_type,
+                permission_level: user.permission_level,
               };
             }
           })
         );
 
         // Filter out rejected promises and extract values
-        const successfulUsers = usersWithDetails
+        const transformedUsers = usersWithDetails
           .filter(result => result.status === 'fulfilled')
           .map(result => result.value);
 
-        setUsers(successfulUsers);
+        console.log("📊 Final user data:", {
+          total_count: transformedUsers.length,
+          failed_count: usersWithDetails.filter(r => r.status === 'rejected').length,
+          sample_user: transformedUsers[0] ? {
+            name: transformedUsers[0].name,
+            has_last_active: !!transformedUsers[0].last_active_at,
+            last_active_at: transformedUsers[0].last_active_at
+          } : null
+        });
+
+        setUsers(transformedUsers);
         setTotalItems(response.total);
         setTotalPages(response.total_pages);
       } catch (error) {
@@ -869,6 +770,7 @@ const UserListComp = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       // Force re-render เพื่ออัพเดทการคำนวณ online/offline status
+      console.log("🔄 Auto-refresh: Updating online/offline status");
       setRefreshTrigger(prev => prev + 1);
     }, 60 * 1000); // 60 วินาที = 1 นาที
 
@@ -1136,6 +1038,25 @@ const UserListComp = () => {
           </button>
         </div>
 
+        {/* Status Legend */}
+        <div className="mb-4 p-3 bg-purple-50/50 rounded-xl border border-purple-100">
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <div className="font-semibold text-purple-700">สถานะ:</div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500 shadow-lg shadow-green-500/50 animate-pulse" />
+              <span className="text-gray-700">ออนไลน์</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-gray-400" />
+              <span className="text-gray-700">ออฟไลน์</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <span className="text-gray-700">ปิดการใช้งาน</span>
+            </div>
+          </div>
+        </div>
+
         {/* Table */}
         <div className="overflow-x-auto">
           <table
@@ -1193,13 +1114,13 @@ const UserListComp = () => {
                     </td>
                     <td className="py-4 px-4 font-medium text-[#231d37]">
                       <div className="flex items-center gap-2">
-                        {/* Status indicator - สีเขียว = online, เหลือง = active (offline), เทา = deleted */}
+                        {/* Status indicator - สีเขียว = online, สีเทา = offline, สีแดง = ปิดการใช้งาน */}
                         {(() => {
                           if (row.status !== "active") {
-                            // บัญชีถูกปิด
+                            // บัญชีถูกปิด - สีแดง
                             return (
                               <div
-                                className="w-3 h-3 rounded-full bg-gray-400"
+                                className="w-3 h-3 rounded-full bg-red-500"
                                 title="ปิดการใช้งาน"
                               />
                             );
@@ -1216,12 +1137,25 @@ const UserListComp = () => {
                           // refreshTrigger จะทำให้ component re-render ทุก 1 นาทีเพื่ออัพเดทสถานะ
                           const isOnline = refreshTrigger !== undefined && minutesSinceActive <= 3;
 
+                          // Debug log สำหรับ user แรก
+                          if (idx === 0) {
+                            console.log("🔍 Status check for first user:", {
+                              name: row.name,
+                              last_active_at: row.last_active_at,
+                              lastActiveAt: lastActiveAt?.toISOString(),
+                              now: now.toISOString(),
+                              minutesSinceActive: Math.floor(minutesSinceActive),
+                              isOnline,
+                              refreshTrigger
+                            });
+                          }
+
                           return (
                             <div
                               className={`w-3 h-3 rounded-full ${
                                 isOnline
                                   ? "bg-green-500 shadow-lg shadow-green-500/50 animate-pulse"
-                                  : "bg-yellow-400"
+                                  : "bg-gray-400"
                               }`}
                               title={
                                 isOnline
