@@ -19,6 +19,14 @@ import { getHealthRecords } from "@services/healthRecordService";
 import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
 import { getUserByExternalId } from "@services/oauth2Service";
 import * as XLSX from "xlsx";
+import {
+  getCurrentFiscalYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+  isInMonth,
+} from "@utils/fiscalYearHelper";
 
 // Thai month names
 const THAI_MONTHS = [
@@ -34,6 +42,21 @@ const THAI_MONTHS = [
   "ตุลาคม",
   "พฤศจิกายน",
   "ธันวาคม",
+];
+
+const MONTHS = [
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
 ];
 
 /**
@@ -186,19 +209,24 @@ function PaginationWithPerPage({
 }
 
 const OsmHealthComp = () => {
-  const [searchType, setSearchType] = useState("year");
-  const currentBuddhistYear = new Date().getFullYear() + 543;
-  const currentMonth = THAI_MONTHS[new Date().getMonth()];
+  const currentFiscalYear = getCurrentFiscalYear();
 
-  const [year, setYear] = useState(currentBuddhistYear.toString());
-  const [month, setMonth] = useState(currentMonth);
+  const YEAR_TYPES = [
+    { label: "ปีงบประมาณ", value: "fiscal" },
+    { label: "รายปี", value: "calendar" },
+  ];
+
+  const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
+
+  const [yearType, setYearType] = useState("fiscal");
+  const [year, setYear] = useState(String(currentFiscalYear));
+  const [month, setMonth] = useState("");
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   // Data state
   const [healthRecords, setHealthRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [availableYears, setAvailableYears] = useState([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -211,24 +239,9 @@ const OsmHealthComp = () => {
         setIsLoading(true);
         const data = await getHealthRecords({ limit: 1000 });
         setHealthRecords(data || []);
-
-        // Generate available years from data
-        const yearsSet = new Set();
-        data.forEach((record) => {
-          if (record.updated_at) {
-            const date = new Date(record.updated_at);
-            const buddhistYear = date.getFullYear() + 543;
-            yearsSet.add(buddhistYear.toString());
-          }
-        });
-        const yearsList = Array.from(yearsSet).sort((a, b) => b - a);
-        setAvailableYears(
-          yearsList.length > 0 ? yearsList : [currentBuddhistYear.toString()]
-        );
       } catch (error) {
         console.error("Failed to fetch health records:", error);
         setHealthRecords([]);
-        setAvailableYears([currentBuddhistYear.toString()]);
       } finally {
         setIsLoading(false);
       }
@@ -244,18 +257,29 @@ const OsmHealthComp = () => {
       if (!record.updated_at) return false;
 
       const date = new Date(record.updated_at);
-      const recordYear = (date.getFullYear() + 543).toString();
-      const recordMonth = THAI_MONTHS[date.getMonth()];
 
-      // Check year match
-      if (year && recordYear !== year) return false;
+      // Year filtering
+      if (year) {
+        const yearNum = parseInt(year);
+        const matchesYear = yearType === "fiscal"
+          ? isInFiscalYear(date, yearNum)
+          : isInCalendarYear(date, yearNum);
 
-      // Check month match (only if search type is year, not budget)
-      if (searchType === "year" && month && recordMonth !== month) return false;
+        if (!matchesYear) {
+          return false;
+        }
+      }
+
+      // Month filtering
+      if (month) {
+        if (!isInMonth(date, month)) {
+          return false;
+        }
+      }
 
       return true;
     });
-  }, [healthRecords, year, month, searchType]);
+  }, [healthRecords, year, month, yearType]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
@@ -278,9 +302,9 @@ const OsmHealthComp = () => {
 
   // Reset filters
   const resetFilters = () => {
-    setSearchType("year");
-    setYear(currentBuddhistYear.toString());
-    setMonth(currentMonth);
+    setYearType("fiscal");
+    setYear(String(currentFiscalYear));
+    setMonth("");
     setCurrentPage(1);
   };
 
@@ -631,84 +655,29 @@ const OsmHealthComp = () => {
 
         {/* Search Form */}
         <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6 mb-6">
-          {/* Search Type Radio */}
-          <div className="mb-5">
-            <p className="text-sm font-semibold text-gray-700 mb-3">
-              รูปแบบการค้นหา
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                    searchType === "year"
-                      ? "border-purple-600 bg-purple-600"
-                      : "border-gray-300 group-hover:border-purple-400"
-                  }`}
-                >
-                  {searchType === "year" && (
-                    <div className="w-2 h-2 bg-white rounded-full" />
-                  )}
-                </div>
-                <span
-                  className={`text-sm font-medium ${
-                    searchType === "year" ? "text-purple-600" : "text-gray-600"
-                  }`}
-                >
-                  ค้นหาแบบรายปี
-                </span>
-                <input
-                  type="radio"
-                  checked={searchType === "year"}
-                  onChange={() => setSearchType("year")}
-                  className="sr-only"
-                />
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                    searchType === "budget"
-                      ? "border-purple-600 bg-purple-600"
-                      : "border-gray-300 group-hover:border-purple-400"
-                  }`}
-                >
-                  {searchType === "budget" && (
-                    <div className="w-2 h-2 bg-white rounded-full" />
-                  )}
-                </div>
-                <span
-                  className={`text-sm font-medium ${
-                    searchType === "budget"
-                      ? "text-purple-600"
-                      : "text-gray-600"
-                  }`}
-                >
-                  ค้นหาแบบรายงบประมาณ
-                </span>
-                <input
-                  type="radio"
-                  checked={searchType === "budget"}
-                  onChange={() => setSearchType("budget")}
-                  className="sr-only"
-                />
-              </label>
-            </div>
-          </div>
-
-          {/* Year and Month */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+          {/* Year Type, Year and Month */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
             <CustomSelect
-              label="ปี"
+              label="ประเภทปี"
+              placeholder="เลือกประเภทปี"
+              value={yearType}
+              onChange={(e) => setYearType(e.target.value)}
+              options={YEAR_TYPES}
+              icon={Calendar}
+            />
+            <CustomSelect
+              label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
+              placeholder="เลือกปี"
               value={year}
               onChange={(e) => setYear(e.target.value)}
-              options={availableYears.map((y) => ({ label: y, value: y }))}
-              placeholder="-- เลือกปี --"
+              options={YEARS}
               icon={Calendar}
             />
             <CustomSelect
               label="เดือน"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              options={THAI_MONTHS.map((m) => ({ label: m, value: m }))}
+              options={MONTHS}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
             />
