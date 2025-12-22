@@ -285,6 +285,74 @@ export const getMonthFromDate = (date) => {
   return d.getMonth() + 1; // 1-12
 };
 
+/**
+ * คำนวณสัปดาห์ในเดือน (1-4 หรือ 1-5)
+ * แบ่งเป็น: สัปดาห์ 1 (วันที่ 1-7), สัปดาห์ 2 (วันที่ 8-14), สัปดาห์ 3 (วันที่ 15-21), สัปดาห์ 4 (วันที่ 22+)
+ *
+ * @param {Date|string} date - วันที่
+ * @returns {number} - สัปดาห์ในเดือน (1-4)
+ */
+export const getWeekOfMonth = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  const dayOfMonth = d.getDate();
+
+  if (dayOfMonth <= 7) return 1;
+  if (dayOfMonth <= 14) return 2;
+  if (dayOfMonth <= 21) return 3;
+  return 4; // วันที่ 22 ขึ้นไป
+};
+
+/**
+ * ตรวจสอบว่าวันที่อยู่ในสัปดาห์ที่ระบุของเดือนหรือไม่
+ *
+ * @param {Date|string} date - วันที่ที่ต้องการตรวจสอบ
+ * @param {string|number} weekValue - สัปดาห์ (1-4)
+ * @returns {boolean}
+ */
+export const isInWeekOfMonth = (date, weekValue) => {
+  if (!date || !weekValue) return true; // ถ้าไม่ได้เลือกสัปดาห์ให้ผ่านทั้งหมด
+
+  const d = date instanceof Date ? date : new Date(date);
+  const weekOfMonth = getWeekOfMonth(d);
+  const selectedWeek = parseInt(String(weekValue)); // แปลง "1" -> 1
+
+  return weekOfMonth === selectedWeek;
+};
+
+/**
+ * สร้างรายการสัปดาห์สำหรับเดือนที่เลือก
+ *
+ * @param {number} year - ปี (พ.ศ.)
+ * @param {number} month - เดือน (1-12)
+ * @returns {Array<{value: string, label: string}>}
+ */
+export const generateWeekOptionsForMonth = (year, month) => {
+  if (!year || !month) {
+    // ถ้าไม่ได้เลือกปี/เดือน ให้ใช้ค่าทั่วไป
+    return [
+      { label: "สัปดาห์ 1", value: "1" },
+      { label: "สัปดาห์ 2", value: "2" },
+      { label: "สัปดาห์ 3", value: "3" },
+      { label: "สัปดาห์ 4", value: "4" },
+    ];
+  }
+
+  const yearAD = year - 543;
+  const monthIndex = month - 1; // แปลงเป็น 0-indexed
+
+  // หาวันสุดท้ายของเดือน
+  const lastDay = new Date(yearAD, monthIndex + 1, 0).getDate();
+
+  const weeks = [
+    { label: "สัปดาห์ 1", value: "1" },
+    { label: "สัปดาห์ 2", value: "2" },
+    { label: "สัปดาห์ 3", value: "3" },
+    { label: `สัปดาห์ 4`, value: "4" },
+  ];
+
+  return weeks;
+};
+
 export default {
   getFiscalYear,
   getFiscalYearRange,
@@ -300,4 +368,7 @@ export default {
   parseThaiDate,
   isInMonth,
   getMonthFromDate,
+  getWeekOfMonth,
+  isInWeekOfMonth,
+  generateWeekOptionsForMonth,
 };

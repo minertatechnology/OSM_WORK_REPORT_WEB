@@ -32,13 +32,7 @@ import {
 import oauth2Service from "@services/oauth2Service";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ArrowLeft } from "lucide-react";
-import {
-  getProvinces,
-  getDistricts,
-  getSubdistricts,
-  getHealthAreas,
-  getHealthServices
-} from "@services/lookupService";
+// Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
   getCurrentCalendarYear,
@@ -46,8 +40,12 @@ import {
   isInFiscalYear,
   isInCalendarYear,
   parseThaiDate,
-  isInMonth
+  isInMonth,
+  isInWeekOfMonth,
+  generateWeekOptionsForMonth
 } from "@utils/fiscalYearHelper";
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
 
 // Generate dynamic year options (last 5 years)
 const currentFiscalYear = getCurrentFiscalYear();
@@ -71,12 +69,6 @@ const MONTHS = [
   { label: "ตุลาคม", value: "10" },
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
-];
-const WEEKS = [
-  { label: "สัปดาห์ 1 (1/6/68 - 7/6/68)", value: "1" },
-  { label: "สัปดาห์ 2 (8/6/68 - 14/6/68)", value: "2" },
-  { label: "สัปดาห์ 3 (15/6/68 - 21/6/68)", value: "3" },
-  { label: "สัปดาห์ 4 (22/6/68 - 30/6/68)", value: "4" },
 ];
 
 const MOCK_REPORTS = [
@@ -754,15 +746,43 @@ const ReportMosquitoCompDataComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [yearType, setYearType] = useState("fiscal"); // "fiscal" or "calendar"
-  const [year, setYear] = useState(String(currentFiscalYear));
-  const [month, setMonth] = useState("");
-  const [week, setWeek] = useState("1");
-  const [zone, setZone] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
-  const [service, setService] = useState("");
+  // Use permission-based filters
+  const { isLocked } = useUserPermission();
+  const {
+    yearType,
+    year,
+    month,
+    week,
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    setYearType,
+    setYear,
+    setMonth,
+    setWeek,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+  } = usePermissionFilters({
+    defaultYear: String(currentFiscalYear),
+    defaultYearType: "fiscal",
+    includeWeek: true, // Enable week filtering for this component
+  });
+
+  // Generate dynamic week options based on selected year and month
+  const WEEKS = useMemo(() => {
+    return generateWeekOptionsForMonth(parseInt(year), parseInt(month));
+  }, [year, month]);
+
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -774,143 +794,11 @@ const ReportMosquitoCompDataComp = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Location data states
-  const [healthAreas, setHealthAreas] = useState([]);
-  const [provinces, setProvinces] = useState([]);
-  const [districts, setDistricts] = useState([]);
-  const [subdistricts, setSubdistricts] = useState([]);
-  const [healthServices, setHealthServices] = useState([]);
-
   // Get current view from URL params
   const userId = searchParams.get("user_id");
   const householdId = searchParams.get("household_id");
 
-  // Fetch health areas on mount
-  useEffect(() => {
-    const loadHealthAreas = async () => {
-      try {
-        const data = await getHealthAreas();
-        // Sort health areas by numeric order (HA1, HA2, ..., HA13)
-        const sortedData = data.sort((a, b) => {
-          const numA = parseInt(a.code.replace('HA', ''));
-          const numB = parseInt(b.code.replace('HA', ''));
-          return numA - numB;
-        });
-        setHealthAreas(sortedData);
-      } catch (error) {
-        console.error("Error loading health areas:", error);
-      }
-    };
-    loadHealthAreas();
-  }, []);
-
-  // Fetch provinces when health area changes
-  useEffect(() => {
-    const loadProvinces = async () => {
-      try {
-        if (!zone) {
-          // If no health area selected, load all provinces
-          const data = await getProvinces();
-          setProvinces(data);
-        } else {
-          // Filter provinces based on selected health area
-          const selectedHealthArea = healthAreas.find(h => h.code === zone);
-          if (selectedHealthArea && selectedHealthArea.provinces) {
-            setProvinces(selectedHealthArea.provinces);
-          } else {
-            setProvinces([]);
-          }
-        }
-        // Reset dependent dropdowns when health area changes
-        setProvince("");
-        setDistrict("");
-        setSubdistrict("");
-        setService("");
-      } catch (error) {
-        console.error("Error loading provinces:", error);
-      }
-    };
-    loadProvinces();
-  }, [zone, healthAreas]);
-
-  // Fetch districts when province changes
-  useEffect(() => {
-    const loadDistricts = async () => {
-      if (!province) {
-        setDistricts([]);
-        setDistrict("");
-        setSubdistricts([]);
-        setSubdistrict("");
-        setHealthServices([]);
-        setService("");
-        return;
-      }
-
-      try {
-        const data = await getDistricts(province);
-        setDistricts(data);
-        setDistrict("");
-        setSubdistricts([]);
-        setSubdistrict("");
-        setHealthServices([]);
-        setService("");
-      } catch (error) {
-        console.error("Error loading districts:", error);
-      }
-    };
-    loadDistricts();
-  }, [province]);
-
-  // Fetch subdistricts when district changes
-  useEffect(() => {
-    const loadSubdistricts = async () => {
-      if (!district) {
-        setSubdistricts([]);
-        setSubdistrict("");
-        setHealthServices([]);
-        setService("");
-        return;
-      }
-
-      try {
-        const data = await getSubdistricts(district);
-        setSubdistricts(data);
-        setSubdistrict("");
-        setHealthServices([]);
-        setService("");
-      } catch (error) {
-        console.error("Error loading subdistricts:", error);
-      }
-    };
-    loadSubdistricts();
-  }, [district]);
-
-  // Fetch health services when province, district, and subdistrict are selected
-  useEffect(() => {
-    const loadHealthServices = async () => {
-      if (!province || !district || !subdistrict) {
-        setHealthServices([]);
-        setService("");
-        return;
-      }
-
-      try {
-        const data = await getHealthServices({ subdistrict_code: subdistrict });
-        // Ensure data is properly formatted with string values
-        const formattedData = Array.isArray(data) ? data.map(item => ({
-          ...item,
-          name: String(item.name || item.label || ''),
-          code: String(item.code || item.value || '')
-        })) : [];
-        setHealthServices(formattedData);
-        setService("");
-      } catch (error) {
-        console.error("Error loading health services:", error);
-        setHealthServices([]);
-      }
-    };
-    loadHealthServices();
-  }, [province, district, subdistrict]);
+  // Note: Location data loading is handled by usePermissionFilters hook
 
   // Fetch data based on current view
   useEffect(() => {
@@ -1147,6 +1035,15 @@ const ReportMosquitoCompDataComp = () => {
         }
       }
 
+      // Week filtering (ต้องมีการเลือกเดือนก่อน)
+      if (week && month && row.date) {
+        const parsedDate = parseThaiDate(row.date);
+        if (parsedDate && !isInWeekOfMonth(parsedDate, week)) {
+          console.log("❌ Failed week filter");
+          return false;
+        }
+      }
+
       // ใช้ข้อมูลที่อยู่ของ อสม. ในการกรอง (user_location)
       const userLocation = row.user_location;
       console.log("📍 userLocation:", userLocation);
@@ -1241,7 +1138,7 @@ const ReportMosquitoCompDataComp = () => {
     console.log("\n🎯 Filter Result:", result.length, "rows passed");
     console.log("===== FILTER DEBUG END =====\n");
     return result;
-  }, [keyword, year, yearType, month, apiData, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
+  }, [keyword, year, yearType, month, week, apiData, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -1253,19 +1150,7 @@ const ReportMosquitoCompDataComp = () => {
     if (page > totalPages) setPage(1);
   }, [page, totalPages]);
 
-  const handleReset = () => {
-    setYearType("fiscal");
-    setYear(String(currentFiscalYear));
-    setMonth("");
-    setWeek("1");
-    setZone("");
-    setProvince("");
-    setDistrict("");
-    setSubdistrict("");
-    setService("");
-    setKeyword("");
-    setPage(1);
-  };
+  // Note: Reset functionality is handled by usePermissionFilters hook
 
   // View 3: แสดงหน้ารายละเอียดบ้าน
   if (householdId) {
@@ -1552,54 +1437,57 @@ const ReportMosquitoCompDataComp = () => {
           />
           <CustomSelect
             label="สัปดาห์"
-            placeholder="-- เลือกสัปดาห์ --"
+            placeholder={month ? "-- เลือกสัปดาห์ --" : "-- เลือกเดือนก่อน --"}
             value={week}
             onChange={(e) => setWeek(e.target.value)}
             options={WEEKS}
             icon={Calendar}
+            disabled={!month}
           />
           <CustomSelect
             label="เขตสุขภาพ"
             placeholder="-- เลือกเขต --"
             value={zone}
-            onChange={(e) => setZone(e.target.value)}
+            onChange={(e) => handleZoneChange(e.target.value)}
             options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             icon={MapPin}
+            disabled={isLocked('zone')}
           />
           <CustomSelect
             label="จังหวัด"
             placeholder="-- เลือกจังหวัด --"
             value={province}
-            onChange={(e) => setProvince(e.target.value)}
+            onChange={(e) => handleProvinceChange(e.target.value)}
             options={Array.isArray(provinces) ? provinces.map(p => ({ label: p.name_th, value: p.code })) : []}
             icon={Building2}
+            disabled={isLocked('province')}
           />
           <CustomSelect
             label="อำเภอ"
             placeholder="-- เลือกอำเภอ --"
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
+            onChange={(e) => handleDistrictChange(e.target.value)}
             options={Array.isArray(districts) ? districts.map(d => ({ label: d.name_th, value: d.code })) : []}
             icon={Building2}
-            disabled={!province}
+            disabled={isLocked('district') || !province}
           />
           <CustomSelect
             label="ตำบล"
             placeholder="-- เลือกตำบล --"
             value={subdistrict}
-            onChange={(e) => setSubdistrict(e.target.value)}
+            onChange={(e) => handleSubdistrictChange(e.target.value)}
             options={Array.isArray(subdistricts) ? subdistricts.map(s => ({ label: s.name_th, value: s.code })) : []}
             icon={Home}
-            disabled={!district}
+            disabled={isLocked('subdistrict') || !district}
           />
           <CustomSelect
             label="หน่วยบริการ"
             placeholder="-- เลือกหน่วยบริการ --"
             value={service}
-            onChange={(e) => setService(e.target.value)}
+            onChange={(e) => handleServiceChange(e.target.value)}
             options={Array.isArray(healthServices) ? healthServices.map(h => ({ label: h.name, value: h.code })) : []}
             icon={Home}
-            disabled={!province || !district || !subdistrict}
+            disabled={isLocked('service') || !province || !district || !subdistrict}
           />
         </div>
       </div>

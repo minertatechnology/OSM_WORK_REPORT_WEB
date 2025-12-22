@@ -3,6 +3,7 @@ import "@styles/globals.css";
 import { LoadingProvider } from "@context/LoadingProvider";
 import { StoreProvider } from "@context/StoreProvider";
 import { DateTimeProvider } from "@context/DateTimeProvider";
+import UserPermissionProvider from "@context/UserPermissionProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, Suspense } from "react";
 import { FullPageLoadingSpinner } from "@components/shared/LoadingSpinner";
@@ -43,22 +44,23 @@ function MyApp({ Component, pageProps }) {
   return (
     <QueryClientProvider client={queryClient}>
       <DateTimeProvider>
-        <Head>
-          <title>{process.env.NEXT_PUBLIC_APP_NAME}</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <meta httpEquiv="Content-Language" content="th" />
-          <meta name="language" content="Thai" />
-          <link rel="icon" href="/logoloading.png" />
-          {/* Preconnect to API domain for faster API calls */}
-          <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_BASE_URL} />
-          <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_API_BASE_URL} />
-        </Head>
-        <LoadingProvider>
-          <StoreProvider>
-            {/* ✅ Global Suspense Boundary - จับ lazy loading ทั้งหมด */}
-            <Suspense fallback={<FullPageLoadingSpinner message="กำลังโหลดแอปพลิเคชัน..." />}>
-              {getLayout(<Component {...pageProps} />)}
-            </Suspense>
+        <UserPermissionProvider>
+          <Head>
+            <title>{process.env.NEXT_PUBLIC_APP_NAME}</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <meta httpEquiv="Content-Language" content="th" />
+            <meta name="language" content="Thai" />
+            <link rel="icon" href="/logoloading.png" />
+            {/* Preconnect to API domain for faster API calls */}
+            <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_BASE_URL} />
+            <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_API_BASE_URL} />
+          </Head>
+          <LoadingProvider>
+            <StoreProvider>
+              {/* ✅ Global Suspense Boundary - จับ lazy loading ทั้งหมด */}
+              <Suspense fallback={<FullPageLoadingSpinner message="กำลังโหลดแอปพลิเคชัน..." />}>
+                {getLayout(<Component {...pageProps} />)}
+              </Suspense>
           <style jsx global>{`
             html,
             body {
@@ -88,6 +90,7 @@ function MyApp({ Component, pageProps }) {
           `}</style>
           </StoreProvider>
         </LoadingProvider>
+        </UserPermissionProvider>
       </DateTimeProvider>
     </QueryClientProvider>
   );
