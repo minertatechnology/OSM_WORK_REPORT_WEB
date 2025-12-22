@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from "react";
+﻿import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -35,22 +35,38 @@ import {
   getHealthAreas,
   getHealthServices
 } from "@services/lookupService";
+import {
+  getCurrentFiscalYear,
+  getCurrentCalendarYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+  isInMonth,
+} from "@utils/fiscalYearHelper";
 
 // Mock Data
-// YEARS จะถูกสร้างจาก created_at ของข้อมูลจริง
+const currentFiscalYear = getCurrentFiscalYear();
+const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
+
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
+];
+
 const MONTHS = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
 ];
 const WEEKS = [
   "สัปดาห์ 1 (1/6/68 - 7/6/68)",
@@ -802,8 +818,9 @@ const PregnantReportComp = () => {
 
   // State
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("");
-  const [month, setMonth] = useState("มิถุนายน");
+  const [yearType, setYearType] = useState("fiscal");
+  const [year, setYear] = useState(String(currentFiscalYear));
+  const [month, setMonth] = useState("");
   const [week, setWeek] = useState("สัปดาห์ 4 (22/6/68-30/6/68)");
   const [zone, setZone] = useState("");
   const [province, setProvince] = useState("");
@@ -893,6 +910,7 @@ const PregnantReportComp = () => {
             external_user_id: item.external_user_id,
             name: "กำลังโหลด...", // จะถูกแทนที่ด้วยชื่อจริงจาก OAuth2
             date: formattedDate,
+            _thaiDate: formattedDate, // เก็บวันที่แบบไทยสำหรับการกรอง
             amount: item.count,
             status: item.status || "submitted",
             location_data: latestEvaluation?.location_data || {},
@@ -1070,61 +1088,81 @@ const PregnantReportComp = () => {
   const dataSource = pregnantData.length > 0 ? pregnantData : ALL_ROWS;
 
   // Filter rows by tab, year, location, and keyword
-  const filteredRows = dataSource.filter((row) => {
-    const userName = getUserName(row.external_user_id, row.name);
+  const filteredRows = useMemo(() => {
+    return dataSource.filter((row) => {
+      const userName = getUserName(row.external_user_id, row.name);
 
-    // กรองตามปี (ดึงปีจาก row.date)
-    const rowYear = row.date.match(/\d{4}/)?.[0] || "";
-    const yearMatch = !year || rowYear === year;
+      // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
+      const locationData = row.location_data || {};
 
-    // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
-    const locationData = row.location_data || {};
+      // กรองตามเขตสุขภาพ
+      if (zone) {
+        const selectedHealthArea = healthAreas.find(h => h.code === zone);
+        if (selectedHealthArea && selectedHealthArea.provinces) {
+          const provinceInHealthArea = selectedHealthArea.provinces.find(
+            p => p.name_th === locationData.region
+          );
+          if (!provinceInHealthArea) {
+            return false;
+          }
+        }
+      }
 
-    // กรองตามเขตสุขภาพ
-    if (zone) {
-      const selectedHealthArea = healthAreas.find(h => h.code === zone);
-      if (selectedHealthArea && selectedHealthArea.provinces) {
-        const provinceInHealthArea = selectedHealthArea.provinces.find(
-          p => p.name_th === locationData.region
-        );
-        if (!provinceInHealthArea) {
+      // หาชื่อจังหวัดจาก code ที่เลือก (ใช้ name_th)
+      const selectedProvince = provinces.find(p => p.code === province);
+      const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
+
+      // หาชื่ออำเภอจาก code ที่เลือก (ใช้ name_th)
+      const selectedDistrict = districts.find(d => d.code === district);
+      const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
+
+      // หาชื่อตำบลจาก code ที่เลือก (ใช้ name_th)
+      const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+      const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
+
+      // กรองตาม keyword
+      const keywordMatch = !keyword || (
+        userName.includes(keyword) ||
+        row.date.includes(keyword) ||
+        String(row.index).includes(keyword) ||
+        row.citizen_id?.includes(keyword) ||
+        locationData.region?.includes(keyword) ||
+        locationData.city?.includes(keyword) ||
+        locationData.district?.includes(keyword)
+      );
+
+      // Year filtering
+      if (year && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+
+          if (!matchesYear) {
+            return false;
+          }
+        }
+      }
+
+      // Month filtering
+      if (month && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate && !isInMonth(parsedDate, month)) {
           return false;
         }
       }
-    }
 
-    // หาชื่อจังหวัดจาก code ที่เลือก (ใช้ name_th)
-    const selectedProvince = provinces.find(p => p.code === province);
-    const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
-
-    // หาชื่ออำเภอจาก code ที่เลือก (ใช้ name_th)
-    const selectedDistrict = districts.find(d => d.code === district);
-    const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
-
-    // หาชื่อตำบลจาก code ที่เลือก (ใช้ name_th)
-    const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
-    const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
-
-    // กรองตาม keyword
-    const keywordMatch = !keyword || (
-      userName.includes(keyword) ||
-      row.date.includes(keyword) ||
-      String(row.index).includes(keyword) ||
-      row.citizen_id?.includes(keyword) ||
-      locationData.region?.includes(keyword) ||
-      locationData.city?.includes(keyword) ||
-      locationData.district?.includes(keyword)
-    );
-
-    return (
-      row.status === activeTab &&
-      yearMatch &&
-      provinceMatch &&
-      districtMatch &&
-      subdistrictMatch &&
-      keywordMatch
-    );
-  });
+      return (
+        row.status === activeTab &&
+        provinceMatch &&
+        districtMatch &&
+        subdistrictMatch &&
+        keywordMatch
+      );
+    });
+  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, keyword, healthAreas, provinces, districts, subdistricts, userDataMap]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = filteredRows.slice(
     (page - 1) * itemsPerPage,
@@ -1144,10 +1182,9 @@ const PregnantReportComp = () => {
   }, [filteredRows.length, totalPages, itemsPerPage, page]);
 
   const handleClear = () => {
-    if (currentBuddhistYear) {
-      setYear(currentBuddhistYear.toString());
-    }
-    setMonth("มิถุนายน");
+    setYearType("fiscal");
+    setYear(String(currentFiscalYear));
+    setMonth("");
     setWeek("สัปดาห์ 4 (22/6/68-30/6/68)");
     setZone("");
     setService("");
@@ -1237,7 +1274,7 @@ const PregnantReportComp = () => {
       {/* Search Form */}
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6 mb-6">
         {/* Search Type Radio */}
-        <div className="flex flex-wrap items-center gap-4 mb-6 pb-4 border-b border-[#f0ebff]">
+        {/* <div className="flex flex-wrap items-center gap-4 mb-6 pb-4 border-b border-[#f0ebff]">
           <span className="font-semibold text-[#231d37] text-[15px]">
             รูปแบบการค้นหา :
           </span>
@@ -1297,34 +1334,42 @@ const PregnantReportComp = () => {
               ค้นหาแบบรายปีงบประมาณ
             </span>
           </label>
-        </div>
+        </div> */}
 
         {/* Filter Dropdowns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <CustomSelect
-            label="ปี"
+            label="ประเภทปี"
+            placeholder="เลือกประเภทปี"
+            value={yearType}
+            onChange={(e) => setYearType(e.target.value)}
+            options={YEAR_TYPES}
+            icon={Calendar}
+          />
+          <CustomSelect
+            label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
+            placeholder="เลือกปี"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            options={availableYears.map((y) => ({ label: y, value: y }))}
-            placeholder="-- เลือกปี --"
+            options={YEARS}
             icon={Calendar}
           />
           <CustomSelect
             label="เดือน"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS.map((m) => ({ label: m, value: m }))}
+            options={MONTHS}
             placeholder="-- เลือกเดือน --"
             icon={Calendar}
           />
-          <CustomSelect
+          {/* <CustomSelect
             label="สัปดาห์"
             value={week}
             onChange={(e) => setWeek(e.target.value)}
             options={WEEKS.map((w) => ({ label: w, value: w }))}
             placeholder="-- เลือกสัปดาห์ --"
             icon={Calendar}
-          />
+          /> */}
           <CustomSelect
             label="เขตสุขภาพ"
             value={zone}

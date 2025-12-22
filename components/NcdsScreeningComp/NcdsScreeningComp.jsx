@@ -30,23 +30,37 @@ import {
   getHealthAreas,
   getHealthServices
 } from "@services/lookupService";
+import {
+  getCurrentFiscalYear,
+  getCurrentCalendarYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+  isInMonth
+} from "@utils/fiscalYearHelper";
 
 // Mock Data
 const MONTHS = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
 ];
 const WEEKS = ["สัปดาห์ 4 (23/6/68-27/6/68)", "สัปดาห์ 3 (16/6/68-22/6/68)"];
+
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
+];
 
 // Table mock (100 rows)
 const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
@@ -616,8 +630,10 @@ const NcdsScreeningComp = () => {
   }, [searchParams]);
 
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("");
-  const [month, setMonth] = useState("มิถุนายน");
+  const currentFiscalYear = getCurrentFiscalYear();
+  const [yearType, setYearType] = useState("fiscal");
+  const [year, setYear] = useState(String(currentFiscalYear));
+  const [month, setMonth] = useState("");
   const [week, setWeek] = useState("สัปดาห์ 4 (23/6/68-27/6/68)");
   const [zone, setZone] = useState("");
   const [province, setProvince] = useState("");
@@ -666,6 +682,7 @@ const NcdsScreeningComp = () => {
           id: item.id,
           name: `${item.prefix}${item.first_name} ${item.last_name}`,
           date: formatThaiDate(item.assessment_date),
+          _thaiDate: formatThaiDate(item.assessment_date), // เก็บวันที่ไทยสำหรับการกรอง
           rawData: item, // เก็บข้อมูลดิบไว้ใช้ในหน้ารายละเอียด
           location_data: item.location_data || {}, // เก็บข้อมูล location
         }));
@@ -830,10 +847,6 @@ const NcdsScreeningComp = () => {
 
   const filteredRows = useMemo(() => {
     return allRows.filter((row) => {
-      // กรองตามปี (ดึงปีจาก row.date)
-      const rowYear = row.date.match(/\d{4}/)?.[0] || "";
-      const yearMatch = !year || rowYear === year;
-
       // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
       const locationData = row.location_data || {};
 
@@ -872,9 +885,32 @@ const NcdsScreeningComp = () => {
         locationData.district?.includes(keyword)
       );
 
-      return yearMatch && provinceMatch && districtMatch && subdistrictMatch && keywordMatch;
+      // Year filtering
+      if (year && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+
+          if (!matchesYear) {
+            return false;
+          }
+        }
+      }
+
+      // Month filtering
+      if (month && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate && !isInMonth(parsedDate, month)) {
+          return false;
+        }
+      }
+
+      return provinceMatch && districtMatch && subdistrictMatch && keywordMatch;
     });
-  }, [keyword, allRows, year, zone, province, district, subdistrict, healthAreas, provinces, districts, subdistricts]);
+  }, [keyword, allRows, year, yearType, month, zone, province, district, subdistrict, healthAreas, provinces, districts, subdistricts]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -893,10 +929,9 @@ const NcdsScreeningComp = () => {
   );
 
   const handleClear = () => {
-    if (currentBuddhistYear) {
-      setYear(currentBuddhistYear.toString());
-    }
-    setMonth("มิถุนายน");
+    setYearType("fiscal");
+    setYear(String(currentFiscalYear));
+    setMonth("");
     setWeek("สัปดาห์ 4 (23/6/68-27/6/68)");
     setZone("");
     setService("");
@@ -969,7 +1004,7 @@ const NcdsScreeningComp = () => {
       </div>
 
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6">
-        <div className="mb-4 flex flex-wrap gap-2">
+        {/* <div className="mb-4 flex flex-wrap gap-2">
           {searchModes.map((mode) => (
             <button
               key={mode.key}
@@ -983,25 +1018,36 @@ const NcdsScreeningComp = () => {
               {mode.label}
             </button>
           ))}
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <CustomSelect
-            label="ปี"
+            label="ประเภทปี"
+            placeholder="เลือกประเภทปี"
+            value={yearType}
+            onChange={(e) => setYearType(e.target.value)}
+            options={YEAR_TYPES}
+            icon={Calendar}
+          />
+          <CustomSelect
+            label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
+            placeholder="เลือกปี"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            options={availableYears.map((y) => ({ label: y, value: y }))}
-            placeholder="-- เลือกปี --"
+            options={generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear)}
             icon={Calendar}
           />
           <CustomSelect
             label="เดือน"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS.map((m) => ({ label: m, value: m }))}
+            options={MONTHS}
             placeholder="-- เลือกเดือน --"
             icon={Calendar}
           />
+        </div>
+
+        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <CustomSelect
             label="สัปดาห์"
             value={week}
@@ -1010,7 +1056,7 @@ const NcdsScreeningComp = () => {
             placeholder="-- เลือกสัปดาห์ --"
             icon={Calendar}
           />
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <CustomSelect

@@ -33,12 +33,24 @@ import {
   getHealthAreas,
   getHealthServices
 } from "@services/lookupService";
+import {
+  getCurrentFiscalYear,
+  getCurrentCalendarYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+  isInMonth
+} from "@utils/fiscalYearHelper";
 
-// Mock data
-const YEARS = [
-  { label: "2568", value: "2568" },
-  { label: "2567", value: "2567" },
-  { label: "2566", value: "2566" },
+// Generate dynamic year options (last 5 years)
+const currentFiscalYear = getCurrentFiscalYear();
+const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
+
+// Year type options
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
 ];
 const MONTHS = [
   { label: "มกราคม", value: "01" },
@@ -609,8 +621,9 @@ const Reportosm1DataComp = () => {
   const searchParams = useSearchParams();
   const detailId = searchParams.get("detail");
 
-  const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("06");
+  const [yearType, setYearType] = useState("fiscal"); // "fiscal" or "calendar"
+  const [year, setYear] = useState(String(currentFiscalYear));
+  const [month, setMonth] = useState("");
   const [zone, setZone] = useState("");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
@@ -833,6 +846,29 @@ const Reportosm1DataComp = () => {
         }
       }
 
+      // Year filtering
+      if (year && row.date) {
+        const parsedDate = parseThaiDate(row.date);
+        if (parsedDate) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+
+          if (!matchesYear) {
+            return false;
+          }
+        }
+      }
+
+      // Month filtering
+      if (month && row.date) {
+        const parsedDate = parseThaiDate(row.date);
+        if (parsedDate && !isInMonth(parsedDate, month)) {
+          return false;
+        }
+      }
+
       // Location filtering ใช้ข้อมูลที่อยู่ของ อสม.
       const userLocation = row.user_location;
 
@@ -890,7 +926,7 @@ const Reportosm1DataComp = () => {
 
       return true;
     });
-  }, [keyword, ALL_ROWS, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
+  }, [keyword, year, yearType, month, ALL_ROWS, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -903,8 +939,9 @@ const Reportosm1DataComp = () => {
   }, [page, totalPages]);
 
   const handleReset = () => {
-    setYear("2568");
-    setMonth("06");
+    setYearType("fiscal");
+    setYear(String(currentFiscalYear));
+    setMonth("");
     setZone("");
     setProvince("");
     setDistrict("");
@@ -975,7 +1012,15 @@ const Reportosm1DataComp = () => {
       <div className="bg-white border border-[#eee5ff] shadow-xl rounded-2xl p-5 sm:p-6 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <CustomSelect
-            label="ปีงบประมาณ"
+            label="ประเภทปี"
+            placeholder="เลือกประเภทปี"
+            value={yearType}
+            onChange={(e) => setYearType(e.target.value)}
+            options={YEAR_TYPES}
+            icon={Calendar}
+          />
+          <CustomSelect
+            label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
             placeholder="เลือกปี"
             value={year}
             onChange={(e) => setYear(e.target.value)}

@@ -31,7 +31,7 @@ const withCache = async (key, fetchFn, ttl = CACHE_TTL) => {
  * @returns {Promise} - Promise containing provinces data
  */
 export const getProvinces = async (params = {}) => {
-  const { limit = 100000, ...rest } = params;
+  const { limit = 100, ...rest } = params;
   const cacheKey = `provinces_${JSON.stringify({ limit, ...rest })}`;
 
   return withCache(
@@ -150,7 +150,7 @@ export const getSubdistricts = async (districtCode) => {
  * @returns {Promise} - Promise containing health areas data
  */
 export const getHealthAreas = async (params = {}) => {
-  const { limit = 100000, ...rest } = params;
+  const { limit = 100, ...rest } = params;
   const cacheKey = `health_areas_${JSON.stringify({ limit, ...rest })}`;
 
   return withCache(
