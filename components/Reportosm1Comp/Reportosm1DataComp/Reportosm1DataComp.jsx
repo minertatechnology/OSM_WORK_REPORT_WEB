@@ -26,6 +26,13 @@ import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bol
 import Reportosm1CompDetailComp from "../Reportosm1CompDetailComp/Reportosm1CompDetailComp";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getUsersBatch } from "@services/oauth2Service";
+import {
+  getProvinces,
+  getDistricts,
+  getSubdistricts,
+  getHealthAreas,
+  getHealthServices
+} from "@services/lookupService";
 
 // Mock data
 const YEARS = [
@@ -47,30 +54,7 @@ const MONTHS = [
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
 ];
-const ZONES = Array.from({ length: 13 }, (_, i) => ({
-  label: `เขตสุขภาพ ${i + 1}`,
-  value: `${i + 1}`,
-}));
-const PROVINCES = [
-  { label: "นครราชสีมา", value: "นครราชสีมา" },
-  { label: "ชัยภูมิ", value: "ชัยภูมิ" },
-  { label: "บุรีรัมย์", value: "บุรีรัมย์" },
-];
-const DISTRICTS = [
-  { label: "เมือง", value: "เมือง" },
-  { label: "ปากช่อง", value: "ปากช่อง" },
-  { label: "โนนสูง", value: "โนนสูง" },
-];
-const SUBDISTRICTS = [
-  { label: "ในเมือง", value: "ในเมือง" },
-  { label: "หนองสาหร่าย", value: "หนองสาหร่าย" },
-  { label: "โนนไทย", value: "โนนไทย" },
-];
-const SERVICES = [
-  { label: "รพ.นครราชสีมา", value: "รพ.นครราชสีมา" },
-  { label: "รพ.ปากช่อง", value: "รพ.ปากช่อง" },
-  { label: "รพ.สต.โนนไทย", value: "รพ.สต.โนนไทย" },
-];
+// Removed mock data - will use API data instead
 
 // Export functions
 function exportSummaryPDF(data) {
@@ -639,6 +623,138 @@ const Reportosm1DataComp = () => {
   const [apiData, setApiData] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Location data states
+  const [healthAreas, setHealthAreas] = useState([]);
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [subdistricts, setSubdistricts] = useState([]);
+  const [healthServices, setHealthServices] = useState([]);
+
+  // Fetch health areas on mount
+  useEffect(() => {
+    const loadHealthAreas = async () => {
+      try {
+        const data = await getHealthAreas();
+        // Sort health areas by numeric order (HA1, HA2, ..., HA13)
+        const sortedData = data.sort((a, b) => {
+          const numA = parseInt(a.code.replace('HA', ''));
+          const numB = parseInt(b.code.replace('HA', ''));
+          return numA - numB;
+        });
+        setHealthAreas(sortedData);
+      } catch (error) {
+        console.error("Error loading health areas:", error);
+      }
+    };
+    loadHealthAreas();
+  }, []);
+
+  // Fetch provinces when health area changes
+  useEffect(() => {
+    const loadProvinces = async () => {
+      try {
+        if (!zone) {
+          // If no health area selected, load all provinces
+          const data = await getProvinces();
+          setProvinces(data);
+        } else {
+          // Filter provinces based on selected health area
+          const selectedHealthArea = healthAreas.find(h => h.code === zone);
+          if (selectedHealthArea && selectedHealthArea.provinces) {
+            setProvinces(selectedHealthArea.provinces);
+          } else {
+            setProvinces([]);
+          }
+        }
+        // Reset dependent dropdowns when health area changes
+        setProvince("");
+        setDistrict("");
+        setSubdistrict("");
+        setService("");
+      } catch (error) {
+        console.error("Error loading provinces:", error);
+      }
+    };
+    loadProvinces();
+  }, [zone, healthAreas]);
+
+  // Fetch districts when province changes
+  useEffect(() => {
+    const loadDistricts = async () => {
+      if (!province) {
+        setDistricts([]);
+        setDistrict("");
+        setSubdistricts([]);
+        setSubdistrict("");
+        setHealthServices([]);
+        setService("");
+        return;
+      }
+      try {
+        const data = await getDistricts(province);
+        setDistricts(data);
+        setDistrict("");
+        setSubdistricts([]);
+        setSubdistrict("");
+        setHealthServices([]);
+        setService("");
+      } catch (error) {
+        console.error("Error loading districts:", error);
+      }
+    };
+    loadDistricts();
+  }, [province]);
+
+  // Fetch subdistricts when district changes
+  useEffect(() => {
+    const loadSubdistricts = async () => {
+      if (!district) {
+        setSubdistricts([]);
+        setSubdistrict("");
+        setHealthServices([]);
+        setService("");
+        return;
+      }
+      try {
+        const data = await getSubdistricts(district);
+        setSubdistricts(data);
+        setSubdistrict("");
+        setHealthServices([]);
+        setService("");
+      } catch (error) {
+        console.error("Error loading subdistricts:", error);
+      }
+    };
+    loadSubdistricts();
+  }, [district]);
+
+  // Fetch health services when province, district, and subdistrict are selected
+  useEffect(() => {
+    const loadHealthServices = async () => {
+      if (!province || !district || !subdistrict) {
+        setHealthServices([]);
+        setService("");
+        return;
+      }
+
+      try {
+        const data = await getHealthServices({ subdistrict_code: subdistrict });
+        // Ensure data is properly formatted with string values
+        const formattedData = Array.isArray(data) ? data.map(item => ({
+          ...item,
+          name: String(item.name || item.label || ''),
+          code: String(item.code || item.value || '')
+        })) : [];
+        setHealthServices(formattedData);
+        setService("");
+      } catch (error) {
+        console.error("Error loading health services:", error);
+        setHealthServices([]);
+      }
+    };
+    loadHealthServices();
+  }, [province, district, subdistrict]);
+
   // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
@@ -655,11 +771,19 @@ const Reportosm1DataComp = () => {
         // ดึงข้อมูลผู้ใช้จาก OAuth2 API
         const usersMap = await getUsersBatch(externalUserIds);
 
-        // ผสานข้อมูลชื่อเข้ากับข้อมูล submission
-        const enrichedData = data.map(item => ({
-          ...item,
-          userName: usersMap.get(item.external_user_id)?.name || item.external_user_id || "ไม่ระบุชื่อ"
-        }));
+        // ผสานข้อมูลชื่อและที่อยู่เข้ากับข้อมูล submission
+        const enrichedData = data.map(item => {
+          const userData = usersMap.get(item.external_user_id);
+          return {
+            ...item,
+            userName: userData?.name || item.external_user_id || "ไม่ระบุชื่อ",
+            user_location: {
+              province_name_th: userData?.province_name_th,
+              district_name_th: userData?.district_name_th,
+              subdistrict_name_th: userData?.subdistrict_name_th,
+            }
+          };
+        });
 
         setApiData(enrichedData);
       } catch (error) {
@@ -691,20 +815,82 @@ const Reportosm1DataComp = () => {
       filled_activities: item.filled_activities,
       completion_rate: item.completion_rate,
       status: item.status,
+      user_location: item.user_location,
       rawData: item,
     }));
   }, [apiData]);
 
   const filteredRows = useMemo(() => {
-    const term = keyword.trim().toLowerCase();
-    if (!term) return ALL_ROWS;
-    return ALL_ROWS.filter(
-      (row) =>
-        row.name.toLowerCase().includes(term) ||
-        row.date.toLowerCase().includes(term) ||
-        String(row.index).includes(term)
-    );
-  }, [keyword, ALL_ROWS]);
+    return ALL_ROWS.filter((row) => {
+      // Keyword search
+      const term = keyword.trim().toLowerCase();
+      if (term) {
+        const nameMatch = row.name?.toLowerCase().includes(term);
+        const dateMatch = row.date?.toLowerCase().includes(term);
+        const indexMatch = String(row.index).includes(term);
+        if (!(nameMatch || dateMatch || indexMatch)) {
+          return false;
+        }
+      }
+
+      // Location filtering ใช้ข้อมูลที่อยู่ของ อสม.
+      const userLocation = row.user_location;
+
+      // ถ้าไม่มี user_location แต่มีการเลือก filter location ให้ skip
+      if (!userLocation && (zone || province || district || subdistrict || service)) {
+        return false;
+      }
+
+      if (userLocation) {
+        // Filter by health area (เขตสุขภาพ)
+        if (zone) {
+          const selectedHealthArea = healthAreas.find(h => h.code === zone);
+          if (selectedHealthArea && selectedHealthArea.provinces) {
+            const provinceInHealthArea = selectedHealthArea.provinces.find(
+              p => p.name_th === userLocation.province_name_th
+            );
+            if (!provinceInHealthArea) {
+              return false;
+            }
+          }
+        }
+
+        // Filter by province
+        if (province) {
+          const selectedProvince = provinces.find(p => p.code === province);
+          if (selectedProvince && userLocation.province_name_th !== selectedProvince.name_th) {
+            return false;
+          }
+        }
+
+        // Filter by district
+        if (district) {
+          const selectedDistrict = districts.find(d => d.code === district);
+          if (selectedDistrict && userLocation.district_name_th !== selectedDistrict.name_th) {
+            return false;
+          }
+        }
+
+        // Filter by subdistrict
+        if (subdistrict) {
+          const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+          if (selectedSubdistrict && userLocation.subdistrict_name_th !== selectedSubdistrict.name_th) {
+            return false;
+          }
+        }
+
+        // Filter by health service
+        if (service) {
+          const selectedService = healthServices.find(h => h.code === service);
+          if (selectedService && userLocation.subdistrict_name_th !== selectedService.subdistrict_name_th) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [keyword, ALL_ROWS, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -809,7 +995,7 @@ const Reportosm1DataComp = () => {
             placeholder="เลือกเขต"
             value={zone}
             onChange={(e) => setZone(e.target.value)}
-            options={ZONES}
+            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             icon={MapPin}
           />
           <CustomSelect
@@ -817,7 +1003,7 @@ const Reportosm1DataComp = () => {
             placeholder="เลือกจังหวัด"
             value={province}
             onChange={(e) => setProvince(e.target.value)}
-            options={PROVINCES}
+            options={Array.isArray(provinces) ? provinces.map(p => ({ label: p.name_th, value: p.code })) : []}
             icon={Building2}
           />
           <CustomSelect
@@ -825,24 +1011,27 @@ const Reportosm1DataComp = () => {
             placeholder="เลือกอำเภอ"
             value={district}
             onChange={(e) => setDistrict(e.target.value)}
-            options={DISTRICTS}
+            options={Array.isArray(districts) ? districts.map(d => ({ label: d.name_th, value: d.code })) : []}
             icon={Building2}
+            disabled={!province}
           />
           <CustomSelect
             label="ตำบล"
             placeholder="เลือกตำบล"
             value={subdistrict}
             onChange={(e) => setSubdistrict(e.target.value)}
-            options={SUBDISTRICTS}
+            options={Array.isArray(subdistricts) ? subdistricts.map(s => ({ label: s.name_th, value: s.code })) : []}
             icon={Home}
+            disabled={!district}
           />
           <CustomSelect
             label="หน่วยบริการ"
             placeholder="เลือกหน่วยบริการ"
             value={service}
             onChange={(e) => setService(e.target.value)}
-            options={SERVICES}
+            options={Array.isArray(healthServices) ? healthServices.map(h => ({ label: h.name, value: h.code })) : []}
             icon={Home}
+            disabled={!province || !district || !subdistrict}
           />
         </div>
       </div>

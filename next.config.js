@@ -3,7 +3,7 @@ const path = require("path");
 const isExport = process.env.EXPORT_MODE === "true";
 
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   ...(isExport && { output: "export" }),
 
   // ✅ Image Optimization สำหรับ Performance

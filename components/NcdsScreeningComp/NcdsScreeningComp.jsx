@@ -12,9 +12,7 @@ import {
   Calendar,
   MapPin,
   Building2,
-  Home,
   Heart,
-  UserCheck,
   RotateCcw,
   FileText,
 } from "lucide-react";
@@ -25,9 +23,15 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import NcdsScreeningDetail from "./NcdsScreeningDetail/NcdsScreeningDetail";
+import {
+  getProvinces,
+  getDistricts,
+  getSubdistricts,
+  getHealthAreas,
+  getHealthServices
+} from "@services/lookupService";
 
 // Mock Data
-const YEARS = ["2568", "2567", "2566"];
 const MONTHS = [
   "มกราคม",
   "กุมภาพันธ์",
@@ -43,11 +47,6 @@ const MONTHS = [
   "ธันวาคม",
 ];
 const WEEKS = ["สัปดาห์ 4 (23/6/68-27/6/68)", "สัปดาห์ 3 (16/6/68-22/6/68)"];
-const ZONES = Array.from({ length: 13 }, (_, i) => `เขตสุขภาพที่ ${i + 1}`);
-const PROVINCES = ["เชียงใหม่", "กรุงเทพฯ", "อุดรธานี", "นครราชสีมา", "ชลบุรี"];
-const DISTRICTS = ["เมือง", "สันทราย", "บางนา", "พระประแดง"];
-const SUBDISTRICTS = ["ท่าศาลา", "หนองจ๊อม", "บางแก้ว", "บางครุ"];
-const SERVICES = ["รพ.เชียงใหม่", "รพ.สันทราย", "รพ.บางนา", "รพ.พระประแดง"];
 
 // Table mock (100 rows)
 const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
@@ -605,10 +604,19 @@ function PaginationWithPerPage({
 const NcdsScreeningComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const detailId = searchParams.get("detail");
+
+  // ใช้ state เพื่อหลีกเลี่ยง hydration mismatch
+  const [detailId, setDetailId] = useState(null);
+  const [currentBuddhistYear, setCurrentBuddhistYear] = useState(null);
+
+  // โหลด searchParams และปีปัจจุบันหลัง hydration เสร็จ
+  useEffect(() => {
+    setDetailId(searchParams.get("detail"));
+    setCurrentBuddhistYear(new Date().getFullYear() + 543);
+  }, [searchParams]);
 
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("2568");
+  const [year, setYear] = useState("");
   const [month, setMonth] = useState("มิถุนายน");
   const [week, setWeek] = useState("สัปดาห์ 4 (23/6/68-27/6/68)");
   const [zone, setZone] = useState("");
@@ -625,6 +633,24 @@ const NcdsScreeningComp = () => {
   // State สำหรับเก็บข้อมูลจาก API
   const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [availableYears, setAvailableYears] = useState([]);
+
+  // State สำหรับเก็บข้อมูล lookup
+  const [healthAreas, setHealthAreas] = useState([]);
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [subdistricts, setSubdistricts] = useState([]);
+  const [healthServices, setHealthServices] = useState([]);
+
+  // Set ปีเริ่มต้นหลัง currentBuddhistYear โหลดเสร็จ
+  useEffect(() => {
+    if (currentBuddhistYear && !year) {
+      setYear(currentBuddhistYear.toString());
+      if (availableYears.length === 0) {
+        setAvailableYears([currentBuddhistYear.toString()]);
+      }
+    }
+  }, [currentBuddhistYear, year, availableYears.length]);
 
   // ดึงข้อมูลจาก API
   useEffect(() => {
@@ -641,9 +667,22 @@ const NcdsScreeningComp = () => {
           name: `${item.prefix}${item.first_name} ${item.last_name}`,
           date: formatThaiDate(item.assessment_date),
           rawData: item, // เก็บข้อมูลดิบไว้ใช้ในหน้ารายละเอียด
+          location_data: item.location_data || {}, // เก็บข้อมูล location
         }));
 
         setAllRows(transformedData);
+
+        // สร้างรายการปีจากข้อมูล
+        const yearsSet = new Set();
+        data.forEach(item => {
+          if (item.assessment_date) {
+            const date = new Date(item.assessment_date);
+            const buddhistYear = date.getFullYear() + 543;
+            yearsSet.add(buddhistYear.toString());
+          }
+        });
+        const yearsList = Array.from(yearsSet).sort((a, b) => b - a);
+        setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear?.toString() || "2568"]);
       } catch (error) {
         console.error("Failed to fetch NCD screening data:", error);
         setAllRows([]);
@@ -653,7 +692,127 @@ const NcdsScreeningComp = () => {
     };
 
     fetchData();
+  }, [currentBuddhistYear]);
+
+  // ดึงข้อมูล lookup (เขตสุขภาพ)
+  useEffect(() => {
+    const fetchHealthAreas = async () => {
+      try {
+        const data = await getHealthAreas({ limit: 100 });
+        // Sort health areas by numeric order (HA1, HA2, ..., HA13)
+        const sortedData = (data || []).sort((a, b) => {
+          const numA = parseInt(a.code.replace('HA', ''));
+          const numB = parseInt(b.code.replace('HA', ''));
+          return numA - numB;
+        });
+        setHealthAreas(sortedData);
+      } catch (error) {
+        console.error("Failed to fetch health areas:", error);
+        setHealthAreas([]);
+      }
+    };
+
+    fetchHealthAreas();
   }, []);
+
+  // ดึงข้อมูล lookup (จังหวัด) - filter by health area
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      try {
+        if (!zone) {
+          // If no health area selected, load all provinces
+          const data = await getProvinces({ limit: 100 });
+          setProvinces(data || []);
+        } else {
+          // Filter provinces based on selected health area
+          const selectedHealthArea = healthAreas.find(h => h.code === zone);
+          if (selectedHealthArea && selectedHealthArea.provinces) {
+            setProvinces(selectedHealthArea.provinces);
+          } else {
+            setProvinces([]);
+          }
+        }
+        // Reset dependent dropdowns when health area changes
+        setProvince("");
+        setDistrict("");
+        setSubdistrict("");
+        setService("");
+      } catch (error) {
+        console.error("Failed to fetch provinces:", error);
+        setProvinces([]);
+      }
+    };
+
+    fetchProvinces();
+  }, [zone, healthAreas]);
+
+  // ดึงข้อมูลอำเภอเมื่อเลือกจังหวัด
+  useEffect(() => {
+    const fetchDistricts = async () => {
+      if (!province) {
+        setDistricts([]);
+        setSubdistricts([]);
+        setHealthServices([]);
+        return;
+      }
+
+      try {
+        const data = await getDistricts(province);
+        setDistricts(data || []);
+      } catch (error) {
+        console.error("Failed to fetch districts:", error);
+        setDistricts([]);
+      }
+    };
+
+    fetchDistricts();
+  }, [province]);
+
+  // ดึงข้อมูลตำบลเมื่อเลือกอำเภอ
+  useEffect(() => {
+    const fetchSubdistricts = async () => {
+      if (!district) {
+        setSubdistricts([]);
+        setHealthServices([]);
+        return;
+      }
+
+      try {
+        const data = await getSubdistricts(district);
+        setSubdistricts(data || []);
+      } catch (error) {
+        console.error("Failed to fetch subdistricts:", error);
+        setSubdistricts([]);
+      }
+    };
+
+    fetchSubdistricts();
+  }, [district]);
+
+  // ดึงข้อมูลหน่วยบริการ
+  useEffect(() => {
+    const fetchHealthServices = async () => {
+      if (!province) {
+        setHealthServices([]);
+        return;
+      }
+
+      try {
+        const params = {
+          province_code: province,
+          ...(district && { district_code: district }),
+          ...(subdistrict && { subdistrict_code: subdistrict }),
+        };
+        const data = await getHealthServices(params);
+        setHealthServices(data || []);
+      } catch (error) {
+        console.error("Failed to fetch health services:", error);
+        setHealthServices([]);
+      }
+    };
+
+    fetchHealthServices();
+  }, [province, district, subdistrict]);
 
   // ฟังก์ชันแปลงวันที่เป็นภาษาไทย
   const formatThaiDate = (dateString) => {
@@ -669,16 +828,53 @@ const NcdsScreeningComp = () => {
     return `${day} ${month} ${year}`;
   };
 
-  const filteredRows = useMemo(
-    () =>
-      allRows.filter(
-        (row) =>
-          row.name.includes(keyword) ||
-          row.date.includes(keyword) ||
-          String(row.index).includes(keyword)
-      ),
-    [keyword, allRows]
-  );
+  const filteredRows = useMemo(() => {
+    return allRows.filter((row) => {
+      // กรองตามปี (ดึงปีจาก row.date)
+      const rowYear = row.date.match(/\d{4}/)?.[0] || "";
+      const yearMatch = !year || rowYear === year;
+
+      // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
+      const locationData = row.location_data || {};
+
+      // กรองตามเขตสุขภาพ
+      if (zone) {
+        const selectedHealthArea = healthAreas.find(h => h.code === zone);
+        if (selectedHealthArea && selectedHealthArea.provinces) {
+          const provinceInHealthArea = selectedHealthArea.provinces.find(
+            p => p.name_th === locationData.region
+          );
+          if (!provinceInHealthArea) {
+            return false;
+          }
+        }
+      }
+
+      // หาชื่อจังหวัดจาก code ที่เลือก (ใช้ name_th)
+      const selectedProvince = provinces.find(p => p.code === province);
+      const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
+
+      // หาชื่ออำเภอจาก code ที่เลือก (ใช้ name_th)
+      const selectedDistrict = districts.find(d => d.code === district);
+      const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
+
+      // หาชื่อตำบลจาก code ที่เลือก (ใช้ name_th)
+      const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+      const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
+
+      // กรองตาม keyword
+      const keywordMatch = !keyword || (
+        row.name.includes(keyword) ||
+        row.date.includes(keyword) ||
+        String(row.index).includes(keyword) ||
+        locationData.region?.includes(keyword) ||
+        locationData.city?.includes(keyword) ||
+        locationData.district?.includes(keyword)
+      );
+
+      return yearMatch && provinceMatch && districtMatch && subdistrictMatch && keywordMatch;
+    });
+  }, [keyword, allRows, year, zone, province, district, subdistrict, healthAreas, provinces, districts, subdistricts]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -697,7 +893,9 @@ const NcdsScreeningComp = () => {
   );
 
   const handleClear = () => {
-    setYear("2568");
+    if (currentBuddhistYear) {
+      setYear(currentBuddhistYear.toString());
+    }
     setMonth("มิถุนายน");
     setWeek("สัปดาห์ 4 (23/6/68-27/6/68)");
     setZone("");
@@ -792,7 +990,7 @@ const NcdsScreeningComp = () => {
             label="ปี"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            options={YEARS.map((y) => ({ label: y, value: y }))}
+            options={availableYears.map((y) => ({ label: y, value: y }))}
             placeholder="-- เลือกปี --"
             icon={Calendar}
           />
@@ -819,41 +1017,68 @@ const NcdsScreeningComp = () => {
             label="เขตสุขภาพ"
             value={zone}
             onChange={(e) => setZone(e.target.value)}
-            options={ZONES.map((z) => ({ label: z, value: z }))}
+            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             placeholder="-- เลือกเขตสุขภาพ --"
             icon={MapPin}
           />
           <CustomSelect
             label="จังหวัด"
             value={province}
-            onChange={(e) => setProvince(e.target.value)}
-            options={PROVINCES.map((p) => ({ label: p, value: p }))}
+            onChange={(e) => {
+              setProvince(e.target.value);
+              setDistrict("");
+              setSubdistrict("");
+              setService("");
+            }}
+            options={provinces.map((p) => ({
+              label: p.name_th || p.name || "ไม่ระบุ",
+              value: String(p.code || p.id || "")
+            }))}
             placeholder="-- เลือกจังหวัด --"
-            icon={Building2}
+            icon={MapPin}
           />
           <CustomSelect
             label="อำเภอ"
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            options={DISTRICTS.map((d) => ({ label: d, value: d }))}
+            onChange={(e) => {
+              setDistrict(e.target.value);
+              setSubdistrict("");
+              setService("");
+            }}
+            options={districts.map((d) => ({
+              label: d.name_th || d.name || "ไม่ระบุ",
+              value: String(d.code || d.id || "")
+            }))}
             placeholder="-- เลือกอำเภอ --"
-            icon={Building2}
+            icon={MapPin}
+            disabled={!province}
           />
           <CustomSelect
             label="ตำบล"
             value={subdistrict}
-            onChange={(e) => setSubdistrict(e.target.value)}
-            options={SUBDISTRICTS.map((s) => ({ label: s, value: s }))}
+            onChange={(e) => {
+              setSubdistrict(e.target.value);
+              setService("");
+            }}
+            options={subdistricts.map((s) => ({
+              label: s.name_th || s.name || "ไม่ระบุ",
+              value: String(s.code || s.id || "")
+            }))}
             placeholder="-- เลือกตำบล --"
-            icon={Home}
+            icon={MapPin}
+            disabled={!district}
           />
           <CustomSelect
             label="หน่วยบริการ"
             value={service}
             onChange={(e) => setService(e.target.value)}
-            options={SERVICES.map((s) => ({ label: s, value: s }))}
+            options={healthServices.map((s) => ({
+              label: s.name_th || s.name || s.service_name || "ไม่ระบุ",
+              value: String(s.id || s.code || "")
+            }))}
             placeholder="-- เลือกหน่วยบริการ --"
-            icon={UserCheck}
+            icon={Building2}
+            disabled={!province}
           />
         </div>
 

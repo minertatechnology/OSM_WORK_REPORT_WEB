@@ -32,6 +32,7 @@ import {
   getProvinces,
   getDistricts,
   getSubdistricts,
+  getHealthAreas,
   getHealthServices
 } from "@services/lookupService";
 
@@ -57,7 +58,6 @@ const WEEKS = [
   "สัปดาห์ 3 (15/6/68 - 21/6/68)",
   "สัปดาห์ 4 (22/6/68 - 30/6/68)",
 ];
-const ZONES = Array.from({ length: 13 }, (_, i) => `เขตสุขภาพที่ ${i + 1}`);
 
 // Tabs for report status
 const TABS = [
@@ -789,14 +789,20 @@ function PaginationWithPerPage({
 const PregnantReportComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const detailId = searchParams.get("detail");
 
-  // คำนวณปีปัจจุบัน (พ.ศ.)
-  const currentBuddhistYear = new Date().getFullYear() + 543;
+  // ใช้ state เพื่อหลีกเลี่ยง hydration mismatch
+  const [detailId, setDetailId] = useState(null);
+  const [currentBuddhistYear, setCurrentBuddhistYear] = useState(null);
+
+  // โหลด searchParams และปีปัจจุบันหลัง hydration เสร็จ
+  useEffect(() => {
+    setDetailId(searchParams.get("detail"));
+    setCurrentBuddhistYear(new Date().getFullYear() + 543);
+  }, [searchParams]);
 
   // State
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState(currentBuddhistYear.toString());
+  const [year, setYear] = useState("");
   const [month, setMonth] = useState("มิถุนายน");
   const [week, setWeek] = useState("สัปดาห์ 4 (22/6/68-30/6/68)");
   const [zone, setZone] = useState("");
@@ -821,14 +827,24 @@ const PregnantReportComp = () => {
   const [userDataMap, setUserDataMap] = useState(new Map());
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [availableYears, setAvailableYears] = useState([currentBuddhistYear.toString()]); // เก็บรายการปีจากข้อมูล
+  const [availableYears, setAvailableYears] = useState([]); // เก็บรายการปีจากข้อมูล
+
+  // Set ปีเริ่มต้นหลัง currentBuddhistYear โหลดเสร็จ
+  useEffect(() => {
+    if (currentBuddhistYear && !year) {
+      setYear(currentBuddhistYear.toString());
+      if (availableYears.length === 0) {
+        setAvailableYears([currentBuddhistYear.toString()]);
+      }
+    }
+  }, [currentBuddhistYear, year, availableYears.length]);
 
   // State สำหรับเก็บข้อมูล lookup
+  const [healthAreas, setHealthAreas] = useState([]);
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [subdistricts, setSubdistricts] = useState([]);
   const [healthServices, setHealthServices] = useState([]);
-  const [isLoadingLookups, setIsLoadingLookups] = useState(false);
 
   // ดึงข้อมูลการประเมินหญิงตั้งครรภ์และข้อมูลผู้ใช้จาก API
   useEffect(() => {
@@ -866,6 +882,12 @@ const PregnantReportComp = () => {
             month: "long",
           }) + " " + thaiYear;
 
+          // หา evaluation ล่าสุดเพื่อดึง location_data และ citizen_id
+          const latestEvaluation = evaluations.find(
+            evaluation => evaluation.external_user_id === item.external_user_id &&
+                         evaluation.created_at === item.latest_date
+          ) || evaluations.find(evaluation => evaluation.external_user_id === item.external_user_id);
+
           return {
             index: index + 1,
             external_user_id: item.external_user_id,
@@ -873,6 +895,8 @@ const PregnantReportComp = () => {
             date: formattedDate,
             amount: item.count,
             status: item.status || "submitted",
+            location_data: latestEvaluation?.location_data || {},
+            citizen_id: latestEvaluation?.citizen_id || "",
           };
         });
 
@@ -916,23 +940,57 @@ const PregnantReportComp = () => {
     fetchData();
   }, []); // ดึงข้อมูลครั้งเดียวตอน mount
 
-  // ดึงข้อมูล lookup (จังหวัด)
+  // ดึงข้อมูล lookup (เขตสุขภาพ)
+  useEffect(() => {
+    const fetchHealthAreas = async () => {
+      try {
+        const data = await getHealthAreas({ limit: 100 });
+        // Sort health areas by numeric order (HA1, HA2, ..., HA13)
+        const sortedData = (data || []).sort((a, b) => {
+          const numA = parseInt(a.code.replace('HA', ''));
+          const numB = parseInt(b.code.replace('HA', ''));
+          return numA - numB;
+        });
+        setHealthAreas(sortedData);
+      } catch (error) {
+        console.error("Failed to fetch health areas:", error);
+        setHealthAreas([]);
+      }
+    };
+
+    fetchHealthAreas();
+  }, []);
+
+  // ดึงข้อมูล lookup (จังหวัด) - filter by health area
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
-        setIsLoadingLookups(true);
-        const data = await getProvinces({ limit: 100 });
-        setProvinces(data || []);
+        if (!zone) {
+          // If no health area selected, load all provinces
+          const data = await getProvinces({ limit: 100 });
+          setProvinces(data || []);
+        } else {
+          // Filter provinces based on selected health area
+          const selectedHealthArea = healthAreas.find(h => h.code === zone);
+          if (selectedHealthArea && selectedHealthArea.provinces) {
+            setProvinces(selectedHealthArea.provinces);
+          } else {
+            setProvinces([]);
+          }
+        }
+        // Reset dependent dropdowns when health area changes
+        setProvince("");
+        setDistrict("");
+        setSubdistrict("");
+        setService("");
       } catch (error) {
         console.error("Failed to fetch provinces:", error);
         setProvinces([]);
-      } finally {
-        setIsLoadingLookups(false);
       }
     };
 
     fetchProvinces();
-  }, []);
+  }, [zone, healthAreas]);
 
   // ดึงข้อมูลอำเภอเมื่อเลือกจังหวัด
   useEffect(() => {
@@ -1011,7 +1069,7 @@ const PregnantReportComp = () => {
   // ใช้ข้อมูลจาก API หรือ fallback เป็น mock data
   const dataSource = pregnantData.length > 0 ? pregnantData : ALL_ROWS;
 
-  // Filter rows by tab, year, and keyword
+  // Filter rows by tab, year, location, and keyword
   const filteredRows = dataSource.filter((row) => {
     const userName = getUserName(row.external_user_id, row.name);
 
@@ -1019,12 +1077,52 @@ const PregnantReportComp = () => {
     const rowYear = row.date.match(/\d{4}/)?.[0] || "";
     const yearMatch = !year || rowYear === year;
 
+    // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
+    const locationData = row.location_data || {};
+
+    // กรองตามเขตสุขภาพ
+    if (zone) {
+      const selectedHealthArea = healthAreas.find(h => h.code === zone);
+      if (selectedHealthArea && selectedHealthArea.provinces) {
+        const provinceInHealthArea = selectedHealthArea.provinces.find(
+          p => p.name_th === locationData.region
+        );
+        if (!provinceInHealthArea) {
+          return false;
+        }
+      }
+    }
+
+    // หาชื่อจังหวัดจาก code ที่เลือก (ใช้ name_th)
+    const selectedProvince = provinces.find(p => p.code === province);
+    const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
+
+    // หาชื่ออำเภอจาก code ที่เลือก (ใช้ name_th)
+    const selectedDistrict = districts.find(d => d.code === district);
+    const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
+
+    // หาชื่อตำบลจาก code ที่เลือก (ใช้ name_th)
+    const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+    const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
+
+    // กรองตาม keyword
+    const keywordMatch = !keyword || (
+      userName.includes(keyword) ||
+      row.date.includes(keyword) ||
+      String(row.index).includes(keyword) ||
+      row.citizen_id?.includes(keyword) ||
+      locationData.region?.includes(keyword) ||
+      locationData.city?.includes(keyword) ||
+      locationData.district?.includes(keyword)
+    );
+
     return (
       row.status === activeTab &&
       yearMatch &&
-      (userName.includes(keyword) ||
-        row.date.includes(keyword) ||
-        String(row.index).includes(keyword))
+      provinceMatch &&
+      districtMatch &&
+      subdistrictMatch &&
+      keywordMatch
     );
   });
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
@@ -1046,7 +1144,9 @@ const PregnantReportComp = () => {
   }, [filteredRows.length, totalPages, itemsPerPage, page]);
 
   const handleClear = () => {
-    setYear(currentBuddhistYear.toString());
+    if (currentBuddhistYear) {
+      setYear(currentBuddhistYear.toString());
+    }
     setMonth("มิถุนายน");
     setWeek("สัปดาห์ 4 (22/6/68-30/6/68)");
     setZone("");
@@ -1071,7 +1171,7 @@ const PregnantReportComp = () => {
     const userName = getUserName(selectedRow?.external_user_id, selectedRow?.name);
 
     // ดึงปีจาก created_at ของ evaluation แรก (หรือใช้ปีปัจจุบันถ้าไม่มีข้อมูล)
-    let reportYear = currentBuddhistYear.toString();
+    let reportYear = currentBuddhistYear ? currentBuddhistYear.toString() : new Date().getFullYear() + 543 + "";
     if (userEvaluations.length > 0 && userEvaluations[0].created_at) {
       const date = new Date(userEvaluations[0].created_at);
       reportYear = (date.getFullYear() + 543).toString();
@@ -1229,7 +1329,7 @@ const PregnantReportComp = () => {
             label="เขตสุขภาพ"
             value={zone}
             onChange={(e) => setZone(e.target.value)}
-            options={ZONES.map((z) => ({ label: z, value: z }))}
+            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             placeholder="-- เลือกเขตสุขภาพ --"
             icon={MapPin}
           />
