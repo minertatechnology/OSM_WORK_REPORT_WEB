@@ -3,6 +3,7 @@ import "@styles/globals.css";
 import { LoadingProvider } from "@context/LoadingProvider";
 import { StoreProvider } from "@context/StoreProvider";
 import { DateTimeProvider } from "@context/DateTimeProvider";
+import UserPermissionProvider from "@context/UserPermissionProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, Suspense } from "react";
 import { FullPageLoadingSpinner } from "@components/shared/LoadingSpinner";
@@ -43,7 +44,7 @@ function MyApp({ Component, pageProps }) {
   return (
     <QueryClientProvider client={queryClient}>
       <DateTimeProvider>
-        <LoadingProvider>
+        <UserPermissionProvider>
           <Head>
             <title>{process.env.NEXT_PUBLIC_APP_NAME}</title>
             <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -54,11 +55,12 @@ function MyApp({ Component, pageProps }) {
             <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_BASE_URL} />
             <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_API_BASE_URL} />
           </Head>
-          <StoreProvider>
-            {/* ✅ Global Suspense Boundary - จับ lazy loading ทั้งหมด */}
-            <Suspense fallback={<FullPageLoadingSpinner message="กำลังโหลดแอปพลิเคชัน..." />}>
-              {getLayout(<Component {...pageProps} />)}
-            </Suspense>
+          <LoadingProvider>
+            <StoreProvider>
+              {/* ✅ Global Suspense Boundary - จับ lazy loading ทั้งหมด */}
+              <Suspense fallback={<FullPageLoadingSpinner message="กำลังโหลดแอปพลิเคชัน..." />}>
+                {getLayout(<Component {...pageProps} />)}
+              </Suspense>
           <style jsx global>{`
             html,
             body {
@@ -86,9 +88,10 @@ function MyApp({ Component, pageProps }) {
               font-variant-numeric: tabular-nums;
             }
           `}</style>
-        </StoreProvider>
-      </LoadingProvider>
-    </DateTimeProvider>
+          </StoreProvider>
+        </LoadingProvider>
+        </UserPermissionProvider>
+      </DateTimeProvider>
     </QueryClientProvider>
   );
 }

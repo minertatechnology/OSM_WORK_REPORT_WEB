@@ -139,8 +139,10 @@ const Navbar = React.memo(({
 Navbar.displayName = 'Navbar';
 
 const Layout = ({ children }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  // ใช้ lazy initialization เพื่อหลีกเลี่ยง hydration mismatch
+  const [isMobile, setIsMobile] = useState(() => false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => false);
+  const [isMounted, setIsMounted] = useState(false);
   const { setLoading } = useLoading();
   const [userInfo, , isUserLoaded] = useSessionStorage("userInfo", {});
   const isClient = useIsClient();
@@ -151,16 +153,25 @@ const Layout = ({ children }) => {
     icon: null,
   });
 
+  // Mark component as mounted
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Setup responsive behavior only after mount
+  useEffect(() => {
+    if (!isMounted) return;
+
     const checkIfMobile = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       setIsSidebarOpen(!mobile);
     };
+
     checkIfMobile();
     window.addEventListener("resize", checkIfMobile);
     return () => window.removeEventListener("resize", checkIfMobile);
-  }, []);
+  }, [isMounted]);
 
   // คำนวณ user info จาก sessionStorage ที่โหลดแล้ว
   const user = React.useMemo(() => {
@@ -214,7 +225,7 @@ const Layout = ({ children }) => {
   const toggleSidebar = () => setIsSidebarOpen((o) => !o);
 
   return (
-    <div className="flex h-screen relative">
+    <div className="flex h-screen relative" suppressHydrationWarning>
       {isMobile && isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-[1px] z-40 lg:hidden"
@@ -230,6 +241,7 @@ const Layout = ({ children }) => {
           transition-transform duration-300 ease-out
           lg:translate-x-0
         `}
+        suppressHydrationWarning
       >
         <SideMenuComp
           onMenuClick={handleMenuClick}

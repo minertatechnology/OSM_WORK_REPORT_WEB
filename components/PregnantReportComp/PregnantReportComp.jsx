@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from "react";
+﻿import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -28,28 +28,41 @@ import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
 import { getUserByExternalId } from "@services/oauth2Service";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
+// Lookup services now handled by usePermissionFilters hook
 import {
-  getProvinces,
-  getDistricts,
-  getSubdistricts,
-  getHealthServices
-} from "@services/lookupService";
+  getCurrentFiscalYear,
+  getCurrentCalendarYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+  isInMonth,
+} from "@utils/fiscalYearHelper";
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
 
 // Mock Data
-// YEARS จะถูกสร้างจาก created_at ของข้อมูลจริง
+const currentFiscalYear = getCurrentFiscalYear();
+const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
+
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
+];
+
 const MONTHS = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
 ];
 const WEEKS = [
   "สัปดาห์ 1 (1/6/68 - 7/6/68)",
@@ -57,7 +70,6 @@ const WEEKS = [
   "สัปดาห์ 3 (15/6/68 - 21/6/68)",
   "สัปดาห์ 4 (22/6/68 - 30/6/68)",
 ];
-const ZONES = Array.from({ length: 13 }, (_, i) => `เขตสุขภาพที่ ${i + 1}`);
 
 // Tabs for report status
 const TABS = [
@@ -789,21 +801,49 @@ function PaginationWithPerPage({
 const PregnantReportComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const detailId = searchParams.get("detail");
 
-  // คำนวณปีปัจจุบัน (พ.ศ.)
-  const currentBuddhistYear = new Date().getFullYear() + 543;
+  // ใช้ state เพื่อหลีกเลี่ยง hydration mismatch
+  const [detailId, setDetailId] = useState(null);
+  const [currentBuddhistYear, setCurrentBuddhistYear] = useState(null);
+
+  // โหลด searchParams และปีปัจจุบันหลัง hydration เสร็จ
+  useEffect(() => {
+    setDetailId(searchParams.get("detail"));
+    setCurrentBuddhistYear(new Date().getFullYear() + 543);
+  }, [searchParams]);
+
+  // Use permission-based filters
+  const { isLocked } = useUserPermission();
+  const {
+    yearType,
+    year,
+    month,
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    setYearType,
+    setYear,
+    setMonth,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+  } = usePermissionFilters({
+    defaultYear: String(currentFiscalYear),
+    defaultYearType: "fiscal",
+  });
 
   // State
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState(currentBuddhistYear.toString());
-  const [month, setMonth] = useState("มิถุนายน");
   const [week, setWeek] = useState("สัปดาห์ 4 (22/6/68-30/6/68)");
-  const [zone, setZone] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
-  const [service, setService] = useState("");
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -821,14 +861,23 @@ const PregnantReportComp = () => {
   const [userDataMap, setUserDataMap] = useState(new Map());
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [availableYears, setAvailableYears] = useState([currentBuddhistYear.toString()]); // เก็บรายการปีจากข้อมูล
+  const [availableYears, setAvailableYears] = useState([]); // เก็บรายการปีจากข้อมูล
 
-  // State สำหรับเก็บข้อมูล lookup
-  const [provinces, setProvinces] = useState([]);
-  const [districts, setDistricts] = useState([]);
-  const [subdistricts, setSubdistricts] = useState([]);
-  const [healthServices, setHealthServices] = useState([]);
-  const [isLoadingLookups, setIsLoadingLookups] = useState(false);
+  // Set ปีเริ่มต้นหลัง currentBuddhistYear โหลดเสร็จ
+  useEffect(() => {
+    if (currentBuddhistYear && !year) {
+      setYear(currentBuddhistYear.toString());
+      if (availableYears.length === 0) {
+        setAvailableYears([currentBuddhistYear.toString()]);
+      }
+    }
+  }, [currentBuddhistYear, year, availableYears.length]);
+
+  // Note: Location data loading is handled by usePermissionFilters hook
+
+  // State สำหรับเก็บข้อมูลพื้นที่จากพิกัด
+  const [locationDataMap, setLocationDataMap] = useState(new Map()); // Map<external_user_id, {province, district, subdistrict}>
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
   // ดึงข้อมูลการประเมินหญิงตั้งครรภ์และข้อมูลผู้ใช้จาก API
   useEffect(() => {
@@ -866,13 +915,22 @@ const PregnantReportComp = () => {
             month: "long",
           }) + " " + thaiYear;
 
+          // หา evaluation ล่าสุดเพื่อดึง location_data และ citizen_id
+          const latestEvaluation = evaluations.find(
+            evaluation => evaluation.external_user_id === item.external_user_id &&
+                         evaluation.created_at === item.latest_date
+          ) || evaluations.find(evaluation => evaluation.external_user_id === item.external_user_id);
+
           return {
             index: index + 1,
             external_user_id: item.external_user_id,
             name: "กำลังโหลด...", // จะถูกแทนที่ด้วยชื่อจริงจาก OAuth2
             date: formattedDate,
+            _thaiDate: formattedDate, // เก็บวันที่แบบไทยสำหรับการกรอง
             amount: item.count,
             status: item.status || "submitted",
+            location_data: latestEvaluation?.location_data || {},
+            citizen_id: latestEvaluation?.citizen_id || "",
           };
         });
 
@@ -903,6 +961,100 @@ const PregnantReportComp = () => {
         );
 
         setUserDataMap(newUserDataMap);
+
+        // 5. แปลงพิกัดเป็นข้อมูลพื้นที่ (Reverse Geocoding)
+        // NOTE: Using free Nominatim service which has strict rate limits (1 req/sec)
+        // and may return 403 errors. Geocoding failures are handled gracefully.
+        // For production, consider using a commercial geocoding service.
+        setIsLoadingLocations(true);
+        const newLocationDataMap = new Map();
+
+        // รวมพิกัดจาก evaluations ทั้งหมดที่มี latitude และ longitude
+        const coordinatesMap = new Map(); // Map<external_user_id, {lat, lng}>
+
+        console.log('\n🔍 กำลังค้นหาพิกัดจากข้อมูล evaluations...');
+        console.log(`📦 จำนวน evaluations ทั้งหมด: ${evaluations.length}`);
+
+        let foundCoordinatesCount = 0;
+        let invalidCoordinatesCount = 0;
+
+        evaluations.forEach((evaluation, index) => {
+          if (evaluation.latitude && evaluation.longitude && evaluation.external_user_id) {
+            const lat = parseFloat(evaluation.latitude);
+            const lng = parseFloat(evaluation.longitude);
+
+            // ตรวจสอบว่าเป็นพิกัดที่ถูกต้อง
+            if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+              // ใช้พิกัดของ evaluation แรกสุดของแต่ละ user (หรืออาจจะเป็นล่าสุด)
+              if (!coordinatesMap.has(evaluation.external_user_id)) {
+                coordinatesMap.set(evaluation.external_user_id, { lat, lng });
+                foundCoordinatesCount++;
+                console.log(`✓ Evaluation #${index + 1}: User ${evaluation.external_user_id} - Lat: ${lat}, Lng: ${lng}`);
+              }
+            } else {
+              invalidCoordinatesCount++;
+              console.log(`✗ Evaluation #${index + 1}: พิกัดไม่ถูกต้อง - Lat: ${lat}, Lng: ${lng}`);
+            }
+          }
+        });
+
+        console.log(`\n📊 สรุปการค้นหาพิกัด:`);
+        console.log(`   ✅ พบพิกัดที่ถูกต้อง: ${foundCoordinatesCount} รายการ`);
+        console.log(`   ❌ พิกัดไม่ถูกต้อง: ${invalidCoordinatesCount} รายการ`);
+        console.log(`   ⚠️  ไม่มีพิกัด: ${evaluations.length - foundCoordinatesCount - invalidCoordinatesCount} รายการ\n`);
+
+        // แปลงพิกัดเป็นพื้นที่ (ทำทีละ user เพื่อไม่ให้โดน rate limit)
+        const userIds = Array.from(coordinatesMap.keys());
+        console.log('🌍 เริ่มต้นการแปลงพิกัดเป็นพื้นที่');
+        console.log(`📊 พบพิกัดทั้งหมด ${userIds.length} รายการ`);
+        console.log('─────────────────────────────────────────');
+
+        for (let i = 0; i < userIds.length; i++) {
+          const userId = userIds[i];
+          const coords = coordinatesMap.get(userId);
+
+          console.log(`\n[${i + 1}/${userIds.length}] กำลังแปลงพิกัดของ User: ${userId}`);
+          console.log(`📍 Latitude: ${coords.lat}`);
+          console.log(`📍 Longitude: ${coords.lng}`);
+
+          try {
+            const locationData = await getAddressFromCoordinates(coords.lat, coords.lng);
+
+            if (locationData.success) {
+              console.log('✅ แปลงพิกัดสำเร็จ!');
+              console.log(`   จังหวัด: ${locationData.province || 'ไม่พบข้อมูล'}`);
+              console.log(`   อำเภอ: ${locationData.district || 'ไม่พบข้อมูล'}`);
+              console.log(`   ตำบล: ${locationData.subdistrict || 'ไม่พบข้อมูล'}`);
+              console.log(`   ที่อยู่เต็ม: ${locationData.fullAddress || 'ไม่พบข้อมูล'}`);
+
+              newLocationDataMap.set(userId, {
+                province: locationData.province,
+                district: locationData.district,
+                subdistrict: locationData.subdistrict,
+                fullAddress: locationData.fullAddress,
+              });
+            } else {
+              console.log('❌ แปลงพิกัดล้มเหลว');
+              console.log(`   Error: ${locationData.error || 'Unknown error'}`);
+            }
+
+            // เพิ่ม delay เล็กน้อยเพื่อไม่ให้โดน rate limit (1 request/second)
+            if (i < userIds.length - 1) {
+              console.log('⏳ รอ 1.1 วินาทีก่อนดึงข้อมูลต่อไป...');
+              await new Promise(resolve => setTimeout(resolve, 1100));
+            }
+          } catch (error) {
+            console.error(`❌ เกิดข้อผิดพลาดในการแปลงพิกัดของ user ${userId}:`, error);
+            console.error(`   Lat: ${coords.lat}, Lng: ${coords.lng}`);
+          }
+        }
+
+        console.log('\n─────────────────────────────────────────');
+        console.log(`🎉 แปลงพิกัดเสร็จสิ้น! สำเร็จ ${newLocationDataMap.size}/${userIds.length} รายการ`);
+        console.log('─────────────────────────────────────────\n');
+
+        setLocationDataMap(newLocationDataMap);
+        setIsLoadingLocations(false);
       } catch (error) {
         console.error("Failed to fetch pregnant women data:", error);
         // ถ้า error ใช้ mock data แทน
@@ -916,91 +1068,7 @@ const PregnantReportComp = () => {
     fetchData();
   }, []); // ดึงข้อมูลครั้งเดียวตอน mount
 
-  // ดึงข้อมูล lookup (จังหวัด)
-  useEffect(() => {
-    const fetchProvinces = async () => {
-      try {
-        setIsLoadingLookups(true);
-        const data = await getProvinces({ limit: 100 });
-        setProvinces(data || []);
-      } catch (error) {
-        console.error("Failed to fetch provinces:", error);
-        setProvinces([]);
-      } finally {
-        setIsLoadingLookups(false);
-      }
-    };
-
-    fetchProvinces();
-  }, []);
-
-  // ดึงข้อมูลอำเภอเมื่อเลือกจังหวัด
-  useEffect(() => {
-    const fetchDistricts = async () => {
-      if (!province) {
-        setDistricts([]);
-        setSubdistricts([]);
-        setHealthServices([]);
-        return;
-      }
-
-      try {
-        const data = await getDistricts(province);
-        setDistricts(data || []);
-      } catch (error) {
-        console.error("Failed to fetch districts:", error);
-        setDistricts([]);
-      }
-    };
-
-    fetchDistricts();
-  }, [province]);
-
-  // ดึงข้อมูลตำบลเมื่อเลือกอำเภอ
-  useEffect(() => {
-    const fetchSubdistricts = async () => {
-      if (!district) {
-        setSubdistricts([]);
-        setHealthServices([]);
-        return;
-      }
-
-      try {
-        const data = await getSubdistricts(district);
-        setSubdistricts(data || []);
-      } catch (error) {
-        console.error("Failed to fetch subdistricts:", error);
-        setSubdistricts([]);
-      }
-    };
-
-    fetchSubdistricts();
-  }, [district]);
-
-  // ดึงข้อมูลหน่วยบริการ
-  useEffect(() => {
-    const fetchHealthServices = async () => {
-      if (!province) {
-        setHealthServices([]);
-        return;
-      }
-
-      try {
-        const params = {
-          province_code: province,
-          ...(district && { district_code: district }),
-          ...(subdistrict && { subdistrict_code: subdistrict }),
-        };
-        const data = await getHealthServices(params);
-        setHealthServices(data || []);
-      } catch (error) {
-        console.error("Failed to fetch health services:", error);
-        setHealthServices([]);
-      }
-    };
-
-    fetchHealthServices();
-  }, [province, district, subdistrict]);
+  // Note: Location data loading is now handled by usePermissionFilters hook
 
   // Helper function เพื่อดึงชื่อผู้ใช้จาก userDataMap
   const getUserName = (external_user_id, fallbackName) => {
@@ -1011,22 +1079,82 @@ const PregnantReportComp = () => {
   // ใช้ข้อมูลจาก API หรือ fallback เป็น mock data
   const dataSource = pregnantData.length > 0 ? pregnantData : ALL_ROWS;
 
-  // Filter rows by tab, year, and keyword
-  const filteredRows = dataSource.filter((row) => {
-    const userName = getUserName(row.external_user_id, row.name);
+  // Filter rows by tab, year, location, and keyword
+  const filteredRows = useMemo(() => {
+    return dataSource.filter((row) => {
+      const userName = getUserName(row.external_user_id, row.name);
 
-    // กรองตามปี (ดึงปีจาก row.date)
-    const rowYear = row.date.match(/\d{4}/)?.[0] || "";
-    const yearMatch = !year || rowYear === year;
+      // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
+      const locationData = row.location_data || {};
 
-    return (
-      row.status === activeTab &&
-      yearMatch &&
-      (userName.includes(keyword) ||
+      // กรองตามเขตสุขภาพ
+      if (zone) {
+        const selectedHealthArea = healthAreas.find(h => h.code === zone);
+        if (selectedHealthArea && selectedHealthArea.provinces) {
+          const provinceInHealthArea = selectedHealthArea.provinces.find(
+            p => p.name_th === locationData.region
+          );
+          if (!provinceInHealthArea) {
+            return false;
+          }
+        }
+      }
+
+      // หาชื่อจังหวัดจาก code ที่เลือก (ใช้ name_th)
+      const selectedProvince = provinces.find(p => p.code === province);
+      const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
+
+      // หาชื่ออำเภอจาก code ที่เลือก (ใช้ name_th)
+      const selectedDistrict = districts.find(d => d.code === district);
+      const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
+
+      // หาชื่อตำบลจาก code ที่เลือก (ใช้ name_th)
+      const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+      const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
+
+      // กรองตาม keyword
+      const keywordMatch = !keyword || (
+        userName.includes(keyword) ||
         row.date.includes(keyword) ||
-        String(row.index).includes(keyword))
-    );
-  });
+        String(row.index).includes(keyword) ||
+        row.citizen_id?.includes(keyword) ||
+        locationData.region?.includes(keyword) ||
+        locationData.city?.includes(keyword) ||
+        locationData.district?.includes(keyword)
+      );
+
+      // Year filtering
+      if (year && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+
+          if (!matchesYear) {
+            return false;
+          }
+        }
+      }
+
+      // Month filtering
+      if (month && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate && !isInMonth(parsedDate, month)) {
+          return false;
+        }
+      }
+
+      return (
+        row.status === activeTab &&
+        provinceMatch &&
+        districtMatch &&
+        subdistrictMatch &&
+        keywordMatch
+      );
+    });
+  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, keyword, healthAreas, provinces, districts, subdistricts, userDataMap]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = filteredRows.slice(
     (page - 1) * itemsPerPage,
@@ -1046,8 +1174,9 @@ const PregnantReportComp = () => {
   }, [filteredRows.length, totalPages, itemsPerPage, page]);
 
   const handleClear = () => {
-    setYear(currentBuddhistYear.toString());
-    setMonth("มิถุนายน");
+    setYearType("fiscal");
+    setYear(String(currentFiscalYear));
+    setMonth("");
     setWeek("สัปดาห์ 4 (22/6/68-30/6/68)");
     setZone("");
     setService("");
@@ -1071,7 +1200,7 @@ const PregnantReportComp = () => {
     const userName = getUserName(selectedRow?.external_user_id, selectedRow?.name);
 
     // ดึงปีจาก created_at ของ evaluation แรก (หรือใช้ปีปัจจุบันถ้าไม่มีข้อมูล)
-    let reportYear = currentBuddhistYear.toString();
+    let reportYear = currentBuddhistYear ? currentBuddhistYear.toString() : new Date().getFullYear() + 543 + "";
     if (userEvaluations.length > 0 && userEvaluations[0].created_at) {
       const date = new Date(userEvaluations[0].created_at);
       reportYear = (date.getFullYear() + 543).toString();
@@ -1134,10 +1263,37 @@ const PregnantReportComp = () => {
         </div>
       </div>
 
+      {/* Loading Location Banner */}
+      {isLoadingLocations && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="flex-1">
+              <p className="font-semibold text-blue-900">กำลังดึงข้อมูลพื้นที่จากพิกัด...</p>
+              <p className="text-sm text-blue-700 mt-1">
+                ระบบกำลังแปลงพิกัด (latitude/longitude) เป็นข้อมูลจังหวัด อำเภอ ตำบล เพื่อให้สามารถกรองข้อมูลได้
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search Form */}
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6 mb-6">
+        {/* Info about location filtering */}
+        {locationDataMap.size > 0 && !isLoadingLocations && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 mb-4">
+            <div className="flex items-start gap-2">
+              <MapPin size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-green-800">
+                <span className="font-semibold">ระบบได้แปลงพิกัดเป็นพื้นที่แล้ว!</span> คุณสามารถกรองข้อมูลตามจังหวัด อำเภอ ตำบล ที่ได้จากพิกัด latitude/longitude ได้เลย ({locationDataMap.size} รายการ)
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Search Type Radio */}
-        <div className="flex flex-wrap items-center gap-4 mb-6 pb-4 border-b border-[#f0ebff]">
+        {/* <div className="flex flex-wrap items-center gap-4 mb-6 pb-4 border-b border-[#f0ebff]">
           <span className="font-semibold text-[#231d37] text-[15px]">
             รูปแบบการค้นหา :
           </span>
@@ -1197,100 +1353,98 @@ const PregnantReportComp = () => {
               ค้นหาแบบรายปีงบประมาณ
             </span>
           </label>
-        </div>
+        </div> */}
 
         {/* Filter Dropdowns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <CustomSelect
-            label="ปี"
+            label="ประเภทปี"
+            placeholder="เลือกประเภทปี"
+            value={yearType}
+            onChange={(e) => setYearType(e.target.value)}
+            options={YEAR_TYPES}
+            icon={Calendar}
+          />
+          <CustomSelect
+            label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
+            placeholder="เลือกปี"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            options={availableYears.map((y) => ({ label: y, value: y }))}
-            placeholder="-- เลือกปี --"
+            options={YEARS}
             icon={Calendar}
           />
           <CustomSelect
             label="เดือน"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS.map((m) => ({ label: m, value: m }))}
+            options={MONTHS}
             placeholder="-- เลือกเดือน --"
             icon={Calendar}
           />
-          <CustomSelect
+          {/* <CustomSelect
             label="สัปดาห์"
             value={week}
             onChange={(e) => setWeek(e.target.value)}
             options={WEEKS.map((w) => ({ label: w, value: w }))}
             placeholder="-- เลือกสัปดาห์ --"
             icon={Calendar}
-          />
+          /> */}
           <CustomSelect
             label="เขตสุขภาพ"
             value={zone}
-            onChange={(e) => setZone(e.target.value)}
-            options={ZONES.map((z) => ({ label: z, value: z }))}
+            onChange={(e) => handleZoneChange(e.target.value)}
+            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             placeholder="-- เลือกเขตสุขภาพ --"
             icon={MapPin}
+            disabled={isLocked('zone')}
           />
           <CustomSelect
             label="จังหวัด"
             value={province}
-            onChange={(e) => {
-              setProvince(e.target.value);
-              setDistrict("");
-              setSubdistrict("");
-              setService("");
-            }}
+            onChange={(e) => handleProvinceChange(e.target.value)}
             options={provinces.map((p) => ({
               label: p.name_th || p.name || "ไม่ระบุ",
               value: String(p.code || p.id || "")
             }))}
             placeholder="-- เลือกจังหวัด --"
             icon={MapPin}
+            disabled={isLocked('province')}
           />
           <CustomSelect
             label="อำเภอ"
             value={district}
-            onChange={(e) => {
-              setDistrict(e.target.value);
-              setSubdistrict("");
-              setService("");
-            }}
+            onChange={(e) => handleDistrictChange(e.target.value)}
             options={districts.map((d) => ({
               label: d.name_th || d.name || "ไม่ระบุ",
               value: String(d.code || d.id || "")
             }))}
             placeholder="-- เลือกอำเภอ --"
             icon={MapPin}
-            disabled={!province}
+            disabled={isLocked('district') || !province}
           />
           <CustomSelect
             label="ตำบล"
             value={subdistrict}
-            onChange={(e) => {
-              setSubdistrict(e.target.value);
-              setService("");
-            }}
+            onChange={(e) => handleSubdistrictChange(e.target.value)}
             options={subdistricts.map((s) => ({
               label: s.name_th || s.name || "ไม่ระบุ",
               value: String(s.code || s.id || "")
             }))}
             placeholder="-- เลือกตำบล --"
             icon={MapPin}
-            disabled={!district}
+            disabled={isLocked('subdistrict') || !district}
           />
           <CustomSelect
             label="หน่วยบริการ"
             value={service}
-            onChange={(e) => setService(e.target.value)}
+            onChange={(e) => handleServiceChange(e.target.value)}
             options={healthServices.map((s) => ({
               label: s.name_th || s.name || s.service_name || "ไม่ระบุ",
               value: String(s.id || s.code || "")
             }))}
             placeholder="-- เลือกหน่วยบริการ --"
             icon={Building2}
-            disabled={!province}
+            disabled={isLocked('service') || !province}
           />
         </div>
 
@@ -1379,6 +1533,9 @@ const PregnantReportComp = () => {
                   ชื่อ-นามสกุล
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
+                  พื้นที่
+                </th>
+                <th className="py-4 px-4 font-semibold text-center">
                   ส่งวันที่
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
@@ -1395,7 +1552,7 @@ const PregnantReportComp = () => {
               {isLoadingData ? (
                 <tr>
                   <td
-                    colSpan={activeTab === "submitted" ? 5 : 4}
+                    colSpan={activeTab === "submitted" ? 6 : 5}
                     className="py-16 text-center"
                   >
                     <div className="flex flex-col items-center gap-3">
@@ -1407,7 +1564,7 @@ const PregnantReportComp = () => {
               ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={activeTab === "submitted" ? 5 : 4}
+                    colSpan={activeTab === "submitted" ? 6 : 5}
                     className="py-12 text-center"
                   >
                     <div className="flex flex-col items-center gap-3">
@@ -1419,6 +1576,8 @@ const PregnantReportComp = () => {
               ) : (
                 paginatedRows.map((row, idx) => {
                   const displayName = getUserName(row.external_user_id, row.name);
+                  const locationData = locationDataMap.get(row.external_user_id);
+
                   return (
                     <tr
                       key={row.index}
@@ -1434,6 +1593,29 @@ const PregnantReportComp = () => {
                           <span className="text-gray-400">กำลังโหลด...</span>
                         ) : (
                           displayName
+                        )}
+                      </td>
+                      <td className="py-4 px-4 text-center text-sm text-gray-600">
+                        {isLoadingLocations ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                            <span className="text-xs text-gray-400">กำลังดึงพื้นที่...</span>
+                          </div>
+                        ) : locationData ? (
+                          <div className="flex flex-col items-center">
+                            <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">
+                              <MapPin size={12} />
+                              <span>{locationData.province || "ไม่ระบุจังหวัด"}</span>
+                            </div>
+                            {locationData.district && (
+                              <span className="text-xs text-gray-500 mt-1">
+                                {locationData.district}
+                                {locationData.subdistrict ? `, ${locationData.subdistrict}` : ""}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">ไม่มีข้อมูลพิกัด</span>
                         )}
                       </td>
                       <td className="py-4 px-4 text-center text-gray-600">

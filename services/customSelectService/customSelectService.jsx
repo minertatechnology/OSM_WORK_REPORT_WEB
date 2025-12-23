@@ -26,7 +26,9 @@ function CustomSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     // ป้องกัน hydration error โดยตรวจสอบว่าอยู่ฝั่ง client
@@ -36,15 +38,33 @@ function CustomSelect({
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
         setHighlightedIndex(-1);
+        setSearchTerm("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Focus input when dropdown opens
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Filter options based on search term
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const term = searchTerm.toLowerCase();
+    return options.filter(opt => {
+      const label = String(opt.label ?? opt).toLowerCase();
+      return label.includes(term);
+    });
+  }, [options, searchTerm]);
+
   const display = useMemo(() => {
     const found = options.find((opt) => (opt.value ?? opt) === value);
-    return (found && (found.label ?? found)) || "";
+    return found ? String(found.label ?? found) : "";
   }, [options, value]);
 
   const cleanPlaceholder = useMemo(() => {
@@ -57,18 +77,23 @@ function CustomSelect({
     if (disabled) return;
     setIsOpen((v) => !v);
     setHighlightedIndex(-1);
+    if (!isOpen) {
+      setSearchTerm("");
+    }
   };
 
   const handleSelect = (option) => {
     onChange({ target: { value: option.value ?? option } });
     setIsOpen(false);
     setHighlightedIndex(-1);
+    setSearchTerm("");
   };
 
   const handleClear = (event) => {
     event.stopPropagation();
     onChange({ target: { value: "" } });
     setIsOpen(false);
+    setSearchTerm("");
   };
 
   const handleKeyDown = (event) => {
@@ -88,22 +113,23 @@ function CustomSelect({
       case "Escape":
         setIsOpen(false);
         setHighlightedIndex(-1);
+        setSearchTerm("");
         break;
       case "ArrowDown":
         event.preventDefault();
         setHighlightedIndex((prev) =>
-          prev < options.length - 1 ? prev + 1 : 0
+          prev < filteredOptions.length - 1 ? prev + 1 : 0
         );
         break;
       case "ArrowUp":
         event.preventDefault();
         setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : options.length - 1
+          prev > 0 ? prev - 1 : filteredOptions.length - 1
         );
         break;
       case "Enter":
         event.preventDefault();
-        if (highlightedIndex >= 0) handleSelect(options[highlightedIndex]);
+        if (highlightedIndex >= 0) handleSelect(filteredOptions[highlightedIndex]);
         break;
       default:
         break;
@@ -172,38 +198,63 @@ function CustomSelect({
         </div>
       </div>
       {isOpen && !disabled && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white rounded-xl border-2 border-purple-200 shadow-xl max-h-64 overflow-auto">
-          <ul role="listbox">
-            <li
-              className={`px-4 py-3 cursor-pointer transition-colors ${
-                !value
-                  ? "bg-purple-50 text-[#7e32e2] font-semibold"
-                  : "hover:bg-purple-50 text-gray-700"
-              }`}
-              onClick={() => handleSelect({ value: "" })}
-              role="option"
-            >
-              {cleanPlaceholder}
-            </li>
-            {options.map((option, index) => (
+        <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white rounded-xl border-2 border-purple-200 shadow-xl">
+          {/* Search input */}
+          <div className="p-2 border-b border-purple-100 sticky top-0 bg-white">
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setHighlightedIndex(-1);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="พิมพ์เพื่อค้นหา..."
+              className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 text-sm"
+            />
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-56 overflow-auto">
+            <ul role="listbox">
               <li
-                key={option.value || option.label || option}
                 className={`px-4 py-3 cursor-pointer transition-colors ${
-                  value === (option.value ?? option)
-                    ? "bg-gradient-to-r from-purple-100 to-violet-100 text-[#7e32e2] font-semibold border-l-4 border-[#7e32e2]"
-                    : highlightedIndex === index
-                    ? "bg-purple-50 text-gray-700"
+                  !value
+                    ? "bg-purple-50 text-[#7e32e2] font-semibold"
                     : "hover:bg-purple-50 text-gray-700"
                 }`}
-                onClick={() => handleSelect(option)}
+                onClick={() => handleSelect({ value: "" })}
                 role="option"
-                aria-selected={value === (option.value ?? option)}
-                onMouseEnter={() => setHighlightedIndex(index)}
               >
-                {option.label ?? option}
+                {cleanPlaceholder}
               </li>
-            ))}
-          </ul>
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option, index) => (
+                  <li
+                    key={option.value || option.label || option}
+                    className={`px-4 py-3 cursor-pointer transition-colors ${
+                      value === (option.value ?? option)
+                        ? "bg-gradient-to-r from-purple-100 to-violet-100 text-[#7e32e2] font-semibold border-l-4 border-[#7e32e2]"
+                        : highlightedIndex === index
+                        ? "bg-purple-50 text-gray-700"
+                        : "hover:bg-purple-50 text-gray-700"
+                    }`}
+                    onClick={() => handleSelect(option)}
+                    role="option"
+                    aria-selected={value === (option.value ?? option)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                  >
+                    {String(option.label ?? option)}
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-3 text-gray-400 text-center">
+                  ไม่พบข้อมูล
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
       )}
     </div>

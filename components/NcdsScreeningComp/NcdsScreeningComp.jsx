@@ -12,9 +12,7 @@ import {
   Calendar,
   MapPin,
   Building2,
-  Home,
   Heart,
-  UserCheck,
   RotateCcw,
   FileText,
 } from "lucide-react";
@@ -25,29 +23,40 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import NcdsScreeningDetail from "./NcdsScreeningDetail/NcdsScreeningDetail";
+// Lookup services now handled by usePermissionFilters hook
+import {
+  getCurrentFiscalYear,
+  getCurrentCalendarYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+  isInMonth
+} from "@utils/fiscalYearHelper";
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
 
 // Mock Data
-const YEARS = ["2568", "2567", "2566"];
 const MONTHS = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
 ];
 const WEEKS = ["สัปดาห์ 4 (23/6/68-27/6/68)", "สัปดาห์ 3 (16/6/68-22/6/68)"];
-const ZONES = Array.from({ length: 13 }, (_, i) => `เขตสุขภาพที่ ${i + 1}`);
-const PROVINCES = ["เชียงใหม่", "กรุงเทพฯ", "อุดรธานี", "นครราชสีมา", "ชลบุรี"];
-const DISTRICTS = ["เมือง", "สันทราย", "บางนา", "พระประแดง"];
-const SUBDISTRICTS = ["ท่าศาลา", "หนองจ๊อม", "บางแก้ว", "บางครุ"];
-const SERVICES = ["รพ.เชียงใหม่", "รพ.สันทราย", "รพ.บางนา", "รพ.พระประแดง"];
+
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
+];
 
 // Table mock (100 rows)
 const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
@@ -605,17 +614,50 @@ function PaginationWithPerPage({
 const NcdsScreeningComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const detailId = searchParams.get("detail");
+
+  // ใช้ state เพื่อหลีกเลี่ยง hydration mismatch
+  const [detailId, setDetailId] = useState(null);
+  const [currentBuddhistYear, setCurrentBuddhistYear] = useState(null);
+
+  // โหลด searchParams และปีปัจจุบันหลัง hydration เสร็จ
+  useEffect(() => {
+    setDetailId(searchParams.get("detail"));
+    setCurrentBuddhistYear(new Date().getFullYear() + 543);
+  }, [searchParams]);
+
+  const currentFiscalYear = getCurrentFiscalYear();
+
+  // Use permission-based filters
+  const { isLocked } = useUserPermission();
+  const {
+    yearType,
+    year,
+    month,
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    setYearType,
+    setYear,
+    setMonth,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+  } = usePermissionFilters({
+    defaultYear: String(currentFiscalYear),
+    defaultYearType: "fiscal",
+  });
 
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("มิถุนายน");
   const [week, setWeek] = useState("สัปดาห์ 4 (23/6/68-27/6/68)");
-  const [zone, setZone] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
-  const [service, setService] = useState("");
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -625,6 +667,19 @@ const NcdsScreeningComp = () => {
   // State สำหรับเก็บข้อมูลจาก API
   const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [availableYears, setAvailableYears] = useState([]);
+
+  // Note: Location data loading is handled by usePermissionFilters hook
+
+  // Set ปีเริ่มต้นหลัง currentBuddhistYear โหลดเสร็จ
+  useEffect(() => {
+    if (currentBuddhistYear && !year) {
+      setYear(currentBuddhistYear.toString());
+      if (availableYears.length === 0) {
+        setAvailableYears([currentBuddhistYear.toString()]);
+      }
+    }
+  }, [currentBuddhistYear, year, availableYears.length]);
 
   // ดึงข้อมูลจาก API
   useEffect(() => {
@@ -640,10 +695,24 @@ const NcdsScreeningComp = () => {
           id: item.id,
           name: `${item.prefix}${item.first_name} ${item.last_name}`,
           date: formatThaiDate(item.assessment_date),
+          _thaiDate: formatThaiDate(item.assessment_date), // เก็บวันที่ไทยสำหรับการกรอง
           rawData: item, // เก็บข้อมูลดิบไว้ใช้ในหน้ารายละเอียด
+          location_data: item.location_data || {}, // เก็บข้อมูล location
         }));
 
         setAllRows(transformedData);
+
+        // สร้างรายการปีจากข้อมูล
+        const yearsSet = new Set();
+        data.forEach(item => {
+          if (item.assessment_date) {
+            const date = new Date(item.assessment_date);
+            const buddhistYear = date.getFullYear() + 543;
+            yearsSet.add(buddhistYear.toString());
+          }
+        });
+        const yearsList = Array.from(yearsSet).sort((a, b) => b - a);
+        setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear?.toString() || "2568"]);
       } catch (error) {
         console.error("Failed to fetch NCD screening data:", error);
         setAllRows([]);
@@ -653,7 +722,9 @@ const NcdsScreeningComp = () => {
     };
 
     fetchData();
-  }, []);
+  }, [currentBuddhistYear]);
+
+  // Note: Location data loading is now handled by usePermissionFilters hook
 
   // ฟังก์ชันแปลงวันที่เป็นภาษาไทย
   const formatThaiDate = (dateString) => {
@@ -669,16 +740,72 @@ const NcdsScreeningComp = () => {
     return `${day} ${month} ${year}`;
   };
 
-  const filteredRows = useMemo(
-    () =>
-      allRows.filter(
-        (row) =>
-          row.name.includes(keyword) ||
-          row.date.includes(keyword) ||
-          String(row.index).includes(keyword)
-      ),
-    [keyword, allRows]
-  );
+  const filteredRows = useMemo(() => {
+    return allRows.filter((row) => {
+      // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
+      const locationData = row.location_data || {};
+
+      // กรองตามเขตสุขภาพ
+      if (zone) {
+        const selectedHealthArea = healthAreas.find(h => h.code === zone);
+        if (selectedHealthArea && selectedHealthArea.provinces) {
+          const provinceInHealthArea = selectedHealthArea.provinces.find(
+            p => p.name_th === locationData.region
+          );
+          if (!provinceInHealthArea) {
+            return false;
+          }
+        }
+      }
+
+      // หาชื่อจังหวัดจาก code ที่เลือก (ใช้ name_th)
+      const selectedProvince = provinces.find(p => p.code === province);
+      const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
+
+      // หาชื่ออำเภอจาก code ที่เลือก (ใช้ name_th)
+      const selectedDistrict = districts.find(d => d.code === district);
+      const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
+
+      // หาชื่อตำบลจาก code ที่เลือก (ใช้ name_th)
+      const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+      const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
+
+      // กรองตาม keyword
+      const keywordMatch = !keyword || (
+        row.name.includes(keyword) ||
+        row.date.includes(keyword) ||
+        String(row.index).includes(keyword) ||
+        locationData.region?.includes(keyword) ||
+        locationData.city?.includes(keyword) ||
+        locationData.district?.includes(keyword)
+      );
+
+      // Year filtering
+      if (year && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+
+          if (!matchesYear) {
+            return false;
+          }
+        }
+      }
+
+      // Month filtering
+      if (month && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate && !isInMonth(parsedDate, month)) {
+          return false;
+        }
+      }
+
+      return provinceMatch && districtMatch && subdistrictMatch && keywordMatch;
+    });
+  }, [keyword, allRows, year, yearType, month, zone, province, district, subdistrict, healthAreas, provinces, districts, subdistricts]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -697,8 +824,9 @@ const NcdsScreeningComp = () => {
   );
 
   const handleClear = () => {
-    setYear("2568");
-    setMonth("มิถุนายน");
+    setYearType("fiscal");
+    setYear(String(currentFiscalYear));
+    setMonth("");
     setWeek("สัปดาห์ 4 (23/6/68-27/6/68)");
     setZone("");
     setService("");
@@ -771,7 +899,7 @@ const NcdsScreeningComp = () => {
       </div>
 
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6">
-        <div className="mb-4 flex flex-wrap gap-2">
+        {/* <div className="mb-4 flex flex-wrap gap-2">
           {searchModes.map((mode) => (
             <button
               key={mode.key}
@@ -785,25 +913,36 @@ const NcdsScreeningComp = () => {
               {mode.label}
             </button>
           ))}
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <CustomSelect
-            label="ปี"
+            label="ประเภทปี"
+            placeholder="เลือกประเภทปี"
+            value={yearType}
+            onChange={(e) => setYearType(e.target.value)}
+            options={YEAR_TYPES}
+            icon={Calendar}
+          />
+          <CustomSelect
+            label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
+            placeholder="เลือกปี"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            options={YEARS.map((y) => ({ label: y, value: y }))}
-            placeholder="-- เลือกปี --"
+            options={generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear)}
             icon={Calendar}
           />
           <CustomSelect
             label="เดือน"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS.map((m) => ({ label: m, value: m }))}
+            options={MONTHS}
             placeholder="-- เลือกเดือน --"
             icon={Calendar}
           />
+        </div>
+
+        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <CustomSelect
             label="สัปดาห์"
             value={week}
@@ -812,48 +951,65 @@ const NcdsScreeningComp = () => {
             placeholder="-- เลือกสัปดาห์ --"
             icon={Calendar}
           />
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <CustomSelect
             label="เขตสุขภาพ"
             value={zone}
-            onChange={(e) => setZone(e.target.value)}
-            options={ZONES.map((z) => ({ label: z, value: z }))}
+            onChange={(e) => handleZoneChange(e.target.value)}
+            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             placeholder="-- เลือกเขตสุขภาพ --"
             icon={MapPin}
+            disabled={isLocked('zone')}
           />
           <CustomSelect
             label="จังหวัด"
             value={province}
-            onChange={(e) => setProvince(e.target.value)}
-            options={PROVINCES.map((p) => ({ label: p, value: p }))}
+            onChange={(e) => handleProvinceChange(e.target.value)}
+            options={provinces.map((p) => ({
+              label: p.name_th || p.name || "ไม่ระบุ",
+              value: String(p.code || p.id || "")
+            }))}
             placeholder="-- เลือกจังหวัด --"
-            icon={Building2}
+            icon={MapPin}
+            disabled={isLocked('province')}
           />
           <CustomSelect
             label="อำเภอ"
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            options={DISTRICTS.map((d) => ({ label: d, value: d }))}
+            onChange={(e) => handleDistrictChange(e.target.value)}
+            options={districts.map((d) => ({
+              label: d.name_th || d.name || "ไม่ระบุ",
+              value: String(d.code || d.id || "")
+            }))}
             placeholder="-- เลือกอำเภอ --"
-            icon={Building2}
+            icon={MapPin}
+            disabled={isLocked('district') || !province}
           />
           <CustomSelect
             label="ตำบล"
             value={subdistrict}
-            onChange={(e) => setSubdistrict(e.target.value)}
-            options={SUBDISTRICTS.map((s) => ({ label: s, value: s }))}
+            onChange={(e) => handleSubdistrictChange(e.target.value)}
+            options={subdistricts.map((s) => ({
+              label: s.name_th || s.name || "ไม่ระบุ",
+              value: String(s.code || s.id || "")
+            }))}
             placeholder="-- เลือกตำบล --"
-            icon={Home}
+            icon={MapPin}
+            disabled={isLocked('subdistrict') || !district}
           />
           <CustomSelect
             label="หน่วยบริการ"
             value={service}
-            onChange={(e) => setService(e.target.value)}
-            options={SERVICES.map((s) => ({ label: s, value: s }))}
+            onChange={(e) => handleServiceChange(e.target.value)}
+            options={healthServices.map((s) => ({
+              label: s.name_th || s.name || s.service_name || "ไม่ระบุ",
+              value: String(s.id || s.code || "")
+            }))}
             placeholder="-- เลือกหน่วยบริการ --"
-            icon={UserCheck}
+            icon={Building2}
+            disabled={isLocked('service') || !province}
           />
         </div>
 

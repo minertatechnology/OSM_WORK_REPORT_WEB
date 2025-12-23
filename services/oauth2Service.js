@@ -124,10 +124,11 @@ export const getUserByExternalId = async (externalUserId) => {
 
     return userData;
   } catch (error) {
-    // ถ้าไม่พบข้อมูลจาก /osm/{externalUserId} ให้ลองเรียก /officer/{externalUserId}
-    if (error.response?.status === 404) {
+    // ถ้าไม่พบข้อมูลจาก /osm/{externalUserId} หรือ 403 Forbidden ให้ลองเรียก /officer/{externalUserId}
+    if (error.response?.status === 404 || error.response?.status === 403) {
       try {
-        console.log(`⚠️ User not found in /osm, trying /officer/${externalUserId}`);
+        const errorType = error.response?.status === 404 ? 'not found' : 'forbidden';
+        console.log(`⚠️ User ${errorType} in /osm (${error.response?.status}), trying /officer/${externalUserId}`);
         const officerResponse = await oauth2Api.get(`/officer/${externalUserId}`);
 
         if (officerResponse.data && officerResponse.data.data) {
@@ -174,9 +175,9 @@ export const getUserByExternalId = async (externalUserId) => {
         });
       }
     } else {
-      // Log error สำหรับกรณีที่ไม่ใช่ 404
-      console.error(`❌ Failed to fetch user ${externalUserId}:`, error);
-      console.error(`❌ Error details:`, {
+      // Log error สำหรับกรณีที่ไม่ใช่ 404 หรือ 403
+      // ใช้ console.warn แทน console.error เพราะระบบมี fallback
+      console.warn(`⚠️ Failed to fetch user ${externalUserId}:`, {
         status: error.response?.status,
         message: error.response?.data?.message || error.message,
         url: error.config?.url,

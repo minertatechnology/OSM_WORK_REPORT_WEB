@@ -1,44 +1,18 @@
 import React, { useState, useEffect } from "react";
 import InputService from "@services/inputService/inputService";
 import ButtonService from "@services/buttonService/buttonService";
+import {
+  getHealthAreas,
+  getProvinces,
+  getDistricts,
+  getSubdistricts,
+} from "@services/lookupService";
 
 const purple = "#9327e2";
 const border = "#c9b7f7";
 const text_gray = "#231d37";
 const gray_placeholder = "#b3b3b3";
 const red = "#ff4158";
-
-const healthZones = [
-  { value: "", label: "เลือกเขตสุขภาพ" },
-  { value: "all", label: "ทั้งหมด" },
-  { value: "zone1", label: "เขต 1" },
-  { value: "zone2", label: "เขต 2" },
-];
-
-const provinces = [
-  { value: "", label: "เลือกจังหวัด" },
-  { value: "all", label: "ทั้งหมด" },
-  { value: "เชียงใหม่", label: "เชียงใหม่" },
-  { value: "กรุงเทพ", label: "กรุงเทพ" },
-];
-
-const amphurs = [
-  { value: "", label: "เลือกอำเภอ" },
-  { value: "all", label: "ทั้งหมด" },
-  { value: "เมือง", label: "เมือง" },
-];
-
-const subdistricts = [
-  { value: "", label: "เลือกตำบล" },
-  { value: "all", label: "ทั้งหมด" },
-  { value: "บางรัก", label: "บางรัก" },
-];
-
-const hospitals = [
-  { value: "", label: "เลือก รพ.สต." },
-  { value: "all", label: "ทั้งหมด" },
-  { value: "รพ.สต.1", label: "รพ.สต.1" },
-];
 
 const getRoleType = (auth) => {
   if (!auth || !auth.roles || !auth.roles.length) return "sobos";
@@ -48,7 +22,6 @@ const getRoleType = (auth) => {
   if (role === "จังหวัด") return "province";
   if (role === "อำเภอ") return "district";
   if (role === "ตำบล") return "subdistrict";
-  if (role === "รพสต.") return "hospital";
   return "sobos";
 };
 
@@ -59,9 +32,51 @@ function getStyledOptions(options) {
   }));
 }
 
+function normalizeLookupItems(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw?.items)) return raw.items;
+  if (Array.isArray(raw?.data?.items)) return raw.data.items;
+  if (Array.isArray(raw?.data)) return raw.data;
+  return [];
+}
+
+function buildLookupOptions(raw, placeholder) {
+  const items = normalizeLookupItems(raw);
+  const mapped = items
+    .map(item => ({
+      value:
+        item?.code ||
+        item?.id ||
+        item?.value ||
+        item?.province_code ||
+        item?.district_code ||
+        item?.subdistrict_code ||
+        "",
+      label:
+        item?.name_th ||
+        item?.name ||
+        item?.label ||
+        item?.title ||
+        item?.province_name_th ||
+        item?.province_name ||
+        item?.district_name_th ||
+        item?.district_name ||
+        item?.subdistrict_name_th ||
+        item?.subdistrict_name ||
+        "",
+    }))
+    .filter(opt => opt.value && opt.label);
+
+  return [
+    { value: "", label: placeholder },
+    { value: "all", label: "ทั้งหมด" },
+    ...mapped,
+  ];
+}
+
 function getInitialState(auth) {
   const roleType = getRoleType(auth);
-  let healthZone = "", province = "", amphur = "", subdistrict = "", hospital = "";
+  let healthZone = "", province = "", amphur = "", subdistrict = "";
   if (auth) {
     if (roleType === "zone") healthZone = auth.zone || "";
     if (roleType === "province") {
@@ -79,20 +94,12 @@ function getInitialState(auth) {
       amphur = auth.amphur || "";
       subdistrict = auth.subdistrict || "";
     }
-    if (roleType === "hospital") {
-      healthZone = auth.zone || "";
-      province = auth.province || "";
-      amphur = auth.amphur || "";
-      subdistrict = auth.subdistrict || "";
-      hospital = auth.hospital || "";
-    }
   }
   return {
     healthZone,
     province,
     amphur,
     subdistrict,
-    hospital,
     title: "",
     detail: "",
     validate: false,
@@ -115,7 +122,6 @@ export default function NewsAddPopup({
       province: data.province || "",
       amphur: data.amphur || "",
       subdistrict: data.subdistrict || "",
-      hospital: data.hospital || "",
       title: data.title || "",
       detail: data.detail || "",
       validate: false,
@@ -123,6 +129,87 @@ export default function NewsAddPopup({
     : getInitialState(auth)
   );
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // States สำหรับข้อมูลจาก API
+  const [healthZones, setHealthZones] = useState([{ value: "", label: "เลือกเขตสุขภาพ" }, { value: "all", label: "ทั้งหมด" }]);
+  const [provinces, setProvinces] = useState([{ value: "", label: "เลือกจังหวัด" }, { value: "all", label: "ทั้งหมด" }]);
+  const [amphurs, setAmphurs] = useState([{ value: "", label: "เลือกอำเภอ" }, { value: "all", label: "ทั้งหมด" }]);
+  const [subdistricts, setSubdistricts] = useState([{ value: "", label: "เลือกตำบล" }, { value: "all", label: "ทั้งหมด" }]);
+
+  // Loading states
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingAmphurs, setLoadingAmphurs] = useState(false);
+  const [loadingSubdistricts, setLoadingSubdistricts] = useState(false);
+
+  // โหลดข้อมูล Health Areas และ Provinces เมื่อ component mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        // โหลดเขตสุขภาพ
+        const healthAreasData = await getHealthAreas({ limit: 100 });
+        setHealthZones(buildLookupOptions(healthAreasData, "เลือกเขตสุขภาพ"));
+
+        // โหลดจังหวัด
+        setLoadingProvinces(true);
+        const provincesData = await getProvinces({ limit: 100 });
+        setProvinces(buildLookupOptions(provincesData, "เลือกจังหวัด"));
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+
+    if (open) {
+      loadInitialData();
+    }
+  }, [open]);
+
+  // โหลดอำเภอเมื่อเลือกจังหวัด
+  useEffect(() => {
+    const loadAmphurs = async () => {
+      if (!province || province === "" || province === "all") {
+        setAmphurs([{ value: "", label: "เลือกอำเภอ" }, { value: "all", label: "ทั้งหมด" }]);
+        return;
+      }
+
+      try {
+        setLoadingAmphurs(true);
+        const amphursData = await getDistricts(province);
+        setAmphurs(buildLookupOptions(amphursData, "เลือกอำเภอ"));
+      } catch (error) {
+        console.error("Failed to load amphurs:", error);
+        setAmphurs([{ value: "", label: "เลือกอำเภอ" }, { value: "all", label: "ทั้งหมด" }]);
+      } finally {
+        setLoadingAmphurs(false);
+      }
+    };
+
+    loadAmphurs();
+  }, [form.province]);
+
+  // โหลดตำบลเมื่อเลือกอำเภอ
+  useEffect(() => {
+    const loadSubdistricts = async () => {
+      if (!amphur || amphur === "" || amphur === "all") {
+        setSubdistricts([{ value: "", label: "เลือกตำบล" }, { value: "all", label: "ทั้งหมด" }]);
+        return;
+      }
+
+      try {
+        setLoadingSubdistricts(true);
+        const subdistrictsData = await getSubdistricts(amphur);
+        setSubdistricts(buildLookupOptions(subdistrictsData, "เลือกตำบล"));
+      } catch (error) {
+        console.error("Failed to load subdistricts:", error);
+        setSubdistricts([{ value: "", label: "เลือกตำบล" }, { value: "all", label: "ทั้งหมด" }]);
+      } finally {
+        setLoadingSubdistricts(false);
+      }
+    };
+
+    loadSubdistricts();
+  }, [form.amphur]);
 
   useEffect(() => {
     setRoleType(getRoleType(auth));
@@ -132,7 +219,6 @@ export default function NewsAddPopup({
         province: data.province || "",
         amphur: data.amphur || "",
         subdistrict: data.subdistrict || "",
-        hospital: data.hospital || "",
         title: data.title || "",
         detail: data.detail || "",
         validate: false,
@@ -148,7 +234,6 @@ export default function NewsAddPopup({
     province,
     amphur,
     subdistrict,
-    hospital,
     title,
     detail,
     validate,
@@ -162,28 +247,21 @@ export default function NewsAddPopup({
 
   const isDisableProvince =
     forceDisableAll ||
-    ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType) ||
+    ["zone", "province", "district", "subdistrict"].includes(roleType) ||
     (isSobos && isHealthZoneNotSelected);
 
   const isDisableAmphur =
     forceDisableAll ||
-    ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType) ||
+    ["zone", "province", "district", "subdistrict"].includes(roleType) ||
     !province ||
     province === "all" ||
     (isSobos && isHealthZoneNotSelected);
 
   const isDisableSubdistrict =
     forceDisableAll ||
-    ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType) ||
+    ["zone", "province", "district", "subdistrict"].includes(roleType) ||
     !amphur ||
     amphur === "all" ||
-    (isSobos && isHealthZoneNotSelected);
-
-  const isDisableHospital =
-    forceDisableAll ||
-    ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType) ||
-    !subdistrict ||
-    subdistrict === "all" ||
     (isSobos && isHealthZoneNotSelected);
 
   const isDisableTitle = forceDisableAll || (isSobos && isHealthZoneNotSelected);
@@ -195,14 +273,12 @@ export default function NewsAddPopup({
   const isRequiredProvince = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
   const isRequiredAmphur = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
   const isRequiredSubdistrict = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
-  const isRequiredHospital = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
   const isRequiredTitle = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
 
   // error สีแดง (เฉพาะโหมดเพิ่ม)
   const errorProvince = !allDisabled && validate && (!province || province === "");
   const errorAmphur = !allDisabled && validate && (!amphur || amphur === "");
   const errorSubdistrict = !allDisabled && validate && (!subdistrict || subdistrict === "");
-  const errorHospital = !allDisabled && validate && (!hospital || hospital === "");
   const errorTitle = !allDisabled && validate && (!title || title === "");
 
   // สี label
@@ -225,9 +301,8 @@ export default function NewsAddPopup({
     if (province === "all") return true;
     if (amphur === "all") return true;
     if (subdistrict === "all") return true;
-    if (hospital === "all") return true;
     if (
-      [healthZone, province, amphur, subdistrict, hospital, title].every(
+      [healthZone, province, amphur, subdistrict, title].every(
         v => v && v !== ""
       )
     ) {
@@ -249,7 +324,7 @@ export default function NewsAddPopup({
     if (!isCanSubmit()) {
       return;
     }
-    if (onSubmit) onSubmit({ healthZone, province, amphur, subdistrict, hospital, title, detail });
+    if (onSubmit) onSubmit({ healthZone, province, amphur, subdistrict, title, detail });
     setTimeout(() => {
       setForm(getInitialState(auth));
       setRoleType(getRoleType(auth));
@@ -406,7 +481,7 @@ export default function NewsAddPopup({
           <div style={{ gridColumn: "1 / 3" }}>
             <div style={{
               fontWeight: 600, fontSize: 16, marginBottom: 6,
-              color: labelColor(healthZone, allDisabled || ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType), false)
+              color: labelColor(healthZone, allDisabled || ["zone", "province", "district", "subdistrict"].includes(roleType), false)
             }}>
               เขตสุขภาพ
             </div>
@@ -415,10 +490,10 @@ export default function NewsAddPopup({
               options={getStyledOptions(healthZones)}
               value={healthZone}
               onChange={e => !allDisabled && setForm(f => ({ ...f, healthZone: e.value || e.target.value }))}
-              disabled={allDisabled || ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType)}
+              disabled={allDisabled || ["zone", "province", "district", "subdistrict"].includes(roleType)}
               style={{
                 width: "100%",
-                border: inputBorder(healthZone, allDisabled || ["zone", "province", "district", "subdistrict", "hospital"].includes(roleType), false),
+                border: inputBorder(healthZone, allDisabled || ["zone", "province", "district", "subdistrict"].includes(roleType), false),
                 borderRadius: 10,
                 fontSize: 17,
                 padding: "12px 20px",
@@ -508,34 +583,6 @@ export default function NewsAddPopup({
                 padding: "12px 20px",
                 fontWeight: 500,
                 color: (!subdistrict || subdistrict === "") ? gray_placeholder : text_gray,
-                background: "#f6f2ff",
-                transition: "border-color .2s"
-              }}
-            />
-          </div>
-          {/* รพ.สต. */}
-          <div>
-            <div style={{
-              fontWeight: 600, fontSize: 16, marginBottom: 6,
-              color: labelColor(hospital, allDisabled || isDisableHospital, errorHospital)
-            }}>
-              รพ.สต. {errorHospital && <span style={{ color: red, fontSize: 13 }}> * ต้องกรอก</span>}
-            </div>
-            <InputService
-              type="select"
-              options={getStyledOptions(hospitals)}
-              value={hospital}
-              onChange={e => !allDisabled && setForm(f => ({ ...f, hospital: e.value || e.target.value }))}
-              disabled={allDisabled || isDisableHospital}
-              required={isRequiredHospital}
-              style={{
-                width: "100%",
-                border: inputBorder(hospital, allDisabled || isDisableHospital, errorHospital),
-                borderRadius: 10,
-                fontSize: 17,
-                padding: "12px 20px",
-                fontWeight: 500,
-                color: (!hospital || hospital === "") ? gray_placeholder : text_gray,
                 background: "#f6f2ff",
                 transition: "border-color .2s"
               }}

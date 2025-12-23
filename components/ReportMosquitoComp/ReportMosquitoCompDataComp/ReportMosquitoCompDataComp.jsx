@@ -32,12 +32,29 @@ import {
 import oauth2Service from "@services/oauth2Service";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ArrowLeft } from "lucide-react";
+// Lookup services now handled by usePermissionFilters hook
+import {
+  getCurrentFiscalYear,
+  getCurrentCalendarYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+  isInMonth,
+  isInWeekOfMonth,
+  generateWeekOptionsForMonth
+} from "@utils/fiscalYearHelper";
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
 
-// Mock data
-const YEARS = [
-  { label: "2568", value: "2568" },
-  { label: "2567", value: "2567" },
-  { label: "2566", value: "2566" },
+// Generate dynamic year options (last 5 years)
+const currentFiscalYear = getCurrentFiscalYear();
+const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
+
+// Year type options
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
 ];
 const MONTHS = [
   { label: "มกราคม", value: "01" },
@@ -52,36 +69,6 @@ const MONTHS = [
   { label: "ตุลาคม", value: "10" },
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
-];
-const WEEKS = [
-  { label: "สัปดาห์ 1 (1/6/68 - 7/6/68)", value: "1" },
-  { label: "สัปดาห์ 2 (8/6/68 - 14/6/68)", value: "2" },
-  { label: "สัปดาห์ 3 (15/6/68 - 21/6/68)", value: "3" },
-  { label: "สัปดาห์ 4 (22/6/68 - 30/6/68)", value: "4" },
-];
-const ZONES = Array.from({ length: 13 }, (_, i) => ({
-  label: `เขตสุขภาพ ${i + 1}`,
-  value: `${i + 1}`,
-}));
-const PROVINCES = [
-  { label: "นครราชสีมา", value: "นครราชสีมา" },
-  { label: "ชัยภูมิ", value: "ชัยภูมิ" },
-  { label: "บุรีรัมย์", value: "บุรีรัมย์" },
-];
-const DISTRICTS = [
-  { label: "เมือง", value: "เมือง" },
-  { label: "ปากช่อง", value: "ปากช่อง" },
-  { label: "โนนสูง", value: "โนนสูง" },
-];
-const SUBDISTRICTS = [
-  { label: "ในเมือง", value: "ในเมือง" },
-  { label: "หนองสาหร่าย", value: "หนองสาหร่าย" },
-  { label: "โนนไทย", value: "โนนไทย" },
-];
-const SERVICES = [
-  { label: "รพ.นครราชสีมา", value: "รพ.นครราชสีมา" },
-  { label: "รพ.ปากช่อง", value: "รพ.ปากช่อง" },
-  { label: "รพ.สต.โนนไทย", value: "รพ.สต.โนนไทย" },
 ];
 
 const MOCK_REPORTS = [
@@ -759,14 +746,43 @@ const ReportMosquitoCompDataComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("06");
-  const [week, setWeek] = useState("1");
-  const [zone, setZone] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
-  const [service, setService] = useState("");
+  // Use permission-based filters
+  const { isLocked } = useUserPermission();
+  const {
+    yearType,
+    year,
+    month,
+    week,
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    setYearType,
+    setYear,
+    setMonth,
+    setWeek,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+  } = usePermissionFilters({
+    defaultYear: String(currentFiscalYear),
+    defaultYearType: "fiscal",
+    includeWeek: true, // Enable week filtering for this component
+  });
+
+  // Generate dynamic week options based on selected year and month
+  const WEEKS = useMemo(() => {
+    return generateWeekOptionsForMonth(parseInt(year), parseInt(month));
+  }, [year, month]);
+
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -781,6 +797,8 @@ const ReportMosquitoCompDataComp = () => {
   // Get current view from URL params
   const userId = searchParams.get("user_id");
   const householdId = searchParams.get("household_id");
+
+  // Note: Location data loading is handled by usePermissionFilters hook
 
   // Fetch data based on current view
   useEffect(() => {
@@ -806,10 +824,17 @@ const ReportMosquitoCompDataComp = () => {
 
         // View 2: Household list for specific user
         if (userId) {
-          // ดึงข้อมูลผู้ใช้
+          // ดึงข้อมูลผู้ใช้ (อสม.)
           const users = await oauth2Service.getBatch([userId]);
           const userData = users.get(userId);
           setSelectedUserName(userData?.name || "ไม่ระบุชื่อ");
+
+          console.log("👤 User data (อสม.):", {
+            name: userData?.name,
+            province: userData?.province_name_th,
+            district: userData?.district_name_th,
+            subdistrict: userData?.subdistrict_name_th
+          });
 
           // กรองข้อมูล reports ของ user นี้
           const userReports = data.filter(
@@ -828,7 +853,7 @@ const ReportMosquitoCompDataComp = () => {
 
             // ถ้ายังไม่มี หรือ report นี้ใหม่กว่า ให้อัพเดท
             if (!existing || new Date(report.report_date) > new Date(existing.lastReportDate)) {
-              householdsMap.set(householdId, {
+              const householdData = {
                 id: householdId,
                 household_id: householdId,
                 name: report.household.address || `บ้านเลขที่ ${report.household.house_number} หมู่ ${report.household.village_number}`,
@@ -836,7 +861,23 @@ const ReportMosquitoCompDataComp = () => {
                 villageNumber: report.household.village_number,
                 lastReportDate: report.report_date,
                 residentCount: report.household.number_of_residents || 0,
+                location_data: report.location_data || report.household.location_data,
+                household: report.household,
+                // เพิ่มข้อมูลที่อยู่ของ อสม. เพื่อใช้กรอง
+                user_location: {
+                  province_name_th: userData?.province_name_th,
+                  district_name_th: userData?.district_name_th,
+                  subdistrict_name_th: userData?.subdistrict_name_th,
+                },
+              };
+              console.log("💾 Saving household data:", {
+                householdId,
+                hasLocationData: !!householdData.location_data,
+                locationData: householdData.location_data,
+                hasHousehold: !!householdData.household,
+                userLocation: householdData.user_location
               });
+              householdsMap.set(householdId, householdData);
             }
           });
 
@@ -848,6 +889,11 @@ const ReportMosquitoCompDataComp = () => {
             index: idx + 1,
             date: household.lastReportDate ? formatThaiDate(household.lastReportDate) : "-",
           }));
+
+          console.log("🔍 Transformed Data Sample:", transformedData[0]);
+          console.log("🔍 Has location_data?", transformedData[0]?.location_data);
+          console.log("🔍 Has household?", transformedData[0]?.household);
+          console.log("🔍 Has user_location?", transformedData[0]?.user_location);
 
           setApiData(transformedData);
         }
@@ -884,9 +930,17 @@ const ReportMosquitoCompDataComp = () => {
             users = await oauth2Service.getBatch(externalUserIds);
           }
 
-          // แปลงข้อมูลพร้อมชื่อผู้ใช้
+          // แปลงข้อมูลพร้อมชื่อผู้ใช้และที่อยู่
           const transformedData = Object.values(groupedByUser).map((userGroup, idx) => {
             const userData = users.get(userGroup.userId);
+
+            console.log("👤 User data (อสม.) in View 1:", {
+              name: userData?.name,
+              province: userData?.province_name_th,
+              district: userData?.district_name_th,
+              subdistrict: userData?.subdistrict_name_th
+            });
+
             return {
               id: userGroup.userId,
               external_user_id: userGroup.userId,
@@ -895,8 +949,17 @@ const ReportMosquitoCompDataComp = () => {
               lastReportDate: userGroup.lastReportDate,
               date: userGroup.lastReportDate ? formatThaiDate(userGroup.lastReportDate) : "-",
               amount: userGroup.households.size,
+              // เพิ่มข้อมูลที่อยู่ของ อสม. เพื่อใช้กรอง
+              user_location: {
+                province_name_th: userData?.province_name_th,
+                district_name_th: userData?.district_name_th,
+                subdistrict_name_th: userData?.subdistrict_name_th,
+              },
             };
           });
+
+          console.log("🔍 Transformed Data Sample (View 1):", transformedData[0]);
+          console.log("🔍 Has user_location (View 1)?", transformedData[0]?.user_location);
 
           setApiData(transformedData);
         }
@@ -913,20 +976,169 @@ const ReportMosquitoCompDataComp = () => {
 
   // Filter and search
   const filteredRows = useMemo(() => {
-    const term = keyword.trim().toLowerCase();
-    if (!term) return apiData;
-
-    return apiData.filter((row) => {
-      // For View 1 (user list) and View 2 (household list)
-      const nameMatch = row.name?.toLowerCase().includes(term);
-      const dateMatch = row.date?.toLowerCase().includes(term);
-      const indexMatch = String(row.index).includes(term);
-      const houseNumMatch = row.houseNumber?.toLowerCase().includes(term);
-      const villageNumMatch = row.villageNumber?.toLowerCase().includes(term);
-
-      return nameMatch || dateMatch || indexMatch || houseNumMatch || villageNumMatch;
+    console.log("🔍 ===== FILTER DEBUG START =====");
+    console.log("📍 Selected Filters:", {
+      zone,
+      province,
+      district,
+      subdistrict,
+      service,
+      keyword
     });
-  }, [keyword, apiData]);
+    console.log("📊 Total apiData:", apiData.length);
+
+    const result = apiData.filter((row, index) => {
+      console.log(`\n--- Checking Row ${index} ---`);
+      console.log("Row data:", {
+        household: row.household,
+        location_data: row.location_data,
+        user_location: row.user_location
+      });
+
+      // Keyword search (ทำก่อนเสมอ)
+      const term = keyword.trim().toLowerCase();
+      if (term) {
+        const nameMatch = row.name?.toLowerCase().includes(term);
+        const dateMatch = row.date?.toLowerCase().includes(term);
+        const indexMatch = String(row.index).includes(term);
+        const houseNumMatch = row.houseNumber?.toLowerCase().includes(term);
+        const villageNumMatch = row.villageNumber?.toLowerCase().includes(term);
+
+        if (!(nameMatch || dateMatch || indexMatch || houseNumMatch || villageNumMatch)) {
+          console.log("❌ Failed keyword search");
+          return false;
+        }
+      }
+
+      // Year filtering
+      if (year && row.date) {
+        const parsedDate = parseThaiDate(row.date);
+        if (parsedDate) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+
+          if (!matchesYear) {
+            console.log("❌ Failed year filter");
+            return false;
+          }
+        }
+      }
+
+      // Month filtering
+      if (month && row.date) {
+        const parsedDate = parseThaiDate(row.date);
+        if (parsedDate && !isInMonth(parsedDate, month)) {
+          console.log("❌ Failed month filter");
+          return false;
+        }
+      }
+
+      // Week filtering (ต้องมีการเลือกเดือนก่อน)
+      if (week && month && row.date) {
+        const parsedDate = parseThaiDate(row.date);
+        if (parsedDate && !isInWeekOfMonth(parsedDate, week)) {
+          console.log("❌ Failed week filter");
+          return false;
+        }
+      }
+
+      // ใช้ข้อมูลที่อยู่ของ อสม. ในการกรอง (user_location)
+      const userLocation = row.user_location;
+      console.log("📍 userLocation:", userLocation);
+
+      // ถ้าไม่มี user_location แต่มีการเลือก filter location ให้ skip row นี้
+      if (!userLocation && (zone || province || district || subdistrict || service)) {
+        console.log("❌ No user_location but filters selected");
+        return false;
+      }
+
+      if (userLocation) {
+        // Filter by health area (เขตสุขภาพ)
+        if (zone) {
+          const selectedHealthArea = healthAreas.find(h => h.code === zone);
+          if (selectedHealthArea && selectedHealthArea.provinces) {
+            const provinceInHealthArea = selectedHealthArea.provinces.find(
+              p => p.name_th === userLocation.province_name_th
+            );
+            console.log("🏥 Health Area check:", {
+              selected: selectedHealthArea.name_th,
+              dataProvince: userLocation.province_name_th,
+              match: !!provinceInHealthArea
+            });
+            if (!provinceInHealthArea) {
+              console.log("❌ Failed health area filter - province not in selected health area");
+              return false;
+            }
+          }
+        }
+
+        // Filter by province
+        if (province) {
+          const selectedProvince = provinces.find(p => p.code === province);
+          console.log("🏛️ Province check:", {
+            selected: selectedProvince?.name_th,
+            data: userLocation.province_name_th,
+            match: userLocation.province_name_th === selectedProvince?.name_th
+          });
+          if (selectedProvince && userLocation.province_name_th !== selectedProvince.name_th) {
+            console.log("❌ Failed province filter");
+            return false;
+          }
+        }
+
+        // Filter by district
+        if (district) {
+          const selectedDistrict = districts.find(d => d.code === district);
+          console.log("🏙️ District check:", {
+            selected: selectedDistrict?.name_th,
+            data: userLocation.district_name_th,
+            match: userLocation.district_name_th === selectedDistrict?.name_th
+          });
+          if (selectedDistrict && userLocation.district_name_th !== selectedDistrict.name_th) {
+            console.log("❌ Failed district filter");
+            return false;
+          }
+        }
+
+        // Filter by subdistrict
+        if (subdistrict) {
+          const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+          console.log("🏘️ Subdistrict check:", {
+            selected: selectedSubdistrict?.name_th,
+            data: userLocation.subdistrict_name_th,
+            match: userLocation.subdistrict_name_th === selectedSubdistrict?.name_th
+          });
+          if (selectedSubdistrict && userLocation.subdistrict_name_th !== selectedSubdistrict.name_th) {
+            console.log("❌ Failed subdistrict filter");
+            return false;
+          }
+        }
+
+        // Filter by health service - ใช้ subdistrict เป็นฐาน
+        if (service) {
+          const selectedService = healthServices.find(h => h.code === service);
+          console.log("🏥 Service check:", {
+            selected: selectedService?.name,
+            selectedSubdistrict: selectedService?.subdistrict_name_th,
+            data: userLocation.subdistrict_name_th
+          });
+          if (selectedService && userLocation.subdistrict_name_th !== selectedService.subdistrict_name_th) {
+            console.log("❌ Failed service filter");
+            return false;
+          }
+        }
+      }
+
+      console.log("✅ Row passed all filters");
+      return true;
+    });
+
+    console.log("\n🎯 Filter Result:", result.length, "rows passed");
+    console.log("===== FILTER DEBUG END =====\n");
+    return result;
+  }, [keyword, year, yearType, month, week, apiData, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -938,18 +1150,7 @@ const ReportMosquitoCompDataComp = () => {
     if (page > totalPages) setPage(1);
   }, [page, totalPages]);
 
-  const handleReset = () => {
-    setYear("2568");
-    setMonth("06");
-    setWeek("1");
-    setZone("");
-    setProvince("");
-    setDistrict("");
-    setSubdistrict("");
-    setService("");
-    setKeyword("");
-    setPage(1);
-  };
+  // Note: Reset functionality is handled by usePermissionFilters hook
 
   // View 3: แสดงหน้ารายละเอียดบ้าน
   if (householdId) {
@@ -1211,7 +1412,15 @@ const ReportMosquitoCompDataComp = () => {
       <div className="bg-white border border-[#eee5ff] shadow-xl rounded-2xl p-5 sm:p-6 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <CustomSelect
-            label="ปีงบประมาณ"
+            label="ประเภทปี"
+            placeholder="-- เลือกประเภทปี --"
+            value={yearType}
+            onChange={(e) => setYearType(e.target.value)}
+            options={YEAR_TYPES}
+            icon={Calendar}
+          />
+          <CustomSelect
+            label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
             placeholder="-- เลือกปี --"
             value={year}
             onChange={(e) => setYear(e.target.value)}
@@ -1228,51 +1437,60 @@ const ReportMosquitoCompDataComp = () => {
           />
           <CustomSelect
             label="สัปดาห์"
-            placeholder="-- เลือกสัปดาห์ --"
+            placeholder={month ? "-- เลือกสัปดาห์ --" : "-- เลือกเดือนก่อน --"}
             value={week}
             onChange={(e) => setWeek(e.target.value)}
             options={WEEKS}
             icon={Calendar}
+            disabled={!month}
           />
           <CustomSelect
             label="เขตสุขภาพ"
             placeholder="-- เลือกเขต --"
             value={zone}
-            onChange={(e) => setZone(e.target.value)}
-            options={ZONES}
+            onChange={(e) => handleZoneChange(e.target.value)}
+            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             icon={MapPin}
+            disabled={isLocked('zone')}
           />
           <CustomSelect
             label="จังหวัด"
             placeholder="-- เลือกจังหวัด --"
             value={province}
-            onChange={(e) => setProvince(e.target.value)}
-            options={PROVINCES}
+            onChange={(e) => handleProvinceChange(e.target.value)}
+            options={Array.isArray(provinces) ? provinces.map(p => ({ label: p.name_th, value: p.code })) : []}
             icon={Building2}
+            disabled={isLocked('province')}
           />
           <CustomSelect
             label="อำเภอ"
             placeholder="-- เลือกอำเภอ --"
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            options={DISTRICTS}
+            onChange={(e) => handleDistrictChange(e.target.value)}
+            options={Array.isArray(districts) ? districts.map(d => ({ label: d.name_th, value: d.code })) : []}
             icon={Building2}
+            disabled={isLocked('district') || !province}
           />
           <CustomSelect
             label="ตำบล"
             placeholder="-- เลือกตำบล --"
             value={subdistrict}
-            onChange={(e) => setSubdistrict(e.target.value)}
-            options={SUBDISTRICTS}
+            onChange={(e) => handleSubdistrictChange(e.target.value)}
+            options={Array.isArray(subdistricts) ? subdistricts.map(s => ({ label: s.name_th, value: s.code })) : []}
             icon={Home}
+            disabled={isLocked('subdistrict') || !district}
           />
           <CustomSelect
             label="หน่วยบริการ"
             placeholder="-- เลือกหน่วยบริการ --"
             value={service}
-            onChange={(e) => setService(e.target.value)}
-            options={SERVICES}
+            onChange={(e) => handleServiceChange(e.target.value)}
+            options={Array.isArray(healthServices) ? healthServices.map(h => ({
+              label: h.name_th || h.name || h.service_name || "ไม่ระบุ",
+              value: h.code
+            })) : []}
             icon={Home}
+            disabled={isLocked('service') || !province || !district || !subdistrict}
           />
         </div>
       </div>

@@ -145,6 +145,45 @@ export const getSubdistricts = async (districtCode) => {
 };
 
 /**
+ * ดึงรายการเขตสุขภาพ
+ * @param {Object} params - Query parameters
+ * @returns {Promise} - Promise containing health areas data
+ */
+export const getHealthAreas = async (params = {}) => {
+  const { limit = 100, ...rest } = params;
+  const cacheKey = `health_areas_${JSON.stringify({ limit, ...rest })}`;
+
+  return withCache(
+    cacheKey,
+    async () => {
+      try {
+        const response = await axiosInstance.get("/lookups/health-areas", {
+          params: { limit, ...rest },
+        });
+
+        // Parse response data - รองรับหลายรูปแบบ
+        if (Array.isArray(response.data)) {
+          return response.data;
+        } else if (response.data?.items && Array.isArray(response.data.items)) {
+          return response.data.items;
+        } else if (response.data?.data && Array.isArray(response.data.data)) {
+          return response.data.data;
+        } else if (response.data?.results && Array.isArray(response.data.results)) {
+          return response.data.results;
+        }
+
+        console.warn("Health areas response is not an array:", response.data);
+        return [];
+      } catch (error) {
+        console.error("Error fetching health areas:", error);
+        return [];
+      }
+    },
+    CACHE_TTL
+  );
+};
+
+/**
  * ดึงรายการหน่วยบริการ
  * @param {Object} params - Filter parameters (province_code, district_code, subdistrict_code)
  * @returns {Promise} - Promise containing health services data
@@ -208,6 +247,7 @@ export default {
   getProvinces,
   getDistricts,
   getSubdistricts,
+  getHealthAreas,
   getHealthServices,
   clearLookupCache,
 };

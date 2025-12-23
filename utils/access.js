@@ -2,7 +2,7 @@
 export const ALLOWED_ROLES = ["สบส", "เขต", "จังหวัด", "อำเภอ", "ตำบล", "รพสต"];
 
 /** ลำดับฟิลด์ที่จะถูกล็อกตามระดับบทบาท */
-export const ORDER = ["zone", "province", "district", "subdistrict", "unit"];
+export const ORDER = ["zone", "province", "district", "subdistrict", "service"];
 
 /** แปลงบทบาท -> ระดับที่ต้องล็อกฟิลด์ */
 export const roleToLockLevel = (role) => {
@@ -12,7 +12,7 @@ export const roleToLockLevel = (role) => {
     case "จังหวัด": return "province";
     case "อำเภอ":  return "district";
     case "ตำบล":   return "subdistrict";
-    case "รพสต":  return "unit";
+    case "รพสต":  return "service";
     default:      return "deny";
   }
 };
@@ -111,10 +111,10 @@ export const hasAccess = (roles = []) =>
 export const applyScopeToFilters = (filters, scope, lockLevel) => {
   const next = { ...filters };
   if (lockLevel === "zone" && scope.zone) next.healthZone = scope.zone;
-  if (["province", "district", "subdistrict", "unit"].includes(lockLevel) && scope.zone) next.healthZone = scope.zone;
-  if (["province", "district", "subdistrict", "unit"].includes(lockLevel) && scope.province) next.province = scope.province;
-  if (["district", "subdistrict", "unit"].includes(lockLevel) && scope.district) next.district = scope.district;
-  if (["subdistrict", "unit"].includes(lockLevel) && scope.subdistrict) next.subdistrict = scope.subdistrict;
-  if (["unit"].includes(lockLevel) && scope.unit) next.unit = scope.unit;
+  if (["province", "district", "subdistrict", "service"].includes(lockLevel) && scope.zone) next.healthZone = scope.zone;
+  if (["province", "district", "subdistrict", "service"].includes(lockLevel) && scope.province) next.province = scope.province;
+  if (["district", "subdistrict", "service"].includes(lockLevel) && scope.district) next.district = scope.district;
+  if (["subdistrict", "service"].includes(lockLevel) && scope.subdistrict) next.subdistrict = scope.subdistrict;
+  if (["service"].includes(lockLevel) && scope.unit) next.unit = scope.unit;
   return next;
 };

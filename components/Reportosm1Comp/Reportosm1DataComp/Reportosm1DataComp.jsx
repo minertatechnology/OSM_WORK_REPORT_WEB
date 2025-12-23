@@ -26,12 +26,27 @@ import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bol
 import Reportosm1CompDetailComp from "../Reportosm1CompDetailComp/Reportosm1CompDetailComp";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getUsersBatch } from "@services/oauth2Service";
+// Lookup services now handled by usePermissionFilters hook
+import {
+  getCurrentFiscalYear,
+  getCurrentCalendarYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+  isInMonth
+} from "@utils/fiscalYearHelper";
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
 
-// Mock data
-const YEARS = [
-  { label: "2568", value: "2568" },
-  { label: "2567", value: "2567" },
-  { label: "2566", value: "2566" },
+// Generate dynamic year options (last 5 years)
+const currentFiscalYear = getCurrentFiscalYear();
+const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
+
+// Year type options
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
 ];
 const MONTHS = [
   { label: "มกราคม", value: "01" },
@@ -47,30 +62,7 @@ const MONTHS = [
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
 ];
-const ZONES = Array.from({ length: 13 }, (_, i) => ({
-  label: `เขตสุขภาพ ${i + 1}`,
-  value: `${i + 1}`,
-}));
-const PROVINCES = [
-  { label: "นครราชสีมา", value: "นครราชสีมา" },
-  { label: "ชัยภูมิ", value: "ชัยภูมิ" },
-  { label: "บุรีรัมย์", value: "บุรีรัมย์" },
-];
-const DISTRICTS = [
-  { label: "เมือง", value: "เมือง" },
-  { label: "ปากช่อง", value: "ปากช่อง" },
-  { label: "โนนสูง", value: "โนนสูง" },
-];
-const SUBDISTRICTS = [
-  { label: "ในเมือง", value: "ในเมือง" },
-  { label: "หนองสาหร่าย", value: "หนองสาหร่าย" },
-  { label: "โนนไทย", value: "โนนไทย" },
-];
-const SERVICES = [
-  { label: "รพ.นครราชสีมา", value: "รพ.นครราชสีมา" },
-  { label: "รพ.ปากช่อง", value: "รพ.ปากช่อง" },
-  { label: "รพ.สต.โนนไทย", value: "รพ.สต.โนนไทย" },
-];
+// Removed mock data - will use API data instead
 
 // Export functions
 function exportSummaryPDF(data) {
@@ -625,19 +617,43 @@ const Reportosm1DataComp = () => {
   const searchParams = useSearchParams();
   const detailId = searchParams.get("detail");
 
-  const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("06");
-  const [zone, setZone] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
-  const [service, setService] = useState("");
+  // Use permission-based filters
+  const { isLocked } = useUserPermission();
+  const {
+    yearType,
+    year,
+    month,
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    setYearType,
+    setYear,
+    setMonth,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+  } = usePermissionFilters({
+    defaultYear: String(currentFiscalYear),
+    defaultYearType: "fiscal",
+  });
+
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [apiData, setApiData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Note: Location data loading is handled by usePermissionFilters hook
 
   // Fetch data from API
   useEffect(() => {
@@ -655,11 +671,19 @@ const Reportosm1DataComp = () => {
         // ดึงข้อมูลผู้ใช้จาก OAuth2 API
         const usersMap = await getUsersBatch(externalUserIds);
 
-        // ผสานข้อมูลชื่อเข้ากับข้อมูล submission
-        const enrichedData = data.map(item => ({
-          ...item,
-          userName: usersMap.get(item.external_user_id)?.name || item.external_user_id || "ไม่ระบุชื่อ"
-        }));
+        // ผสานข้อมูลชื่อและที่อยู่เข้ากับข้อมูล submission
+        const enrichedData = data.map(item => {
+          const userData = usersMap.get(item.external_user_id);
+          return {
+            ...item,
+            userName: userData?.name || item.external_user_id || "ไม่ระบุชื่อ",
+            user_location: {
+              province_name_th: userData?.province_name_th,
+              district_name_th: userData?.district_name_th,
+              subdistrict_name_th: userData?.subdistrict_name_th,
+            }
+          };
+        });
 
         setApiData(enrichedData);
       } catch (error) {
@@ -691,20 +715,105 @@ const Reportosm1DataComp = () => {
       filled_activities: item.filled_activities,
       completion_rate: item.completion_rate,
       status: item.status,
+      user_location: item.user_location,
       rawData: item,
     }));
   }, [apiData]);
 
   const filteredRows = useMemo(() => {
-    const term = keyword.trim().toLowerCase();
-    if (!term) return ALL_ROWS;
-    return ALL_ROWS.filter(
-      (row) =>
-        row.name.toLowerCase().includes(term) ||
-        row.date.toLowerCase().includes(term) ||
-        String(row.index).includes(term)
-    );
-  }, [keyword, ALL_ROWS]);
+    return ALL_ROWS.filter((row) => {
+      // Keyword search
+      const term = keyword.trim().toLowerCase();
+      if (term) {
+        const nameMatch = row.name?.toLowerCase().includes(term);
+        const dateMatch = row.date?.toLowerCase().includes(term);
+        const indexMatch = String(row.index).includes(term);
+        if (!(nameMatch || dateMatch || indexMatch)) {
+          return false;
+        }
+      }
+
+      // Year filtering
+      if (year && row.date) {
+        const parsedDate = parseThaiDate(row.date);
+        if (parsedDate) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+
+          if (!matchesYear) {
+            return false;
+          }
+        }
+      }
+
+      // Month filtering
+      if (month && row.date) {
+        const parsedDate = parseThaiDate(row.date);
+        if (parsedDate && !isInMonth(parsedDate, month)) {
+          return false;
+        }
+      }
+
+      // Location filtering ใช้ข้อมูลที่อยู่ของ อสม.
+      const userLocation = row.user_location;
+
+      // ถ้าไม่มี user_location แต่มีการเลือก filter location ให้ skip
+      if (!userLocation && (zone || province || district || subdistrict || service)) {
+        return false;
+      }
+
+      if (userLocation) {
+        // Filter by health area (เขตสุขภาพ)
+        if (zone) {
+          const selectedHealthArea = healthAreas.find(h => h.code === zone);
+          if (selectedHealthArea && selectedHealthArea.provinces) {
+            const provinceInHealthArea = selectedHealthArea.provinces.find(
+              p => p.name_th === userLocation.province_name_th
+            );
+            if (!provinceInHealthArea) {
+              return false;
+            }
+          }
+        }
+
+        // Filter by province
+        if (province) {
+          const selectedProvince = provinces.find(p => p.code === province);
+          if (selectedProvince && userLocation.province_name_th !== selectedProvince.name_th) {
+            return false;
+          }
+        }
+
+        // Filter by district
+        if (district) {
+          const selectedDistrict = districts.find(d => d.code === district);
+          if (selectedDistrict && userLocation.district_name_th !== selectedDistrict.name_th) {
+            return false;
+          }
+        }
+
+        // Filter by subdistrict
+        if (subdistrict) {
+          const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+          if (selectedSubdistrict && userLocation.subdistrict_name_th !== selectedSubdistrict.name_th) {
+            return false;
+          }
+        }
+
+        // Filter by health service
+        if (service) {
+          const selectedService = healthServices.find(h => h.code === service);
+          if (selectedService && userLocation.subdistrict_name_th !== selectedService.subdistrict_name_th) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [keyword, year, yearType, month, ALL_ROWS, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -715,18 +824,6 @@ const Reportosm1DataComp = () => {
   useEffect(() => {
     if (page > totalPages) setPage(1);
   }, [page, totalPages]);
-
-  const handleReset = () => {
-    setYear("2568");
-    setMonth("06");
-    setZone("");
-    setProvince("");
-    setDistrict("");
-    setSubdistrict("");
-    setService("");
-    setKeyword("");
-    setPage(1);
-  };
 
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
@@ -789,7 +886,15 @@ const Reportosm1DataComp = () => {
       <div className="bg-white border border-[#eee5ff] shadow-xl rounded-2xl p-5 sm:p-6 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <CustomSelect
-            label="ปีงบประมาณ"
+            label="ประเภทปี"
+            placeholder="เลือกประเภทปี"
+            value={yearType}
+            onChange={(e) => setYearType(e.target.value)}
+            options={YEAR_TYPES}
+            icon={Calendar}
+          />
+          <CustomSelect
+            label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
             placeholder="เลือกปี"
             value={year}
             onChange={(e) => setYear(e.target.value)}
@@ -808,41 +913,49 @@ const Reportosm1DataComp = () => {
             label="เขตสุขภาพ"
             placeholder="เลือกเขต"
             value={zone}
-            onChange={(e) => setZone(e.target.value)}
-            options={ZONES}
+            onChange={(e) => handleZoneChange(e.target.value)}
+            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             icon={MapPin}
+            disabled={isLocked('zone')}
           />
           <CustomSelect
             label="จังหวัด"
             placeholder="เลือกจังหวัด"
             value={province}
-            onChange={(e) => setProvince(e.target.value)}
-            options={PROVINCES}
+            onChange={(e) => handleProvinceChange(e.target.value)}
+            options={Array.isArray(provinces) ? provinces.map(p => ({ label: p.name_th, value: p.code })) : []}
             icon={Building2}
+            disabled={isLocked('province')}
           />
           <CustomSelect
             label="อำเภอ"
             placeholder="เลือกอำเภอ"
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            options={DISTRICTS}
+            onChange={(e) => handleDistrictChange(e.target.value)}
+            options={Array.isArray(districts) ? districts.map(d => ({ label: d.name_th, value: d.code })) : []}
             icon={Building2}
+            disabled={isLocked('district') || !province}
           />
           <CustomSelect
             label="ตำบล"
             placeholder="เลือกตำบล"
             value={subdistrict}
-            onChange={(e) => setSubdistrict(e.target.value)}
-            options={SUBDISTRICTS}
+            onChange={(e) => handleSubdistrictChange(e.target.value)}
+            options={Array.isArray(subdistricts) ? subdistricts.map(s => ({ label: s.name_th, value: s.code })) : []}
             icon={Home}
+            disabled={isLocked('subdistrict') || !district}
           />
           <CustomSelect
             label="หน่วยบริการ"
             placeholder="เลือกหน่วยบริการ"
             value={service}
-            onChange={(e) => setService(e.target.value)}
-            options={SERVICES}
+            onChange={(e) => handleServiceChange(e.target.value)}
+            options={Array.isArray(healthServices) ? healthServices.map(h => ({
+              label: h.name_th || h.name || h.service_name || "ไม่ระบุ",
+              value: h.code
+            })) : []}
             icon={Home}
+            disabled={isLocked('service') || !province || !district || !subdistrict}
           />
         </div>
       </div>
