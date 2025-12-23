@@ -56,7 +56,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ username: "", password: "" });
   const [showThaiId, setShowThaiId] = useState(false);
-  const [userType, setUserType] = useState("officer");
+  // Always use "officer" user type - no need for state
+  const userType = "officer";
 
   // DEV: Auto fill function
   function handleDevAutoFill() {
@@ -162,8 +163,8 @@ export default function LoginPage() {
               className="w-[528px] h-auto"
             />
           </div>
-          {/* User Type Selection */}
-          <div className="mb-6">
+          {/* User Type Selection - Hidden, always use "officer" */}
+          {/* <div className="mb-6">
             <label className="block font-semibold text-gray-700 mb-3">
               ประเภทผู้ใช้งาน
             </label>
@@ -197,7 +198,7 @@ export default function LoginPage() {
                 </span>
               </label>
             </div>
-          </div>
+          </div> */}
           {/* Form */}
           <form className="space-y-5" autoComplete="on" onSubmit={handleLogin}>
             {/* Username */}

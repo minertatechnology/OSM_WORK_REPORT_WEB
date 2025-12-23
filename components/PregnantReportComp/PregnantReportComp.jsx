@@ -28,6 +28,7 @@ import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
 import { getUserByExternalId } from "@services/oauth2Service";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
+import { getAddressFromCoordinates } from "@utils/geocoding";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -836,6 +837,7 @@ const PregnantReportComp = () => {
     districts,
     subdistricts,
     healthServices,
+    handleReset,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -1174,15 +1176,8 @@ const PregnantReportComp = () => {
   }, [filteredRows.length, totalPages, itemsPerPage, page]);
 
   const handleClear = () => {
-    setYearType("fiscal");
-    setYear(String(currentFiscalYear));
-    setMonth("");
+    handleReset(String(currentFiscalYear), "fiscal");
     setWeek("สัปดาห์ 4 (22/6/68-30/6/68)");
-    setZone("");
-    setService("");
-    setProvince("");
-    setDistrict("");
-    setSubdistrict("");
     setKeyword("");
   };
 
@@ -1263,34 +1258,8 @@ const PregnantReportComp = () => {
         </div>
       </div>
 
-      {/* Loading Location Banner */}
-      {isLoadingLocations && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <div className="flex-1">
-              <p className="font-semibold text-blue-900">กำลังดึงข้อมูลพื้นที่จากพิกัด...</p>
-              <p className="text-sm text-blue-700 mt-1">
-                ระบบกำลังแปลงพิกัด (latitude/longitude) เป็นข้อมูลจังหวัด อำเภอ ตำบล เพื่อให้สามารถกรองข้อมูลได้
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Search Form */}
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6 mb-6">
-        {/* Info about location filtering */}
-        {locationDataMap.size > 0 && !isLoadingLocations && (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 mb-4">
-            <div className="flex items-start gap-2">
-              <MapPin size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-green-800">
-                <span className="font-semibold">ระบบได้แปลงพิกัดเป็นพื้นที่แล้ว!</span> คุณสามารถกรองข้อมูลตามจังหวัด อำเภอ ตำบล ที่ได้จากพิกัด latitude/longitude ได้เลย ({locationDataMap.size} รายการ)
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Search Type Radio */}
         {/* <div className="flex flex-wrap items-center gap-4 mb-6 pb-4 border-b border-[#f0ebff]">
