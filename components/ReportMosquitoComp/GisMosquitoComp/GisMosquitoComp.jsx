@@ -4,6 +4,7 @@ import { useKMLData } from "../../../composables/useKMLData.js";
 import { useMapManager } from "../../../composables/useMapManager.js";
 import { useHealthRegions } from "../../../composables/useHealthRegions.js";
 import { useLoading } from "../../../context/LoadingProvider";
+import reportsAnalyticsService from "@services/reportsAnalyticsService";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import {
   getProvinces,
@@ -52,6 +53,112 @@ const buildCodeMap = (items) => {
   }, {});
 };
 
+const normalizeAreaName = (value) => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  return String(value).trim();
+};
+
+const normalizeAreaFileName = (value, level) =>
+  normalizeAreaKey(value, level);
+
+const normalizeAreaKey = (value, level) => {
+  const name = normalizeAreaName(value);
+  if (!name) {
+    return "";
+  }
+
+  let normalized = name
+    .replace(/^จังหวัด\s*/i, "")
+    .replace(/^จ\.\s*/i, "")
+    .replace(/^อำเภอ\s*/i, "")
+    .replace(/^อ\.\s*/i, "")
+    .replace(/^เขต\s*/i, "")
+    .replace(/^ตำบล\s*/i, "")
+    .replace(/^ต\.\s*/i, "")
+    .replace(/^แขวง\s*/i, "")
+    .trim();
+
+  if (level === "province") {
+    if (["กรุงเทพฯ", "กทม.", "กทม"].includes(normalized)) {
+      normalized = "กรุงเทพมหานคร";
+    }
+  }
+
+  return normalized;
+};
+
+const getReportProvinceName = (report) =>
+  normalizeAreaName(
+    report?.province_name_th ||
+      report?.location_data?.region ||
+      report?.location_data?.province
+  );
+
+const getReportDistrictName = (report) =>
+  normalizeAreaName(
+    report?.district_name_th ||
+      report?.location_data?.city ||
+      report?.location_data?.district
+  );
+
+const getReportSubdistrictName = (report) =>
+  normalizeAreaName(
+    report?.subdistrict_name_th ||
+      report?.location_data?.district ||
+      report?.location_data?.sublocality
+  );
+
+const getReportsFromWeeklyDetails = (data) => {
+  const candidates = [
+    data?.mosquito_larvae_reports,
+    data?.report_mosquito_reports,
+    data?.report_mosquito_larvae_reports,
+    data?.report_larvae_reports,
+    data?.mosquito_reports,
+    data?.reports,
+  ].filter(Array.isArray);
+
+  for (const list of candidates) {
+    if (list.length > 0) {
+      return list;
+    }
+  }
+
+  return [];
+};
+
+const normalizeMonthlyReportDataFromAnalytics = (data) => {
+  if (!data) {
+    return { total: 0, items: [] };
+  }
+
+  if (typeof data?.total === "number" && Array.isArray(data?.items)) {
+    return { total: data.total, items: data.items };
+  }
+
+  if (
+    typeof data?.summary?.total === "number" &&
+    Array.isArray(data?.summary?.items)
+  ) {
+    return { total: data.summary.total, items: data.summary.items };
+  }
+
+  if (
+    typeof data?.monthly?.total === "number" &&
+    Array.isArray(data?.monthly?.items)
+  ) {
+    return { total: data.monthly.total, items: data.monthly.items };
+  }
+
+  if (typeof data?.total_reports === "number") {
+    return { total: data.total_reports, items: [] };
+  }
+
+  return { total: 0, items: [] };
+};
+
 const GisMosquitoComp = () => {
   const { setLoading } = useLoading();
   // States for KmlMapViewer
@@ -83,6 +190,13 @@ const GisMosquitoComp = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
 
+  const [weeklyDetails, setWeeklyDetails] = useState(null);
+  const [displayData, setDisplayData] = useState([]);
+  const [monthlyReportData, setMonthlyReportData] = useState({
+    total: 0,
+    items: [],
+  });
+
   // ฟังก์ชัน hash string - ใช้ djb2 algorithm
   const hashString = (str) => {
     let hash = 5381;
@@ -93,45 +207,7 @@ const GisMosquitoComp = () => {
     return Math.abs(hash);
   };
 
-  // ฟังก์ชันสร้างค่า mock ที่สม่ำเสมอจากชื่อพื้นที่
-  const getMockValueFromName = (name) => {
-    const hash = hashString(name);
-    return (hash % 80) + 20; // คืนค่า 20-99
-  };
-
-  // Get display data based on selection (tambon, amphoe or province)
-  const getDisplayData = () => {
-    if (selectedDistrict && availableSubdistricts.length > 0) {
-      return availableSubdistricts.map((tambon) => ({
-        name: tambon,
-        value: getMockValueFromName(tambon), // ใช้ค่า deterministic แทน random
-      }));
-    }
-
-    if (selectedProvince && availableDistricts.length > 0) {
-      return availableDistricts.map((amphoe) => ({
-        name: amphoe,
-        value: getMockValueFromName(amphoe), // ใช้ค่า deterministic แทน random
-      }));
-    }
-
-    if (selectedHealthRegion && availableProvincesInRegion.length > 0) {
-      return availableProvincesInRegion.map((province) => ({
-        name: province,
-        value: getMockValueFromName(province), // ใช้ค่า deterministic แทน random
-      }));
-    }
-
-    return [];
-  };
-
-  const displayData = getDisplayData();
-
-  // คำนวณข้อมูลลูกน้ำยุงลายจาก displayData
-  const mosquitoReportData = {
-    total: displayData.reduce((sum, item) => sum + item.value, 0),
-    items: [],
-  };
+  const mosquitoReportData = monthlyReportData;
 
   const mapContainer = useRef(null);
 
@@ -150,7 +226,19 @@ const GisMosquitoComp = () => {
   };
 
   // Composables
-  const { getEnglishProvinceName } = useKMLData();
+  const { getEnglishProvinceName, getThaiProvinceName } = useKMLData();
+
+  const normalizeAreaKeyWithThai = useCallback(
+    (value, level) => {
+      const normalized = normalizeAreaKey(value, level);
+      if (level !== "province") {
+        return normalized;
+      }
+      const thaiName = getThaiProvinceName(normalized);
+      return normalizeAreaKey(thaiName, level);
+    },
+    [getThaiProvinceName]
+  );
 
   const {
     map,
@@ -164,13 +252,11 @@ const GisMosquitoComp = () => {
   const { getHealthRegionsList, getProvincesInRegion } = useHealthRegions();
 
   // Options data for CustomSelect components
-  const yearOptions = [
-    { value: "2567", label: "2567" },
-    { value: "2566", label: "2566" },
-    { value: "2565", label: "2565" },
-    { value: "2564", label: "2564" },
-    { value: "2563", label: "2563" },
-  ];
+  const currentBuddhistYear = new Date().getFullYear() + 543;
+  const yearOptions = Array.from({ length: 15 }, (_, index) => {
+    const year = currentBuddhistYear - index;
+    return { value: String(year), label: String(year) };
+  });
 
   const monthOptions = [
     { value: "01", label: "มกราคม" },
@@ -217,6 +303,128 @@ const GisMosquitoComp = () => {
     label: subdistrict,
   }));
 
+  const buildDisplayDataFromReports = useCallback(() => {
+    const reports = getReportsFromWeeklyDetails(weeklyDetails);
+    if (!Array.isArray(reports) || reports.length === 0) {
+      return [];
+    }
+
+    const filteredReports = reports.filter((report) => {
+      const provinceKey = normalizeAreaKeyWithThai(
+        getReportProvinceName(report),
+        "province"
+      );
+      const districtKey = normalizeAreaKey(
+        getReportDistrictName(report),
+        "district"
+      );
+      const subdistrictKey = normalizeAreaKey(
+        getReportSubdistrictName(report),
+        "subdistrict"
+      );
+
+      if (
+        selectedProvince &&
+        provinceKey !== normalizeAreaKeyWithThai(selectedProvince, "province")
+      ) {
+        return false;
+      }
+      if (
+        selectedDistrict &&
+        districtKey !== normalizeAreaKey(selectedDistrict, "district")
+      ) {
+        return false;
+      }
+      if (
+        selectedSubdistrict &&
+        subdistrictKey !== normalizeAreaKey(selectedSubdistrict, "subdistrict")
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    const isLevelSubdistrict =
+      selectedDistrict && availableSubdistricts.length > 0;
+    const isLevelDistrict =
+      !isLevelSubdistrict && selectedProvince && availableDistricts.length > 0;
+    const isLevelProvince =
+      !isLevelSubdistrict &&
+      !isLevelDistrict &&
+      selectedHealthRegion &&
+      availableProvincesInRegion.length > 0;
+
+    const areaList = isLevelSubdistrict
+      ? availableSubdistricts
+      : isLevelDistrict
+      ? availableDistricts
+      : isLevelProvince
+      ? availableProvincesInRegion
+      : [];
+
+    const getAreaName = isLevelSubdistrict
+      ? getReportSubdistrictName
+      : isLevelDistrict
+      ? getReportDistrictName
+      : getReportProvinceName;
+
+    const areaKeyByName = new Map(
+      areaList.map((name) => {
+        const level = isLevelSubdistrict
+          ? "subdistrict"
+          : isLevelDistrict
+          ? "district"
+          : "province";
+        const key =
+          level === "province"
+            ? normalizeAreaKeyWithThai(name, level)
+            : normalizeAreaKey(name, level);
+        return [key, name];
+      })
+    );
+
+    const counts = new Map();
+    filteredReports.forEach((report) => {
+      const name = getAreaName(report);
+      const level = isLevelSubdistrict
+        ? "subdistrict"
+        : isLevelDistrict
+        ? "district"
+        : "province";
+      const key =
+        level === "province"
+          ? normalizeAreaKeyWithThai(name, level)
+          : normalizeAreaKey(name, level);
+      if (!key) {
+        return;
+      }
+      const displayName = areaKeyByName.get(key) || name;
+      counts.set(displayName, (counts.get(displayName) || 0) + 1);
+    });
+
+    const data = areaList.length
+      ? areaList.map((name) => ({
+          name,
+          value: counts.get(name) || 0,
+        }))
+      : Array.from(counts.entries()).map(([name, value]) => ({
+          name,
+          value,
+        }));
+
+    return data.filter((item) => item.value > 0);
+  }, [
+    weeklyDetails,
+    selectedProvince,
+    selectedDistrict,
+    selectedSubdistrict,
+    selectedHealthRegion,
+    availableSubdistricts,
+    availableDistricts,
+    availableProvincesInRegion,
+    normalizeAreaKeyWithThai,
+  ]);
+
   useEffect(() => {}, []);
 
   const updateStatus = useCallback((message, type = "info") => {
@@ -239,10 +447,16 @@ const GisMosquitoComp = () => {
           filePath = `/split-provinces/${name}.kml`;
         } else if (level === "amphoe") {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
-          filePath = `/split-amphoe/${englishProvinceName}/${name}.kml`;
+          const amphoeFileName = normalizeAreaFileName(name, "district");
+          filePath = `/split-amphoe/${englishProvinceName}/${amphoeFileName}.kml`;
         } else if (level === "tambon") {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
-          filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${name}.kml`;
+          const districtFileName = normalizeAreaFileName(
+            selectedDistrict,
+            "district"
+          );
+          const tambonFileName = normalizeAreaFileName(name, "subdistrict");
+          filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.kml`;
         } else {
           filePath = `/split-provinces/${name}.kml`;
         }
@@ -343,7 +557,11 @@ const GisMosquitoComp = () => {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
           const loadPromises = districtNames.map(async (amphoeName) => {
             try {
-              const filePath = `/split-amphoe/${englishProvinceName}/${amphoeName}.kml`;
+              const amphoeFileName = normalizeAreaFileName(
+                amphoeName,
+                "district"
+              );
+              const filePath = `/split-amphoe/${englishProvinceName}/${amphoeFileName}.kml`;
               const response = await fetch(filePath);
               if (!response.ok) {
                 console.warn(`ไม่พบไฟล์: ${filePath}`);
@@ -446,9 +664,17 @@ const GisMosquitoComp = () => {
           clearAllLayers();
 
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
+          const districtFileName = normalizeAreaFileName(
+            selectedDistrict,
+            "district"
+          );
           const loadPromises = subdistrictNames.map(async (tambonName) => {
             try {
-              const filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${tambonName}.kml`;
+              const tambonFileName = normalizeAreaFileName(
+                tambonName,
+                "subdistrict"
+              );
+              const filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.kml`;
               const response = await fetch(filePath);
               if (!response.ok) return null;
 
@@ -534,7 +760,15 @@ const GisMosquitoComp = () => {
         clearAllLayers();
 
         const englishProvinceName = getEnglishProvinceName(selectedProvince);
-        const filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${selectedSubdistrict}.kml`;
+        const districtFileName = normalizeAreaFileName(
+          selectedDistrict,
+          "district"
+        );
+        const subdistrictFileName = normalizeAreaFileName(
+          selectedSubdistrict,
+          "subdistrict"
+        );
+        const filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${subdistrictFileName}.kml`;
         const response = await fetch(filePath);
 
         if (response.ok) {
@@ -684,6 +918,13 @@ const GisMosquitoComp = () => {
         } else {
           updateStatus(`ไม่พบข้อมูลสำหรับ ${selectedHealthRegion}`, "warning");
         }
+
+        if (
+          selectedHealthRegion === "เขตสุขภาพที่ 13" &&
+          provincesInRegion.includes("กรุงเทพมหานคร")
+        ) {
+          setSelectedProvince("กรุงเทพมหานคร");
+        }
       } catch (error) {
         console.error("Error in onHealthRegionSelection:", error);
         updateStatus(
@@ -791,6 +1032,48 @@ const GisMosquitoComp = () => {
   }, [selectedHealthRegion]);
 
   useEffect(() => {
+    if (!selectedYear || !selectedMonth || !selectedWeek) {
+      setWeeklyDetails(null);
+      setDisplayData([]);
+      setMonthlyReportData({ total: 0, items: [] });
+      return;
+    }
+
+    const controller = new AbortController();
+    const requestUrl = reportsAnalyticsService.buildWeeklyMosquitoDetailsUrl(
+      selectedYear,
+      selectedMonth,
+      selectedWeek
+    );
+
+    const fetchWeeklyDetails = async () => {
+      try {
+        const { data, status, url } =
+          await reportsAnalyticsService.getWeeklyMosquitoDetails({
+            year: selectedYear,
+            month: selectedMonth,
+            week: selectedWeek,
+            signal: controller.signal,
+          });
+        setWeeklyDetails(data);
+        setMonthlyReportData(normalizeMonthlyReportDataFromAnalytics(data));
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+      }
+    };
+
+    fetchWeeklyDetails();
+
+    return () => controller.abort();
+  }, [selectedYear, selectedMonth, selectedWeek]);
+
+  useEffect(() => {
+    setDisplayData(buildDisplayDataFromReports());
+  }, [buildDisplayDataFromReports]);
+
+  useEffect(() => {
     const controlPanel = controlPanelRef.current;
     const chartCard = chartCardRef.current;
 
@@ -826,6 +1109,9 @@ const GisMosquitoComp = () => {
       }
     };
   }, [map]);
+
+  const shouldPromptForPeriod =
+    !selectedYear || !selectedMonth || !selectedWeek;
 
   return (
     <div className={styles.gisComp}>
@@ -1059,7 +1345,9 @@ const GisMosquitoComp = () => {
                     </>
                   ) : (
                     <div className={styles.emptyMessage}>
-                      กรุณาเลือกเขตสุขภาพเพื่อแสดงข้อมูล
+                      {shouldPromptForPeriod
+                        ? "กรุณาเลือกช่วงเวลาเพื่อแสดงข้อมูล"
+                        : "ไม่พบข้อมูลรายงาน"}
                     </div>
                   )}
                 </div>

@@ -63,7 +63,7 @@ export default function LoginPage() {
   function handleDevAutoFill() {
     setUsername("1189900323155");
     setPassword("password");
-    setUserType("officer");
+    // userType is already set to "officer" by default, no need to set it
   }
 
   function validate() {

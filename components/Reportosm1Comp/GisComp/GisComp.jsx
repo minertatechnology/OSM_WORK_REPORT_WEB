@@ -4,13 +4,13 @@ import { useKMLData } from "../../../composables/useKMLData.js";
 import { useMapManager } from "../../../composables/useMapManager.js";
 import { useHealthRegions } from "../../../composables/useHealthRegions.js";
 import { useLoading } from "../../../context/LoadingProvider";
+import reportsAnalyticsService from "@services/reportsAnalyticsService";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import {
   getProvinces,
   getDistricts,
   getSubdistricts,
 } from "@services/lookupService";
-import { getAccessToken } from "@utils/tokenStorage";
 import styles from "./GisComp.module.css";
 
 const normalizeLookupValue = (value) => {
@@ -53,10 +53,88 @@ const buildCodeMap = (items) => {
   }, {});
 };
 
-const ANALYTICS_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL ||
-  "http://localhost:8000/api/v1"
-).replace(/\/$/, "");
+const normalizeAreaName = (value) => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  return String(value).trim();
+};
+
+const normalizeAreaFileName = (value, level) =>
+  normalizeAreaKey(value, level);
+
+const normalizeAreaKey = (value, level) => {
+  const name = normalizeAreaName(value);
+  if (!name) {
+    return "";
+  }
+
+  let normalized = name
+    .replace(/^จังหวัด\s*/i, "")
+    .replace(/^จ\.\s*/i, "")
+    .replace(/^อำเภอ\s*/i, "")
+    .replace(/^อ\.\s*/i, "")
+    .replace(/^เขต\s*/i, "")
+    .replace(/^ตำบล\s*/i, "")
+    .replace(/^ต\.\s*/i, "")
+    .replace(/^แขวง\s*/i, "")
+    .trim();
+
+  if (level === "province") {
+    if (["กรุงเทพฯ", "กทม.", "กทม"].includes(normalized)) {
+      normalized = "กรุงเทพมหานคร";
+    }
+  }
+
+  return normalized;
+};
+
+const getReportProvinceName = (report) =>
+  normalizeAreaName(
+    report?.province_name_th ||
+      report?.location_data?.region ||
+      report?.location_data?.province
+  );
+
+const getReportDistrictName = (report) =>
+  normalizeAreaName(
+    report?.district_name_th ||
+      report?.location_data?.city ||
+      report?.location_data?.district
+  );
+
+const getReportSubdistrictName = (report) =>
+  normalizeAreaName(
+    report?.subdistrict_name_th ||
+      report?.location_data?.district ||
+      report?.location_data?.sublocality
+  );
+
+const normalizeMonthlyReportDataFromAnalytics = (data) => {
+  if (!data) {
+    return { total: 0, items: [] };
+  }
+
+  if (typeof data?.total === "number" && Array.isArray(data?.items)) {
+    return { total: data.total, items: data.items };
+  }
+
+  if (
+    typeof data?.summary?.total === "number" &&
+    Array.isArray(data?.summary?.items)
+  ) {
+    return { total: data.summary.total, items: data.summary.items };
+  }
+
+  if (
+    typeof data?.monthly?.total === "number" &&
+    Array.isArray(data?.monthly?.items)
+  ) {
+    return { total: data.monthly.total, items: data.monthly.items };
+  }
+
+  return { total: 0, items: [] };
+};
 
 const GisComp = () => {
   const { setLoading } = useLoading();
@@ -89,47 +167,12 @@ const GisComp = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
 
-  // ฟังก์ชันสร้างค่า mock ที่สม่ำเสมอจากชื่อพื้นที่
-  const getMockValueFromName = (name) => {
-    const hash = hashString(name);
-    return (hash % 80) + 20; // คืนค่า 20-99
-  };
-
-  // Get display data based on selection (tambon, amphoe or province)
-  const getDisplayData = () => {
-    // ถ้าเลือกอำเภอแล้ว (รวมถึงเมื่อเลือกตำบลด้วย) ให้แสดงข้อมูลตำบลทั้งหมด
-    if (selectedDistrict && availableSubdistricts.length > 0) {
-      return availableSubdistricts.map((tambon) => ({
-        name: tambon,
-        value: getMockValueFromName(tambon), // ใช้ค่า deterministic แทน random
-      }));
-    }
-
-    // ถ้าเลือกจังหวัดแล้ว ให้แสดงข้อมูลอำเภอ
-    if (selectedProvince && availableDistricts.length > 0) {
-      return availableDistricts.map((amphoe) => ({
-        name: amphoe,
-        value: getMockValueFromName(amphoe), // ใช้ค่า deterministic แทน random
-      }));
-    }
-
-    // ถ้ายังไม่ได้เลือกจังหวัด แต่เลือกเขตสุขภาพแล้ว ให้แสดงจังหวัด
-    if (selectedHealthRegion && availableProvincesInRegion.length > 0) {
-      return availableProvincesInRegion.map((province) => ({
-        name: province,
-        value: getMockValueFromName(province), // ใช้ค่า deterministic แทน random
-      }));
-    }
-
-    return []; // Empty when no selection
-  };
-
-  const displayData = getDisplayData();
-
-  const monthlyReportData = {
-    total: 387,
+  const [weeklyDetails, setWeeklyDetails] = useState(null);
+  const [displayData, setDisplayData] = useState([]);
+  const [monthlyReportData, setMonthlyReportData] = useState({
+    total: 0,
     items: [],
-  };
+  });
 
   const mapContainer = useRef(null);
 
@@ -158,7 +201,19 @@ const GisComp = () => {
   };
 
   // Composables
-  const { getEnglishProvinceName } = useKMLData();
+  const { getEnglishProvinceName, getThaiProvinceName } = useKMLData();
+
+  const normalizeAreaKeyWithThai = useCallback(
+    (value, level) => {
+      const normalized = normalizeAreaKey(value, level);
+      if (level !== "province") {
+        return normalized;
+      }
+      const thaiName = getThaiProvinceName(normalized);
+      return normalizeAreaKey(thaiName, level);
+    },
+    [getThaiProvinceName]
+  );
 
   const {
     map,
@@ -228,6 +283,128 @@ const GisComp = () => {
     label: subdistrict,
   }));
 
+  const buildDisplayDataFromReports = useCallback(() => {
+    const reports = weeklyDetails?.report_osm1_reports;
+    if (!Array.isArray(reports) || reports.length === 0) {
+      return [];
+    }
+
+    const filteredReports = reports.filter((report) => {
+      const provinceKey = normalizeAreaKeyWithThai(
+        getReportProvinceName(report),
+        "province"
+      );
+      const districtKey = normalizeAreaKey(
+        getReportDistrictName(report),
+        "district"
+      );
+      const subdistrictKey = normalizeAreaKey(
+        getReportSubdistrictName(report),
+        "subdistrict"
+      );
+
+      if (
+        selectedProvince &&
+        provinceKey !== normalizeAreaKeyWithThai(selectedProvince, "province")
+      ) {
+        return false;
+      }
+      if (
+        selectedDistrict &&
+        districtKey !== normalizeAreaKey(selectedDistrict, "district")
+      ) {
+        return false;
+      }
+      if (
+        selectedSubdistrict &&
+        subdistrictKey !== normalizeAreaKey(selectedSubdistrict, "subdistrict")
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    const isLevelSubdistrict =
+      selectedDistrict && availableSubdistricts.length > 0;
+    const isLevelDistrict =
+      !isLevelSubdistrict && selectedProvince && availableDistricts.length > 0;
+    const isLevelProvince =
+      !isLevelSubdistrict &&
+      !isLevelDistrict &&
+      selectedHealthRegion &&
+      availableProvincesInRegion.length > 0;
+
+    const areaList = isLevelSubdistrict
+      ? availableSubdistricts
+      : isLevelDistrict
+      ? availableDistricts
+      : isLevelProvince
+      ? availableProvincesInRegion
+      : [];
+
+    const getAreaName = isLevelSubdistrict
+      ? getReportSubdistrictName
+      : isLevelDistrict
+      ? getReportDistrictName
+      : getReportProvinceName;
+
+    const areaKeyByName = new Map(
+      areaList.map((name) => {
+        const level = isLevelSubdistrict
+          ? "subdistrict"
+          : isLevelDistrict
+          ? "district"
+          : "province";
+        const key =
+          level === "province"
+            ? normalizeAreaKeyWithThai(name, level)
+            : normalizeAreaKey(name, level);
+        return [key, name];
+      })
+    );
+
+    const counts = new Map();
+    filteredReports.forEach((report) => {
+      const name = getAreaName(report);
+      const level = isLevelSubdistrict
+        ? "subdistrict"
+        : isLevelDistrict
+        ? "district"
+        : "province";
+      const key =
+        level === "province"
+          ? normalizeAreaKeyWithThai(name, level)
+          : normalizeAreaKey(name, level);
+      if (!key) {
+        return;
+      }
+      const displayName = areaKeyByName.get(key) || name;
+      counts.set(displayName, (counts.get(displayName) || 0) + 1);
+    });
+
+    const data = areaList.length
+      ? areaList.map((name) => ({
+          name,
+          value: counts.get(name) || 0,
+        }))
+      : Array.from(counts.entries()).map(([name, value]) => ({
+          name,
+          value,
+        }));
+
+    return data.filter((item) => item.value > 0);
+  }, [
+    weeklyDetails,
+    selectedProvince,
+    selectedDistrict,
+    selectedSubdistrict,
+    selectedHealthRegion,
+    availableSubdistricts,
+    availableDistricts,
+    availableProvincesInRegion,
+    normalizeAreaKeyWithThai,
+  ]);
+
   useEffect(() => {
     // เมื่อเลือกจังหวัด อำเภอ หรือ ตำบล และข้อมูลโหลดแล้ว ให้ซูมอัตโนมัติ
     // ลบ auto-zoom เพื่อป้องกันซูมซ้ำหรือ race condition
@@ -255,10 +432,16 @@ const GisComp = () => {
           filePath = `/split-provinces/${name}.kml`;
         } else if (level === "amphoe") {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
-          filePath = `/split-amphoe/${englishProvinceName}/${name}.kml`;
+          const amphoeFileName = normalizeAreaFileName(name, "district");
+          filePath = `/split-amphoe/${englishProvinceName}/${amphoeFileName}.kml`;
         } else if (level === "tambon") {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
-          filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${name}.kml`;
+          const districtFileName = normalizeAreaFileName(
+            selectedDistrict,
+            "district"
+          );
+          const tambonFileName = normalizeAreaFileName(name, "subdistrict");
+          filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.kml`;
         } else {
           filePath = `/split-provinces/${name}.kml`;
         }
@@ -363,7 +546,11 @@ const GisComp = () => {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
           const loadPromises = districtNames.map(async (amphoeName) => {
             try {
-              const filePath = `/split-amphoe/${englishProvinceName}/${amphoeName}.kml`;
+              const amphoeFileName = normalizeAreaFileName(
+                amphoeName,
+                "district"
+              );
+              const filePath = `/split-amphoe/${englishProvinceName}/${amphoeFileName}.kml`;
               const response = await fetch(filePath);
               if (!response.ok) {
                 console.warn(`ไม่พบไฟล์: ${filePath}`);
@@ -469,9 +656,17 @@ const GisComp = () => {
 
           // โหลด KML ของทุกตำบลในอำเภอ
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
+          const districtFileName = normalizeAreaFileName(
+            selectedDistrict,
+            "district"
+          );
           const loadPromises = subdistrictNames.map(async (tambonName) => {
             try {
-              const filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${tambonName}.kml`;
+              const tambonFileName = normalizeAreaFileName(
+                tambonName,
+                "subdistrict"
+              );
+              const filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.kml`;
               const response = await fetch(filePath);
               if (!response.ok) return null;
 
@@ -559,7 +754,15 @@ const GisComp = () => {
 
         // โหลด KML ของตำบลที่เลือก
         const englishProvinceName = getEnglishProvinceName(selectedProvince);
-        const filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${selectedSubdistrict}.kml`;
+        const districtFileName = normalizeAreaFileName(
+          selectedDistrict,
+          "district"
+        );
+        const subdistrictFileName = normalizeAreaFileName(
+          selectedSubdistrict,
+          "subdistrict"
+        );
+        const filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${subdistrictFileName}.kml`;
         const response = await fetch(filePath);
 
         if (response.ok) {
@@ -717,6 +920,13 @@ const GisComp = () => {
         } else {
           updateStatus(`ไม่พบข้อมูลสำหรับ ${selectedHealthRegion}`, "warning");
         }
+
+        if (
+          selectedHealthRegion === "เขตสุขภาพที่ 13" &&
+          provincesInRegion.includes("กรุงเทพมหานคร")
+        ) {
+          setSelectedProvince("กรุงเทพมหานคร");
+        }
       } catch (error) {
         console.error("Error in onHealthRegionSelection:", error);
         updateStatus(
@@ -834,51 +1044,37 @@ const GisComp = () => {
   }, [selectedHealthRegion]);
 
   // Log filter selections for debugging
-  useEffect(() => {
-    console.log("[GIS OSM1 Filters]", {
-      year: selectedYear,
-      month: selectedMonth,
-      week: selectedWeek,
-      healthRegion: selectedHealthRegion,
-      province: selectedProvince,
-      district: selectedDistrict,
-      subdistrict: selectedSubdistrict,
-    });
-  }, [
-    selectedYear,
-    selectedMonth,
-    selectedWeek,
-    selectedHealthRegion,
-    selectedProvince,
-    selectedDistrict,
-    selectedSubdistrict,
-  ]);
-
   // Fetch weekly analytics details for the selected period
   useEffect(() => {
     if (!selectedYear || !selectedMonth || !selectedWeek) {
+      setWeeklyDetails(null);
+      setDisplayData([]);
+      setMonthlyReportData({ total: 0, items: [] });
       return;
     }
 
-    const url = `${ANALYTICS_BASE_URL}/analytics/weekly/${selectedYear}/${selectedMonth}/${selectedWeek}/details`;
-
     const controller = new AbortController();
+    const requestUrl = reportsAnalyticsService.buildWeeklyOsm1DetailsUrl(
+      selectedYear,
+      selectedMonth,
+      selectedWeek
+    );
 
     const fetchWeeklyDetails = async () => {
       try {
-        const token = getAccessToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers,
-        });
-        const data = await response.json();
-        console.log("[GIS OSM1 Weekly Details]", { url, data });
+        const { data, status, url } =
+          await reportsAnalyticsService.getWeeklyOsm1Details({
+            year: selectedYear,
+            month: selectedMonth,
+            week: selectedWeek,
+            signal: controller.signal,
+          });
+        setWeeklyDetails(data);
+        setMonthlyReportData(normalizeMonthlyReportDataFromAnalytics(data));
       } catch (error) {
         if (error?.name === "AbortError") {
           return;
         }
-        console.error("[GIS OSM1 Weekly Details] Fetch failed:", error);
       }
     };
 
@@ -886,6 +1082,10 @@ const GisComp = () => {
 
     return () => controller.abort();
   }, [selectedYear, selectedMonth, selectedWeek]);
+
+  useEffect(() => {
+    setDisplayData(buildDisplayDataFromReports());
+  }, [buildDisplayDataFromReports]);
 
   // ป้องกัน wheel event ไม่ให้ซูมแผนที่เมื่อ scroll บน control panel และ chart card
   useEffect(() => {
@@ -924,6 +1124,9 @@ const GisComp = () => {
       }
     };
   }, [map]);
+
+  const shouldPromptForPeriod =
+    !selectedYear || !selectedMonth || !selectedWeek;
 
   return (
     <div className={styles.gisComp}>
@@ -1157,7 +1360,9 @@ const GisComp = () => {
                     </>
                   ) : (
                     <div className={styles.emptyMessage}>
-                      กรุณาเลือกเขตสุขภาพเพื่อแสดงข้อมูล
+                      {shouldPromptForPeriod
+                        ? "กรุณาเลือกช่วงเวลาเพื่อแสดงข้อมูล"
+                        : "ไม่พบข้อมูลรายงาน"}
                     </div>
                   )}
                 </div>

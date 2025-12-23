@@ -929,7 +929,7 @@ const DashboardSobos = () => {
         );
 
         if (zone) {
-          const zoneNum = parseInt(zone.zone.match(/\d+/)?.[0] || "0");
+          const zoneNum = typeof zone.zone === 'number' ? zone.zone : parseInt(zone.zone) || 0;
           if (zoneNum >= 1 && zoneNum <= 13) {
             zoneCountMap[zoneNum]++;
           }
