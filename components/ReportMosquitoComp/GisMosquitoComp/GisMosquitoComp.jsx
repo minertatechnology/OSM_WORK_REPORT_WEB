@@ -5,7 +5,52 @@ import { useMapManager } from "../../../composables/useMapManager.js";
 import { useHealthRegions } from "../../../composables/useHealthRegions.js";
 import { useLoading } from "../../../context/LoadingProvider";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import {
+  getProvinces,
+  getDistricts,
+  getSubdistricts,
+} from "@services/lookupService";
 import styles from "../../Reportosm1Comp/GisComp/GisComp.module.css";
+
+const normalizeLookupValue = (value) => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  return String(value).trim();
+};
+
+const getLookupName = (item) => {
+  return normalizeLookupValue(item?.name_th || item?.name || item?.label);
+};
+
+const getLookupCode = (item) => {
+  return normalizeLookupValue(item?.code ?? item?.id);
+};
+
+const normalizeLookupList = (items) => {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .map((item) => {
+      const name = getLookupName(item);
+      const code = getLookupCode(item);
+      if (!name) {
+        return null;
+      }
+      return { name, code };
+    })
+    .filter(Boolean);
+};
+
+const buildCodeMap = (items) => {
+  return items.reduce((acc, item) => {
+    if (item.code) {
+      acc[item.name] = item.code;
+    }
+    return acc;
+  }, {});
+};
 
 const GisMosquitoComp = () => {
   const { setLoading } = useLoading();
@@ -16,6 +61,8 @@ const GisMosquitoComp = () => {
   const [availableProvinces, setAvailableProvinces] = useState([]);
   const [availableDistricts, setAvailableDistricts] = useState([]);
   const [availableSubdistricts, setAvailableSubdistricts] = useState([]);
+  const [provinceCodeByName, setProvinceCodeByName] = useState({});
+  const [districtCodeByName, setDistrictCodeByName] = useState({});
   const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
   const [isLoadingSubdistricts, setIsLoadingSubdistricts] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -103,12 +150,7 @@ const GisMosquitoComp = () => {
   };
 
   // Composables
-  const {
-    getAvailableProvinces,
-    getAmphoeListFromFolder,
-    getTambonListFromFolder,
-    getEnglishProvinceName,
-  } = useKMLData();
+  const { getEnglishProvinceName } = useKMLData();
 
   const {
     map,
@@ -267,6 +309,7 @@ const GisMosquitoComp = () => {
     setSelectedSubdistrict("");
     setAvailableDistricts([]);
     setAvailableSubdistricts([]);
+    setDistrictCodeByName({});
 
     if (selectedProvince) {
       try {
@@ -274,19 +317,31 @@ const GisMosquitoComp = () => {
         setIsLoading(true);
         updateStatus(`กำลังโหลดข้อมูลอำเภอใน ${selectedProvince}...`, "info");
 
-        const amphoeList = await getAmphoeListFromFolder(selectedProvince);
-        setAvailableDistricts(amphoeList);
-
-        if (amphoeList.length > 0) {
+        const provinceCode = provinceCodeByName[selectedProvince];
+        if (!provinceCode) {
           updateStatus(
-            `พบ ${amphoeList.length} อำเภอในจังหวัด ${selectedProvince}, กำลังโหลดแผนที่...`,
+            `ไม่พบรหัสจังหวัดสำหรับ ${selectedProvince}`,
+            "warning"
+          );
+          return;
+        }
+
+        const districtData = await getDistricts(provinceCode);
+        const normalizedDistricts = normalizeLookupList(districtData);
+        const districtNames = normalizedDistricts.map((item) => item.name);
+        setAvailableDistricts(districtNames);
+        setDistrictCodeByName(buildCodeMap(normalizedDistricts));
+
+        if (districtNames.length > 0) {
+          updateStatus(
+            `พบ ${districtNames.length} อำเภอในจังหวัด ${selectedProvince}, กำลังโหลดแผนที่...`,
             "info"
           );
 
           clearAllLayers();
 
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
-          const loadPromises = amphoeList.map(async (amphoeName) => {
+          const loadPromises = districtNames.map(async (amphoeName) => {
             try {
               const filePath = `/split-amphoe/${englishProvinceName}/${amphoeName}.kml`;
               const response = await fetch(filePath);
@@ -356,7 +411,7 @@ const GisMosquitoComp = () => {
     }
   }, [
     selectedProvince,
-    getAmphoeListFromFolder,
+    provinceCodeByName,
     getEnglishProvinceName,
     updateStatus,
     loadAndDisplayKML,
@@ -373,17 +428,25 @@ const GisMosquitoComp = () => {
         setIsLoading(true);
         updateStatus(`กำลังโหลดข้อมูลตำบลใน ${selectedDistrict}...`, "info");
 
-        const tambonList = await getTambonListFromFolder(
-          selectedProvince,
-          selectedDistrict
-        );
-        setAvailableSubdistricts(tambonList);
+        const districtCode = districtCodeByName[selectedDistrict];
+        if (!districtCode) {
+          updateStatus(
+            `ไม่พบรหัสอำเภอสำหรับ ${selectedDistrict}`,
+            "warning"
+          );
+          return;
+        }
 
-        if (tambonList.length > 0) {
+        const subdistrictData = await getSubdistricts(districtCode);
+        const normalizedSubdistricts = normalizeLookupList(subdistrictData);
+        const subdistrictNames = normalizedSubdistricts.map((item) => item.name);
+        setAvailableSubdistricts(subdistrictNames);
+
+        if (subdistrictNames.length > 0) {
           clearAllLayers();
 
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
-          const loadPromises = tambonList.map(async (tambonName) => {
+          const loadPromises = subdistrictNames.map(async (tambonName) => {
             try {
               const filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${tambonName}.kml`;
               const response = await fetch(filePath);
@@ -455,7 +518,7 @@ const GisMosquitoComp = () => {
   }, [
     selectedDistrict,
     selectedProvince,
-    getTambonListFromFolder,
+    districtCodeByName,
     getEnglishProvinceName,
     updateStatus,
     loadMapData,
@@ -539,6 +602,7 @@ const GisMosquitoComp = () => {
     setAvailableProvincesInRegion([]);
     setAvailableDistricts([]);
     setAvailableSubdistricts([]);
+    setDistrictCodeByName({});
 
     clearAllLayers();
 
@@ -565,6 +629,7 @@ const GisMosquitoComp = () => {
         setSelectedSubdistrict("");
         setAvailableDistricts([]);
         setAvailableSubdistricts([]);
+        setDistrictCodeByName({});
 
         clearAllLayers();
 
@@ -635,6 +700,7 @@ const GisMosquitoComp = () => {
       setSelectedSubdistrict("");
       setAvailableDistricts([]);
       setAvailableSubdistricts([]);
+      setDistrictCodeByName({});
       clearAllLayers();
       updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
     }
@@ -676,8 +742,10 @@ const GisMosquitoComp = () => {
         }
 
         if (isMounted) {
-          const provinces = await getAvailableProvinces();
-          setAvailableProvinces(provinces);
+          const provincesData = await getProvinces({ limit: 100 });
+          const normalized = normalizeLookupList(provincesData);
+          setAvailableProvinces(normalized.map((item) => item.name));
+          setProvinceCodeByName(buildCodeMap(normalized));
           updateStatus("แผนที่พร้อมใช้งาน - ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
         }
       } catch (error) {
@@ -698,7 +766,7 @@ const GisMosquitoComp = () => {
       isMounted = false;
       cleanup();
     };
-  }, [initializeMap, getAvailableProvinces, cleanup, updateStatus]);
+  }, [initializeMap, cleanup, updateStatus]);
 
   useEffect(() => {
     if (selectedProvince) {
