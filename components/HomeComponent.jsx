@@ -58,6 +58,13 @@ export default function LoginPage() {
   const [showThaiId, setShowThaiId] = useState(false);
   const [userType, setUserType] = useState("officer");
 
+  // DEV: Auto fill function
+  function handleDevAutoFill() {
+    setUsername("1189900323155");
+    setPassword("password");
+    setUserType("officer");
+  }
+
   function validate() {
     let err = { username: "", password: "" };
     if (!username.trim()) err.username = "กรุณากรอกข้อมูล";
@@ -313,6 +320,17 @@ export default function LoginPage() {
                 />
                 <span>Thai ID</span>
               </button>
+              {/* DEV: Auto Fill Button */}
+              {process.env.NEXT_PUBLIC_ENV_MODE === 'development' && (
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleDevAutoFill}
+                  className="w-full h-9 rounded-md border-2 border-dashed border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400 disabled:opacity-60"
+                >
+                  🔧 DEV: Auto Fill (เจ้าหน้าที่)
+                </button>
+              )}
             </div>
           </form>
         </div>
