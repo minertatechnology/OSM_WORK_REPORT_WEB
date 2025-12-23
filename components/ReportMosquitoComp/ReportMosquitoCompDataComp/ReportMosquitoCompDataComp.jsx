@@ -1485,7 +1485,10 @@ const ReportMosquitoCompDataComp = () => {
             placeholder="-- เลือกหน่วยบริการ --"
             value={service}
             onChange={(e) => handleServiceChange(e.target.value)}
-            options={Array.isArray(healthServices) ? healthServices.map(h => ({ label: h.name, value: h.code })) : []}
+            options={Array.isArray(healthServices) ? healthServices.map(h => ({
+              label: h.name_th || h.name || h.service_name || "ไม่ระบุ",
+              value: h.code
+            })) : []}
             icon={Home}
             disabled={isLocked('service') || !province || !district || !subdistrict}
           />

@@ -150,10 +150,17 @@ export default function UserPermissionProvider({ children }) {
 
   /**
    * Check if a field is locked based on user permission
-   * @param {string} field - Field name (zone, province, district, subdistrict, unit)
+   * @param {string} field - Field name (zone, province, district, subdistrict, service)
    * @returns {boolean}
    */
   const isLocked = (field) => {
+    // Special case: หน่วยบริการ lock เฉพาะเมื่อมี scope.unit
+    // เพื่อให้ระดับตำบล (ไม่มี service_unit) เลือกได้
+    // แต่ระดับ รพสต. (มี service_unit) ถูก lock
+    if (field === 'service') {
+      return scope.unit !== '' && scope.unit !== null && scope.unit !== undefined;
+    }
+
     return isFieldLocked(lockLevel, field);
   };
 

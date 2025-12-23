@@ -16,6 +16,7 @@ import {
 export const usePermissionFilters = (options = {}) => {
   const {
     scope,
+    lockLevel,
     isLocked,
     canClearFilter,
     canChangeFilter,
@@ -147,16 +148,22 @@ export const usePermissionFilters = (options = {}) => {
   // Initialize filters based on user scope
   useEffect(() => {
     if (!permissionLoading && scope) {
+      // ⚠️ ถ้าเป็นสิทธิ์สูงสุด (สบส) ไม่ต้อง set ค่าเริ่มต้น ให้เลือกเอง
+      if (lockLevel === 'none') {
+        console.log('🔓 สบส - ไม่ set ค่าเริ่มต้น ให้เลือกเอง');
+        return;
+      }
+
       const initialFilters = getInitialFilters();
 
-      // Set initial values from scope (locked values)
+      // Set initial values from scope (locked values) สำหรับสิทธิ์อื่นๆ
       if (initialFilters.zone) setZone(initialFilters.zone);
       if (initialFilters.province) setProvince(initialFilters.province);
       if (initialFilters.district) setDistrict(initialFilters.district);
       if (initialFilters.subdistrict) setSubdistrict(initialFilters.subdistrict);
       if (initialFilters.service) setService(initialFilters.service);
     }
-  }, [permissionLoading, scope, getInitialFilters]);
+  }, [permissionLoading, scope, lockLevel, getInitialFilters]);
 
   // Notify parent of filter changes
   useEffect(() => {
@@ -186,7 +193,7 @@ export const usePermissionFilters = (options = {}) => {
       if (canChangeFilter('province')) setProvince('');
       if (canChangeFilter('district')) setDistrict('');
       if (canChangeFilter('subdistrict')) setSubdistrict('');
-      if (canChangeFilter('unit')) setService('');
+      if (canChangeFilter('service')) setService('');
     }
   }, [canChangeFilter]);
 
@@ -199,7 +206,7 @@ export const usePermissionFilters = (options = {}) => {
       // Reset dependent filters
       if (canChangeFilter('district')) setDistrict('');
       if (canChangeFilter('subdistrict')) setSubdistrict('');
-      if (canChangeFilter('unit')) setService('');
+      if (canChangeFilter('service')) setService('');
     }
   }, [canChangeFilter]);
 
@@ -211,7 +218,7 @@ export const usePermissionFilters = (options = {}) => {
       setDistrict(value);
       // Reset dependent filters
       if (canChangeFilter('subdistrict')) setSubdistrict('');
-      if (canChangeFilter('unit')) setService('');
+      if (canChangeFilter('service')) setService('');
     }
   }, [canChangeFilter]);
 
@@ -222,7 +229,7 @@ export const usePermissionFilters = (options = {}) => {
     if (canChangeFilter('subdistrict')) {
       setSubdistrict(value);
       // Reset dependent filter
-      if (canChangeFilter('unit')) setService('');
+      if (canChangeFilter('service')) setService('');
     }
   }, [canChangeFilter]);
 
@@ -230,7 +237,7 @@ export const usePermissionFilters = (options = {}) => {
    * Handle service change - only if not locked
    */
   const handleServiceChange = useCallback((value) => {
-    if (canChangeFilter('unit')) {
+    if (canChangeFilter('service')) {
       setService(value);
     }
   }, [canChangeFilter]);
@@ -250,7 +257,7 @@ export const usePermissionFilters = (options = {}) => {
     if (canClearFilter('province')) setProvince('');
     if (canClearFilter('district')) setDistrict('');
     if (canClearFilter('subdistrict')) setSubdistrict('');
-    if (canClearFilter('unit')) setService('');
+    if (canClearFilter('service')) setService('');
 
     // Restore locked values from scope
     const initialFilters = getInitialFilters();
@@ -258,7 +265,7 @@ export const usePermissionFilters = (options = {}) => {
     if (isLocked('province') && initialFilters.province) setProvince(initialFilters.province);
     if (isLocked('district') && initialFilters.district) setDistrict(initialFilters.district);
     if (isLocked('subdistrict') && initialFilters.subdistrict) setSubdistrict(initialFilters.subdistrict);
-    if (isLocked('unit') && initialFilters.service) setService(initialFilters.service);
+    if (isLocked('service') && initialFilters.service) setService(initialFilters.service);
   }, [canClearFilter, isLocked, getInitialFilters]);
 
   return {
