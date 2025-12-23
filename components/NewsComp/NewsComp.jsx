@@ -273,7 +273,7 @@ const NewsComp = () => {
       // เรียก API สร้าง notification
       await createNotification(notificationData);
 
-      // โหลดข้อมูลใหม่
+      // โหลดข้อมูลใหม่ทันทีเพื่อแสดงผล real-time
       await loadNotifications();
 
       setShowAddPopup(false);
