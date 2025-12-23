@@ -875,6 +875,10 @@ const PregnantReportComp = () => {
 
   // Note: Location data loading is handled by usePermissionFilters hook
 
+  // State สำหรับเก็บข้อมูลพื้นที่จากพิกัด
+  const [locationDataMap, setLocationDataMap] = useState(new Map()); // Map<external_user_id, {province, district, subdistrict}>
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+
   // ดึงข้อมูลการประเมินหญิงตั้งครรภ์และข้อมูลผู้ใช้จาก API
   useEffect(() => {
     const fetchData = async () => {
@@ -957,6 +961,100 @@ const PregnantReportComp = () => {
         );
 
         setUserDataMap(newUserDataMap);
+
+        // 5. แปลงพิกัดเป็นข้อมูลพื้นที่ (Reverse Geocoding)
+        // NOTE: Using free Nominatim service which has strict rate limits (1 req/sec)
+        // and may return 403 errors. Geocoding failures are handled gracefully.
+        // For production, consider using a commercial geocoding service.
+        setIsLoadingLocations(true);
+        const newLocationDataMap = new Map();
+
+        // รวมพิกัดจาก evaluations ทั้งหมดที่มี latitude และ longitude
+        const coordinatesMap = new Map(); // Map<external_user_id, {lat, lng}>
+
+        console.log('\n🔍 กำลังค้นหาพิกัดจากข้อมูล evaluations...');
+        console.log(`📦 จำนวน evaluations ทั้งหมด: ${evaluations.length}`);
+
+        let foundCoordinatesCount = 0;
+        let invalidCoordinatesCount = 0;
+
+        evaluations.forEach((evaluation, index) => {
+          if (evaluation.latitude && evaluation.longitude && evaluation.external_user_id) {
+            const lat = parseFloat(evaluation.latitude);
+            const lng = parseFloat(evaluation.longitude);
+
+            // ตรวจสอบว่าเป็นพิกัดที่ถูกต้อง
+            if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+              // ใช้พิกัดของ evaluation แรกสุดของแต่ละ user (หรืออาจจะเป็นล่าสุด)
+              if (!coordinatesMap.has(evaluation.external_user_id)) {
+                coordinatesMap.set(evaluation.external_user_id, { lat, lng });
+                foundCoordinatesCount++;
+                console.log(`✓ Evaluation #${index + 1}: User ${evaluation.external_user_id} - Lat: ${lat}, Lng: ${lng}`);
+              }
+            } else {
+              invalidCoordinatesCount++;
+              console.log(`✗ Evaluation #${index + 1}: พิกัดไม่ถูกต้อง - Lat: ${lat}, Lng: ${lng}`);
+            }
+          }
+        });
+
+        console.log(`\n📊 สรุปการค้นหาพิกัด:`);
+        console.log(`   ✅ พบพิกัดที่ถูกต้อง: ${foundCoordinatesCount} รายการ`);
+        console.log(`   ❌ พิกัดไม่ถูกต้อง: ${invalidCoordinatesCount} รายการ`);
+        console.log(`   ⚠️  ไม่มีพิกัด: ${evaluations.length - foundCoordinatesCount - invalidCoordinatesCount} รายการ\n`);
+
+        // แปลงพิกัดเป็นพื้นที่ (ทำทีละ user เพื่อไม่ให้โดน rate limit)
+        const userIds = Array.from(coordinatesMap.keys());
+        console.log('🌍 เริ่มต้นการแปลงพิกัดเป็นพื้นที่');
+        console.log(`📊 พบพิกัดทั้งหมด ${userIds.length} รายการ`);
+        console.log('─────────────────────────────────────────');
+
+        for (let i = 0; i < userIds.length; i++) {
+          const userId = userIds[i];
+          const coords = coordinatesMap.get(userId);
+
+          console.log(`\n[${i + 1}/${userIds.length}] กำลังแปลงพิกัดของ User: ${userId}`);
+          console.log(`📍 Latitude: ${coords.lat}`);
+          console.log(`📍 Longitude: ${coords.lng}`);
+
+          try {
+            const locationData = await getAddressFromCoordinates(coords.lat, coords.lng);
+
+            if (locationData.success) {
+              console.log('✅ แปลงพิกัดสำเร็จ!');
+              console.log(`   จังหวัด: ${locationData.province || 'ไม่พบข้อมูล'}`);
+              console.log(`   อำเภอ: ${locationData.district || 'ไม่พบข้อมูล'}`);
+              console.log(`   ตำบล: ${locationData.subdistrict || 'ไม่พบข้อมูล'}`);
+              console.log(`   ที่อยู่เต็ม: ${locationData.fullAddress || 'ไม่พบข้อมูล'}`);
+
+              newLocationDataMap.set(userId, {
+                province: locationData.province,
+                district: locationData.district,
+                subdistrict: locationData.subdistrict,
+                fullAddress: locationData.fullAddress,
+              });
+            } else {
+              console.log('❌ แปลงพิกัดล้มเหลว');
+              console.log(`   Error: ${locationData.error || 'Unknown error'}`);
+            }
+
+            // เพิ่ม delay เล็กน้อยเพื่อไม่ให้โดน rate limit (1 request/second)
+            if (i < userIds.length - 1) {
+              console.log('⏳ รอ 1.1 วินาทีก่อนดึงข้อมูลต่อไป...');
+              await new Promise(resolve => setTimeout(resolve, 1100));
+            }
+          } catch (error) {
+            console.error(`❌ เกิดข้อผิดพลาดในการแปลงพิกัดของ user ${userId}:`, error);
+            console.error(`   Lat: ${coords.lat}, Lng: ${coords.lng}`);
+          }
+        }
+
+        console.log('\n─────────────────────────────────────────');
+        console.log(`🎉 แปลงพิกัดเสร็จสิ้น! สำเร็จ ${newLocationDataMap.size}/${userIds.length} รายการ`);
+        console.log('─────────────────────────────────────────\n');
+
+        setLocationDataMap(newLocationDataMap);
+        setIsLoadingLocations(false);
       } catch (error) {
         console.error("Failed to fetch pregnant women data:", error);
         // ถ้า error ใช้ mock data แทน
@@ -1165,8 +1263,35 @@ const PregnantReportComp = () => {
         </div>
       </div>
 
+      {/* Loading Location Banner */}
+      {isLoadingLocations && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="flex-1">
+              <p className="font-semibold text-blue-900">กำลังดึงข้อมูลพื้นที่จากพิกัด...</p>
+              <p className="text-sm text-blue-700 mt-1">
+                ระบบกำลังแปลงพิกัด (latitude/longitude) เป็นข้อมูลจังหวัด อำเภอ ตำบล เพื่อให้สามารถกรองข้อมูลได้
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search Form */}
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6 mb-6">
+        {/* Info about location filtering */}
+        {locationDataMap.size > 0 && !isLoadingLocations && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 mb-4">
+            <div className="flex items-start gap-2">
+              <MapPin size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-green-800">
+                <span className="font-semibold">ระบบได้แปลงพิกัดเป็นพื้นที่แล้ว!</span> คุณสามารถกรองข้อมูลตามจังหวัด อำเภอ ตำบล ที่ได้จากพิกัด latitude/longitude ได้เลย ({locationDataMap.size} รายการ)
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Search Type Radio */}
         {/* <div className="flex flex-wrap items-center gap-4 mb-6 pb-4 border-b border-[#f0ebff]">
           <span className="font-semibold text-[#231d37] text-[15px]">
@@ -1408,6 +1533,9 @@ const PregnantReportComp = () => {
                   ชื่อ-นามสกุล
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
+                  พื้นที่
+                </th>
+                <th className="py-4 px-4 font-semibold text-center">
                   ส่งวันที่
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
@@ -1424,7 +1552,7 @@ const PregnantReportComp = () => {
               {isLoadingData ? (
                 <tr>
                   <td
-                    colSpan={activeTab === "submitted" ? 5 : 4}
+                    colSpan={activeTab === "submitted" ? 6 : 5}
                     className="py-16 text-center"
                   >
                     <div className="flex flex-col items-center gap-3">
@@ -1436,7 +1564,7 @@ const PregnantReportComp = () => {
               ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={activeTab === "submitted" ? 5 : 4}
+                    colSpan={activeTab === "submitted" ? 6 : 5}
                     className="py-12 text-center"
                   >
                     <div className="flex flex-col items-center gap-3">
@@ -1448,6 +1576,8 @@ const PregnantReportComp = () => {
               ) : (
                 paginatedRows.map((row, idx) => {
                   const displayName = getUserName(row.external_user_id, row.name);
+                  const locationData = locationDataMap.get(row.external_user_id);
+
                   return (
                     <tr
                       key={row.index}
@@ -1463,6 +1593,29 @@ const PregnantReportComp = () => {
                           <span className="text-gray-400">กำลังโหลด...</span>
                         ) : (
                           displayName
+                        )}
+                      </td>
+                      <td className="py-4 px-4 text-center text-sm text-gray-600">
+                        {isLoadingLocations ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                            <span className="text-xs text-gray-400">กำลังดึงพื้นที่...</span>
+                          </div>
+                        ) : locationData ? (
+                          <div className="flex flex-col items-center">
+                            <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">
+                              <MapPin size={12} />
+                              <span>{locationData.province || "ไม่ระบุจังหวัด"}</span>
+                            </div>
+                            {locationData.district && (
+                              <span className="text-xs text-gray-500 mt-1">
+                                {locationData.district}
+                                {locationData.subdistrict ? `, ${locationData.subdistrict}` : ""}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">ไม่มีข้อมูลพิกัด</span>
                         )}
                       </td>
                       <td className="py-4 px-4 text-center text-gray-600">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   Calendar,
@@ -14,6 +14,12 @@ import {
 import NewsCompService from "@services/Table/NewsCompService";
 import NewsAddPopup from "@components/NewsComp/NewsAddPopup";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import {
+  fetchNotifications,
+  createNotification,
+  deleteNotification,
+  transformNotificationData,
+} from "@services/notificationService/notificationService";
 
 // Dummy auth สำหรับตัวอย่าง
 const dummyAuth = { roles: ["สบส."] };
@@ -44,150 +50,6 @@ const weeks = [
   "สัปดาห์ที่ 3 (15-21)",
   "สัปดาห์ที่ 4 (22-28)",
   "สัปดาห์ที่ 5 (29-31)",
-];
-
-// mock ข่าวสาร
-export const rawNewsListOrigin = [
-  {
-    id: 1,
-    date: "25 มิถุนายน 2568",
-    title: "ระบบยืนยันตัวตนหลังการสมัครใช้งานแอป",
-    year: "2568",
-    month: "มิถุนายน",
-    week: "สัปดาห์ที่ 4 (22-28)",
-    healthZone: "zone1",
-    province: "เชียงใหม่",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "รายละเอียดเกี่ยวกับการยืนยันตัวตนหลังสมัครใช้งานแอป",
-  },
-  {
-    id: 2,
-    date: "20 กรกฎาคม 2567",
-    title: "อัพเดตเวอร์ชั่นใหม่",
-    year: "2567",
-    month: "กรกฎาคม",
-    week: "สัปดาห์ที่ 3 (15-21)",
-    healthZone: "zone2",
-    province: "กรุงเทพ",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "เวอร์ชั่นใหม่ มาพร้อมฟีเจอร์พิเศษ",
-  },
-  {
-    id: 3,
-    date: "12 มีนาคม 2569",
-    title: "ระบบแจ้งเตือนใหม่",
-    year: "2569",
-    month: "มีนาคม",
-    week: "สัปดาห์ที่ 2 (8-14)",
-    healthZone: "zone1",
-    province: "เชียงใหม่",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "แจ้งเตือนกิจกรรมจากระบบใหม่",
-  },
-  {
-    id: 4,
-    date: "15 มิถุนายน 2570",
-    title: "คู่มือการใช้งานแอป",
-    year: "2570",
-    month: "มิถุนายน",
-    week: "สัปดาห์ที่ 3 (15-21)",
-    healthZone: "zone2",
-    province: "กรุงเทพ",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "คู่มือสำหรับผู้ใช้งานแอปเวอร์ชั่นล่าสุด",
-  },
-  {
-    id: 5,
-    date: "10 พฤษภาคม 2568",
-    title: "เพิ่มระบบแสดงผลกราฟ",
-    year: "2568",
-    month: "พฤษภาคม",
-    week: "สัปดาห์ที่ 2 (8-14)",
-    healthZone: "zone1",
-    province: "เชียงใหม่",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "ระบบกราฟช่วยวิเคราะห์ข้อมูลได้สะดวกขึ้น",
-  },
-  {
-    id: 6,
-    date: "30 เมษายน 2567",
-    title: "แจ้งปิดปรับปรุงระบบ",
-    year: "2567",
-    month: "เมษายน",
-    week: "สัปดาห์ที่ 5 (29-31)",
-    healthZone: "zone2",
-    province: "กรุงเทพ",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "ระบบจะปิดปรับปรุงชั่วคราวในวันจันทร์",
-  },
-  {
-    id: 7,
-    date: "18 สิงหาคม 2569",
-    title: "เพิ่มระบบสมาชิก",
-    year: "2569",
-    month: "สิงหาคม",
-    week: "สัปดาห์ที่ 3 (15-21)",
-    healthZone: "zone2",
-    province: "กรุงเทพ",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "สมาชิกสามารถลงทะเบียนและแก้ไขโปรไฟล์",
-  },
-  {
-    id: 8,
-    date: "5 กันยายน 2570",
-    title: "อัพเดตระบบความปลอดภัย",
-    year: "2570",
-    month: "กันยายน",
-    week: "สัปดาห์ที่ 1 (1-7)",
-    healthZone: "zone1",
-    province: "เชียงใหม่",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "เพิ่มมาตรการความปลอดภัยขั้นสูง",
-  },
-  {
-    id: 9,
-    date: "14 ตุลาคม 2568",
-    title: "แจ้งเตือนการประชุม",
-    year: "2568",
-    month: "ตุลาคม",
-    week: "สัปดาห์ที่ 2 (8-14)",
-    healthZone: "zone1",
-    province: "เชียงใหม่",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "ประชุมประจำเดือนจะจัดที่ห้องประชุมใหญ่",
-  },
-  {
-    id: 10,
-    date: "22 ธันวาคม 2567",
-    title: "ระบบแจ้งเตือนวันหยุด",
-    year: "2567",
-    month: "ธันวาคม",
-    week: "สัปดาห์ที่ 4 (22-28)",
-    healthZone: "zone2",
-    province: "กรุงเทพ",
-    amphur: "เมือง",
-    subdistrict: "บางรัก",
-    hospital: "รพ.สต.1",
-    detail: "แจ้งเตือนวันหยุดประจำปีล่วงหน้า",
-  },
 ];
 
 // Table with Pagination
@@ -345,11 +207,41 @@ const NewsComp = () => {
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
   const [week, setWeek] = useState("");
-  const [rawNewsList, setRawNewsList] = useState(rawNewsListOrigin);
-  const [filteredNews, setFilteredNews] = useState(rawNewsListOrigin);
+  const [rawNewsList, setRawNewsList] = useState([]);
+  const [filteredNews, setFilteredNews] = useState([]);
   const [showAddPopup, setShowAddPopup] = useState(false);
   const [showDetailPopup, setShowDetailPopup] = useState(false);
   const [detailData, setDetailData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // ดึงข้อมูลจาก API เมื่อ component โหลด
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  // ฟังก์ชันดึงข้อมูลจาก API
+  const loadNotifications = async () => {
+    setLoading(true);
+    try {
+      const response = await fetchNotifications({
+        skip: 0,
+        limit: 1000,
+        is_active: true, // ดึงเฉพาะที่ active
+      });
+
+      const notifications = transformNotificationData(
+        response.notifications || []
+      );
+      setRawNewsList(notifications);
+      setFilteredNews(notifications);
+    } catch (error) {
+      console.error("Failed to load notifications:", error);
+      // แสดง error ให้ user (อาจใช้ toast/alert)
+      alert("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ดูรายละเอียดข่าวสาร
   const handleDetail = (item) => {
@@ -364,18 +256,32 @@ const NewsComp = () => {
   const handleClosePopup = () => {
     setShowAddPopup(false);
   };
-  const handleSubmitPopup = (data) => {
-    const newId = rawNewsList.length
-      ? Math.max(...rawNewsList.map((n) => n.id || 0)) + 1
-      : 1;
-    const now = new Date();
-    const dateStr = `${now.getDate()} ${months[now.getMonth() + 1] || ""} ${
-      now.getFullYear() + 543
-    }`;
-    const newData = { ...data, id: newId, date: dateStr };
-    setRawNewsList((prev) => [newData, ...prev]);
-    setFilteredNews((prev) => [newData, ...prev]);
-    setShowAddPopup(false);
+  const handleSubmitPopup = async (data) => {
+    try {
+      // สร้างข้อมูลสำหรับส่ง API
+      const notificationData = {
+        title: data.title,
+        message: data.detail || data.message,
+        type: "info",
+        target_level: "all",
+        is_active: true,
+        is_pinned: false,
+        priority: 0,
+        author_name: dummyAuth.roles[0] || "Admin",
+      };
+
+      // เรียก API สร้าง notification
+      await createNotification(notificationData);
+
+      // โหลดข้อมูลใหม่
+      await loadNotifications();
+
+      setShowAddPopup(false);
+      alert("เพิ่มข่าวสารสำเร็จ!");
+    } catch (error) {
+      console.error("Failed to create notification:", error);
+      alert("ไม่สามารถเพิ่มข่าวสารได้ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
   // ปิด popup ดูรายละเอียด
@@ -383,12 +289,24 @@ const NewsComp = () => {
     setShowDetailPopup(false);
     setDetailData(null);
   };
+
   // ลบข้อมูล
-  const handleDeleteDetail = (item) => {
-    setRawNewsList((prev) => prev.filter((n) => n.id !== item.id));
-    setFilteredNews((prev) => prev.filter((n) => n.id !== item.id));
-    setShowDetailPopup(false);
-    setDetailData(null);
+  const handleDeleteDetail = async (item) => {
+    if (!confirm("ต้องการลบข่าวสารนี้?")) return;
+
+    try {
+      await deleteNotification(item.id);
+
+      // โหลดข้อมูลใหม่
+      await loadNotifications();
+
+      setShowDetailPopup(false);
+      setDetailData(null);
+      alert("ลบข่าวสารสำเร็จ!");
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+      alert("ไม่สามารถลบข่าวสารได้ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
   // ล้างข้อมูลค้นหา
@@ -397,22 +315,58 @@ const NewsComp = () => {
     setMonth("");
     setWeek("");
     setSearchType("yearly");
-    setFilteredNews(rawNewsListOrigin);
+    setFilteredNews(rawNewsList);
   };
 
   // Handle search submit
   const handleSearch = (e) => {
     e.preventDefault();
     let filtered = rawNewsList;
-    if (year) filtered = filtered.filter((n) => n.year === year);
-    if (month) filtered = filtered.filter((n) => n.month === month);
-    if (week) filtered = filtered.filter((n) => n.week === week);
+
+    // กรองตามวันที่ (แปลงจาก date string)
+    if (year || month || week) {
+      filtered = filtered.filter((n) => {
+        const dateStr = n.date || "";
+
+        // เช็คปี
+        if (year && !dateStr.includes(year)) return false;
+
+        // เช็คเดือน
+        if (month && !dateStr.includes(month)) return false;
+
+        // สัปดาห์ - ต้องแปลงวันที่เป็นตัวเลข
+        if (week) {
+          const match = dateStr.match(/^(\d+)/);
+          if (match) {
+            const day = parseInt(match[1]);
+            const weekNum = parseInt(week.match(/\d+/)[0]);
+
+            const weekRanges = {
+              1: [1, 7],
+              2: [8, 14],
+              3: [15, 21],
+              4: [22, 28],
+              5: [29, 31],
+            };
+
+            const range = weekRanges[weekNum];
+            if (range && (day < range[0] || day > range[1])) return false;
+          }
+        }
+
+        return true;
+      });
+    }
+
     setFilteredNews(filtered);
   };
 
   // Stats data
   const totalNews = rawNewsList.length;
-  const thisYearNews = rawNewsList.filter((n) => n.year === "2568").length;
+  const currentYear = "2568";
+  const thisYearNews = rawNewsList.filter((n) =>
+    (n.date || "").includes(currentYear)
+  ).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4 sm:p-6 lg:p-8">
@@ -464,7 +418,7 @@ const NewsComp = () => {
                 <Calendar className="w-6 h-6 text-violet-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">ข่าวสารปี 2568</p>
+                <p className="text-sm text-gray-500">ข่าวสารปี {currentYear}</p>
                 <p className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
                   {thisYearNews}
                 </p>
@@ -609,11 +563,18 @@ const NewsComp = () => {
               พบ {filteredNews.length} รายการ
             </span>
           </div>
-          <TableWithPagination
-            data={filteredNews}
-            defaultItemsPerPage={10}
-            onDetail={handleDetail}
-          />
+
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">
+              กำลังโหลดข้อมูล...
+            </div>
+          ) : (
+            <TableWithPagination
+              data={filteredNews}
+              defaultItemsPerPage={10}
+              onDetail={handleDetail}
+            />
+          )}
         </div>
       </div>
 

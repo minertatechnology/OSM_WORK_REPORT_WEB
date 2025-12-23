@@ -18,6 +18,15 @@ const PregnantReportComp = dynamic(
   }
 );
 
+// Use dynamic import with ssr: false to avoid hydration issues
+const PregnantReportComp = dynamic(
+  () => import("@components/PregnantReportComp/PregnantReportComp"),
+  {
+    ssr: false,
+    loading: () => <ComponentLoadingSpinner />
+  }
+);
+
 const PregnantReport = () => {
   return (
     <Suspense fallback={
