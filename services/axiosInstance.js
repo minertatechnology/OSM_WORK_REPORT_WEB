@@ -1,4 +1,5 @@
 import axios from "axios";
+import idleDetector from "@utils/idleDetector";
 import {
   getAccessToken,
   getRefreshToken,
@@ -15,9 +16,13 @@ const axiosInstance = axios.create({
 // Track if token refresh is in progress
 let isRefreshing = false;
 let failedQueue = [];
+let hasShownIdleWarning = false; // Track if we've shown idle warning
 
 const TOKEN_REFRESH_THRESHOLD_MS =
   Number(process.env.NEXT_PUBLIC_TOKEN_REFRESH_THRESHOLD_SECONDS || 60) * 1000;
+const INTERACTION_REFRESH_BUFFER_MS =
+  Number(process.env.NEXT_PUBLIC_INTERACTION_REFRESH_BUFFER_SECONDS || 300) *
+  1000; // default 5 minutes
 
 const decodeBase64Url = (input) => {
   if (!input) {
@@ -108,6 +113,34 @@ const shouldRefreshToken = (token) => {
     return false;
   }
   return remaining <= TOKEN_REFRESH_THRESHOLD_MS;
+};
+
+const isUserCurrentlyActive = () => {
+  if (typeof window === "undefined") {
+    return true;
+  }
+  if (!idleDetector || typeof idleDetector.isUserIdle !== "function") {
+    return true;
+  }
+  return !idleDetector.isUserIdle();
+};
+
+const shouldProactivelyRefreshToken = (token) => {
+  const remaining = getTokenRemainingMs(token);
+  if (typeof remaining !== "number") {
+    return false;
+  }
+
+  if (remaining <= TOKEN_REFRESH_THRESHOLD_MS) {
+    // Already captured by standard refresh flow
+    return false;
+  }
+
+  const bufferWindow = Math.max(
+    INTERACTION_REFRESH_BUFFER_MS,
+    TOKEN_REFRESH_THRESHOLD_MS
+  );
+  return remaining <= bufferWindow && isUserCurrentlyActive();
 };
 
 const processQueue = (error, token = null) => {
@@ -203,11 +236,21 @@ axiosInstance.interceptors.request.use(
     const token = getAccessToken();
     if (token) {
       let activeToken = token;
-      const needsRefresh = shouldRefreshToken(token);
+      const needsStandardRefresh = shouldRefreshToken(token);
+      const needsProactiveRefresh = shouldProactivelyRefreshToken(token);
 
-      if (needsRefresh) {
+      if (needsStandardRefresh || needsProactiveRefresh) {
         try {
           activeToken = await refreshAccessToken();
+          if (
+            process.env.NEXT_PUBLIC_DEBUG_MODE === "true" &&
+            needsProactiveRefresh &&
+            !needsStandardRefresh
+          ) {
+            console.log(
+              "[Token Refresh] Proactive refresh triggered by user activity"
+            );
+          }
         } catch (refreshError) {
           if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
             console.error(
@@ -230,6 +273,18 @@ axiosInstance.interceptors.request.use(
           {
             hasAuthHeader: Boolean(config.headers.Authorization),
             tokenPreview: preview,
+          }
+        );
+      }
+
+      if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+        console.log(
+          "[axiosInstance][request]",
+          config.method?.toUpperCase(),
+          config.url,
+          {
+            params: config.params,
+            data: config.data,
           }
         );
       }
@@ -293,22 +348,59 @@ axiosInstance.interceptors.response.use(
           console.log("[Token Refresh] Successfully refreshed token");
         }
 
+        // Reset idle warning flag เมื่อ refresh สำเร็จ
+        hasShownIdleWarning = false;
+
         // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return axiosInstance(originalRequest);
       } catch (refreshError) {
+        // Refresh failed - ตรวจสอบว่า user idle หรือไม่
+        const isUserIdle = idleDetector?.isUserIdle() || false;
+        const isPageHidden = idleDetector?.isPageHiddenOrMinimized() || false;
+
         if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
           console.error("Token refresh failed");
         }
 
-        // Refresh failed - redirect to login
-        clearTokens();
-
+        // ✅ แสดง popup แจ้งเตือนเฉพาะเมื่อ user ไม่ได้ใช้งาน (idle หรือเปลี่ยนแท็บ/ย่อหน้าจอ)
+        // ✅ ถ้า user กำลังใช้งานอยู่ (tab active, ไม่ย่อหน้าจอ) ไม่ต้องแสดง popup
         if (
-          typeof window !== "undefined" &&
-          window.location.pathname !== "/"
+          (isUserIdle || isPageHidden) &&
+          !hasShownIdleWarning &&
+          typeof window !== "undefined"
         ) {
-          window.location.href = "/";
+          hasShownIdleWarning = true;
+
+          // แสดง alert แจ้งเตือนว่า session หมดอายุเนื่องจาก idle
+          const idleDuration = idleDetector?.getIdleDurationInMinutes() || 0;
+
+          // Import alertService dynamically เพื่อแสดง popup
+          import("@services/alertService/alertService").then(
+            ({ default: alertService }) => {
+              alertService
+                .warning(
+                  "Session หมดอายุ",
+                  `คุณไม่ได้ใช้งานระบบเป็นเวลา ${idleDuration} นาที กรุณาเข้าสู่ระบบใหม่อีกครั้ง`,
+                  { confirmButtonText: "เข้าสู่ระบบ" }
+                )
+                .then(() => {
+                  clearTokens();
+                  window.location.href = "/";
+                });
+            }
+          );
+        } else {
+          // ถ้ายังใช้งานอยู่ (tab active) แต่ refresh ไม่สำเร็จ
+          // ให้ redirect ไปหน้า login ทันที โดยไม่แสดง popup
+          clearTokens();
+
+          if (
+            typeof window !== "undefined" &&
+            window.location.pathname !== "/"
+          ) {
+            window.location.href = "/";
+          }
         }
 
         return Promise.reject(refreshError);
