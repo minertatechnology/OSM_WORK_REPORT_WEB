@@ -127,8 +127,7 @@ export const getUserByExternalId = async (externalUserId) => {
     // ถ้าไม่พบข้อมูลจาก /osm/{externalUserId} หรือ 403 Forbidden ให้ลองเรียก /officer/{externalUserId}
     if (error.response?.status === 404 || error.response?.status === 403) {
       try {
-        const errorType = error.response?.status === 404 ? 'not found' : 'forbidden';
-        console.log(`⚠️ User ${errorType} in /osm (${error.response?.status}), trying /officer/${externalUserId}`);
+        // Silently try /officer endpoint as fallback
         const officerResponse = await oauth2Api.get(`/officer/${externalUserId}`);
 
         if (officerResponse.data && officerResponse.data.data) {
@@ -164,24 +163,12 @@ export const getUserByExternalId = async (externalUserId) => {
 
           // เก็บใน cache
           userCache.set(externalUserId, userData);
-          console.log(`✅ User data fetched from /officer: "${userData.name}"`);
 
           return userData;
         }
       } catch (officerError) {
-        console.error(`❌ Failed to fetch from /officer/${externalUserId}:`, {
-          status: officerError.response?.status,
-          message: officerError.response?.data?.message || officerError.message,
-        });
+        // Silently fail - will return fallback data
       }
-    } else {
-      // Log error สำหรับกรณีที่ไม่ใช่ 404 หรือ 403
-      // ใช้ console.warn แทน console.error เพราะระบบมี fallback
-      console.warn(`⚠️ Failed to fetch user ${externalUserId}:`, {
-        status: error.response?.status,
-        message: error.response?.data?.message || error.message,
-        url: error.config?.url,
-      });
     }
 
     // Return fallback data ถ้าทั้ง 2 endpoints ล้มเหลว

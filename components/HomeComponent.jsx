@@ -56,7 +56,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ username: "", password: "" });
   const [showThaiId, setShowThaiId] = useState(false);
-  const [userType, setUserType] = useState("officer");
+  // Always use "officer" user type - no need for state
+  const userType = "officer";
+
+  // DEV: Auto fill function
+  function handleDevAutoFill() {
+    setUsername("1189900323155");
+    setPassword("password");
+    setUserType("officer");
+  }
 
   function validate() {
     let err = { username: "", password: "" };
@@ -155,8 +163,8 @@ export default function LoginPage() {
               className="w-[528px] h-auto"
             />
           </div>
-          {/* User Type Selection */}
-          <div className="mb-6">
+          {/* User Type Selection - Hidden, always use "officer" */}
+          {/* <div className="mb-6">
             <label className="block font-semibold text-gray-700 mb-3">
               ประเภทผู้ใช้งาน
             </label>
@@ -190,7 +198,7 @@ export default function LoginPage() {
                 </span>
               </label>
             </div>
-          </div>
+          </div> */}
           {/* Form */}
           <form className="space-y-5" autoComplete="on" onSubmit={handleLogin}>
             {/* Username */}
@@ -313,6 +321,17 @@ export default function LoginPage() {
                 />
                 <span>Thai ID</span>
               </button>
+              {/* DEV: Auto Fill Button */}
+              {process.env.NEXT_PUBLIC_ENV_MODE === 'development' && (
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleDevAutoFill}
+                  className="w-full h-9 rounded-md border-2 border-dashed border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400 disabled:opacity-60"
+                >
+                  🔧 DEV: Auto Fill (เจ้าหน้าที่)
+                </button>
+              )}
             </div>
           </form>
         </div>

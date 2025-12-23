@@ -12,7 +12,6 @@ export const getAuthToken = () => {
                      Cookies.get("jwt");
 
   if (cookieToken) {
-    console.log("🔑 Token found in cookies");
     return cookieToken;
   }
 
@@ -24,12 +23,10 @@ export const getAuthToken = () => {
                       localStorage.getItem("jwt");
 
     if (localToken) {
-      console.log("🔑 Token found in localStorage");
       return localToken;
     }
   }
 
-  console.warn("⚠️ No token found anywhere!");
   return null;
 };
 
@@ -47,8 +44,6 @@ export const saveAuthToken = (token) => {
   if (typeof window !== "undefined") {
     localStorage.setItem("token", token);
   }
-
-  console.log("✅ Token saved successfully");
 };
 
 /**
@@ -66,8 +61,6 @@ export const clearAuthToken = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("access_token");
   }
-
-  console.log("🗑️ Token cleared");
 };
 
 /**

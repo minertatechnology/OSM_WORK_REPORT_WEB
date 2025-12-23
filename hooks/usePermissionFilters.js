@@ -150,7 +150,6 @@ export const usePermissionFilters = (options = {}) => {
     if (!permissionLoading && scope) {
       // ⚠️ ถ้าเป็นสิทธิ์สูงสุด (สบส) ไม่ต้อง set ค่าเริ่มต้น ให้เลือกเอง
       if (lockLevel === 'none') {
-        console.log('🔓 สบส - ไม่ set ค่าเริ่มต้น ให้เลือกเอง');
         return;
       }
 

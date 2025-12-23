@@ -5,7 +5,58 @@ import { useMapManager } from "../../../composables/useMapManager.js";
 import { useHealthRegions } from "../../../composables/useHealthRegions.js";
 import { useLoading } from "../../../context/LoadingProvider";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import {
+  getProvinces,
+  getDistricts,
+  getSubdistricts,
+} from "@services/lookupService";
+import { getAccessToken } from "@utils/tokenStorage";
 import styles from "./GisComp.module.css";
+
+const normalizeLookupValue = (value) => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  return String(value).trim();
+};
+
+const getLookupName = (item) => {
+  return normalizeLookupValue(item?.name_th || item?.name || item?.label);
+};
+
+const getLookupCode = (item) => {
+  return normalizeLookupValue(item?.code ?? item?.id);
+};
+
+const normalizeLookupList = (items) => {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .map((item) => {
+      const name = getLookupName(item);
+      const code = getLookupCode(item);
+      if (!name) {
+        return null;
+      }
+      return { name, code };
+    })
+    .filter(Boolean);
+};
+
+const buildCodeMap = (items) => {
+  return items.reduce((acc, item) => {
+    if (item.code) {
+      acc[item.name] = item.code;
+    }
+    return acc;
+  }, {});
+};
+
+const ANALYTICS_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL ||
+  "http://localhost:8000/api/v1"
+).replace(/\/$/, "");
 
 const GisComp = () => {
   const { setLoading } = useLoading();
@@ -16,6 +67,8 @@ const GisComp = () => {
   const [availableProvinces, setAvailableProvinces] = useState([]);
   const [availableDistricts, setAvailableDistricts] = useState([]);
   const [availableSubdistricts, setAvailableSubdistricts] = useState([]);
+  const [provinceCodeByName, setProvinceCodeByName] = useState({});
+  const [districtCodeByName, setDistrictCodeByName] = useState({});
   const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
   const [isLoadingSubdistricts, setIsLoadingSubdistricts] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +87,7 @@ const GisComp = () => {
   // States for year and month selection
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedWeek, setSelectedWeek] = useState("");
 
   // ฟังก์ชันสร้างค่า mock ที่สม่ำเสมอจากชื่อพื้นที่
   const getMockValueFromName = (name) => {
@@ -80,14 +134,14 @@ const GisComp = () => {
   const mapContainer = useRef(null);
 
   // ฟังก์ชัน hash string - ใช้ djb2 algorithm (เหมือนกับใน useMapManager)
-  const hashString = (str) => {
+  function hashString(str) {
     let hash = 5381;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = ((hash << 5) + hash) ^ char;
     }
     return Math.abs(hash);
-  };
+  }
 
   // สร้างสีจาก HSL โดยใช้ hash โดยตรง (เหมือนกับใน useMapManager)
   const generateColor = (hash) => {
@@ -104,13 +158,7 @@ const GisComp = () => {
   };
 
   // Composables
-  const {
-    getAvailableProvinces,
-    getAmphoeListFromFolder,
-    getTambonListFromFolder,
-    // loadKMLData,
-    getEnglishProvinceName,
-  } = useKMLData();
+  const { getEnglishProvinceName } = useKMLData();
 
   const {
     map,
@@ -128,13 +176,11 @@ const GisComp = () => {
   } = useHealthRegions();
 
   // Options data for CustomSelect components
-  const yearOptions = [
-    { value: "2567", label: "2567" },
-    { value: "2566", label: "2566" },
-    { value: "2565", label: "2565" },
-    { value: "2564", label: "2564" },
-    { value: "2563", label: "2563" },
-  ];
+  const currentBuddhistYear = new Date().getFullYear() + 543;
+  const yearOptions = Array.from({ length: 15 }, (_, index) => {
+    const year = currentBuddhistYear - index;
+    return { value: String(year), label: String(year) };
+  });
 
   const monthOptions = [
     { value: "01", label: "มกราคม" },
@@ -149,6 +195,14 @@ const GisComp = () => {
     { value: "10", label: "ตุลาคม" },
     { value: "11", label: "พฤศจิกายน" },
     { value: "12", label: "ธันวาคม" },
+  ];
+
+  const weekOptions = [
+    { value: "1", label: "สัปดาห์ที่ 1 (1-7)" },
+    { value: "2", label: "สัปดาห์ที่ 2 (8-14)" },
+    { value: "3", label: "สัปดาห์ที่ 3 (15-21)" },
+    { value: "4", label: "สัปดาห์ที่ 4 (22-28)" },
+    { value: "5", label: "สัปดาห์ที่ 5 (29-31)" },
   ];
 
   // Convert arrays to options format for CustomSelect
@@ -273,6 +327,7 @@ const GisComp = () => {
     setSelectedSubdistrict("");
     setAvailableDistricts([]);
     setAvailableSubdistricts([]);
+    setDistrictCodeByName({});
 
     if (selectedProvince) {
       try {
@@ -280,12 +335,24 @@ const GisComp = () => {
         setIsLoading(true);
         updateStatus(`กำลังโหลดข้อมูลอำเภอใน ${selectedProvince}...`, "info");
 
-        const amphoeList = await getAmphoeListFromFolder(selectedProvince);
-        setAvailableDistricts(amphoeList);
-
-        if (amphoeList.length > 0) {
+        const provinceCode = provinceCodeByName[selectedProvince];
+        if (!provinceCode) {
           updateStatus(
-            `พบ ${amphoeList.length} อำเภอในจังหวัด ${selectedProvince}, กำลังโหลดแผนที่...`,
+            `ไม่พบรหัสจังหวัดสำหรับ ${selectedProvince}`,
+            "warning"
+          );
+          return;
+        }
+
+        const districtData = await getDistricts(provinceCode);
+        const normalizedDistricts = normalizeLookupList(districtData);
+        const districtNames = normalizedDistricts.map((item) => item.name);
+        setAvailableDistricts(districtNames);
+        setDistrictCodeByName(buildCodeMap(normalizedDistricts));
+
+        if (districtNames.length > 0) {
+          updateStatus(
+            `พบ ${districtNames.length} อำเภอในจังหวัด ${selectedProvince}, กำลังโหลดแผนที่...`,
             "info"
           );
 
@@ -294,7 +361,7 @@ const GisComp = () => {
 
           // โหลด KML ของทุกอำเภอในจังหวัด
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
-          const loadPromises = amphoeList.map(async (amphoeName) => {
+          const loadPromises = districtNames.map(async (amphoeName) => {
             try {
               const filePath = `/split-amphoe/${englishProvinceName}/${amphoeName}.kml`;
               const response = await fetch(filePath);
@@ -365,7 +432,7 @@ const GisComp = () => {
     }
   }, [
     selectedProvince,
-    getAmphoeListFromFolder,
+    provinceCodeByName,
     getEnglishProvinceName,
     updateStatus,
     loadAndDisplayKML,
@@ -382,19 +449,27 @@ const GisComp = () => {
         setIsLoading(true);
         updateStatus(`กำลังโหลดข้อมูลตำบลใน ${selectedDistrict}...`, "info");
 
-        const tambonList = await getTambonListFromFolder(
-          selectedProvince,
-          selectedDistrict
-        );
-        setAvailableSubdistricts(tambonList);
+        const districtCode = districtCodeByName[selectedDistrict];
+        if (!districtCode) {
+          updateStatus(
+            `ไม่พบรหัสอำเภอสำหรับ ${selectedDistrict}`,
+            "warning"
+          );
+          return;
+        }
 
-        if (tambonList.length > 0) {
+        const subdistrictData = await getSubdistricts(districtCode);
+        const normalizedSubdistricts = normalizeLookupList(subdistrictData);
+        const subdistrictNames = normalizedSubdistricts.map((item) => item.name);
+        setAvailableSubdistricts(subdistrictNames);
+
+        if (subdistrictNames.length > 0) {
           // ล้าง layers เดิม
           clearAllLayers();
 
           // โหลด KML ของทุกตำบลในอำเภอ
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
-          const loadPromises = tambonList.map(async (tambonName) => {
+          const loadPromises = subdistrictNames.map(async (tambonName) => {
             try {
               const filePath = `/split-tambon/${englishProvinceName}/${selectedDistrict}/${tambonName}.kml`;
               const response = await fetch(filePath);
@@ -467,7 +542,7 @@ const GisComp = () => {
   }, [
     selectedDistrict,
     selectedProvince,
-    getTambonListFromFolder,
+    districtCodeByName,
     getEnglishProvinceName,
     updateStatus,
     loadMapData,
@@ -546,6 +621,9 @@ const GisComp = () => {
 
   const clearFilter = useCallback(() => {
     // ล้างการเลือกทั้งหมด
+    setSelectedYear("");
+    setSelectedMonth("");
+    setSelectedWeek("");
     setSelectedHealthRegion("");
     setSelectedProvince("");
     setSelectedDistrict("");
@@ -553,6 +631,7 @@ const GisComp = () => {
     setAvailableProvincesInRegion([]);
     setAvailableDistricts([]);
     setAvailableSubdistricts([]);
+    setDistrictCodeByName({});
 
     // ล้าง layers บนแผนที่
     clearAllLayers();
@@ -581,6 +660,7 @@ const GisComp = () => {
         setSelectedSubdistrict("");
         setAvailableDistricts([]);
         setAvailableSubdistricts([]);
+        setDistrictCodeByName({});
 
         clearAllLayers();
 
@@ -653,6 +733,7 @@ const GisComp = () => {
       setSelectedSubdistrict("");
       setAvailableDistricts([]);
       setAvailableSubdistricts([]);
+      setDistrictCodeByName({});
       clearAllLayers();
       updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
     }
@@ -696,8 +777,10 @@ const GisComp = () => {
 
         // Load available provinces
         if (isMounted) {
-          const provinces = await getAvailableProvinces();
-          setAvailableProvinces(provinces);
+          const provincesData = await getProvinces({ limit: 100 });
+          const normalized = normalizeLookupList(provincesData);
+          setAvailableProvinces(normalized.map((item) => item.name));
+          setProvinceCodeByName(buildCodeMap(normalized));
           updateStatus("แผนที่พร้อมใช้งาน - ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
         }
       } catch (error) {
@@ -718,7 +801,7 @@ const GisComp = () => {
       isMounted = false;
       cleanup();
     };
-  }, [initializeMap, getAvailableProvinces, cleanup, updateStatus]);
+  }, [initializeMap, cleanup, updateStatus]);
 
   // Handle province change for map viewer
   useEffect(() => {
@@ -749,6 +832,60 @@ const GisComp = () => {
     onHealthRegionSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedHealthRegion]);
+
+  // Log filter selections for debugging
+  useEffect(() => {
+    console.log("[GIS OSM1 Filters]", {
+      year: selectedYear,
+      month: selectedMonth,
+      week: selectedWeek,
+      healthRegion: selectedHealthRegion,
+      province: selectedProvince,
+      district: selectedDistrict,
+      subdistrict: selectedSubdistrict,
+    });
+  }, [
+    selectedYear,
+    selectedMonth,
+    selectedWeek,
+    selectedHealthRegion,
+    selectedProvince,
+    selectedDistrict,
+    selectedSubdistrict,
+  ]);
+
+  // Fetch weekly analytics details for the selected period
+  useEffect(() => {
+    if (!selectedYear || !selectedMonth || !selectedWeek) {
+      return;
+    }
+
+    const url = `${ANALYTICS_BASE_URL}/analytics/weekly/${selectedYear}/${selectedMonth}/${selectedWeek}/details`;
+
+    const controller = new AbortController();
+
+    const fetchWeeklyDetails = async () => {
+      try {
+        const token = getAccessToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers,
+        });
+        const data = await response.json();
+        console.log("[GIS OSM1 Weekly Details]", { url, data });
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+        console.error("[GIS OSM1 Weekly Details] Fetch failed:", error);
+      }
+    };
+
+    fetchWeeklyDetails();
+
+    return () => controller.abort();
+  }, [selectedYear, selectedMonth, selectedWeek]);
 
   // ป้องกัน wheel event ไม่ให้ซูมแผนที่เมื่อ scroll บน control panel และ chart card
   useEffect(() => {
@@ -829,6 +966,16 @@ const GisComp = () => {
                       placeholder="-- เลือกเดือน --"
                     />
                   </div>
+                </div>
+                <div className={styles.formGroup}>
+                  <CustomSelect
+                    id="weekSelect"
+                    label="สัปดาห์"
+                    options={weekOptions}
+                    value={selectedWeek}
+                    onChange={(e) => setSelectedWeek(e.target.value)}
+                    placeholder="-- เลือกสัปดาห์ --"
+                  />
                 </div>
                 <div className={styles.formGroup}>
                   <CustomSelect
