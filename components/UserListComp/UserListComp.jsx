@@ -42,54 +42,10 @@ import CustomSelect from "@services/customSelectService/customSelectService";
 import { getUsersList } from "@services/userService/userService";
 import { getAuthToken } from "@utils/tokenHelper";
 import { getUserByExternalId } from "@services/oauth2Service";
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
 
-// Mock data for select options and table
-const YEARS = [
-  { label: "2568", value: "2568" },
-  { label: "2567", value: "2567" },
-  { label: "2566", value: "2566" },
-];
-const MONTHS = [
-  { label: "มกราคม", value: "01" },
-  { label: "กุมภาพันธ์", value: "02" },
-  { label: "มีนาคม", value: "03" },
-  { label: "เมษายน", value: "04" },
-  { label: "พฤษภาคม", value: "05" },
-  { label: "มิถุนายน", value: "06" },
-  { label: "กรกฎาคม", value: "07" },
-  { label: "สิงหาคม", value: "08" },
-  { label: "กันยายน", value: "09" },
-  { label: "ตุลาคม", value: "10" },
-  { label: "พฤศจิกายน", value: "11" },
-  { label: "ธันวาคม", value: "12" },
-];
-const WEEKS = [
-  { label: "สัปดาห์ 1 (2/6/68-8/6/68)", value: "week1" },
-  { label: "สัปดาห์ 2 (9/6/68-15/6/68)", value: "week2" },
-  { label: "สัปดาห์ 3 (16/6/68-22/6/68)", value: "week3" },
-  { label: "สัปดาห์ 4 (23/6/68-27/6/68)", value: "week4" },
-];
-const ZONES = Array.from({ length: 13 }, (_, i) => ({
-  label: `เขตสุขภาพ ${i + 1}`,
-  value: `${i + 1}`,
-}));
-
-const PROVINCES = [
-  { label: "เชียงใหม่", value: "เชียงใหม่" },
-  { label: "กรุงเทพฯ", value: "กรุงเทพฯ" },
-  { label: "นครราชสีมา", value: "นครราชสีมา" },
-];
-const DISTRICTS = [
-  { label: "เมือง", value: "เมือง" },
-  { label: "สันทราย", value: "สันทราย" },
-  { label: "ปากช่อง", value: "ปากช่อง" },
-];
-const SUBDISTRICTS = [
-  { label: "ท่าศาลา", value: "ท่าศาลา" },
-  { label: "หนองจ๊อม", value: "หนองจ๊อม" },
-  { label: "ในเมือง", value: "ในเมือง" },
-];
-
+// Mock data for select options (ลบ ZONES, PROVINCES, DISTRICTS, SUBDISTRICTS เพราะใช้จาก usePermissionFilters แทน)
 const PER_PAGE_OPTIONS = [
   { label: "10", value: 10 },
   { label: "20", value: 20 },
@@ -544,13 +500,30 @@ function Pagination({
 }
 
 const UserListComp = () => {
-  const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("06");
-  const [week, setWeek] = useState(WEEKS[3].value);
-  const [zone, setZone] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
+  // Use permission-based filters (เหมือน ElderlyScreeningComp)
+  const { isLocked } = useUserPermission();
+  const {
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+    handleReset: resetFilters,
+  } = usePermissionFilters({
+    defaultYear: String(new Date().getFullYear() + 543),
+    defaultYearType: "fiscal",
+  });
+
   const [keyword, setKeyword] = useState("");
   const [tab, setTab] = useState("active");
   const [currentPage, setCurrentPage] = useState(1);
@@ -588,9 +561,9 @@ const UserListComp = () => {
           per_page: itemsPerPage,
           keyword: keyword,
           is_active: tab === "active" ? true : false,
-          province_code: province,
-          district_code: district,
-          subdistrict_code: subdistrict,
+          province_code: province || "",
+          district_code: district || "",
+          subdistrict_code: subdistrict || "",
           token: token
         });
 
@@ -791,9 +764,8 @@ const UserListComp = () => {
                 longitude: oauthData?.longitude,
               };
             } catch (error) {
-              console.warn(`⚠️ Failed to fetch OAuth2 data for user ${user.external_user_id}:`, error.message);
-
-              // Fallback to base user data if OAuth2 fetch fails
+              // Silently fallback to base user data if OAuth2 fetch fails
+              // (404 errors are normal when user doesn't exist in OAuth2 system)
               const prefix = user.prefix || "";
               const firstName = user.first_name || "";
               const lastName = user.last_name || "";
@@ -863,7 +835,7 @@ const UserListComp = () => {
     };
 
     fetchUsers();
-  }, [currentPage, itemsPerPage, keyword, tab, province, district, subdistrict]);
+  }, [currentPage, itemsPerPage, keyword, tab, zone, province, district, subdistrict]);
 
   // Auto-refresh online status ทุก 1 นาที
   useEffect(() => {
@@ -949,13 +921,7 @@ const UserListComp = () => {
   };
 
   const handleReset = () => {
-    setYear("2568");
-    setMonth("06");
-    setWeek(WEEKS[3].value);
-    setZone("");
-    setProvince("");
-    setDistrict("");
-    setSubdistrict("");
+    resetFilters(); // ใช้ resetFilters จาก usePermissionFilters
     setKeyword("");
     setCurrentPage(1);
   };
@@ -1010,54 +976,42 @@ const UserListComp = () => {
 
       {/* Filter Section */}
       <div className="bg-white border border-[#eee5ff] shadow-xl rounded-2xl p-5 sm:p-6 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <CustomSelect
-            label="ปีงบประมาณ"
-            placeholder="เลือกปี"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            options={YEARS}
-            icon={Calendar}
-          />
-          <CustomSelect
-            label="เดือน"
-            placeholder="เลือกเดือน"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS}
-            icon={Calendar}
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <CustomSelect
             label="เขตสุขภาพ"
             placeholder="เลือกเขต"
             value={zone}
-            onChange={(e) => setZone(e.target.value)}
-            options={ZONES}
+            onChange={(e) => handleZoneChange(e.target.value)}
+            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             icon={MapPin}
+            disabled={isLocked("zone")}
           />
           <CustomSelect
             label="จังหวัด"
             placeholder="เลือกจังหวัด"
             value={province}
-            onChange={(e) => setProvince(e.target.value)}
-            options={PROVINCES}
+            onChange={(e) => handleProvinceChange(e.target.value)}
+            options={(provinces || []).map((p) => ({ label: p.name_th, value: p.code }))}
             icon={Building2}
+            disabled={isLocked("province")}
           />
           <CustomSelect
             label="อำเภอ"
             placeholder="เลือกอำเภอ"
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            options={DISTRICTS}
+            onChange={(e) => handleDistrictChange(e.target.value)}
+            options={(districts || []).map((d) => ({ label: d.name_th, value: d.code }))}
             icon={Building2}
+            disabled={isLocked("district")}
           />
           <CustomSelect
             label="ตำบล"
             placeholder="เลือกตำบล"
             value={subdistrict}
-            onChange={(e) => setSubdistrict(e.target.value)}
-            options={SUBDISTRICTS}
+            onChange={(e) => handleSubdistrictChange(e.target.value)}
+            options={(subdistricts || []).map((s) => ({ label: s.name_th, value: s.code }))}
             icon={Home}
+            disabled={isLocked("subdistrict")}
           />
         </div>
         <div className="flex gap-3 mt-4">
@@ -1110,30 +1064,32 @@ const UserListComp = () => {
         </div>
 
         {/* Search Bar */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
-          <div className="relative flex-1 w-full">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => {
-                setKeyword(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="พิมพ์คำค้นหาชื่อหรือเลขประจำตัวประชาชน..."
-              className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
-            />
+        <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-4 my-6">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative flex-1 w-full">
+              <Search
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="พิมพ์คำค้นหาชื่อหรือเลขประจำตัวประชาชน..."
+                className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
+              />
+            </div>
+            <button
+              className="flex items-center justify-center gap-2 px-6 py-3 h-12 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 whitespace-nowrap w-full sm:w-auto"
+              onClick={() => setCurrentPage(1)}
+            >
+              <Search size={20} />
+              ค้นหา
+            </button>
           </div>
-          <button
-            className="flex items-center justify-center gap-2 px-6 py-3 h-12 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 whitespace-nowrap w-full sm:w-auto"
-            onClick={() => setCurrentPage(1)}
-          >
-            <Search size={20} />
-            ค้นหา
-          </button>
         </div>
 
         {/* Table */}
@@ -1183,7 +1139,7 @@ const UserListComp = () => {
               ) : (
                 displayUsers.map((row, idx) => (
                   <tr
-                    key={row.cid}
+                    key={row.external_user_id || `user-${idx}`}
                     className={`${
                       idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
                     } hover:bg-purple-50 transition-colors`}

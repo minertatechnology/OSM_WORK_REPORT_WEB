@@ -29,63 +29,21 @@ apiSmartOsm.interceptors.request.use(
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log("🔑 Token attached:", token.substring(0, 20) + "...");
-    } else {
-      console.error("❌ No authentication token found! API call will likely fail.");
-      console.error("💡 Tip: Run debugTokens() in console to see all token locations");
     }
-
-    console.log("🚀 Smart OSM API Request:", {
-      method: config.method?.toUpperCase(),
-      url: config.baseURL + config.url,
-      params: config.params,
-      hasAuth: !!config.headers.Authorization,
-    });
 
     return config;
   },
   (error) => {
-    console.error("❌ Request Error:", error);
     return Promise.reject(error);
   }
 );
 
 apiSmartOsm.interceptors.response.use(
   (response) => {
-    console.log("✅ Smart OSM API Response:", {
-      status: response.status,
-      url: response.config.url,
-      dataLength: Array.isArray(response.data) ? response.data.length : "N/A",
-    });
     return response;
   },
   (error) => {
-    const status = error.response?.status;
-    const message = error.response?.data?.message || error.message;
-
-    console.error("❌ Smart OSM API Error:", {
-      status,
-      message,
-      url: error.config?.url,
-    });
-
-    // จัดการ 401 Unauthorized และ 403 Forbidden
-    if (status === 401 || status === 403) {
-      console.error("🚫 Authentication Error!");
-      console.error("💡 Solution:");
-      console.error("   1. Login to the system first");
-      console.error("   2. Make sure your token is valid");
-      console.error("   3. Run: debugTokens() to check token status");
-
-      const token = getAuthToken();
-      if (!token) {
-        console.error("❌ No token found anywhere!");
-      } else {
-        console.error("❌ Token found but invalid or expired!");
-        console.error("🔑 Token preview:", token.substring(0, 30) + "...");
-      }
-    }
-
+    // Silently handle errors - let the calling code decide how to handle
     return Promise.reject(error);
   }
 );

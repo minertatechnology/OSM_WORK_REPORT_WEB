@@ -651,6 +651,7 @@ const NcdsScreeningComp = () => {
     districts,
     subdistricts,
     healthServices,
+    handleReset,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -824,15 +825,8 @@ const NcdsScreeningComp = () => {
   );
 
   const handleClear = () => {
-    setYearType("fiscal");
-    setYear(String(currentFiscalYear));
-    setMonth("");
+    handleReset(String(currentFiscalYear), "fiscal");
     setWeek("สัปดาห์ 4 (23/6/68-27/6/68)");
-    setZone("");
-    setService("");
-    setProvince("");
-    setDistrict("");
-    setSubdistrict("");
     setKeyword("");
     setPage(1);
   };

@@ -275,39 +275,6 @@ axiosInstance.interceptors.request.use(
       }
 
       config.headers.Authorization = `Bearer ${activeToken}`;
-
-      if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-        const preview = `${String(activeToken).slice(0, 12)}...`;
-        console.log(
-          "[axiosInstance][auth]",
-          config.method?.toUpperCase(),
-          config.url,
-          {
-            hasAuthHeader: Boolean(config.headers.Authorization),
-            tokenPreview: preview,
-          }
-        );
-      }
-
-      if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-        console.log(
-          "[axiosInstance][request]",
-          config.method?.toUpperCase(),
-          config.url,
-          {
-            params: config.params,
-            data: config.data,
-          }
-        );
-      }
-    } else if (
-      process.env.NEXT_PUBLIC_DEBUG_MODE === "true" &&
-      !isAuthEndpoint
-    ) {
-      console.warn(
-        `[axiosInstance][request] ${config.method?.toUpperCase()} ${config.url
-        } - No token found`
-      );
     }
 
     return config;
@@ -318,27 +285,9 @@ axiosInstance.interceptors.request.use(
 // Response Interceptor
 axiosInstance.interceptors.response.use(
   (response) => {
-    if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-      console.log(
-        "[axiosInstance][response]",
-        response.config.method?.toUpperCase(),
-        response.config.url,
-        response.status,
-        response.data
-      );
-    }
     return response;
   },
   async (error) => {
-    if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-      console.error(
-        "[axiosInstance][error]",
-        error?.config?.method?.toUpperCase(),
-        error?.config?.url,
-        error?.response?.status,
-        error?.response?.data
-      );
-    }
     const originalRequest = error.config;
 
     // Handle 401 Unauthorized errors (token invalid or expired)
@@ -356,10 +305,6 @@ axiosInstance.interceptors.response.use(
       try {
         const newToken = await refreshAccessToken();
 
-        if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-          console.log("[Token Refresh] Successfully refreshed token");
-        }
-
         // Reset idle warning flag เมื่อ refresh สำเร็จ
         hasShownIdleWarning = false;
 
@@ -370,10 +315,6 @@ axiosInstance.interceptors.response.use(
         // Refresh failed - ตรวจสอบว่า user idle หรือไม่
         const isUserIdle = idleDetector?.isUserIdle() || false;
         const isPageHidden = idleDetector?.isPageHiddenOrMinimized() || false;
-
-        if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-          console.error("Token refresh failed");
-        }
 
         // ✅ แสดง alert แจ้งเตือนเฉพาะเมื่อ user ไม่ได้ใช้งาน (idle หรือเปลี่ยนแท็บ/ย่อหน้าจอ)
         // ✅ ถ้า user กำลังใช้งานอยู่ (tab active, ไม่ย่อหน้าจอ) ไม่ต้องแสดง alert

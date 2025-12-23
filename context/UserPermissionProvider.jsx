@@ -61,35 +61,19 @@ export default function UserPermissionProvider({ children }) {
           ? document.cookie.split(';').find(c => c.trim().startsWith('token='))
           : null;
 
-        console.log('🔑 Token Check:', {
-          hasDocument: typeof document !== 'undefined',
-          token: token ? 'Found' : 'Not found',
-        });
-
         if (!token) {
           // User not logged in, skip API fetch
-          console.log('❌ No token found, skipping API fetch');
           setLoading(false);
           return;
         }
 
-        console.log('✅ Token found, fetching user data...');
-
         // Fetch from API to ensure data is up-to-date
         const userData = await fetchCurrentUser();
-
-        console.log('🔍 Raw API Response from /auth/me:', userData);
 
         if (userData && userData.data) {
           const data = userData.data;
           const permissionScope = data.permission_scope;
           const userType = data.user_type; // "osm" or "officer"
-
-          console.log('📋 Parsed Data:', {
-            userType,
-            permissionScope,
-            serviceUnit: data.service_unit,
-          });
 
           // Map permission_scope.level to role
           const levelToRole = {
@@ -119,14 +103,6 @@ export default function UserPermissionProvider({ children }) {
 
           const level = roleToLockLevel(role);
           const vis = getVisibilityByRole(role);
-
-          console.log('👤 User Permission Debug:', {
-            userType,
-            permissionLevel,
-            role,
-            level,
-            scope: userScope,
-          });
 
           setUser(data);
           setRoles(userRoles);
