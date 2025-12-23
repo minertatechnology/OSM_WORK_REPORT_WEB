@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import InputService from "@services/inputService/inputService";
 import ButtonService from "@services/buttonService/buttonService";
 import {
-  fetchHealthAreas,
-  fetchProvinces,
-  fetchDistricts,
-  fetchSubdistricts,
-} from "@services/lookupService/lookupService";
+  getHealthAreas,
+  getProvinces,
+  getDistricts,
+  getSubdistricts,
+} from "@services/lookupService";
 
 const purple = "#9327e2";
 const border = "#c9b7f7";
@@ -146,12 +146,12 @@ export default function NewsAddPopup({
     const loadInitialData = async () => {
       try {
         // โหลดเขตสุขภาพ
-        const healthAreasData = await fetchHealthAreas();
+        const healthAreasData = await getHealthAreas({ limit: 100 });
         setHealthZones(buildLookupOptions(healthAreasData, "เลือกเขตสุขภาพ"));
 
         // โหลดจังหวัด
         setLoadingProvinces(true);
-        const provincesData = await fetchProvinces();
+        const provincesData = await getProvinces({ limit: 100 });
         setProvinces(buildLookupOptions(provincesData, "เลือกจังหวัด"));
       } catch (error) {
         console.error("Failed to load initial data:", error);
@@ -175,7 +175,7 @@ export default function NewsAddPopup({
 
       try {
         setLoadingAmphurs(true);
-        const amphursData = await fetchDistricts(province);
+        const amphursData = await getDistricts(province);
         setAmphurs(buildLookupOptions(amphursData, "เลือกอำเภอ"));
       } catch (error) {
         console.error("Failed to load amphurs:", error);
@@ -198,7 +198,7 @@ export default function NewsAddPopup({
 
       try {
         setLoadingSubdistricts(true);
-        const subdistrictsData = await fetchSubdistricts(amphur);
+        const subdistrictsData = await getSubdistricts(amphur);
         setSubdistricts(buildLookupOptions(subdistrictsData, "เลือกตำบล"));
       } catch (error) {
         console.error("Failed to load subdistricts:", error);
