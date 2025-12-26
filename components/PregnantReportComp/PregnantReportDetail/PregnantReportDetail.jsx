@@ -73,8 +73,9 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
       doc.setFont("Sarabun");
 
-      const pageWidth = 210;
-      const pageHeight = 297;
+      // ตั้งค่าจำนวนแถวต่อหน้า
+      const ROWS_PER_PAGE = 10;
+      const totalPages = Math.ceil(tableData.length / ROWS_PER_PAGE);
 
       // ฟังก์ชันสำหรับวาดลายน้ำโลโก้
       const addWatermark = (doc) => {
@@ -82,112 +83,24 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         const imgWidth = 150;
         const imgHeight = 100;
 
-        // คำนวณตำแหน่งกึ่งกลางหน้ากระดาษ
         const centerX = 220 / 2;
         const centerY = 360 / 2;
 
-        // คำนวณตำแหน่งให้โลโก้อยู่กึ่งกลางพอดี
         const x = centerX - (imgWidth / 2);
         const y = centerY - (imgHeight / 2);
 
-        // บันทึกสถานะปัจจุบัน
         doc.saveGraphicsState();
-
-        // ตั้งค่าความโปร่งใส
         doc.setGState(new doc.GState({ opacity: 0.10 }));
-
-        // วาดรูป
         doc.addImage(watermarkImage, 'PNG', x, y, imgWidth, imgHeight, '', 'NONE', 0);
-
-        // คืนสถานะ
         doc.restoreGraphicsState();
       };
 
-      // เพิ่มลายน้ำหน้าแรก
-      addWatermark(doc);
-
-      // Header - Title
-      doc.setFontSize(14);
-      doc.setFont("Sarabun", "bold");
-      doc.text(`แบบรายงานผลการปฏิบัติงานของ อสม. ปีงบประมาณ ${year}`, 105, 15, { align: "center" });
-
-      doc.setFontSize(12);
-      doc.setFont("Sarabun", "normal");
-      doc.text(`ประจำเดือน ${month}`, 105, 22, { align: "center" });
-      doc.text(name, 105, 28, { align: "center" });
-
       // Table settings
-      const rowHeight = 12; // เพิ่มความสูงแถวเพื่อรองรับ text หลายบรรทัด
+      const rowHeight = 12;
       const headerHeight = 11;
-
-      // Column widths - ปรับความกว้างให้พอดีกับ A4 (เพิ่ม postpartum x3)
-      const colWidths = [7, 22, 13, 13, 13, 13, 13, 13, 14, 20, 36]; // ลำดับ, รายชื่อ, pregnant x3, postpartum x3, รับยา, จำนวนวัน, สาเหตุ
+      const colWidths = [7, 22, 13, 13, 13, 13, 13, 13, 14, 20, 36];
       const tableWidth = colWidths.reduce((sum, w) => sum + w, 0);
-
-      // คำนวณ startX ให้ตารางอยู่ตรงกลาง (A4 width = 210mm)
       const startX = (210 - tableWidth) / 2;
-      const startY = 38;
-
-      // Draw table border
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.4);
-
-      // Header Row 1 - Main headers with rowSpan
-      let currentY = startY;
-
-      // Draw header backgrounds
-      doc.setFillColor(255, 255, 255);
-      doc.rect(startX, currentY, tableWidth, headerHeight * 2, 'F');
-
-      // Draw header borders and text
-      doc.setFont("Sarabun", "bold");
-      doc.setFontSize(11);
-
-      let currentX = startX;
-
-      // ลำดับ (rowSpan 2)
-      doc.rect(currentX, currentY, colWidths[0], headerHeight * 2);
-      doc.text("ลำดับ", currentX + colWidths[0] / 2, currentY + headerHeight, { align: "center" });
-      currentX += colWidths[0];
-
-      // รายชื่อ (rowSpan 2)
-      doc.rect(currentX, currentY, colWidths[1], headerHeight * 2);
-      doc.text("รายชื่อ", currentX + colWidths[1] / 2, currentY + headerHeight, { align: "center" });
-      currentX += colWidths[1];
-
-      // หญิงตั้งครรภ์ (colSpan 3)
-      const pregnantWidth = colWidths[2] + colWidths[3] + colWidths[4];
-      doc.rect(currentX, currentY, pregnantWidth, headerHeight);
-      doc.text("หญิงตั้งครรภ์", currentX + pregnantWidth / 2, currentY + 5.5, { align: "center" });
-
-      // หญิงหลังคลอด (colSpan 3)
-      const postpartumWidth = colWidths[5] + colWidths[6] + colWidths[7];
-      doc.rect(currentX + pregnantWidth, currentY, postpartumWidth, headerHeight);
-      doc.text("หญิงหลังคลอด", currentX + pregnantWidth + postpartumWidth / 2, currentY + 5.5, { align: "center" });
-
-      // รับยา (rowSpan 2)
-      doc.rect(currentX + pregnantWidth + postpartumWidth, currentY, colWidths[8], headerHeight * 2);
-      doc.text("รับยา", currentX + pregnantWidth + postpartumWidth + colWidths[8] / 2, currentY + headerHeight, { align: "center" });
-
-      // จำนวนวันฯ (rowSpan 2)
-      doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[8], currentY, colWidths[9], headerHeight * 2);
-      const daysText = "จำนวนวันใน\n1 สัปดาห์\nที่ทานยา";
-      const daysLines = daysText.split('\n');
-      doc.setFontSize(6);
-      doc.text(daysLines[0], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight - 3, { align: "center" });
-      doc.text(daysLines[1], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight, { align: "center" });
-      doc.text(daysLines[2], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight + 3, { align: "center" });
-      doc.setFontSize(11);
-
-      // สาเหตุ (rowSpan 2)
-      doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9], currentY, colWidths[10], headerHeight * 2);
-      doc.text("สาเหตุ", currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] + colWidths[10] / 2, currentY + headerHeight, { align: "center" });
-
-      // Header Row 2 - Sub headers
-      currentY += headerHeight;
-      currentX = startX + colWidths[0] + colWidths[1]; // Skip first two columns (rowSpan)
-
-      doc.setFontSize(8.5);
 
       // Sub headers for pregnant and postpartum
       const subHeaders = [
@@ -199,25 +112,78 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         "หลังคลอด\n25 สัปดาห์\nขึ้นไป"
       ];
 
-      doc.setFontSize(7);
-      for (let i = 0; i < 6; i++) {
-        doc.rect(currentX, currentY, colWidths[i + 2], headerHeight);
-        const lines = subHeaders[i].split('\n');
-        // แสดง 3 บรรทัด - จัดตรงกลางทั้งแนวตั้งและแนวนอน
-        const startY = currentY + 2;
-        doc.text(lines[0], currentX + colWidths[i + 2] / 2, startY + 2, { align: "center" });
-        doc.text(lines[1], currentX + colWidths[i + 2] / 2, startY + 5, { align: "center" });
-        doc.text(lines[2], currentX + colWidths[i + 2] / 2, startY + 8, { align: "center" });
-        currentX += colWidths[i + 2];
-      }
+      // ฟังก์ชันวาด Header ของตาราง
+      const drawTableHeader = (doc, startY) => {
+        let currentY = startY;
+        let currentX = startX;
 
-      // Draw body rows
-      currentY += headerHeight;
-      doc.setFont("Sarabun", "normal");
-      doc.setFontSize(10);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.4);
+        doc.setFillColor(255, 255, 255);
+        doc.rect(startX, currentY, tableWidth, headerHeight * 2, 'F');
 
-      tableData.forEach((row) => {
-        currentX = startX;
+        doc.setFont("Sarabun", "bold");
+        doc.setFontSize(11);
+
+        // ลำดับ (rowSpan 2)
+        doc.rect(currentX, currentY, colWidths[0], headerHeight * 2);
+        doc.text("ลำดับ", currentX + colWidths[0] / 2, currentY + headerHeight, { align: "center" });
+        currentX += colWidths[0];
+
+        // รายชื่อ (rowSpan 2)
+        doc.rect(currentX, currentY, colWidths[1], headerHeight * 2);
+        doc.text("รายชื่อ", currentX + colWidths[1] / 2, currentY + headerHeight, { align: "center" });
+        currentX += colWidths[1];
+
+        // หญิงตั้งครรภ์ (colSpan 3)
+        const pregnantWidth = colWidths[2] + colWidths[3] + colWidths[4];
+        doc.rect(currentX, currentY, pregnantWidth, headerHeight);
+        doc.text("หญิงตั้งครรภ์", currentX + pregnantWidth / 2, currentY + 5.5, { align: "center" });
+
+        // หญิงหลังคลอด (colSpan 3)
+        const postpartumWidth = colWidths[5] + colWidths[6] + colWidths[7];
+        doc.rect(currentX + pregnantWidth, currentY, postpartumWidth, headerHeight);
+        doc.text("หญิงหลังคลอด", currentX + pregnantWidth + postpartumWidth / 2, currentY + 5.5, { align: "center" });
+
+        // รับยา (rowSpan 2)
+        doc.rect(currentX + pregnantWidth + postpartumWidth, currentY, colWidths[8], headerHeight * 2);
+        doc.text("รับยา", currentX + pregnantWidth + postpartumWidth + colWidths[8] / 2, currentY + headerHeight, { align: "center" });
+
+        // จำนวนวันฯ (rowSpan 2)
+        doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[8], currentY, colWidths[9], headerHeight * 2);
+        const daysText = "จำนวนวันใน\n1 สัปดาห์\nที่ทานยา";
+        const daysLines = daysText.split('\n');
+        doc.setFontSize(6);
+        doc.text(daysLines[0], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight - 3, { align: "center" });
+        doc.text(daysLines[1], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight, { align: "center" });
+        doc.text(daysLines[2], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight + 3, { align: "center" });
+        doc.setFontSize(11);
+
+        // สาเหตุ (rowSpan 2)
+        doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9], currentY, colWidths[10], headerHeight * 2);
+        doc.text("สาเหตุ", currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] + colWidths[10] / 2, currentY + headerHeight, { align: "center" });
+
+        // Header Row 2 - Sub headers
+        currentY += headerHeight;
+        currentX = startX + colWidths[0] + colWidths[1];
+
+        doc.setFontSize(7);
+        for (let i = 0; i < 6; i++) {
+          doc.rect(currentX, currentY, colWidths[i + 2], headerHeight);
+          const lines = subHeaders[i].split('\n');
+          const subStartY = currentY + 2;
+          doc.text(lines[0], currentX + colWidths[i + 2] / 2, subStartY + 2, { align: "center" });
+          doc.text(lines[1], currentX + colWidths[i + 2] / 2, subStartY + 5, { align: "center" });
+          doc.text(lines[2], currentX + colWidths[i + 2] / 2, subStartY + 8, { align: "center" });
+          currentX += colWidths[i + 2];
+        }
+
+        return currentY + headerHeight;
+      };
+
+      // ฟังก์ชันวาดแถวข้อมูล
+      const drawDataRow = (doc, row, currentY) => {
+        let currentX = startX;
 
         // ลำดับ
         doc.rect(currentX, currentY, colWidths[0], rowHeight);
@@ -231,8 +197,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         doc.setFont("Sarabun", "normal");
         doc.setFontSize(6.5);
         const nameLines = doc.splitTextToSize(row.name, colWidths[1] - 2);
-        const nameY = currentY + 7;
-        doc.text(nameLines[0] || row.name, currentX + colWidths[1] / 2, nameY, { align: "center" });
+        doc.text(nameLines[0] || row.name, currentX + colWidths[1] / 2, currentY + 7, { align: "center" });
         currentX += colWidths[1];
 
         // Data columns with checkmarks
@@ -274,22 +239,59 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         }
         currentX += colWidths[9];
 
-        // สาเหตุ - ใช้ splitTextToSize เพื่อแบ่งบรรทัด
+        // สาเหตุ
         doc.rect(currentX, currentY, colWidths[10], rowHeight);
         doc.setFontSize(5);
         const reason = row.q3_reason || "-";
         const reasonLines = doc.splitTextToSize(reason, colWidths[10] - 2);
-
-        // แสดงไม่เกิน 3 บรรทัด
         const displayLines = reasonLines.slice(0, 3);
         let textY = currentY + 3.5;
         displayLines.forEach((line, index) => {
           doc.text(line, currentX + 1, textY + (index * 2.8), { align: "left" });
         });
-        currentX += colWidths[10];
+      };
 
-        currentY += rowHeight;
-      });
+      // วนลูปสร้างแต่ละหน้า
+      for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        if (pageNum > 0) {
+          doc.addPage();
+        }
+
+        // เพิ่มลายน้ำ
+        addWatermark(doc);
+
+        // Header - Title
+        doc.setFontSize(14);
+        doc.setFont("Sarabun", "bold");
+        doc.text(`แบบรายงานผลการปฏิบัติงานของ อสม. ปีงบประมาณ ${year}`, 105, 15, { align: "center" });
+
+        doc.setFontSize(12);
+        doc.setFont("Sarabun", "normal");
+        doc.text(`ประจำเดือน ${month}`, 105, 22, { align: "center" });
+        doc.text(name, 105, 28, { align: "center" });
+
+        // แสดงหมายเลขหน้า
+        doc.setFontSize(10);
+        doc.text(`หน้า ${pageNum + 1} / ${totalPages}`, 105, 34, { align: "center" });
+
+        // วาด Header ตาราง
+        const startY = 40;
+        let currentY = drawTableHeader(doc, startY);
+
+        // ดึงข้อมูลสำหรับหน้านี้
+        const startIndex = pageNum * ROWS_PER_PAGE;
+        const endIndex = Math.min(startIndex + ROWS_PER_PAGE, tableData.length);
+        const pageData = tableData.slice(startIndex, endIndex);
+
+        // วาดแถวข้อมูล
+        doc.setFont("Sarabun", "normal");
+        doc.setFontSize(10);
+
+        pageData.forEach((row) => {
+          drawDataRow(doc, row, currentY);
+          currentY += rowHeight;
+        });
+      }
 
       // บันทึกไฟล์
       doc.save(`รายงานหญิงตั้งครรภ์_${month}_${year}_${name}.pdf`);

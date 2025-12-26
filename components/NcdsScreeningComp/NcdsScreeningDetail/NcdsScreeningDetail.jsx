@@ -80,50 +80,15 @@ const NcdsScreeningDetail = ({ reportData }) => {
         doc.restoreGraphicsState();
       };
 
-      // Header - Title
-      doc.setFontSize(14);
-      doc.setFont("Sarabun", "bold");
-      doc.text(`แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs) ปีงบประมาณ ${year}`, 105, 15, { align: "center" });
-
-      doc.setFontSize(12);
-      doc.setFont("Sarabun", "normal");
-      doc.text(`ประจำเดือน ${month}`, 105, 22, { align: "center" });
-      doc.text(name, 105, 28, { align: "center" });
-
-      // Table settings - Landscape orientation for wide table
-      doc.addPage('a4', 'landscape');
-      doc.deletePage(1);
-
-      // เพิ่มลายน้ำหลังสร้างหน้า landscape
-      addWatermark(doc);
-
-      // Add title on the landscape page
-      doc.setFontSize(14);
-      doc.setFont("Sarabun", "bold");
-      doc.text(`แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs) ปีงบประมาณ ${year}`, 148.5, 10, { align: "center" });
-      doc.setFontSize(12);
-      doc.setFont("Sarabun", "normal");
-      doc.text(`ประจำเดือน ${month} - ${name}`, 148.5, 16, { align: "center" });
-
+      // ตั้งค่าตาราง
       const startX = 17;
       const startY = 22;
       const rowHeight = 9;
       const headerHeight = 16;
+      const ROWS_PER_PAGE = 10;
 
       // Column widths - 17 columns total (เพิ่ม BMI, ปรับให้พอดีกับกระดาษ A4 แนวนอน)
       const colWidths = [8, 30, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14];
-      const tableWidth = colWidths.reduce((sum, w) => sum + w, 0);
-
-      // Draw table border
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.3);
-
-      let currentY = startY;
-      let currentX = startX;
-
-      // Draw header
-      doc.setFont("Sarabun", "bold");
-      doc.setFontSize(8.5);
 
       const headers = [
         "ลำดับ",
@@ -143,76 +108,6 @@ const NcdsScreeningDetail = ({ reportData }) => {
         "พฤติกรรม\nบริโภค\nน้ำตาล",
         "พฤติกรรม\nบริโภค\nไขมัน",
         "พฤติกรรม\nบริโภค\nเกลือ"
-      ];
-
-      currentX = startX;
-      for (let i = 0; i < headers.length; i++) {
-        doc.rect(currentX, currentY, colWidths[i], headerHeight);
-        const lines = headers[i].split('\n');
-        const lineHeight = 2.5;
-        const startLineY = currentY + (headerHeight - (lines.length - 1) * lineHeight) / 2 + 1.5;
-        lines.forEach((line, lineIdx) => {
-          doc.text(line, currentX + colWidths[i] / 2, startLineY + lineIdx * lineHeight, { align: "center" });
-        });
-        currentX += colWidths[i];
-      }
-
-      // Draw body row - ใช้ข้อมูลจริงจาก API
-      currentY += headerHeight;
-      doc.setFont("Sarabun", "normal");
-      doc.setFontSize(6.5); // ลดขนาดฟอนต์จาก 7 เป็น 6.5
-
-      currentX = startX;
-
-      // ลำดับ
-      doc.rect(currentX, currentY, colWidths[0], rowHeight);
-      doc.setFont("Sarabun", "bold");
-      doc.text("1", currentX + colWidths[0] / 2, currentY + 5.5, { align: "center" });
-      currentX += colWidths[0];
-
-      // รายชื่อ - แบ่งชื่อยาวเป็นหลายบรรทัด
-      doc.rect(currentX, currentY, colWidths[1], rowHeight);
-      doc.setFont("Sarabun", "normal");
-
-      // แบ่งชื่อถ้ายาวเกิน
-      const nameLines = [];
-      if (name.length > 20) {
-        const nameParts = name.split(" ");
-        let line1 = nameParts[0] || "";
-        let line2 = nameParts.slice(1).join(" ") || "";
-        nameLines.push(line1);
-        if (line2) nameLines.push(line2);
-      } else {
-        nameLines.push(name);
-      }
-
-      const nameLineHeight = 2.8;
-      const nameTotalHeight = nameLines.length * nameLineHeight;
-      const nameStartY = currentY + (rowHeight - nameTotalHeight) / 2 + nameLineHeight / 2 + 1;
-
-      nameLines.forEach((line, idx) => {
-        doc.text(line, currentX + colWidths[1] / 2, nameStartY + idx * nameLineHeight, { align: "center" });
-      });
-
-      currentX += colWidths[1];
-
-      // Data columns - 15 columns - ใช้ข้อมูลจริง (เพิ่ม BMI)
-      const values = [
-        rawData.q1_has_ncds === "yes" ? "มี" : rawData.q1_has_ncds === "no" ? "ไม่มี" : "-",
-        bmiResult.level_th || "-",
-        waistResult.level_th || "-",
-        bloodPressureResult.level_th || "-",
-        glucoseResult.level_th || "-",
-        diabetesRiskResult.level_th || "-",
-        exerciseResult.level_th || "-",
-        sleepResult.level_th || "-",
-        depressionResult.level_th || "-",
-        stressResult.level_th || "-",
-        cvRiskResult.level_th || "-",
-        dietVegetableResult.level_th || "-",
-        dietSugarResult.level_th || "-",
-        dietFatResult.level_th || "-",
-        dietSodiumResult.level_th || "-"
       ];
 
       // ฟังก์ชันแบ่งข้อความยาวเป็นหลายบรรทัดแบบตัดคำภาษาไทย
@@ -248,26 +143,190 @@ const NcdsScreeningDetail = ({ reportData }) => {
         return lines;
       };
 
-      for (let i = 0; i < 15; i++) {
-        doc.rect(currentX, currentY, colWidths[i + 2], rowHeight);
+      // ฟังก์ชันวาด header ตาราง
+      const drawTableHeader = (currentY) => {
+        doc.setFont("Sarabun", "bold");
+        doc.setFontSize(8.5);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.3);
 
-        // แบ่งข้อความเป็นหลายบรรทัดถ้ายาวเกิน
-        const textLines = splitThaiText(values[i], colWidths[i + 2] - 1);
-        const lineHeight = 2.5;
-        const totalHeight = textLines.length * lineHeight;
-        const startY = currentY + (rowHeight - totalHeight) / 2 + lineHeight / 2 + 1;
+        let currentX = startX;
+        for (let i = 0; i < headers.length; i++) {
+          doc.rect(currentX, currentY, colWidths[i], headerHeight);
+          const lines = headers[i].split('\n');
+          const lineHeight = 2.5;
+          const startLineY = currentY + (headerHeight - (lines.length - 1) * lineHeight) / 2 + 1.5;
+          lines.forEach((line, lineIdx) => {
+            doc.text(line, currentX + colWidths[i] / 2, startLineY + lineIdx * lineHeight, { align: "center" });
+          });
+          currentX += colWidths[i];
+        }
+        return currentY + headerHeight;
+      };
 
-        textLines.forEach((line, lineIdx) => {
-          doc.text(line, currentX + colWidths[i + 2] / 2, startY + lineIdx * lineHeight, { align: "center" });
+      // ฟังก์ชันวาดแถวข้อมูล
+      const drawDataRow = (currentY, rowIndex, rowData, rowName) => {
+        doc.setFont("Sarabun", "normal");
+        doc.setFontSize(6.5);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.3);
+
+        let currentX = startX;
+
+        // ลำดับ
+        doc.rect(currentX, currentY, colWidths[0], rowHeight);
+        doc.setFont("Sarabun", "bold");
+        doc.text(String(rowIndex), currentX + colWidths[0] / 2, currentY + 5.5, { align: "center" });
+        currentX += colWidths[0];
+
+        // รายชื่อ - แบ่งชื่อยาวเป็นหลายบรรทัด
+        doc.rect(currentX, currentY, colWidths[1], rowHeight);
+        doc.setFont("Sarabun", "normal");
+
+        // แบ่งชื่อถ้ายาวเกิน
+        const nameLines = [];
+        if (rowName.length > 20) {
+          const nameParts = rowName.split(" ");
+          let line1 = nameParts[0] || "";
+          let line2 = nameParts.slice(1).join(" ") || "";
+          nameLines.push(line1);
+          if (line2) nameLines.push(line2);
+        } else {
+          nameLines.push(rowName);
+        }
+
+        const nameLineHeight = 2.8;
+        const nameTotalHeight = nameLines.length * nameLineHeight;
+        const nameStartY = currentY + (rowHeight - nameTotalHeight) / 2 + nameLineHeight / 2 + 1;
+
+        nameLines.forEach((line, idx) => {
+          doc.text(line, currentX + colWidths[1] / 2, nameStartY + idx * nameLineHeight, { align: "center" });
         });
 
-        currentX += colWidths[i + 2];
+        currentX += colWidths[1];
+
+        // Data columns - 15 columns
+        for (let i = 0; i < 15; i++) {
+          doc.rect(currentX, currentY, colWidths[i + 2], rowHeight);
+
+          // แบ่งข้อความเป็นหลายบรรทัดถ้ายาวเกิน
+          const textLines = splitThaiText(rowData[i], colWidths[i + 2] - 1);
+          const lineHeight = 2.5;
+          const totalHeight = textLines.length * lineHeight;
+          const textStartY = currentY + (rowHeight - totalHeight) / 2 + lineHeight / 2 + 1;
+
+          textLines.forEach((line, lineIdx) => {
+            doc.text(line, currentX + colWidths[i + 2] / 2, textStartY + lineIdx * lineHeight, { align: "center" });
+          });
+
+          currentX += colWidths[i + 2];
+        }
+
+        return currentY + rowHeight;
+      };
+
+      // เตรียมข้อมูลตาราง - รองรับหลายรายการ
+      const tableData = reportData?.items || [{
+        name: name,
+        rawData: rawData,
+        bmiResult: bmiResult,
+        waistResult: waistResult,
+        bloodPressureResult: bloodPressureResult,
+        glucoseResult: glucoseResult,
+        diabetesRiskResult: diabetesRiskResult,
+        exerciseResult: exerciseResult,
+        sleepResult: sleepResult,
+        depressionResult: depressionResult,
+        stressResult: stressResult,
+        cvRiskResult: cvRiskResult,
+        dietVegetableResult: dietVegetableResult,
+        dietSugarResult: dietSugarResult,
+        dietFatResult: dietFatResult,
+        dietSodiumResult: dietSodiumResult
+      }];
+
+      // คำนวณจำนวนหน้าทั้งหมด
+      const totalPages = Math.ceil(tableData.length / ROWS_PER_PAGE);
+
+      // สร้างหน้า landscape แรก
+      doc.addPage('a4', 'landscape');
+      doc.deletePage(1);
+
+      // วนลูปสร้างแต่ละหน้า
+      for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        // เพิ่มหน้าใหม่ถ้าไม่ใช่หน้าแรก
+        if (pageNum > 0) {
+          doc.addPage('a4', 'landscape');
+        }
+
+        // เพิ่มลายน้ำ
+        addWatermark(doc);
+
+        // Add title on each page
+        doc.setFontSize(14);
+        doc.setFont("Sarabun", "bold");
+        doc.text(`แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs) ปีงบประมาณ ${year}`, 148.5, 10, { align: "center" });
+        doc.setFontSize(12);
+        doc.setFont("Sarabun", "normal");
+        doc.text(`ประจำเดือน ${month}`, 148.5, 16, { align: "center" });
+
+        // แสดงหมายเลขหน้า
+        doc.setFontSize(10);
+        doc.text(`หน้า ${pageNum + 1} / ${totalPages}`, 280, 10, { align: "right" });
+
+        // วาด header ตาราง
+        let currentY = drawTableHeader(startY);
+
+        // คำนวณข้อมูลสำหรับหน้านี้
+        const startIndex = pageNum * ROWS_PER_PAGE;
+        const endIndex = Math.min(startIndex + ROWS_PER_PAGE, tableData.length);
+        const pageData = tableData.slice(startIndex, endIndex);
+
+        // วาดแถวข้อมูลสำหรับหน้านี้
+        pageData.forEach((item, idx) => {
+          const globalIndex = startIndex + idx + 1;
+
+          // แปลงข้อมูล result สำหรับแต่ละรายการ
+          const itemRawData = item.rawData || rawData;
+          const itemBmiResult = item.bmiResult || parseResult(itemRawData.result_bmi);
+          const itemWaistResult = item.waistResult || parseResult(itemRawData.result_waist);
+          const itemBloodPressureResult = item.bloodPressureResult || parseResult(itemRawData.result_blood_pressure);
+          const itemGlucoseResult = item.glucoseResult || parseResult(itemRawData.result_glucose);
+          const itemDiabetesRiskResult = item.diabetesRiskResult || parseResult(itemRawData.result_diabetes_risk);
+          const itemExerciseResult = item.exerciseResult || parseResult(itemRawData.result_exercise);
+          const itemSleepResult = item.sleepResult || parseResult(itemRawData.result_sleep);
+          const itemDepressionResult = item.depressionResult || parseResult(itemRawData.result_depression);
+          const itemStressResult = item.stressResult || parseResult(itemRawData.result_stress);
+          const itemCvRiskResult = item.cvRiskResult || parseResult(itemRawData.result_cv_risk);
+          const itemDietVegetableResult = item.dietVegetableResult || parseResult(itemRawData.result_diet_vegetable);
+          const itemDietSugarResult = item.dietSugarResult || parseResult(itemRawData.result_diet_sugar);
+          const itemDietFatResult = item.dietFatResult || parseResult(itemRawData.result_diet_fat);
+          const itemDietSodiumResult = item.dietSodiumResult || parseResult(itemRawData.result_diet_sodium);
+
+          const rowData = [
+            itemRawData.q1_has_ncds === "yes" ? "มี" : itemRawData.q1_has_ncds === "no" ? "ไม่มี" : "-",
+            itemBmiResult.level_th || "-",
+            itemWaistResult.level_th || "-",
+            itemBloodPressureResult.level_th || "-",
+            itemGlucoseResult.level_th || "-",
+            itemDiabetesRiskResult.level_th || "-",
+            itemExerciseResult.level_th || "-",
+            itemSleepResult.level_th || "-",
+            itemDepressionResult.level_th || "-",
+            itemStressResult.level_th || "-",
+            itemCvRiskResult.level_th || "-",
+            itemDietVegetableResult.level_th || "-",
+            itemDietSugarResult.level_th || "-",
+            itemDietFatResult.level_th || "-",
+            itemDietSodiumResult.level_th || "-"
+          ];
+
+          currentY = drawDataRow(currentY, globalIndex, rowData, item.name || name);
+        });
       }
 
-      currentY += rowHeight;
-
       // บันทึกไฟล์
-      doc.save(`รายงานคัดกรอง_NCDs_${month}_${year}_${name}.pdf`);
+      doc.save(`รายงานคัดกรอง_NCDs_${month}_${year}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");

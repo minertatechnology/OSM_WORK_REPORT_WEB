@@ -143,6 +143,10 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
       doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
       doc.setFont("Sarabun");
 
+      // ตั้งค่าจำนวนแถวต่อหน้า
+      const ROWS_PER_PAGE = 10;
+      const totalPages = Math.ceil(displayData.length / ROWS_PER_PAGE);
+
       // Add watermark function
       const addWatermark = (doc) => {
         const watermarkImage = "/Smart_Osm_Plus.png";
@@ -162,30 +166,7 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
         doc.restoreGraphicsState();
       };
 
-      // Add watermark to the first page
-      addWatermark(doc);
-
-      // Header - Title
-      doc.setFontSize(12);
-      doc.setFont("Sarabun", "bold");
-      doc.text(`รายละเอียดการสำรวจลูกน้ำยุงลาย ปี ${year}`, 148.5, 10, { align: "center" });
-
-      doc.setFontSize(9);
-      doc.setFont("Sarabun", "normal");
-      doc.text(`ประจำเดือน ${month} ${week}`, 148.5, 16, { align: "center" });
-
-      const nameParts = doc.splitTextToSize(name, 180);
-      let yPos = 21;
-      nameParts.forEach((line) => {
-        doc.text(line, 148.5, yPos, { align: "center" });
-        yPos += 4;
-      });
-
       // Table settings - แนวนอน A4 มีความกว้าง 297mm
-      // ใช้พื้นที่ 280mm (เว้นข้างละ 8.5mm) เพื่อให้ตารางอยู่ตรงกลาง
-      // นอกบ้าน: 12 ประเภท x 2 คอลัมน์ = 24 columns
-      // ในบ้าน: 11 ประเภท x 2 คอลัมน์ = 22 columns
-      // รวม: 24 + 22 = 46 คอลัมน์
       const colWidths = {
         no: 6,        // ลำดับ
         week: 7,      // สัปดาห์
@@ -196,55 +177,9 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
       // คำนวณความกว้างตาราง: 6 + 7 + 9 + (5.6 * 46) = 279.6mm
       const tableWidth = colWidths.no + colWidths.week + colWidths.house + (colWidths.data * 46);
       const margin = (297 - tableWidth) / 2; // คำนวณ margin ให้ตารางอยู่กลาง
-
       const startX = margin;
-      let startY = yPos + 2;
       const rowHeight = 5;
 
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.15);
-
-      // วาดตาราง Header แถวที่ 1
-      doc.setFont("Sarabun", "bold");
-      doc.setFontSize(7);
-
-      let currentX = startX;
-
-      // ลำดับ
-      doc.rect(currentX, startY, colWidths.no, rowHeight * 3);
-      doc.text("ลำดับ", currentX + colWidths.no / 2, startY + 8, { align: "center" });
-      currentX += colWidths.no;
-
-      // สัปดาห์
-      doc.rect(currentX, startY, colWidths.week, rowHeight * 3);
-      doc.text("สัปดาห์", currentX + colWidths.week / 2, startY + 8, { align: "center" });
-      currentX += colWidths.week;
-
-      // บ้านเลขที่
-      doc.rect(currentX, startY, colWidths.house, rowHeight * 3);
-      doc.text("บ้านเลขที่", currentX + colWidths.house / 2, startY + 8, { align: "center" });
-      currentX += colWidths.house;
-
-      // ภาชนะนอกบ้าน - 12 ประเภท x 2 คอลัมน์ = 24 คอลัมน์
-      const outdoorWidth = colWidths.data * 24;
-      doc.setFillColor(255, 248, 220); // สีพื้นหลังส้มอ่อน
-      doc.rect(currentX, startY, outdoorWidth, rowHeight, 'FD');
-      doc.setFontSize(6.5);
-      doc.text("จำนวนภาชนะนอกบ้าน (สำรวจ/พบลูกน้ำ)", currentX + outdoorWidth / 2, startY + 3, { align: "center" });
-
-      // ภาชนะในบ้าน - 11 ประเภท x 2 คอลัมน์ = 22 คอลัมน์
-      const indoorWidth = colWidths.data * 22;
-      doc.setFillColor(230, 240, 255); // สีพื้นหลังฟ้าอ่อน
-      doc.rect(currentX + outdoorWidth, startY, indoorWidth, rowHeight, 'FD');
-      doc.text("จำนวนภาชนะภายในบ้าน (สำรวจ/พบลูกน้ำ)", currentX + outdoorWidth + indoorWidth / 2, startY + 3, { align: "center" });
-
-      // เส้นแบ่งหนาระหว่างนอกบ้านกับในบ้าน
-      doc.setLineWidth(0.5);
-      doc.line(currentX + outdoorWidth, startY, currentX + outdoorWidth, startY + rowHeight * 3);
-      doc.setLineWidth(0.15);
-
-      // แถวที่ 2: ประเภทภาชนะ
-      doc.setFontSize(4.5);
       const outdoorContainerTypes = [
         "โอ่งน้ำดื่ม", "โอ่งน้ำใช้", "บ่อซีเมนต์", "รองกันมด",
         "รองกระถาง", "อ่างบัว", "ยางเก่า", "กาบพืช", "ภาชนะที่ไม่ใช้",
@@ -257,118 +192,113 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
         "น้ำสัตว์", "รองตู้เย็น", "ภาชนะอื่นๆ"
       ]; // 11 ประเภท
 
-      let containerX = startX + colWidths.no + colWidths.week + colWidths.house;
+      // ฟังก์ชันวาด Header ตาราง
+      const drawTableHeader = (startY) => {
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.15);
 
-      // ภาชนะนอกบ้าน - 12 ประเภท
-      outdoorContainerTypes.forEach((type) => {
-        doc.rect(containerX, startY + rowHeight, colWidths.data * 2, rowHeight);
-        const typeParts = doc.splitTextToSize(type, colWidths.data * 2 - 0.5);
-        let typeY = startY + rowHeight + 2.5;
-        typeParts.forEach((part) => {
-          doc.text(part, containerX + colWidths.data, typeY, { align: "center" });
-          typeY += 1.8;
+        // วาดตาราง Header แถวที่ 1
+        doc.setFont("Sarabun", "bold");
+        doc.setFontSize(7);
+
+        let currentX = startX;
+
+        // ลำดับ
+        doc.rect(currentX, startY, colWidths.no, rowHeight * 3);
+        doc.text("ลำดับ", currentX + colWidths.no / 2, startY + 8, { align: "center" });
+        currentX += colWidths.no;
+
+        // สัปดาห์
+        doc.rect(currentX, startY, colWidths.week, rowHeight * 3);
+        doc.text("สัปดาห์", currentX + colWidths.week / 2, startY + 8, { align: "center" });
+        currentX += colWidths.week;
+
+        // บ้านเลขที่
+        doc.rect(currentX, startY, colWidths.house, rowHeight * 3);
+        doc.text("บ้านเลขที่", currentX + colWidths.house / 2, startY + 8, { align: "center" });
+        currentX += colWidths.house;
+
+        // ภาชนะนอกบ้าน - 12 ประเภท x 2 คอลัมน์ = 24 คอลัมน์
+        const outdoorWidth = colWidths.data * 24;
+        doc.setFillColor(255, 248, 220); // สีพื้นหลังส้มอ่อน
+        doc.rect(currentX, startY, outdoorWidth, rowHeight, 'FD');
+        doc.setFontSize(6.5);
+        doc.text("จำนวนภาชนะนอกบ้าน (สำรวจ/พบลูกน้ำ)", currentX + outdoorWidth / 2, startY + 3, { align: "center" });
+
+        // ภาชนะในบ้าน - 11 ประเภท x 2 คอลัมน์ = 22 คอลัมน์
+        const indoorWidth = colWidths.data * 22;
+        doc.setFillColor(230, 240, 255); // สีพื้นหลังฟ้าอ่อน
+        doc.rect(currentX + outdoorWidth, startY, indoorWidth, rowHeight, 'FD');
+        doc.text("จำนวนภาชนะภายในบ้าน (สำรวจ/พบลูกน้ำ)", currentX + outdoorWidth + indoorWidth / 2, startY + 3, { align: "center" });
+
+        // เส้นแบ่งหนาระหว่างนอกบ้านกับในบ้าน
+        doc.setLineWidth(0.5);
+        doc.line(currentX + outdoorWidth, startY, currentX + outdoorWidth, startY + rowHeight * 3);
+        doc.setLineWidth(0.15);
+
+        // แถวที่ 2: ประเภทภาชนะ
+        doc.setFontSize(4.5);
+        let containerX = startX + colWidths.no + colWidths.week + colWidths.house;
+
+        // ภาชนะนอกบ้าน - 12 ประเภท
+        outdoorContainerTypes.forEach((type) => {
+          doc.rect(containerX, startY + rowHeight, colWidths.data * 2, rowHeight);
+          const typeParts = doc.splitTextToSize(type, colWidths.data * 2 - 0.5);
+          let typeY = startY + rowHeight + 2.5;
+          typeParts.forEach((part) => {
+            doc.text(part, containerX + colWidths.data, typeY, { align: "center" });
+            typeY += 1.8;
+          });
+          containerX += colWidths.data * 2;
         });
-        containerX += colWidths.data * 2;
-      });
 
-      // ภาชนะในบ้าน - 11 ประเภท
-      indoorContainerTypes.forEach((type) => {
-        doc.rect(containerX, startY + rowHeight, colWidths.data * 2, rowHeight);
-        const typeParts = doc.splitTextToSize(type, colWidths.data * 2 - 0.5);
-        let typeY = startY + rowHeight + 2.5;
-        typeParts.forEach((part) => {
-          doc.text(part, containerX + colWidths.data, typeY, { align: "center" });
-          typeY += 1.8;
+        // ภาชนะในบ้าน - 11 ประเภท
+        indoorContainerTypes.forEach((type) => {
+          doc.rect(containerX, startY + rowHeight, colWidths.data * 2, rowHeight);
+          const typeParts = doc.splitTextToSize(type, colWidths.data * 2 - 0.5);
+          let typeY = startY + rowHeight + 2.5;
+          typeParts.forEach((part) => {
+            doc.text(part, containerX + colWidths.data, typeY, { align: "center" });
+            typeY += 1.8;
+          });
+          containerX += colWidths.data * 2;
         });
-        containerX += colWidths.data * 2;
-      });
 
-      // แถวที่ 3: สำรวจ/พบ
-      doc.setFontSize(4.5);
-      let surveyX = startX + colWidths.no + colWidths.week + colWidths.house;
+        // แถวที่ 3: สำรวจ/พบ
+        doc.setFontSize(4.5);
+        let surveyX = startX + colWidths.no + colWidths.week + colWidths.house;
 
-      // ภาชนะนอกบ้าน (12 types)
-      for (let i = 0; i < 12; i++) {
-        doc.rect(surveyX, startY + rowHeight * 2, colWidths.data, rowHeight);
-        doc.text("สำรวจ", surveyX + colWidths.data / 2, startY + rowHeight * 2 + 3, { align: "center" });
-        surveyX += colWidths.data;
+        // ภาชนะนอกบ้าน (12 types)
+        for (let i = 0; i < 12; i++) {
+          doc.rect(surveyX, startY + rowHeight * 2, colWidths.data, rowHeight);
+          doc.text("สำรวจ", surveyX + colWidths.data / 2, startY + rowHeight * 2 + 3, { align: "center" });
+          surveyX += colWidths.data;
 
-        doc.rect(surveyX, startY + rowHeight * 2, colWidths.data, rowHeight);
-        doc.text("พบ", surveyX + colWidths.data / 2, startY + rowHeight * 2 + 3, { align: "center" });
-        surveyX += colWidths.data;
-      }
-
-      // ภาชนะในบ้าน (11 types)
-      for (let i = 0; i < 11; i++) {
-        doc.rect(surveyX, startY + rowHeight * 2, colWidths.data, rowHeight);
-        doc.text("สำรวจ", surveyX + colWidths.data / 2, startY + rowHeight * 2 + 3, { align: "center" });
-        surveyX += colWidths.data;
-
-        doc.rect(surveyX, startY + rowHeight * 2, colWidths.data, rowHeight);
-        doc.text("พบ", surveyX + colWidths.data / 2, startY + rowHeight * 2 + 3, { align: "center" });
-        surveyX += colWidths.data;
-      }
-
-      // วาดข้อมูลในตาราง
-      doc.setFont("Sarabun", "normal");
-      doc.setFontSize(6.5);
-
-      let currentY = startY + rowHeight * 3;
-      const maxRowsPerPage = 23; // จำนวนแถวต่อหน้า (แนวตั้งใส่ได้มากกว่า)
-      let rowCount = 0;
-
-      displayData.forEach((row) => {
-        // ถ้าเต็มหน้าให้สร้างหน้าใหม่
-        if (rowCount >= maxRowsPerPage) {
-          doc.addPage();
-          addWatermark(doc); // Add watermark to new page
-          currentY = 10;
-          rowCount = 0;
-
-          // วาด header ใหม่แบบย่อ
-          doc.setFont("Sarabun", "bold");
-          doc.setFontSize(7);
-
-          let headerX = startX;
-          doc.rect(headerX, currentY, colWidths.no, rowHeight);
-          doc.text("ลำดับ", headerX + colWidths.no / 2, currentY + 3.5, { align: "center" });
-          headerX += colWidths.no;
-
-          doc.rect(headerX, currentY, colWidths.week, rowHeight);
-          doc.text("สัปดาห์", headerX + colWidths.week / 2, currentY + 3.5, { align: "center" });
-          headerX += colWidths.week;
-
-          doc.rect(headerX, currentY, colWidths.house, rowHeight);
-          doc.text("บ้านเลขที่", headerX + colWidths.house / 2, currentY + 3.5, { align: "center" });
-          headerX += colWidths.house;
-
-          // header คอลัมน์ข้อมูล - นอกบ้าน 12 ประเภท + ในบ้าน 11 ประเภท
-          doc.setFontSize(5.5);
-
-          // นอกบ้าน (12 types)
-          for (let i = 0; i < 12; i++) {
-            doc.rect(headerX, currentY, colWidths.data, rowHeight);
-            doc.text("สำรวจ", headerX + colWidths.data / 2, currentY + 2.5, { align: "center" });
-            headerX += colWidths.data;
-            doc.rect(headerX, currentY, colWidths.data, rowHeight);
-            doc.text("พบ", headerX + colWidths.data / 2, currentY + 2.5, { align: "center" });
-            headerX += colWidths.data;
-          }
-
-          // ในบ้าน (11 types)
-          for (let i = 0; i < 11; i++) {
-            doc.rect(headerX, currentY, colWidths.data, rowHeight);
-            doc.text("สำรวจ", headerX + colWidths.data / 2, currentY + 2.5, { align: "center" });
-            headerX += colWidths.data;
-            doc.rect(headerX, currentY, colWidths.data, rowHeight);
-            doc.text("พบ", headerX + colWidths.data / 2, currentY + 2.5, { align: "center" });
-            headerX += colWidths.data;
-          }
-
-          currentY += rowHeight;
-          doc.setFont("Sarabun", "normal");
-          doc.setFontSize(6.5);
+          doc.rect(surveyX, startY + rowHeight * 2, colWidths.data, rowHeight);
+          doc.text("พบ", surveyX + colWidths.data / 2, startY + rowHeight * 2 + 3, { align: "center" });
+          surveyX += colWidths.data;
         }
+
+        // ภาชนะในบ้าน (11 types)
+        for (let i = 0; i < 11; i++) {
+          doc.rect(surveyX, startY + rowHeight * 2, colWidths.data, rowHeight);
+          doc.text("สำรวจ", surveyX + colWidths.data / 2, startY + rowHeight * 2 + 3, { align: "center" });
+          surveyX += colWidths.data;
+
+          doc.rect(surveyX, startY + rowHeight * 2, colWidths.data, rowHeight);
+          doc.text("พบ", surveyX + colWidths.data / 2, startY + rowHeight * 2 + 3, { align: "center" });
+          surveyX += colWidths.data;
+        }
+
+        return startY + rowHeight * 3;
+      };
+
+      // ฟังก์ชันวาดแถวข้อมูล
+      const drawDataRow = (row, currentY) => {
+        doc.setFont("Sarabun", "normal");
+        doc.setFontSize(6.5);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.15);
 
         let dataX = startX;
 
@@ -432,84 +362,131 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
           dataX += colWidths.data;
         });
 
-        currentY += rowHeight;
-        rowCount++;
-      });
+        return currentY + rowHeight;
+      };
 
-      // แถวรวม
-      doc.setFont("Sarabun", "bold");
-      doc.setFontSize(7);
-      let sumX = startX;
+      // ฟังก์ชันวาดแถวรวม
+      const drawSummaryRow = (currentY) => {
+        doc.setFont("Sarabun", "bold");
+        doc.setFontSize(7);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.15);
 
-      // เช็คว่าต้องขึ้นหน้าใหม่หรือไม่
-      if (currentY + rowHeight > 280) {
-        doc.addPage();
-        addWatermark(doc); // Add watermark to new page
-        currentY = 10;
+        let sumX = startX;
+
+        doc.rect(sumX, currentY, colWidths.no + colWidths.week + colWidths.house, rowHeight);
+        doc.text("รวมทั้งหมด", sumX + (colWidths.no + colWidths.week + colWidths.house) / 2, currentY + 3.5, { align: "center" });
+        sumX += colWidths.no + colWidths.week + colWidths.house;
+
+        // คำนวณผลรวม - นอกบ้าน 12 ประเภท + ในบ้าน 11 ประเภท
+        const sumValues = [
+          // ภาชนะนอกบ้าน - 12 ประเภท (รวมภาชนะอื่นๆ)
+          displayData.reduce((sum, r) => sum + r.outdoor_drinking_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_drinking_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_usage_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_usage_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_cement_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_cement_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_antstand_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_antstand_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_pot_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_pot_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_pond_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_pond_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_tire_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_tire_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_leaf_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_leaf_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_unused_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_unused_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_animal_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_animal_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_fridge_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_fridge_found, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_other_survey, 0),
+          displayData.reduce((sum, r) => sum + r.outdoor_other_found, 0),
+          // ภาชนะในบ้าน - 11 ประเภท (รวมภาชนะอื่นๆ)
+          displayData.reduce((sum, r) => sum + r.indoor_drinking_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_drinking_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_usage_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_usage_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_antstand_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_antstand_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_pot_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_pot_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_pond_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_pond_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_tire_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_tire_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_leaf_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_leaf_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_unused_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_unused_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_animal_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_animal_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_fridge_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_fridge_found, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_other_survey, 0),
+          displayData.reduce((sum, r) => sum + r.indoor_other_found, 0),
+        ];
+
+        doc.setFontSize(6);
+        sumValues.forEach((val) => {
+          doc.rect(sumX, currentY, colWidths.data, rowHeight);
+          doc.text(String(val), sumX + colWidths.data / 2, currentY + 3.5, { align: "center" });
+          sumX += colWidths.data;
+        });
+      };
+
+      // วนลูปสร้างแต่ละหน้า
+      for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        // เพิ่มหน้าใหม่ถ้าไม่ใช่หน้าแรก
+        if (pageNum > 0) {
+          doc.addPage();
+        }
+
+        // Add watermark
+        addWatermark(doc);
+
+        // Header - Title
+        doc.setFontSize(12);
+        doc.setFont("Sarabun", "bold");
+        doc.text(`รายละเอียดการสำรวจลูกน้ำยุงลาย ปี ${year}`, 148.5, 10, { align: "center" });
+
+        doc.setFontSize(9);
+        doc.setFont("Sarabun", "normal");
+        doc.text(`ประจำเดือน ${month} ${week}`, 148.5, 16, { align: "center" });
+
+        const nameParts = doc.splitTextToSize(name, 180);
+        let yPos = 21;
+        nameParts.forEach((line) => {
+          doc.text(line, 148.5, yPos, { align: "center" });
+          yPos += 4;
+        });
+
+        // แสดงหมายเลขหน้า
+        doc.setFontSize(10);
+        doc.text(`หน้า ${pageNum + 1} / ${totalPages}`, 280, 10, { align: "right" });
+
+        // วาด Header ตาราง
+        const startY = yPos + 2;
+        let currentY = drawTableHeader(startY);
+
+        // คำนวณข้อมูลสำหรับหน้านี้
+        const startIndex = pageNum * ROWS_PER_PAGE;
+        const endIndex = Math.min(startIndex + ROWS_PER_PAGE, displayData.length);
+        const pageData = displayData.slice(startIndex, endIndex);
+
+        // วาดแถวข้อมูลสำหรับหน้านี้
+        pageData.forEach((row) => {
+          currentY = drawDataRow(row, currentY);
+        });
+
+        // วาดแถวรวมเฉพาะหน้าสุดท้าย
+        if (pageNum === totalPages - 1) {
+          drawSummaryRow(currentY);
+        }
       }
-
-      doc.rect(sumX, currentY, colWidths.no + colWidths.week + colWidths.house, rowHeight);
-      doc.text("รวมทั้งหมด", sumX + (colWidths.no + colWidths.week + colWidths.house) / 2, currentY + 3.5, { align: "center" });
-      sumX += colWidths.no + colWidths.week + colWidths.house;
-
-      // คำนวณผลรวม - นอกบ้าน 12 ประเภท + ในบ้าน 11 ประเภท
-      const sumValues = [
-        // ภาชนะนอกบ้าน - 12 ประเภท (รวมภาชนะอื่นๆ)
-        displayData.reduce((sum, r) => sum + r.outdoor_drinking_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_drinking_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_usage_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_usage_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_cement_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_cement_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_antstand_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_antstand_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_pot_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_pot_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_pond_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_pond_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_tire_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_tire_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_leaf_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_leaf_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_unused_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_unused_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_animal_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_animal_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_fridge_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_fridge_found, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_other_survey, 0),
-        displayData.reduce((sum, r) => sum + r.outdoor_other_found, 0),
-        // ภาชนะในบ้าน - 11 ประเภท (รวมภาชนะอื่นๆ)
-        displayData.reduce((sum, r) => sum + r.indoor_drinking_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_drinking_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_usage_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_usage_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_antstand_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_antstand_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_pot_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_pot_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_pond_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_pond_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_tire_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_tire_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_leaf_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_leaf_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_unused_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_unused_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_animal_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_animal_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_fridge_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_fridge_found, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_other_survey, 0),
-        displayData.reduce((sum, r) => sum + r.indoor_other_found, 0),
-      ];
-
-      doc.setFontSize(6);
-      sumValues.forEach((val) => {
-        doc.rect(sumX, currentY, colWidths.data, rowHeight);
-        doc.text(String(val), sumX + colWidths.data / 2, currentY + 3.5, { align: "center" });
-        sumX += colWidths.data;
-      });
 
       // บันทึกไฟล์
       doc.save(`รายละเอียดลูกน้ำยุงลาย_${month}_${year}.pdf`);
