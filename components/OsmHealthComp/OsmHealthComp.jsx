@@ -666,7 +666,7 @@ const OsmHealthComp = () => {
               icon={Calendar}
             />
             <CustomSelect
-              label={yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"}
+              label={yearType === "fiscal" ? "ปี" : "ปี"}
               placeholder="เลือกปี"
               value={year}
               onChange={(e) => setYear(e.target.value)}

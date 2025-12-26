@@ -57,11 +57,11 @@ const MENU_MAP = {
       url: "/user-list",
       icon: <Users className="w-5 h-5" />,
     },
-    {
-      name: "ข้อมูล อสม. Thai Phc",
-      url: "/osm-thaiphc",
-      icon: <Database className="w-5 h-5" />,
-    },
+    // {
+    //   name: "ข้อมูล อสม. Thai Phc",
+    //   url: "/osm-thaiphc",
+    //   icon: <Database className="w-5 h-5" />,
+    // },
     {
       name: "รายงาน อสม.1",
       url: "/report-osm1",
@@ -73,6 +73,11 @@ const MENU_MAP = {
       url: "/report-mosquito",
       icon: <BarChart2 className="w-5 h-5" />,
       hasSub: true,
+    },
+    {
+      name: "ผลตรวจสุขภาพ อสม.",
+      url: "/osm-health",
+      icon: <BarChart2 className="w-5 h-5" />,
     },
     {
       name: "คัดกรองผู้สูงอายุในชุมชน",
@@ -95,11 +100,7 @@ const MENU_MAP = {
     //   icon: <Gift className="w-5 h-5" />,
     //   hasSub: true,
     // },
-    {
-      name: "ผลตรวจสุขภาพ อสม.",
-      url: "/osm-health",
-      icon: <BarChart2 className="w-5 h-5" />,
-    },
+    
     // {
     //   name: "รายงานผลตรวจ ATK",
     //   url: "/atk-report",
@@ -119,11 +120,11 @@ const MENU_MAP = {
       url: "/user-list",
       icon: <Users className="w-5 h-5" />,
     },
-    {
-      name: "ข้อมูล อสม. Thai Phc",
-      url: "/osm-thaiphc",
-      icon: <Database className="w-5 h-5" />,
-    },
+    // {
+    //   name: "ข้อมูล อสม. Thai Phc",
+    //   url: "/osm-thaiphc",
+    //   icon: <Database className="w-5 h-5" />,
+    // },
     {
       name: "รายงาน อสม.1",
       url: "/report-osm1",
@@ -135,6 +136,11 @@ const MENU_MAP = {
       url: "/report-mosquito",
       icon: <BarChart2 className="w-5 h-5" />,
       hasSub: true,
+    },
+    {
+      name: "ผลตรวจสุขภาพ อสม.",
+      url: "/osm-health",
+      icon: <BarChart2 className="w-5 h-5" />,
     },
     {
       name: "คัดกรองผู้สูงอายุในชุมชน",
@@ -151,22 +157,17 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
-    {
-      name: "จัดการคะแนนสะสม อสม.",
-      url: "/osm-points",
-      icon: <Gift className="w-5 h-5" />,
-      hasSub: false,
-    },
-    {
-      name: "ผลตรวจสุขภาพ อสม.",
-      url: "/osm-health",
-      icon: <BarChart2 className="w-5 h-5" />,
-    },
-    {
-      name: "รายงานผลตรวจ ATK",
-      url: "/atk-report",
-      icon: <FileSearch className="w-5 h-5" />,
-    },
+    // {
+    //   name: "จัดการคะแนนสะสม อสม.",
+    //   url: "/osm-points",
+    //   icon: <Gift className="w-5 h-5" />,
+    //   hasSub: false,
+    // },
+    // {
+    //   name: "รายงานผลตรวจ ATK",
+    //   url: "/atk-report",
+    //   icon: <FileSearch className="w-5 h-5" />,
+    // },
     { name: "ประกาศข่าวสาร", url: "/news", icon: <Bell className="w-5 h-5" /> },
   ],
   province: [
@@ -176,11 +177,11 @@ const MENU_MAP = {
       url: "/user-list",
       icon: <Users className="w-5 h-5" />,
     },
-    {
-      name: "ข้อมูล อสม. Thai Phc",
-      url: "/osm-thaiphc",
-      icon: <Database className="w-5 h-5" />,
-    },
+    // {
+    //   name: "ข้อมูล อสม. Thai Phc",
+    //   url: "/osm-thaiphc",
+    //   icon: <Database className="w-5 h-5" />,
+    // },
     {
       name: "รายงาน อสม.1",
       url: "/report-osm1",
@@ -192,6 +193,11 @@ const MENU_MAP = {
       url: "/report-mosquito",
       icon: <BarChart2 className="w-5 h-5" />,
       hasSub: true,
+    },
+    {
+      name: "ผลตรวจสุขภาพ อสม.",
+      url: "/osm-health",
+      icon: <BarChart2 className="w-5 h-5" />,
     },
     {
       name: "คัดกรองผู้สูงอายุในชุมชน",
@@ -208,22 +214,17 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
-    {
-      name: "จัดการคะแนนสะสม อสม.",
-      url: "/osm-points",
-      icon: <Gift className="w-5 h-5" />,
-      hasSub: false,
-    },
-    {
-      name: "ผลตรวจสุขภาพ อสม.",
-      url: "/osm-health",
-      icon: <BarChart2 className="w-5 h-5" />,
-    },
-    {
-      name: "รายงานผลตรวจ ATK",
-      url: "/atk-report",
-      icon: <FileSearch className="w-5 h-5" />,
-    },
+    // {
+    //   name: "จัดการคะแนนสะสม อสม.",
+    //   url: "/osm-points",
+    //   icon: <Gift className="w-5 h-5" />,
+    //   hasSub: false,
+    // },
+    // {
+    //   name: "รายงานผลตรวจ ATK",
+    //   url: "/atk-report",
+    //   icon: <FileSearch className="w-5 h-5" />,
+    // },
     { name: "ประกาศข่าวสาร", url: "/news", icon: <Bell className="w-5 h-5" /> },
   ],
   district: [
@@ -233,11 +234,11 @@ const MENU_MAP = {
       url: "/user-list",
       icon: <Users className="w-5 h-5" />,
     },
-    {
-      name: "ข้อมูล อสม. Thai Phc",
-      url: "/osm-thaiphc",
-      icon: <Database className="w-5 h-5" />,
-    },
+    // {
+    //   name: "ข้อมูล อสม. Thai Phc",
+    //   url: "/osm-thaiphc",
+    //   icon: <Database className="w-5 h-5" />,
+    // },
     {
       name: "รายงาน อสม.1",
       url: "/report-osm1",
@@ -249,6 +250,11 @@ const MENU_MAP = {
       url: "/report-mosquito",
       icon: <BarChart2 className="w-5 h-5" />,
       hasSub: false,
+    },
+    {
+      name: "ผลตรวจสุขภาพ อสม.",
+      url: "/osm-health",
+      icon: <BarChart2 className="w-5 h-5" />,
     },
     {
       name: "คัดกรองผู้สูงอายุในชุมชน",
@@ -265,22 +271,17 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
-    {
-      name: "จัดการคะแนนสะสม อสม.",
-      url: "/osm-points",
-      icon: <Gift className="w-5 h-5" />,
-      hasSub: false,
-    },
-    {
-      name: "ผลตรวจสุขภาพ อสม.",
-      url: "/osm-health",
-      icon: <BarChart2 className="w-5 h-5" />,
-    },
-    {
-      name: "รายงานผลตรวจ ATK",
-      url: "/atk-report",
-      icon: <FileSearch className="w-5 h-5" />,
-    },
+    // {
+    //   name: "จัดการคะแนนสะสม อสม.",
+    //   url: "/osm-points",
+    //   icon: <Gift className="w-5 h-5" />,
+    //   hasSub: false,
+    // },
+    // {
+    //   name: "รายงานผลตรวจ ATK",
+    //   url: "/atk-report",
+    //   icon: <FileSearch className="w-5 h-5" />,
+    // },
     { name: "ประกาศข่าวสาร", url: "/news", icon: <Bell className="w-5 h-5" /> },
   ],
   subdistrict: [
@@ -290,11 +291,11 @@ const MENU_MAP = {
       url: "/user-list",
       icon: <Users className="w-5 h-5" />,
     },
-    {
-      name: "ข้อมูล อสม. Thai Phc",
-      url: "/osm-thaiphc",
-      icon: <Database className="w-5 h-5" />,
-    },
+    // {
+    //   name: "ข้อมูล อสม. Thai Phc",
+    //   url: "/osm-thaiphc",
+    //   icon: <Database className="w-5 h-5" />,
+    // },
     {
       name: "รายงาน อสม.1",
       url: "/report-osm1",
@@ -306,6 +307,11 @@ const MENU_MAP = {
       url: "/report-mosquito",
       icon: <BarChart2 className="w-5 h-5" />,
       hasSub: false,
+    },
+    {
+      name: "ผลตรวจสุขภาพ อสม.",
+      url: "/osm-health",
+      icon: <BarChart2 className="w-5 h-5" />,
     },
     {
       name: "คัดกรองผู้สูงอายุในชุมชน",
@@ -322,22 +328,17 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
-    {
-      name: "จัดการคะแนนสะสม อสม.",
-      url: "/osm-points",
-      icon: <Gift className="w-5 h-5" />,
-      hasSub: false,
-    },
-    {
-      name: "ผลตรวจสุขภาพ อสม.",
-      url: "/osm-health",
-      icon: <BarChart2 className="w-5 h-5" />,
-    },
-    {
-      name: "รายงานผลตรวจ ATK",
-      url: "/atk-report",
-      icon: <FileSearch className="w-5 h-5" />,
-    },
+    // {
+    //   name: "จัดการคะแนนสะสม อสม.",
+    //   url: "/osm-points",
+    //   icon: <Gift className="w-5 h-5" />,
+    //   hasSub: false,
+    // },
+    // {
+    //   name: "รายงานผลตรวจ ATK",
+    //   url: "/atk-report",
+    //   icon: <FileSearch className="w-5 h-5" />,
+    // },
     { name: "ประกาศข่าวสาร", url: "/news", icon: <Bell className="w-5 h-5" /> },
   ],
   hospital: [
@@ -347,11 +348,11 @@ const MENU_MAP = {
       url: "/user-list",
       icon: <Users className="w-5 h-5" />,
     },
-    {
-      name: "ข้อมูล อสม. Thai Phc",
-      url: "/osm-thaiphc",
-      icon: <Database className="w-5 h-5" />,
-    },
+    // {
+    //   name: "ข้อมูล อสม. Thai Phc",
+    //   url: "/osm-thaiphc",
+    //   icon: <Database className="w-5 h-5" />,
+    // },
     {
       name: "รายงาน อสม.1",
       url: "/report-osm1",
@@ -363,6 +364,11 @@ const MENU_MAP = {
       url: "/report-mosquito",
       icon: <BarChart2 className="w-5 h-5" />,
       hasSub: false,
+    },
+    {
+      name: "ผลตรวจสุขภาพ อสม.",
+      url: "/osm-health",
+      icon: <BarChart2 className="w-5 h-5" />,
     },
     {
       name: "คัดกรองผู้สูงอายุในชุมชน",
@@ -379,22 +385,17 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
-    {
-      name: "จัดการคะแนนสะสม อสม.",
-      url: "/osm-points",
-      icon: <Gift className="w-5 h-5" />,
-      hasSub: false,
-    },
-    {
-      name: "ผลตรวจสุขภาพ อสม.",
-      url: "/osm-health",
-      icon: <BarChart2 className="w-5 h-5" />,
-    },
-    {
-      name: "รายงานผลตรวจ ATK",
-      url: "/atk-report",
-      icon: <FileSearch className="w-5 h-5" />,
-    },
+    // {
+    //   name: "จัดการคะแนนสะสม อสม.",
+    //   url: "/osm-points",
+    //   icon: <Gift className="w-5 h-5" />,
+    //   hasSub: false,
+    // },
+    // {
+    //   name: "รายงานผลตรวจ ATK",
+    //   url: "/atk-report",
+    //   icon: <FileSearch className="w-5 h-5" />,
+    // },
     { name: "ประกาศข่าวสาร", url: "/news", icon: <Bell className="w-5 h-5" /> },
   ],
 };
