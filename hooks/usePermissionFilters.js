@@ -5,6 +5,7 @@ import {
   getProvinces,
   getDistricts,
   getSubdistricts,
+  getVillages,
   getHealthServices,
 } from '@services/lookupService';
 
@@ -34,6 +35,7 @@ export const usePermissionFilters = (options = {}) => {
   const [province, setProvince] = useState('');
   const [district, setDistrict] = useState('');
   const [subdistrict, setSubdistrict] = useState('');
+  const [village, setVillage] = useState('');
   const [service, setService] = useState('');
   const [keyword, setKeyword] = useState('');
 
@@ -42,6 +44,7 @@ export const usePermissionFilters = (options = {}) => {
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [subdistricts, setSubdistricts] = useState([]);
+  const [villages, setVillages] = useState([]);
   const [healthServices, setHealthServices] = useState([]);
 
   // Load health areas
@@ -122,6 +125,24 @@ export const usePermissionFilters = (options = {}) => {
     loadSubdistricts();
   }, [district]);
 
+  // Load villages when subdistrict changes
+  useEffect(() => {
+    const loadVillages = async () => {
+      if (!subdistrict) {
+        setVillages([]);
+        return;
+      }
+      try {
+        const data = await getVillages(subdistrict);
+        setVillages(data || []);
+      } catch (error) {
+        console.error('Failed to load villages:', error);
+        setVillages([]);
+      }
+    };
+    loadVillages();
+  }, [subdistrict]);
+
   // Load health services when province/district/subdistrict changes
   useEffect(() => {
     const loadHealthServices = async () => {
@@ -176,11 +197,12 @@ export const usePermissionFilters = (options = {}) => {
         province,
         district,
         subdistrict,
+        village,
         service,
         keyword,
       });
     }
-  }, [yearType, year, month, week, zone, province, district, subdistrict, service, keyword]);
+  }, [yearType, year, month, week, zone, province, district, subdistrict, village, service, keyword]);
 
   /**
    * Handle zone change - only if not locked
@@ -227,10 +249,18 @@ export const usePermissionFilters = (options = {}) => {
   const handleSubdistrictChange = useCallback((value) => {
     if (canChangeFilter('subdistrict')) {
       setSubdistrict(value);
-      // Reset dependent filter
+      // Reset dependent filters
+      setVillage('');
       if (canChangeFilter('service')) setService('');
     }
   }, [canChangeFilter]);
+
+  /**
+   * Handle village change
+   */
+  const handleVillageChange = useCallback((value) => {
+    setVillage(value);
+  }, []);
 
   /**
    * Handle service change - only if not locked
@@ -250,6 +280,7 @@ export const usePermissionFilters = (options = {}) => {
     setMonth('');
     setWeek('');
     setKeyword('');
+    setVillage('');
 
     // Only reset unlocked location filters
     if (canClearFilter('zone')) setZone('');
@@ -277,6 +308,7 @@ export const usePermissionFilters = (options = {}) => {
     province,
     district,
     subdistrict,
+    village,
     service,
     keyword,
 
@@ -292,6 +324,7 @@ export const usePermissionFilters = (options = {}) => {
     handleProvinceChange,
     handleDistrictChange,
     handleSubdistrictChange,
+    handleVillageChange,
     handleServiceChange,
 
     // Location data
@@ -299,6 +332,7 @@ export const usePermissionFilters = (options = {}) => {
     provinces,
     districts,
     subdistricts,
+    villages,
     healthServices,
 
     // Utilities

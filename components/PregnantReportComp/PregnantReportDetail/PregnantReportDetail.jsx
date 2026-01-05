@@ -348,7 +348,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
               ประจำเดือน {month}
             </p>
             <p className="text-gray-700 font-medium text-base">{name}</p>
-            <p className="text-gray-600 text-sm mt-2">จำนวนทั้งหมด: {tableData.length} คน</p>
+            <p className="text-gray-600 text-sm mt-2">จำนวนทั้งหมด: {new Set(tableData.map(row => row.name)).size} คน</p>
           </div>
 
           {/* Export Button - Right top - Hide in PDF */}

@@ -26,6 +26,55 @@ const ElderlyScreeningDetail = ({
     router.push("/elderly-screening");
   };
 
+  // ฟังก์ชันคำนวณความเสี่ยงแต่ละด้าน (ตามสูตรจาก Mobile App)
+  const calculateRiskByDomain = (elderly, domain) => {
+    if (!elderly) return "-";
+
+    switch (domain) {
+      case "cognitive": // ด้านที่ 1: ความคิดความจำ
+        return elderly.cognitive_result === "N" ? "เสี่ยง" : "ปกติ";
+
+      case "mobility": // ด้านที่ 2: การเคลื่อนไหว (2 คำถาม)
+        return elderly.mobility_test === "N" || elderly.fall_history_6m === "Y" ? "เสี่ยง" : "ปกติ";
+
+      case "swallowing": // ด้านที่ 3: การกลืนอาหาร (2 คำถาม)
+        return elderly.weight_loss_3m === "Y" || elderly.appetite_loss === "Y" ? "เสี่ยง" : "ปกติ";
+
+      case "vision": // ด้านที่ 4: การมองเห็น
+        return elderly.vision_problem === "Y" ? "เสี่ยง" : "ปกติ";
+
+      case "hearing": // ด้านที่ 5: การได้ยิน
+        return elderly.hearing_result !== "Y" ? "เสี่ยง" : "ปกติ";
+
+      case "depression": // ด้านที่ 6: ภาวะซึมเศร้า (3 คำถาม)
+        return elderly.depression_symptom_2w === "Y" || elderly.boredom_symptom_2w === "Y" || elderly.suicide_thought_1m === "Y"
+          ? "เสี่ยง" : "ปกติ";
+
+      case "urinary": // ด้านที่ 7: การกลั้นปัสสาวะ
+        return elderly.urinary_incontinence === "Y" ? "เสี่ยง" : "ปกติ";
+
+      case "adl": // ด้านที่ 8: ADL
+        return elderly.adl_status === "N" ? "เสี่ยง" : "ปกติ";
+
+      case "oral": // ด้านที่ 9: ช่องปาก (2 คำถาม)
+        return elderly.chewing_difficulty === "Y" || elderly.oral_pain === "Y" ? "เสี่ยง" : "ปกติ";
+
+      default:
+        return "-";
+    }
+  };
+
+  // ฟังก์ชันแสดงผลการคัดกรองรวมจาก API
+  const getOverallResult = (elderly) => {
+    if (!elderly || !elderly.overall_status) return "-";
+
+    // overall_status จาก API: "at_risk" = เสี่ยง, "normal" = ปกติ
+    if (elderly.overall_status === "at_risk") return "เสี่ยง";
+    if (elderly.overall_status === "normal") return "ปกติ";
+
+    return elderly.overall_status;
+  };
+
   const handleExportPDF = () => {
     try {
       const doc = new jsPDF("landscape", "mm", "a4");
@@ -85,11 +134,12 @@ const ElderlyScreeningDetail = ({
       const livingWidth = 20; // อยู่ร่วม (เพิ่มจาก 17 เป็น 20)
       const genderWidth = 10; // เพศ (เพิ่มจาก 8 เป็น 10)
       const ageWidth = 10; // อายุ (เพิ่มจาก 8 เป็น 10)
-      const assessWidth = 15; // แต่ละคอลัมน์แบบคัดกรอง (เพิ่มจาก 12.5 เป็น 15)
+      const assessWidth = 14; // แต่ละคอลัมน์แบบคัดกรอง (ลดจาก 15 เป็น 14 เพื่อให้พอที่จะเพิ่มคอลัมน์ผลการคัดกรอง)
+      const resultWidth = 18; // คอลัมน์ผลการคัดกรอง
 
       // คำนวณความกว้างรวมของตาราง
-      const totalTableWidth = colWidth + nameWidth + livingWidth + genderWidth + ageWidth + (assessWidth * 12);
-      // Total = 10 + 50 + 20 + 10 + 10 + (15 * 12) = 100 + 180 = 280mm
+      const totalTableWidth = colWidth + nameWidth + livingWidth + genderWidth + ageWidth + (assessWidth * 12) + resultWidth;
+      // Total = 10 + 50 + 20 + 10 + 10 + (14 * 12) + 18 = 100 + 168 + 18 = 286mm
 
       const householdColumns = [
         { key: "living_arrangement", label: "ผู้สูงอายุ\nอยู่ร่วม", width: livingWidth },
@@ -177,6 +227,11 @@ const ElderlyScreeningDetail = ({
           currentX += col.width;
         });
 
+        // ผลการคัดกรอง
+        doc.rect(currentX, yPos, resultWidth, headerHeight);
+        doc.text("ผลการ", currentX + resultWidth / 2, yPos + 6, { align: "center" });
+        doc.text("คัดกรอง", currentX + resultWidth / 2, yPos + 10.5, { align: "center" });
+
         return headerHeight; // คืนค่าความสูงของ header
       };
 
@@ -253,6 +308,11 @@ const ElderlyScreeningDetail = ({
           currentX += col.width;
         });
 
+        // ผลการคัดกรอง
+        doc.rect(currentX, currentY, resultWidth, rowHeight);
+        const overallResult = getOverallResult(elderly);
+        doc.text(overallResult, currentX + resultWidth / 2, currentY + 5.5, { align: "center" });
+
         currentY += rowHeight;
       });
 
@@ -260,44 +320,6 @@ const ElderlyScreeningDetail = ({
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
-    }
-  };
-
-  // ฟังก์ชันคำนวณความเสี่ยงแต่ละด้าน (ตามสูตรจาก Mobile App)
-  const calculateRiskByDomain = (elderly, domain) => {
-    if (!elderly) return "-";
-
-    switch (domain) {
-      case "cognitive": // ด้านที่ 1: ความคิดความจำ
-        return elderly.cognitive_result === "N" ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      case "mobility": // ด้านที่ 2: การเคลื่อนไหว (2 คำถาม)
-        return elderly.mobility_test === "N" || elderly.fall_history_6m === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      case "swallowing": // ด้านที่ 3: การกลืนอาหาร (2 คำถาม)
-        return elderly.weight_loss_3m === "Y" || elderly.appetite_loss === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      case "vision": // ด้านที่ 4: การมองเห็น
-        return elderly.vision_problem === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      case "hearing": // ด้านที่ 5: การได้ยิน
-        return elderly.hearing_result !== "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      case "depression": // ด้านที่ 6: ภาวะซึมเศร้า (3 คำถาม)
-        return elderly.depression_symptom_2w === "Y" || elderly.boredom_symptom_2w === "Y" || elderly.suicide_thought_1m === "Y"
-          ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      case "urinary": // ด้านที่ 7: การกลั้นปัสสาวะ
-        return elderly.urinary_incontinence === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      case "adl": // ด้านที่ 8: ADL
-        return elderly.adl_status === "N" ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      case "oral": // ด้านที่ 9: ช่องปาก (2 คำถาม)
-        return elderly.chewing_difficulty === "Y" || elderly.oral_pain === "Y" ? "เสี่ยง" : "ไม่เสี่ยง";
-
-      default:
-        return "-";
     }
   };
 
@@ -410,6 +432,9 @@ const ElderlyScreeningDetail = ({
                 <th colSpan={12} className="border border-white/20 py-2 px-3 text-white font-semibold text-center">
                   แบบคัดกรองสุขภาพผู้สูงอายุ
                 </th>
+                <th rowSpan={2} className="border border-white/20 py-3 px-2 text-white font-semibold text-center min-w-[80px]">
+                  ผลการคัดกรอง
+                </th>
               </tr>
               {/* Row 2: Sub Headers */}
               <tr className="bg-gradient-to-r from-[#8b3def] to-[#b35ff9]">
@@ -437,7 +462,7 @@ const ElderlyScreeningDetail = ({
             <tbody>
               {elderlyList.length === 0 ? (
                 <tr>
-                  <td colSpan={17} className="py-12 text-center text-gray-500">
+                  <td colSpan={18} className="py-12 text-center text-gray-500">
                     ไม่พบข้อมูลผู้สูงอายุ
                   </td>
                 </tr>
@@ -473,7 +498,7 @@ const ElderlyScreeningDetail = ({
 
                         // กำหนดสีตามผลลัพธ์
                         const isRisk = displayValue === "เสี่ยง";
-                        const textColor = isRisk ? "text-red-600 font-bold" : displayValue === "ไม่เสี่ยง" ? "text-green-600 font-semibold" : "text-gray-700";
+                        const textColor = isRisk ? "text-red-600 font-bold" : displayValue === "ปกติ" ? "text-green-600 font-semibold" : "text-gray-700";
 
                         return (
                           <td key={col.key} className={`border border-gray-200 py-2 px-2 text-center text-[11px] ${textColor}`}>
@@ -481,6 +506,17 @@ const ElderlyScreeningDetail = ({
                           </td>
                         );
                       })}
+                      {/* คอลัมน์ผลการคัดกรอง */}
+                      {(() => {
+                        const overallResult = getOverallResult(elderly);
+                        const isOverallRisk = overallResult === "เสี่ยง";
+                        const overallTextColor = isOverallRisk ? "text-red-600 font-bold" : "text-green-600 font-semibold";
+                        return (
+                          <td className={`border border-gray-200 py-2 px-2 text-center text-[11px] ${overallTextColor}`}>
+                            {overallResult}
+                          </td>
+                        );
+                      })()}
                     </tr>
                   );
                 })

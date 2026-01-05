@@ -75,7 +75,7 @@ const WEEKS = [
 // Tabs for report status
 const TABS = [
   { key: "submitted", label: "ส่งรายงานแล้ว" },
-  { key: "notSubmitted", label: "ยังไม่ส่งรายงาน" },
+  // { key: "notSubmitted", label: "ยังไม่ส่งรายงาน" }, // ซ่อนไว้ก่อน
 ];
 
 // Table mock (100 rows) - เพิ่ม external_user_id สำหรับดึงข้อมูลจาก OAuth2

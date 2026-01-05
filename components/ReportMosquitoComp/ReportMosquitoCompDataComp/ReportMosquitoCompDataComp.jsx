@@ -757,6 +757,7 @@ const ReportMosquitoCompDataComp = () => {
     province,
     district,
     subdistrict,
+    village,
     service,
     setYearType,
     setYear,
@@ -766,11 +767,13 @@ const ReportMosquitoCompDataComp = () => {
     handleProvinceChange,
     handleDistrictChange,
     handleSubdistrictChange,
+    handleVillageChange,
     handleServiceChange,
     healthAreas,
     provinces,
     districts,
     subdistricts,
+    villages,
     healthServices,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
@@ -868,6 +871,8 @@ const ReportMosquitoCompDataComp = () => {
                   province_name_th: userData?.province_name_th,
                   district_name_th: userData?.district_name_th,
                   subdistrict_name_th: userData?.subdistrict_name_th,
+                  village_no: userData?.village_no,
+                  health_service_id: userData?.health_service_id,
                 },
               };
               console.log("💾 Saving household data:", {
@@ -938,7 +943,9 @@ const ReportMosquitoCompDataComp = () => {
               name: userData?.name,
               province: userData?.province_name_th,
               district: userData?.district_name_th,
-              subdistrict: userData?.subdistrict_name_th
+              subdistrict: userData?.subdistrict_name_th,
+              village_no: userData?.village_no,
+              health_service_id: userData?.health_service_id,
             });
 
             return {
@@ -954,6 +961,8 @@ const ReportMosquitoCompDataComp = () => {
                 province_name_th: userData?.province_name_th,
                 district_name_th: userData?.district_name_th,
                 subdistrict_name_th: userData?.subdistrict_name_th,
+                village_no: userData?.village_no,
+                health_service_id: userData?.health_service_id,
               },
             };
           });
@@ -1116,16 +1125,75 @@ const ReportMosquitoCompDataComp = () => {
           }
         }
 
-        // Filter by health service - ใช้ subdistrict เป็นฐาน
-        if (service) {
-          const selectedService = healthServices.find(h => h.code === service);
-          console.log("🏥 Service check:", {
-            selected: selectedService?.name,
-            selectedSubdistrict: selectedService?.subdistrict_name_th,
-            data: userLocation.subdistrict_name_th
+        // Filter by village - เทียบ village ที่เลือกกับข้อมูล user
+        // selected village จะเป็น code เช่น "63050111" หรือ village_code
+        // user มี village_no ซึ่งอาจเป็นรหัสหมู่บ้าน (เช่น "31011") หรือเลขหมู่ (เช่น "3")
+        if (village) {
+          const userVillageNo = userLocation.village_no;
+          const userVillageCode = userLocation.village_code;
+
+          // หา village object จาก villages array เพื่อเทียบหลายแบบ
+          const selectedVillage = villages.find(v =>
+            (v.code && String(v.code) === String(village)) ||
+            (v.village_code && String(v.village_code) === String(village)) ||
+            String(v.village_no) === String(village)
+          );
+
+          console.log("🏠 Village check:", {
+            selected: village,
+            selectedVillageObj: selectedVillage,
+            userVillageNo: userVillageNo,
+            userVillageCode: userVillageCode
           });
-          if (selectedService && userLocation.subdistrict_name_th !== selectedService.subdistrict_name_th) {
-            console.log("❌ Failed service filter");
+
+          // เทียบหลายรูปแบบ:
+          // 1. เทียบ village_no ของ user กับ selected village code
+          // 2. เทียบ village_no ของ user กับ village_no ของ selected village
+          // 3. เทียบ village_code ของ user กับ selected village code
+          let villageMatch = false;
+
+          if (userVillageNo) {
+            // ถ้า userVillageNo ตรงกับ selected village (code หรือ village_no)
+            if (String(userVillageNo) === String(village)) {
+              villageMatch = true;
+            } else if (selectedVillage && String(userVillageNo) === String(selectedVillage.village_no)) {
+              villageMatch = true;
+            } else if (selectedVillage?.code && String(userVillageNo) === String(selectedVillage.code)) {
+              villageMatch = true;
+            }
+          }
+
+          if (userVillageCode) {
+            if (String(userVillageCode) === String(village)) {
+              villageMatch = true;
+            }
+          }
+
+          console.log("🏠 Village match result:", villageMatch);
+
+          if (!villageMatch) {
+            console.log("❌ Failed village filter");
+            return false;
+          }
+        }
+
+        // Filter by health service - เทียบ health_service_id ของ user กับ service ที่เลือก
+        if (service) {
+          const userHealthServiceId = userLocation.health_service_id;
+          console.log("🏥 Service check:", {
+            selected: service,
+            userHealthServiceId: userHealthServiceId,
+            match: String(userHealthServiceId) === String(service)
+          });
+          // เทียบ health_service_id โดยตรง
+          if (userHealthServiceId) {
+            if (String(userHealthServiceId) !== String(service)) {
+              console.log("❌ Failed service filter");
+              return false;
+            }
+          } else {
+            // ถ้าไม่มี health_service_id ให้ไม่ผ่าน filter
+            console.log("❌ Failed service filter - no health_service_id in user data");
             return false;
           }
         }
@@ -1138,7 +1206,7 @@ const ReportMosquitoCompDataComp = () => {
     console.log("\n🎯 Filter Result:", result.length, "rows passed");
     console.log("===== FILTER DEBUG END =====\n");
     return result;
-  }, [keyword, year, yearType, month, week, apiData, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
+  }, [keyword, year, yearType, month, week, apiData, zone, province, district, subdistrict, village, service, healthAreas, provinces, districts, subdistricts, villages, healthServices]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -1264,8 +1332,11 @@ const ReportMosquitoCompDataComp = () => {
                   <th className="py-4 px-4 font-semibold text-center text-white rounded-tl-xl">
                     ลำดับ
                   </th>
-                  <th className="py-4 px-4 font-semibold text-left text-white">
-                    ที่อยู่บ้าน
+                  <th className="py-4 px-4 font-semibold text-center text-white">
+                    บ้านเลขที่
+                  </th>
+                  <th className="py-4 px-4 font-semibold text-center text-white">
+                    หมู่
                   </th>
                   <th className="py-4 px-4 font-semibold text-center text-white">
                     วันที่บันทึกล่าสุด
@@ -1281,7 +1352,7 @@ const ReportMosquitoCompDataComp = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center">
+                    <td colSpan={6} className="py-12 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <Loader2 size={48} className="text-[#7e32e2] animate-spin" />
                         <p className="text-gray-500 font-medium">กำลังโหลดข้อมูล...</p>
@@ -1290,7 +1361,7 @@ const ReportMosquitoCompDataComp = () => {
                   </tr>
                 ) : paginatedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center">
+                    <td colSpan={6} className="py-12 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <FileText size={48} className="text-gray-300" />
                         <p className="text-gray-500">ไม่พบข้อมูล</p>
@@ -1308,8 +1379,11 @@ const ReportMosquitoCompDataComp = () => {
                       <td className="py-4 px-4 text-center font-medium text-gray-600">
                         {(page - 1) * itemsPerPage + idx + 1}
                       </td>
-                      <td className="py-4 px-4 font-medium text-[#231d37]">
-                        {row.name}
+                      <td className="py-4 px-4 text-center font-medium text-[#231d37]">
+                        {row.houseNumber || "-"}
+                      </td>
+                      <td className="py-4 px-4 text-center font-medium text-[#231d37]">
+                        {row.villageNumber || "-"}
                       </td>
                       <td className="py-4 px-4 text-center text-gray-600">
                         {row.date}
@@ -1480,6 +1554,17 @@ const ReportMosquitoCompDataComp = () => {
             icon={Home}
             disabled={isLocked('subdistrict') || !district}
           />
+{/* หมู่บ้าน - ยังไม่เปิดใช้งาน เนื่องจากข้อมูลยังไม่พร้อม
+          <CustomSelect
+            label="หมู่บ้าน"
+            placeholder="-- เลือกหมู่บ้าน --"
+            value={village}
+            onChange={(e) => handleVillageChange(e.target.value)}
+            options={Array.isArray(villages) ? [...villages].sort((a, b) => Number(a.village_no) - Number(b.village_no)).map(v => ({ label: `หมู่ ${v.village_no}${v.village_name ? ` - ${v.village_name}` : ''}`, value: v.code || v.village_code || `${subdistrict}${String(v.village_no).padStart(2, '0')}` })) : []}
+            icon={Home}
+            disabled={!subdistrict}
+          />
+*/}
           <CustomSelect
             label="หน่วยบริการ"
             placeholder="-- เลือกหน่วยบริการ --"

@@ -184,6 +184,46 @@ export const getHealthAreas = async (params = {}) => {
 };
 
 /**
+ * ดึงรายการหมู่บ้านตามรหัสตำบล
+ * @param {string} subdistrictCode - รหัสตำบล
+ * @returns {Promise} - Promise containing villages data
+ */
+export const getVillages = async (subdistrictCode) => {
+  if (!subdistrictCode) return [];
+
+  const cacheKey = `villages_${subdistrictCode}`;
+
+  return withCache(
+    cacheKey,
+    async () => {
+      try {
+        const response = await axiosInstance.get("/lookups/villages", {
+          params: { subdistrict_code: subdistrictCode },
+        });
+
+        // Parse response data - รองรับหลายรูปแบบ
+        if (Array.isArray(response.data)) {
+          return response.data;
+        } else if (response.data?.items && Array.isArray(response.data.items)) {
+          return response.data.items;
+        } else if (response.data?.data && Array.isArray(response.data.data)) {
+          return response.data.data;
+        } else if (response.data?.results && Array.isArray(response.data.results)) {
+          return response.data.results;
+        }
+
+        console.warn("Villages response is not an array:", response.data);
+        return [];
+      } catch (error) {
+        console.error("Error fetching villages:", error);
+        return [];
+      }
+    },
+    CACHE_TTL
+  );
+};
+
+/**
  * ดึงรายการหน่วยบริการ
  * @param {Object} params - Filter parameters (province_code, district_code, subdistrict_code)
  * @returns {Promise} - Promise containing health services data
@@ -247,6 +287,7 @@ export default {
   getProvinces,
   getDistricts,
   getSubdistricts,
+  getVillages,
   getHealthAreas,
   getHealthServices,
   clearLookupCache,
