@@ -596,6 +596,21 @@ const DashboardSobos = () => {
     });
   }, [provinceSummary]);
 
+  // สร้างรายชื่อจังหวัดที่มีข้อมูล
+  const provincesWithData = useMemo(() => {
+    if (!reportsData || !reportsData.reports) {
+      return [];
+    }
+    // ดึงชื่อจังหวัดที่มีรายงาน (ไม่ซ้ำ)
+    const provinceNames = new Set();
+    reportsData.reports.forEach(r => {
+      if (r.province_name_th) {
+        provinceNames.add(r.province_name_th);
+      }
+    });
+    return Array.from(provinceNames);
+  }, [reportsData]);
+
   // สร้างข้อมูลสำหรับ Map
   const mapCustomOptions = useMemo(() => {
     const zoneDataMap = {};
@@ -948,6 +963,7 @@ const DashboardSobos = () => {
                     height={600}
                     customOptions={mapCustomOptions}
                     onProvinceClick={handleProvinceClick}
+                    provincesWithData={provincesWithData}
                     className="w-full h-full"
                   />
                 </div>

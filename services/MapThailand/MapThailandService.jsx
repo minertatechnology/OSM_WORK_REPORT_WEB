@@ -439,6 +439,7 @@ const MapThailandComponent = ({
   customOptions = {},
   onMapReady = null,
   onProvinceClick = null,
+  provincesWithData = null, // รายชื่อจังหวัดที่มีข้อมูล (ถ้าไม่ส่งมา = แสดงทุกจังหวัด)
 }) => {
   const chartRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -465,6 +466,50 @@ const MapThailandComponent = ({
   const options = useMemo(() => {
     if (!ready) return {};
     const mapOptions = mapService.createMapOptions(height, customOptions);
+
+    // ถ้ามี provincesWithData ให้ซ่อนจังหวัดที่ไม่มีข้อมูล
+    if (provincesWithData && provincesWithData.length > 0) {
+      // แก้ไข series data ให้แสดงเฉพาะจังหวัดที่มีข้อมูล
+      const mapSeries = mapOptions.series.find(s => s.type === 'map');
+      if (mapSeries && mapSeries.data) {
+        mapSeries.data = mapSeries.data.map(item => {
+          // ตรวจสอบว่าจังหวัดนี้มีข้อมูลหรือไม่
+          const hasData = provincesWithData.some(p =>
+            p === item.name ||
+            p === item['hc-key'] ||
+            // รองรับชื่อภาษาไทยและอังกฤษ
+            PROVINCE_TO_ZONE[p] === item.value
+          );
+
+          if (!hasData) {
+            // ถ้าไม่มีข้อมูล ให้ซ่อน (value = null และสีโปร่งใส)
+            return {
+              ...item,
+              value: null,
+              color: 'transparent',
+              borderColor: 'transparent',
+            };
+          }
+          return item;
+        });
+      }
+
+      // ซ่อน zone badges ที่ไม่มีข้อมูล
+      const badgeSeries = mapOptions.series.find(s => s.type === 'mappoint');
+      if (badgeSeries && badgeSeries.data) {
+        // หา zones ที่มีข้อมูล
+        const zonesWithData = new Set();
+        provincesWithData.forEach(p => {
+          const zone = PROVINCE_TO_ZONE[p];
+          if (zone) zonesWithData.add(zone);
+        });
+
+        badgeSeries.data = badgeSeries.data.filter(badge =>
+          zonesWithData.has(badge.zone)
+        );
+      }
+    }
+
     if (onProvinceClick) {
       mapOptions.plotOptions.series.point = {
         events: {
@@ -481,7 +526,7 @@ const MapThailandComponent = ({
       };
     }
     return mapOptions;
-  }, [ready, height, customOptions, mapService, onProvinceClick]);
+  }, [ready, height, customOptions, mapService, onProvinceClick, provincesWithData]);
 
   if (!ready) {
     return (
