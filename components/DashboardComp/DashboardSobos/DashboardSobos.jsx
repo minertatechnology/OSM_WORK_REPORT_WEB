@@ -22,19 +22,19 @@ import {
   Search,
   MapPin,
   Calendar,
+  Building2,
+  RotateCcw,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import MapThailandComponent from "@services/MapThailand/MapThailandService";
 import { HEALTHZONE_PROVINCES } from "@utils/healthzone-province-data";
 import reportsMapService from "@services/reportsMapService";
-import lookupService from "@services/lookupService";
-
-// ปี options
-const YEARS = [
-  { label: "2568", value: "2568" },
-  { label: "2567", value: "2567" },
-  { label: "2566", value: "2566" },
-];
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
+import {
+  getCurrentFiscalYear,
+  generateFiscalYearOptions,
+} from "@utils/fiscalYearHelper";
 
 // เดือน options
 const MONTHS = [
@@ -52,12 +52,11 @@ const MONTHS = [
   { label: "ธันวาคม", value: "12" },
 ];
 
-// เขตสุขภาพ options
-const ZONES = HEALTHZONE_PROVINCES.map((zone) => ({
-  label: zone.zoneName,
-  value: `zone${zone.zone}`,
-}));
-ZONES.unshift({ label: "ทั้งหมด", value: "" });
+// ประเภทปี options
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
+];
 
 // ประเภทรายงานทั้ง 7 ประเภท
 const REPORT_TYPES = [
@@ -334,157 +333,49 @@ const TableWithPagination = ({
 };
 
 const DashboardSobos = () => {
-  const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("");
-  const [month, setMonth] = useState("");
-  const [zone, setZone] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
   const [selectedReportType, setSelectedReportType] = useState(""); // ไม่เลือกประเภทรายงานเริ่มต้น = แสดงทั้งหมด
-
-  const [provinceData, setProvinceData] = useState([]);
-  const [districtData, setDistrictData] = useState([]);
-  const [subdistrictData, setSubdistrictData] = useState([]);
   const [reportsData, setReportsData] = useState(null);
   const [provinceSummary, setProvinceSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // โหลดข้อมูลจังหวัด/อำเภอ/ตำบลจาก lookupService
-  useEffect(() => {
-    const loadProvinces = async () => {
-      try {
-        console.log("📍 Loading provinces from lookupService...");
-        const provinces = await lookupService.getProvinces();
-        console.log("📍 Provinces loaded:", provinces.length, "provinces");
+  // Generate year options
+  const currentFiscalYear = getCurrentFiscalYear();
+  const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
 
-        // แปลงข้อมูลให้ตรงกับ format ที่ใช้ (มี amphure และ tambon)
-        const formattedProvinces = provinces.map(p => ({
-          id: p.code || p.province_code,
-          name_th: p.name_th || p.province_name_th,
-          amphure: [], // จะโหลดเมื่อเลือกจังหวัด
-        }));
-
-        setProvinceData(formattedProvinces);
-      } catch (err) {
-        console.error("📍 Error loading provinces:", err);
-        setProvinceData([]);
-      }
-    };
-
-    loadProvinces();
-  }, []);
-
-  // โหลดข้อมูลอำเภอเมื่อเลือกจังหวัด
-  useEffect(() => {
-    if (!province) {
-      setDistrictData([]);
-      return;
-    }
-
-    const loadDistricts = async () => {
-      try {
-        const foundProv = provinceData.find((p) => p.name_th === province);
-        if (!foundProv) return;
-
-        console.log("📍 Loading districts for province:", foundProv.id);
-        const districts = await lookupService.getDistricts(foundProv.id);
-        console.log("📍 Districts loaded:", districts.length);
-        setDistrictData(districts);
-      } catch (err) {
-        console.error("📍 Error loading districts:", err);
-        setDistrictData([]);
-      }
-    };
-
-    loadDistricts();
-  }, [province, provinceData]);
-
-  // โหลดข้อมูลตำบลเมื่อเลือกอำเภอ
-  useEffect(() => {
-    if (!district) {
-      setSubdistrictData([]);
-      return;
-    }
-
-    const loadSubdistricts = async () => {
-      try {
-        const foundDist = districtData.find(
-          (d) => (d.name_th || d.district_name_th) === district
-        );
-        if (!foundDist) return;
-
-        console.log("📍 Loading subdistricts for district:", foundDist.code || foundDist.district_code);
-        const subdistricts = await lookupService.getSubdistricts(foundDist.code || foundDist.district_code);
-        console.log("📍 Subdistricts loaded:", subdistricts.length);
-        setSubdistrictData(subdistricts);
-      } catch (err) {
-        console.error("📍 Error loading subdistricts:", err);
-        setSubdistrictData([]);
-      }
-    };
-
-    loadSubdistricts();
-  }, [district, districtData]);
-
-  const provinceOptions = useMemo(() => {
-    if (!zone) return [{ label: "เลือกจังหวัด", value: "" }];
-    if (!provinceData.length) return [{ label: "เลือกจังหวัด", value: "" }];
-
-    const zoneObj = HEALTHZONE_PROVINCES.find(
-      (z) => z.zone === Number(zone.replace("zone", ""))
-    );
-    if (!zoneObj) return [{ label: "เลือกจังหวัด", value: "" }];
-
-    const zoneProvinces = zoneObj.provinces.map((prov) => prov.trim());
-
-    const options = provinceData
-      .filter((p) => zoneProvinces.includes(p.name_th.trim()))
-      .map((p) => ({
-        label: p.name_th,
-        value: p.name_th,
-      }));
-
-    return [{ label: "เลือกจังหวัด", value: "" }, ...options];
-  }, [provinceData, zone]);
-
-  const districtOptions = useMemo(() => {
-    if (!province) return [{ label: "เลือกอำเภอ", value: "" }];
-    if (!districtData.length) return [{ label: "เลือกอำเภอ", value: "" }];
-
-    return [
-      { label: "เลือกอำเภอ", value: "" },
-      ...districtData.map((d) => ({
-        label: d.name_th || d.district_name_th,
-        value: d.name_th || d.district_name_th,
-      })),
-    ];
-  }, [province, districtData]);
-
-  const subdistrictOptions = useMemo(() => {
-    if (!province || !district) return [{ label: "เลือกตำบล", value: "" }];
-    if (!subdistrictData.length) return [{ label: "เลือกตำบล", value: "" }];
-
-    return [
-      { label: "เลือกตำบล", value: "" },
-      ...subdistrictData.map((s) => ({
-        label: s.name_th || s.subdistrict_name_th,
-        value: s.name_th || s.subdistrict_name_th,
-      })),
-    ];
-  }, [province, district, subdistrictData]);
+  // Use permission-based filters
+  const { isLocked } = useUserPermission();
+  const {
+    yearType,
+    year,
+    month,
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    setYearType,
+    setYear,
+    setMonth,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+    handleReset,
+  } = usePermissionFilters({
+    defaultYear: String(currentFiscalYear),
+    defaultYearType: "fiscal",
+  });
 
   // ล้างข้อมูลการค้นหา
   const handleClear = () => {
-    setYear("");
-    setMonth("");
-    setZone("");
-    setProvince("");
-    setDistrict("");
-    setSubdistrict("");
-    setDistrictData([]);
-    setSubdistrictData([]);
+    handleReset(String(currentFiscalYear), "fiscal");
     setSelectedReportType("");
   };
 
@@ -496,29 +387,29 @@ const DashboardSobos = () => {
     try {
       const filters = {};
 
-      // แปลง province เป็น province_code
+      // หา name_th จาก code ที่เลือก สำหรับ filter ฝั่ง frontend
+      let filterProvinceName = null;
+      let filterDistrictName = null;
+      let filterSubdistrictName = null;
+
       if (province) {
-        const foundProv = provinceData.find((p) => p.name_th === province);
-        if (foundProv) {
-          filters.province_code = foundProv.id.toString();
+        const selectedProvince = provinces.find(p => String(p.code || p.id) === province);
+        if (selectedProvince) {
+          filterProvinceName = selectedProvince.name_th;
         }
       }
 
       if (district) {
-        const foundDist = districtData.find(
-          (d) => (d.name_th || d.district_name_th) === district
-        );
-        if (foundDist) {
-          filters.district_code = (foundDist.code || foundDist.district_code).toString();
+        const selectedDistrict = districts.find(d => String(d.code || d.id) === district);
+        if (selectedDistrict) {
+          filterDistrictName = selectedDistrict.name_th;
         }
       }
 
       if (subdistrict) {
-        const foundSub = subdistrictData.find(
-          (s) => (s.name_th || s.subdistrict_name_th) === subdistrict
-        );
-        if (foundSub) {
-          filters.subdistrict_code = (foundSub.code || foundSub.subdistrict_code).toString();
+        const selectedSubdistrict = subdistricts.find(s => String(s.code || s.id) === subdistrict);
+        if (selectedSubdistrict) {
+          filterSubdistrictName = selectedSubdistrict.name_th;
         }
       }
 
@@ -557,31 +448,73 @@ const DashboardSobos = () => {
         reportsMapService.getProvinceSummary(filters),
       ]);
 
-      setReportsData(mapData);
-      setProvinceSummary(summary);
+      // Filter ฝั่ง Frontend เพราะ Backend ยังไม่รองรับ
+      let filteredReports = mapData.reports || [];
+      let filteredSummary = { ...summary };
 
-      console.log("📊 Reports data:", mapData);
-      console.log("📊 Province summary:", summary);
+      // Filter ตามจังหวัด
+      if (filterProvinceName) {
+        filteredReports = filteredReports.filter(r => r.province_name_th === filterProvinceName);
+      }
+
+      // Filter ตามอำเภอ
+      if (filterDistrictName) {
+        filteredReports = filteredReports.filter(r => r.district_name_th === filterDistrictName);
+      }
+
+      // Filter ตามตำบล
+      if (filterSubdistrictName) {
+        filteredReports = filteredReports.filter(r => r.subdistrict_name_th === filterSubdistrictName);
+      }
+
+      // สร้าง summary ใหม่จากข้อมูลที่ filter แล้ว
+      const summaryByType = {};
+      REPORT_TYPES.forEach(rt => {
+        summaryByType[rt.type] = filteredReports.filter(r => r.report_type === rt.type).length;
+      });
+
+      // สร้าง province summary ใหม่
+      const provinceMap = {};
+      filteredReports.forEach(r => {
+        const pName = r.province_name_th || 'ไม่ระบุ';
+        if (!provinceMap[pName]) {
+          provinceMap[pName] = 0;
+        }
+        provinceMap[pName]++;
+      });
+
+      const filteredProvinces = Object.keys(provinceMap).map(pName => ({
+        province_name: pName,
+        total_reports: provinceMap[pName]
+      }));
+
+      setReportsData({
+        ...mapData,
+        total_reports: filteredReports.length,
+        reports: filteredReports,
+        summary_by_type: summaryByType
+      });
+      setProvinceSummary({
+        ...filteredSummary,
+        total_reports: filteredReports.length,
+        total_provinces: filteredProvinces.length,
+        provinces: filteredProvinces,
+        location_data: filteredReports
+      });
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("เกิดข้อผิดพลาดในการดึงข้อมูล");
     } finally {
       setLoading(false);
     }
-  }, [province, district, subdistrict, year, month, selectedReportType, provinceData, districtData, subdistrictData]);
+  }, [zone, province, district, subdistrict, service, year, month, selectedReportType, healthAreas, provinces, districts, subdistricts, healthServices]);
 
-  // โหลดข้อมูลครั้งแรก
+  // ค้นหาอัตโนมัติเมื่อ filter เปลี่ยน
   useEffect(() => {
-    console.log("🔄 useEffect triggered - provinceData.length:", provinceData.length);
-    if (provinceData.length > 0) {
-      console.log("✅ Calling fetchData...");
-      fetchData();
-    } else {
-      console.log("⏳ Waiting for province data...");
-    }
-  }, [provinceData.length, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
-  // กดค้นหา
+  // กดค้นหา (เผื่อผู้ใช้ต้องการกดค้นหาเอง)
   const handleSearch = useCallback(() => {
     fetchData();
   }, [fetchData]);
@@ -589,11 +522,16 @@ const DashboardSobos = () => {
   // Handle province click on map
   const handleProvinceClick = useCallback(
     (data) => {
-      setProvince(data.province);
-      setZone(`zone${data.zone}`);
+      // หา province code จากชื่อจังหวัด
+      const foundProv = provinces.find(p => p.name_th === data.province);
+      if (foundProv) {
+        handleProvinceChange(String(foundProv.code || foundProv.id));
+      }
+      // หา zone code
+      handleZoneChange(String(data.zone));
       handleSearch();
     },
-    [handleSearch]
+    [handleSearch, provinces, handleProvinceChange, handleZoneChange]
   );
 
   // สร้างข้อมูล Pie Chart จาก API
@@ -778,135 +716,92 @@ const DashboardSobos = () => {
       <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl shadow-xl border border-purple-100/50 p-6 md:p-8">
         {/* ฟิลเตอร์การค้นหา */}
         <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5">
-          <div className="flex flex-wrap gap-x-6 gap-y-3 items-center mb-4">
-            <label className="font-bold text-purple-600 text-base flex items-center gap-2">
-              <Search className="w-5 h-5" />
-              รูปแบบการค้นหา :
-            </label>
-            <div className="flex gap-3 items-center">
-              <label className="inline-flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  className="hidden peer"
-                  checked={searchType === "year"}
-                  onChange={() => setSearchType("year")}
-                />
-                <span
-                  className={`w-5 h-5 mr-2 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    searchType === "year"
-                      ? "border-[#7e32e2] bg-[#f6eeff]"
-                      : "border-gray-300 bg-white"
-                  }`}
-                >
-                  {searchType === "year" && (
-                    <span className="w-3 h-3 bg-[#7e32e2] rounded-full block" />
-                  )}
-                </span>
-                <span
-                  className={`font-medium ${
-                    searchType === "year" ? "text-[#7e32e2]" : "text-[#aaa]"
-                  }`}
-                >
-                  ค้นหาแบบรายปี
-                </span>
-              </label>
-              <label className="inline-flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  className="hidden peer"
-                  checked={searchType === "budget"}
-                  onChange={() => setSearchType("budget")}
-                />
-                <span
-                  className={`w-5 h-5 mr-2 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    searchType === "budget"
-                      ? "border-[#7e32e2] bg-[#f6eeff]"
-                      : "border-gray-300 bg-white"
-                  }`}
-                >
-                  {searchType === "budget" && (
-                    <span className="w-3 h-3 bg-[#7e32e2] rounded-full block" />
-                  )}
-                </span>
-                <span
-                  className={`font-medium ${
-                    searchType === "budget" ? "text-[#7e32e2]" : "text-[#aaa]"
-                  }`}
-                >
-                  ค้นหาแบบรายปีงบประมาณ
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {/* ฟิลด์ ปี / เดือน */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {/* ฟิลด์ ประเภทปี / ปี / เดือน */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <CustomSelect
-              label="ปี"
-              options={YEARS}
+              label="ประเภทปี"
+              placeholder="เลือกประเภทปี"
+              value={yearType}
+              onChange={(e) => setYearType(e.target.value)}
+              options={YEAR_TYPES}
+              icon={Calendar}
+            />
+            <CustomSelect
+              label={yearType === "fiscal" ? "ปี" : "ปี"}
+              placeholder="เลือกปี"
               value={year}
               onChange={(e) => setYear(e.target.value)}
-              placeholder="เลือกปี"
+              options={YEARS}
               icon={Calendar}
             />
             <CustomSelect
               label="เดือน"
-              options={MONTHS}
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              placeholder="เลือกเดือน"
+              options={MONTHS}
+              placeholder="-- เลือกเดือน --"
               icon={Calendar}
             />
           </div>
 
-          {/* ฟิลด์ เขตสุขภาพ จังหวัด อำเภอ ตำบล */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          {/* ฟิลด์ เขตสุขภาพ จังหวัด อำเภอ ตำบล หน่วยบริการ */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <CustomSelect
               label="เขตสุขภาพ"
-              options={ZONES}
               value={zone}
-              onChange={(e) => {
-                setZone(e.target.value);
-                setProvince("");
-                setDistrict("");
-                setSubdistrict("");
-              }}
-              placeholder="เลือกเขตสุขภาพ"
+              onChange={(e) => handleZoneChange(e.target.value)}
+              options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
+              placeholder="-- เลือกเขตสุขภาพ --"
               icon={MapPin}
+              disabled={isLocked('zone')}
             />
             <CustomSelect
               label="จังหวัด"
-              options={provinceOptions}
               value={province}
-              onChange={(e) => {
-                setProvince(e.target.value);
-                setDistrict("");
-                setSubdistrict("");
-              }}
-              placeholder="เลือกจังหวัด"
+              onChange={(e) => handleProvinceChange(e.target.value)}
+              options={(provinces || []).map((p) => ({
+                label: p.name_th || p.name || "ไม่ระบุ",
+                value: String(p.code || p.id || "")
+              }))}
+              placeholder="-- เลือกจังหวัด --"
               icon={MapPin}
-              disabled={!zone}
+              disabled={isLocked('province')}
             />
             <CustomSelect
               label="อำเภอ"
-              options={districtOptions}
               value={district}
-              onChange={(e) => {
-                setDistrict(e.target.value);
-                setSubdistrict("");
-              }}
-              placeholder="เลือกอำเภอ"
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              options={(districts || []).map((d) => ({
+                label: d.name_th || d.name || "ไม่ระบุ",
+                value: String(d.code || d.id || "")
+              }))}
+              placeholder="-- เลือกอำเภอ --"
               icon={MapPin}
-              disabled={!province}
+              disabled={isLocked('district') || !province}
             />
             <CustomSelect
               label="ตำบล"
-              options={subdistrictOptions}
               value={subdistrict}
-              onChange={(e) => setSubdistrict(e.target.value)}
-              placeholder="เลือกตำบล"
+              onChange={(e) => handleSubdistrictChange(e.target.value)}
+              options={(subdistricts || []).map((s) => ({
+                label: s.name_th || s.name || "ไม่ระบุ",
+                value: String(s.code || s.id || "")
+              }))}
+              placeholder="-- เลือกตำบล --"
               icon={MapPin}
-              disabled={!district}
+              disabled={isLocked('subdistrict') || !district}
+            />
+            <CustomSelect
+              label="หน่วยบริการ"
+              value={service}
+              onChange={(e) => handleServiceChange(e.target.value)}
+              options={(healthServices || []).map((s) => ({
+                label: s.name_th || s.name || s.service_name || "ไม่ระบุ",
+                value: String(s.id || s.code || "")
+              }))}
+              placeholder="-- เลือกหน่วยบริการ --"
+              icon={Building2}
+              disabled={isLocked('service') || !subdistrict}
             />
           </div>
 
@@ -943,24 +838,21 @@ const DashboardSobos = () => {
           </div>
 
           {/* ปุ่มค้นหา/ล้าง */}
-          <div className="flex flex-col md:flex-row gap-3">
-            <ButtonService
-              type="button"
-              variant="primary"
-              className="w-full md:w-fit flex-1 h-12 text-[18px] bg-[#7e32e2] hover:bg-[#6c28c8] border-none shadow-none text-white"
+          <div className="flex flex-col sm:flex-row gap-3 mt-5">
+            <button
+              className="flex-1 flex items-center justify-center gap-2 h-12 px-6 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200"
               onClick={handleSearch}
-              icon={<Search className="w-5 h-5 mr-2 text-white" />}
             >
+              <Search size={20} />
               ค้นหา
-            </ButtonService>
-            <ButtonService
-              type="button"
-              variant="secondary"
-              className="w-full md:w-fit flex-1 h-12 text-[18px] bg-white border border-[#7e32e2] text-[#7e32e2] hover:bg-[#f6eeff] shadow-none"
+            </button>
+            <button
+              className="flex-1 flex items-center justify-center gap-2 h-12 px-6 bg-white border-2 border-[#7e32e2] text-[#7e32e2] font-semibold rounded-xl hover:bg-purple-50 transition-all duration-200"
               onClick={handleClear}
             >
+              <RotateCcw size={20} />
               ล้างข้อมูลการค้นหา
-            </ButtonService>
+            </button>
           </div>
         </div>
 
