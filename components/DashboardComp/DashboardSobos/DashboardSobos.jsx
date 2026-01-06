@@ -611,6 +611,21 @@ const DashboardSobos = () => {
     return Array.from(provinceNames);
   }, [reportsData]);
 
+  // หาชื่อจังหวัดที่เลือก (สำหรับ zoom แผนที่)
+  const selectedProvinceName = useMemo(() => {
+    if (!province || !provinces.length) return null;
+    const found = provinces.find(p => String(p.code || p.id) === province);
+    return found?.name_th || null;
+  }, [province, provinces]);
+
+  // หาเลขเขตที่เลือก (สำหรับ zoom แผนที่)
+  const selectedZoneNumber = useMemo(() => {
+    if (!zone) return null;
+    // zone เก็บเป็น "HA1", "HA2", ... หรือเลข
+    const match = String(zone).match(/\d+/);
+    return match ? parseInt(match[0]) : null;
+  }, [zone]);
+
   // สร้างข้อมูลสำหรับ Map
   const mapCustomOptions = useMemo(() => {
     const zoneDataMap = {};
@@ -964,7 +979,8 @@ const DashboardSobos = () => {
                     customOptions={mapCustomOptions}
                     onProvinceClick={handleProvinceClick}
                     provincesWithData={provincesWithData}
-                    className="w-full h-full"
+                    zoomToZone={selectedZoneNumber}
+                    zoomToProvince={selectedProvinceName}
                   />
                 </div>
               </div>

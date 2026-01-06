@@ -335,6 +335,9 @@ class MapThailandService {
       legend: { enabled: false },
       mapNavigation: {
         enabled: true,
+        enableButtons: true,
+        enableMouseWheelZoom: true,
+        enableDoubleClickZoom: true,
         buttonOptions: { verticalAlign: "bottom" },
       },
       colorAxis: {
@@ -434,12 +437,125 @@ class MapThailandService {
   }
 }
 
+// ตำแหน่งศูนย์กลางของแต่ละเขตสุขภาพ (lat, lon) สำหรับ zoom
+const ZONE_CENTER = {
+  1: { lat: 19.0, lon: 99.5, zoom: 4 },    // เหนือบน
+  2: { lat: 17.5, lon: 100.0, zoom: 4 },   // เหนือล่าง
+  3: { lat: 15.5, lon: 100.0, zoom: 5 },   // ภาคกลางตอนบน
+  4: { lat: 14.5, lon: 100.5, zoom: 5 },   // รอบ กทม.
+  5: { lat: 13.5, lon: 99.5, zoom: 5 },    // ตะวันตก
+  6: { lat: 13.0, lon: 101.5, zoom: 5 },   // ตะวันออก
+  7: { lat: 16.5, lon: 103.0, zoom: 5 },   // อีสานกลาง
+  8: { lat: 17.5, lon: 102.5, zoom: 4 },   // อีสานบน
+  9: { lat: 15.0, lon: 102.5, zoom: 5 },   // อีสานล่าง
+  10: { lat: 15.5, lon: 104.5, zoom: 5 },  // อีสานตะวันออก
+  11: { lat: 9.0, lon: 99.0, zoom: 4 },    // ใต้บน
+  12: { lat: 7.0, lon: 100.5, zoom: 5 },   // ใต้ล่าง
+  13: { lat: 13.75, lon: 100.5, zoom: 8 }, // กทม.
+};
+
+// ตำแหน่งศูนย์กลางของแต่ละจังหวัด (lat, lon) สำหรับ zoom
+const PROVINCE_CENTER = {
+  // เขต 1
+  "เชียงใหม่": { lat: 18.8, lon: 98.9, zoom: 6 },
+  "เชียงราย": { lat: 19.9, lon: 99.8, zoom: 6 },
+  "แม่ฮ่องสอน": { lat: 19.3, lon: 97.9, zoom: 6 },
+  "พะเยา": { lat: 19.2, lon: 99.9, zoom: 6 },
+  "น่าน": { lat: 18.8, lon: 100.8, zoom: 6 },
+  "แพร่": { lat: 18.1, lon: 100.1, zoom: 7 },
+  "ลำพูน": { lat: 18.6, lon: 99.0, zoom: 7 },
+  "ลำปาง": { lat: 18.3, lon: 99.5, zoom: 6 },
+  // เขต 2
+  "ตาก": { lat: 16.9, lon: 99.1, zoom: 6 },
+  "สุโขทัย": { lat: 17.0, lon: 99.8, zoom: 7 },
+  "พิษณุโลก": { lat: 16.8, lon: 100.3, zoom: 6 },
+  "พิจิตร": { lat: 16.4, lon: 100.3, zoom: 7 },
+  "เพชรบูรณ์": { lat: 16.4, lon: 101.2, zoom: 6 },
+  "อุตรดิตถ์": { lat: 17.6, lon: 100.1, zoom: 7 },
+  "กำแพงเพชร": { lat: 16.5, lon: 99.5, zoom: 7 },
+  // เขต 3
+  "นครสวรรค์": { lat: 15.7, lon: 100.1, zoom: 6 },
+  "อุทัยธานี": { lat: 15.4, lon: 99.9, zoom: 7 },
+  "ชัยนาท": { lat: 15.2, lon: 100.1, zoom: 7 },
+  "สิงห์บุรี": { lat: 14.9, lon: 100.4, zoom: 8 },
+  "ลพบุรี": { lat: 14.8, lon: 100.6, zoom: 7 },
+  // เขต 4
+  "พระนครศรีอยุธยา": { lat: 14.4, lon: 100.6, zoom: 7 },
+  "อ่างทอง": { lat: 14.6, lon: 100.5, zoom: 8 },
+  "สระบุรี": { lat: 14.5, lon: 100.9, zoom: 7 },
+  "ปทุมธานี": { lat: 14.0, lon: 100.5, zoom: 8 },
+  "นนทบุรี": { lat: 13.9, lon: 100.5, zoom: 9 },
+  "นครนายก": { lat: 14.2, lon: 101.2, zoom: 7 },
+  // เขต 5
+  "ราชบุรี": { lat: 13.5, lon: 99.8, zoom: 7 },
+  "กาญจนบุรี": { lat: 14.0, lon: 99.5, zoom: 5 },
+  "สุพรรณบุรี": { lat: 14.5, lon: 100.0, zoom: 6 },
+  "นครปฐม": { lat: 13.8, lon: 100.0, zoom: 7 },
+  "สมุทรสาคร": { lat: 13.5, lon: 100.3, zoom: 9 },
+  "สมุทรสงคราม": { lat: 13.4, lon: 99.9, zoom: 9 },
+  "เพชรบุรี": { lat: 13.1, lon: 99.9, zoom: 6 },
+  "ประจวบคีรีขันธ์": { lat: 11.8, lon: 99.8, zoom: 5 },
+  // เขต 6
+  "ฉะเชิงเทรา": { lat: 13.7, lon: 101.1, zoom: 7 },
+  "ปราจีนบุรี": { lat: 14.1, lon: 101.4, zoom: 7 },
+  "สระแก้ว": { lat: 13.8, lon: 102.1, zoom: 6 },
+  "ชลบุรี": { lat: 13.4, lon: 100.9, zoom: 7 },
+  "ระยอง": { lat: 12.7, lon: 101.3, zoom: 7 },
+  "จันทบุรี": { lat: 12.6, lon: 102.1, zoom: 6 },
+  "ตราด": { lat: 12.2, lon: 102.5, zoom: 7 },
+  "สมุทรปราการ": { lat: 13.6, lon: 100.6, zoom: 8 },
+  // เขต 7
+  "ขอนแก่น": { lat: 16.4, lon: 102.8, zoom: 6 },
+  "ร้อยเอ็ด": { lat: 16.1, lon: 103.7, zoom: 6 },
+  "มหาสารคาม": { lat: 16.2, lon: 103.3, zoom: 7 },
+  "กาฬสินธุ์": { lat: 16.4, lon: 103.5, zoom: 6 },
+  // เขต 8
+  "อุดรธานี": { lat: 17.4, lon: 102.8, zoom: 6 },
+  "หนองคาย": { lat: 17.9, lon: 102.7, zoom: 6 },
+  "เลย": { lat: 17.5, lon: 101.7, zoom: 6 },
+  "หนองบัวลำภู": { lat: 17.2, lon: 102.4, zoom: 7 },
+  "บึงกาฬ": { lat: 18.4, lon: 103.5, zoom: 7 },
+  "สกลนคร": { lat: 17.2, lon: 104.1, zoom: 6 },
+  "นครพนม": { lat: 17.4, lon: 104.8, zoom: 6 },
+  // เขต 9
+  "นครราชสีมา": { lat: 15.0, lon: 102.1, zoom: 5 },
+  "บุรีรัมย์": { lat: 14.9, lon: 103.1, zoom: 6 },
+  "สุรินทร์": { lat: 14.9, lon: 103.5, zoom: 6 },
+  "ชัยภูมิ": { lat: 15.8, lon: 102.0, zoom: 6 },
+  // เขต 10
+  "อุบลราชธานี": { lat: 15.2, lon: 104.9, zoom: 5 },
+  "ศรีสะเกษ": { lat: 15.1, lon: 104.3, zoom: 6 },
+  "ยโสธร": { lat: 15.8, lon: 104.1, zoom: 7 },
+  "อำนาจเจริญ": { lat: 15.9, lon: 104.6, zoom: 7 },
+  "มุกดาหาร": { lat: 16.5, lon: 104.7, zoom: 7 },
+  // เขต 11
+  "สุราษฎร์ธานี": { lat: 9.1, lon: 99.3, zoom: 5 },
+  "นครศรีธรรมราช": { lat: 8.4, lon: 100.0, zoom: 5 },
+  "ชุมพร": { lat: 10.5, lon: 99.2, zoom: 6 },
+  "ระนอง": { lat: 9.9, lon: 98.6, zoom: 6 },
+  "ภูเก็ต": { lat: 7.9, lon: 98.4, zoom: 8 },
+  "พังงา": { lat: 8.5, lon: 98.5, zoom: 6 },
+  "กระบี่": { lat: 8.1, lon: 98.9, zoom: 7 },
+  // เขต 12
+  "สงขลา": { lat: 7.2, lon: 100.5, zoom: 6 },
+  "สตูล": { lat: 6.6, lon: 100.1, zoom: 7 },
+  "ตรัง": { lat: 7.6, lon: 99.6, zoom: 7 },
+  "พัทลุง": { lat: 7.6, lon: 100.1, zoom: 7 },
+  "ปัตตานี": { lat: 6.9, lon: 101.3, zoom: 7 },
+  "ยะลา": { lat: 6.5, lon: 101.3, zoom: 7 },
+  "นราธิวาส": { lat: 6.4, lon: 101.8, zoom: 6 },
+  // เขต 13
+  "กรุงเทพมหานคร": { lat: 13.75, lon: 100.5, zoom: 9 },
+};
+
 const MapThailandComponent = ({
   height = 740,
   customOptions = {},
   onMapReady = null,
   onProvinceClick = null,
   provincesWithData = null, // รายชื่อจังหวัดที่มีข้อมูล (ถ้าไม่ส่งมา = แสดงทุกจังหวัด)
+  zoomToZone = null,        // เขตสุขภาพที่ต้องการ zoom (1-13)
+  zoomToProvince = null,    // ชื่อจังหวัดที่ต้องการ zoom (ภาษาไทย)
 }) => {
   const chartRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -462,6 +578,100 @@ const MapThailandComponent = ({
       mounted = false;
     };
   }, [mapService, onMapReady]);
+
+  // Zoom to zone or province when they change
+  useEffect(() => {
+    if (!ready || !chartRef.current) return;
+
+    const chart = chartRef.current.chart;
+    if (!chart || !chart.series || !chart.series[0]) return;
+
+    const mapSeries = chart.series[0];
+
+    // Debug: แสดงชื่อจังหวัดทั้งหมดใน map
+    const allPointNames = mapSeries.points?.map(p => p.name) || [];
+    console.log('🗺️ Map zoom triggered:', {
+      zoomToZone,
+      zoomToProvince,
+      pointsCount: mapSeries.points?.length,
+      sampleNames: allPointNames.slice(0, 5) // แสดง 5 ชื่อแรก
+    });
+
+    // รอให้ chart render เสร็จก่อน
+    setTimeout(() => {
+      try {
+        // ถ้าเลือกจังหวัด - zoom ไปที่จังหวัด
+        if (zoomToProvince) {
+          console.log('🔍 Zooming to province:', zoomToProvince);
+
+          // หาจังหวัดที่ต้องการ zoom - ลองทั้งชื่อไทยและอังกฤษ
+          let point = mapSeries.points?.find(p => p.name === zoomToProvince);
+
+          // ถ้าไม่เจอ ลองหาจาก PROVINCE_TO_ZONE (มี mapping ทั้งไทยและอังกฤษ)
+          if (!point) {
+            // หา zone ของจังหวัดที่เลือก
+            const targetZone = PROVINCE_TO_ZONE[zoomToProvince];
+            if (targetZone) {
+              // หา point ที่มี zone เดียวกัน
+              point = mapSeries.points?.find(p => {
+                const pZone = PROVINCE_TO_ZONE[p.name];
+                // ตรวจสอบว่าชื่ออังกฤษ/ไทยตรงกัน
+                return pZone === targetZone &&
+                  (p.name === zoomToProvince ||
+                   Object.keys(PROVINCE_TO_ZONE).some(k =>
+                     PROVINCE_TO_ZONE[k] === targetZone &&
+                     (k === p.name || k === zoomToProvince)
+                   ));
+              });
+            }
+          }
+
+          if (point) {
+            point.zoomTo();
+            console.log('✅ point.zoomTo() called for province:', point.name);
+          } else {
+            console.log('⚠️ Province not found in map points:', zoomToProvince);
+            console.log('Available names:', allPointNames);
+          }
+          return;
+        }
+
+        // ถ้าเลือกเขต (ไม่ได้เลือกจังหวัด) - zoom ไปที่เขต (รวมทุกจังหวัดในเขต)
+        if (zoomToZone) {
+          console.log('🔍 Zooming to zone:', zoomToZone);
+
+          // หาจังหวัดทั้งหมดในเขตนี้
+          const zonePoints = mapSeries.points?.filter(p => PROVINCE_TO_ZONE[p.name] === zoomToZone);
+
+          if (zonePoints && zonePoints.length > 0) {
+            // Zoom ไปที่จังหวัดแรกของเขต (จะได้เห็นพื้นที่โดยรวม)
+            const firstPoint = zonePoints[0];
+            if (firstPoint) {
+              firstPoint.zoomTo();
+              // Zoom out อีกนิดเพื่อเห็นทั้งเขต
+              setTimeout(() => {
+                if (chart.mapZoom) {
+                  chart.mapZoom(0.5); // zoom out
+                }
+              }, 100);
+              console.log('✅ Zoomed to zone:', zoomToZone, 'via province:', firstPoint.name);
+            }
+          } else {
+            console.log('⚠️ No provinces found for zone:', zoomToZone);
+          }
+          return;
+        }
+
+        // ถ้าไม่ได้เลือกเขต/จังหวัด - reset zoom กลับไปเห็นทั้งประเทศ
+        console.log('🔄 Resetting zoom to full map');
+        if (chart.mapZoom) {
+          chart.mapZoom(); // Reset to default view
+        }
+      } catch (err) {
+        console.error('Map zoom error:', err);
+      }
+    }, 300);
+  }, [ready, zoomToZone, zoomToProvince]);
 
   const options = useMemo(() => {
     if (!ready) return {};
