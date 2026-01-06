@@ -12,9 +12,19 @@ export const useTokenRefresh = () => {
         const token = getAccessToken();
         const refreshToken = getRefreshToken();
 
+        if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+            console.log("[useTokenRefresh] Checking tokens:", {
+                hasAccessToken: !!token,
+                hasRefreshToken: !!refreshToken,
+                refreshTokenPreview: refreshToken ? refreshToken.substring(0, 20) + "..." : null,
+            });
+        }
+
         if (token && refreshToken) {
             // Start auto refresh
             startTokenRefresh();
+        } else if (token && !refreshToken) {
+            console.warn("[useTokenRefresh] ⚠️ Access token exists but NO refresh token! Token refresh will NOT work.");
         }
 
         // Cleanup on unmount

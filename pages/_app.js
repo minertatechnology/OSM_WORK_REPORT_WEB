@@ -14,10 +14,10 @@ function MyApp({ Component, pageProps }) {
   // Enable automatic token refresh
   useTokenRefresh();
 
-  // Enable silent token guard
+  // Enable silent token guard - refresh เมื่อ token เหลือ 5 นาที
   useIdleDetection({
-    checkInterval: 1 * 1000,
-    refreshThreshold: 60 * 1000,
+    checkInterval: 5 * 1000, // ตรวจสอบทุก 5 วินาที
+    refreshThreshold: 5 * 60 * 1000, // refresh เมื่อ token เหลือ 5 นาที
   });
 
   const getLayout = Component.getLayout || ((page) => page);

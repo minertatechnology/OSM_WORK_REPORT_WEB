@@ -1,5 +1,6 @@
 import axios from "axios";
 import Cookies from "js-cookie";
+import { setTokens } from "@utils/tokenStorage";
 
 /**
  * Decode JWT token (without verification - client side only)
@@ -37,13 +38,11 @@ export const loginUser = async ({ username, password, client_id, user_type, scop
 
     const data = response.data;
 
-    // บันทึก access_token ใน cookie
+    // บันทึก tokens ผ่าน tokenStorage (รวม access และ refresh)
     if (data.access_token) {
-      const maxAge = data.expires_in || 3600; // default 1 hour
-      Cookies.set("token", data.access_token, {
-        path: "/",
-        expires: maxAge / 86400, // convert seconds to days
-        sameSite: 'lax'
+      setTokens({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token || null,
       });
 
       // Decode JWT เพื่อดึงข้อมูล
@@ -59,11 +58,6 @@ export const loginUser = async ({ username, password, client_id, user_type, scop
           localStorage.setItem("user_info", JSON.stringify(userInfo));
         }
       }
-    }
-
-    // บันทึก refresh_token
-    if (data.refresh_token && typeof window !== "undefined") {
-      localStorage.setItem("refresh_token", data.refresh_token);
     }
 
     return data;

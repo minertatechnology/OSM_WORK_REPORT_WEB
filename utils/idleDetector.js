@@ -78,11 +78,12 @@ class IdleDetector {
     this.listeners.forEach(listener => listener(state));
   }
 
-  // ตรวจสอบว่า user idle หรือไม่
+  // ตรวจสอบว่า user idle หรือไม่ (based on activity only, not page visibility)
   isUserIdle() {
     const now = Date.now();
     const idleDuration = now - this.lastActivityTime;
-    return idleDuration >= this.idleTimeout || this.isPageHidden;
+    // ไม่ใช้ isPageHidden เพราะการเปลี่ยนแท็บชั่วคราวไม่ควรถือว่า idle
+    return idleDuration >= this.idleTimeout;
   }
 
   // ตรวจสอบว่าหน้าต่างถูกย่อหรือซ่อนอยู่หรือไม่

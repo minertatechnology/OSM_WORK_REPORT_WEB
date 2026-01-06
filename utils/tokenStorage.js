@@ -7,6 +7,33 @@ const REFRESH_STORAGE_KEY = "osm_report_refresh_token";
 
 const isBrowser = () => typeof window !== "undefined";
 
+// Migration: ย้าย refresh_token จาก key เดิมไปยัง key ใหม่ (ทำครั้งเดียว)
+const migrateOldRefreshToken = () => {
+    if (!isBrowser()) return;
+
+    try {
+        const storage = window.localStorage;
+        const oldKey = "refresh_token";
+        const oldToken = storage.getItem(oldKey);
+
+        // ถ้ามี token เก่าอยู่ และยังไม่มี token ใหม่
+        if (oldToken && !storage.getItem(REFRESH_STORAGE_KEY)) {
+            storage.setItem(REFRESH_STORAGE_KEY, oldToken);
+            storage.removeItem(oldKey); // ลบ key เดิม
+            if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+                console.log("[tokenStorage] Migrated refresh_token to new key");
+            }
+        }
+    } catch (error) {
+        // Ignore migration errors
+    }
+};
+
+// Run migration on load
+if (isBrowser()) {
+    migrateOldRefreshToken();
+}
+
 const getStorage = () => {
     if (!isBrowser()) {
         return null;

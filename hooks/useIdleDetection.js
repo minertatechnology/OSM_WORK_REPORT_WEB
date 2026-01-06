@@ -70,10 +70,10 @@ const getTimeOffset = () => {
 };
 
 const DEFAULT_CHECK_INTERVAL = 1000;
-const DEFAULT_REFRESH_THRESHOLD = 60 * 1000;
-const MIN_REFRESH_SPACING = 5 * 1000;
-const ACTIVITY_GRACE_PERIOD = 60 * 1000; // only refresh if user interacted within last minute
-const ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "touchstart"];
+const DEFAULT_REFRESH_THRESHOLD = 2 * 60 * 1000; // refresh เมื่อ token เหลือ 2 นาที
+const MIN_REFRESH_SPACING = 30 * 1000; // รอ 30 วินาทีระหว่าง refresh attempts
+const ACTIVITY_GRACE_PERIOD = 10 * 60 * 1000; // ให้ refresh ถ้ามี activity ใน 10 นาที
+const ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "touchstart", "mousemove", "click", "scroll"];
 
 export const useIdleDetection = ({
     checkInterval = DEFAULT_CHECK_INTERVAL,
@@ -171,17 +171,34 @@ export const useIdleDetection = ({
                 const now = Date.now();
                 const sinceLastRefresh = now - lastRefreshAttemptRef.current;
                 const sinceLastActivity = now - lastActivityRef.current;
-                if (
-                    sinceLastRefresh >= MIN_REFRESH_SPACING &&
-                    sinceLastActivity <= ACTIVITY_GRACE_PERIOD
-                ) {
+
+                if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+                    console.log("[SessionExpiry] Token expiring soon", {
+                        remaining: Math.floor(remaining / 1000) + "s",
+                        sinceLastRefresh: Math.floor(sinceLastRefresh / 1000) + "s",
+                        sinceLastActivity: Math.floor(sinceLastActivity / 1000) + "s",
+                    });
+                }
+
+                // ถ้ามี activity ใน 10 นาที ให้ refresh
+                if (sinceLastRefresh >= MIN_REFRESH_SPACING && sinceLastActivity <= ACTIVITY_GRACE_PERIOD) {
                     lastRefreshAttemptRef.current = now;
                     try {
-                        await forceRefreshNow();
+                        const success = await forceRefreshNow();
+                        if (!success) {
+                            console.warn("[SessionExpiry] Refresh returned false - will retry");
+                            // ไม่ logout ทันที ให้รอลองใหม่ในรอบถัดไป
+                        }
                     } catch (error) {
                         console.error("[SessionExpiry] Silent refresh failed", error);
-                        forceLogout();
+                        // ไม่ logout ทันที ให้รอลองใหม่ในรอบถัดไป
                     }
+                } else if (sinceLastActivity > ACTIVITY_GRACE_PERIOD) {
+                    // ถ้าไม่มี activity เกิน 10 นาที และ token กำลังจะหมดอายุ → logout
+                    if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+                        console.log("[SessionExpiry] No activity for 10 min, token expiring - logging out");
+                    }
+                    forceLogout();
                 }
             }
         };

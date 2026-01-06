@@ -312,14 +312,13 @@ axiosInstance.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return axiosInstance(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - ตรวจสอบว่า user idle หรือไม่
-        const isUserIdle = idleDetector?.isUserIdle() || false;
-        const isPageHidden = idleDetector?.isPageHiddenOrMinimized() || false;
+        // Refresh failed - ตรวจสอบว่า user idle นานเกิน 10 นาทีหรือไม่
+        const idleDurationMs = idleDetector?.getIdleDuration() || 0;
+        const MAX_IDLE_MS = 10 * 60 * 1000; // 10 นาที
 
-        // ✅ แสดง alert แจ้งเตือนเฉพาะเมื่อ user ไม่ได้ใช้งาน (idle หรือเปลี่ยนแท็บ/ย่อหน้าจอ)
-        // ✅ ถ้า user กำลังใช้งานอยู่ (tab active, ไม่ย่อหน้าจอ) ไม่ต้องแสดง alert
+        // ✅ แสดง alert เฉพาะเมื่อ user idle เกิน 10 นาที
         if (
-          (isUserIdle || isPageHidden) &&
+          idleDurationMs >= MAX_IDLE_MS &&
           !hasShownIdleWarning &&
           typeof window !== "undefined"
         ) {
@@ -328,7 +327,6 @@ axiosInstance.interceptors.response.use(
           // แสดง alert แจ้งเตือนว่า session หมดอายุเนื่องจาก idle
           const idleDuration = idleDetector?.getIdleDurationInMinutes() || 0;
 
-          // ใช้ alert แบบ native แทนที่จะ import alertService
           alert(
             `Session หมดอายุ\n\nคุณไม่ได้ใช้งานระบบเป็นเวลา ${idleDuration} นาที\nกรุณาเข้าสู่ระบบใหม่อีกครั้ง`
           );
@@ -336,7 +334,7 @@ axiosInstance.interceptors.response.use(
           clearTokens();
           window.location.href = "/";
         } else {
-          // ถ้ายังใช้งานอยู่ (tab active) แต่ refresh ไม่สำเร็จ
+          // ถ้า idle น้อยกว่า 10 นาที แต่ refresh ไม่สำเร็จ
           // ให้ redirect ไปหน้า login ทันที โดยไม่แสดง alert
           clearTokens();
 
