@@ -609,12 +609,32 @@ const DashboardSobos = () => {
     });
   }, [provinceSummary]);
 
-  // สร้างรายชื่อจังหวัดที่มีข้อมูล
+  // สร้างรายชื่อจังหวัดที่ควรแสดงสีบนแผนที่
+  // - ถ้าเลือกจังหวัด: แสดงเฉพาะจังหวัดนั้น
+  // - ถ้าเลือกเขต: แสดงเฉพาะจังหวัดในเขตนั้น
+  // - ถ้าไม่เลือกอะไร: แสดงจังหวัดที่มีข้อมูลรายงาน
   const provincesWithData = useMemo(() => {
+    // ถ้าเลือกจังหวัด - แสดงเฉพาะจังหวัดที่เลือก
+    if (province && provinces.length) {
+      const selectedProv = provinces.find(p => String(p.code || p.id) === province);
+      if (selectedProv?.name_th) {
+        return [selectedProv.name_th];
+      }
+    }
+
+    // ถ้าเลือกเขต - แสดงเฉพาะจังหวัดในเขตนั้น
+    if (zone) {
+      const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+      const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
+      if (zoneData && zoneData.provinces) {
+        return zoneData.provinces.map(p => p.trim());
+      }
+    }
+
+    // ถ้าไม่ได้เลือกเขต/จังหวัด - แสดงจังหวัดที่มีข้อมูลรายงาน
     if (!reportsData || !reportsData.reports) {
       return [];
     }
-    // ดึงชื่อจังหวัดที่มีรายงาน (ไม่ซ้ำ)
     const provinceNames = new Set();
     reportsData.reports.forEach(r => {
       if (r.province_name_th) {
@@ -622,7 +642,7 @@ const DashboardSobos = () => {
       }
     });
     return Array.from(provinceNames);
-  }, [reportsData]);
+  }, [reportsData, zone, province, provinces]);
 
   // หาชื่อจังหวัดที่เลือก (สำหรับ zoom แผนที่)
   const selectedProvinceName = useMemo(() => {
