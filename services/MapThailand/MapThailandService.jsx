@@ -692,12 +692,11 @@ const MapThailandComponent = ({
           );
 
           if (!hasData) {
-            // ถ้าไม่มีข้อมูล ให้ซ่อน (value = null และสีโปร่งใส)
+            // ถ้าไม่มีข้อมูล ให้แสดงเป็นสีเทา
             return {
               ...item,
-              value: null,
-              color: 'transparent',
-              borderColor: 'transparent',
+              value: 0, // value = 0 จะใช้สีเทาจาก ZONE_COLORS[0]
+              color: ZONE_COLORS[0], // สีเทา #E5E5E5
             };
           }
           return item;

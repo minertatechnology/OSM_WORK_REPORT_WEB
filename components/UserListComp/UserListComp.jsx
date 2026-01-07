@@ -44,6 +44,11 @@ import { getAuthToken } from "@utils/tokenHelper";
 import { getUserByExternalId } from "@services/oauth2Service";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
+import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 
 // Mock data for select options (ลบ ZONES, PROVINCES, DISTRICTS, SUBDISTRICTS เพราะใช้จาก usePermissionFilters แทน)
 const PER_PAGE_OPTIONS = [
@@ -324,9 +329,184 @@ function UserDetailModal({
   );
 }
 
+// Export PDF function - แสดงเฉพาะคอลัมน์ที่แสดงในตาราง
+function exportUserListPDF(data) {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  // เพิ่มฟอนต์ไทย Sarabun
+  doc.addFileToVFS("Sarabun-Regular.ttf", sarabunFont);
+  doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
+  doc.addFileToVFS("Sarabun-Bold.ttf", sarabunBoldFont);
+  doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
+  doc.setFont("Sarabun");
+
+  // ตั้งค่าตาราง
+  const startX = 10; // ขยับไปทางซ้าย
+  const rowHeight = 10;
+  const colWidths = [15, 85, 55, 40]; // ลำดับ, ชื่อ-นามสกุล, เลขประจำตัวประชาชน, ระดับตำแหน่ง
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", "ระดับตำแหน่ง"];
+  const rowsPerPage = 20; // แบ่งหน้าทุก 20 รายการ
+
+  // ฟังก์ชันวาดหัวเอกสารและ header ตาราง
+  const drawPageHeader = (pageNum, totalPages) => {
+    // หัวเอกสาร
+    doc.setFontSize(18);
+    doc.setFont("Sarabun", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text("รายชื่อผู้ใช้งานแอปพลิเคชัน", 105, 20, { align: "center" });
+    doc.setFontSize(11);
+    doc.setFont("Sarabun", "normal");
+    doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 28, { align: "center" });
+    doc.text(`จำนวนทั้งหมด: ${data.length} รายการ`, 105, 35, { align: "center" });
+
+    // วาด header ตาราง
+    let xPos = startX;
+    const headerY = 45;
+    doc.setDrawColor(0, 0, 0); // เส้นขอบสีดำ
+    doc.setLineWidth(0.3);
+
+    headers.forEach((header, i) => {
+      doc.rect(xPos, headerY, colWidths[i], rowHeight, "S"); // แค่เส้นขอบ ไม่มีพื้นหลัง
+      doc.setFont("Sarabun", "normal");
+      doc.setFontSize(11); // ขนาดเท่ากับข้อมูล
+      doc.setTextColor(0, 0, 0); // สีดำ
+      doc.text(header, xPos + colWidths[i] / 2, headerY + 7, { align: "center" });
+      xPos += colWidths[i];
+    });
+
+    return headerY + rowHeight; // คืนค่า Y position สำหรับแถวถัดไป
+  };
+
+  // คำนวณจำนวนหน้าทั้งหมด
+  const totalPages = Math.ceil(data.length / rowsPerPage);
+
+  // วาดหน้าแรก
+  let currentPage = 1;
+  let yPos = drawPageHeader(currentPage, totalPages);
+  let rowCountOnPage = 0;
+
+  data.forEach((row, idx) => {
+    // ถ้าครบ 20 รายการ ให้ขึ้นหน้าใหม่
+    if (rowCountOnPage >= rowsPerPage) {
+      doc.addPage();
+      currentPage++;
+      yPos = drawPageHeader(currentPage, totalPages);
+      rowCountOnPage = 0;
+    }
+
+    let xPos = startX;
+
+    // Mask CID สำหรับ export (ปกป้องข้อมูลส่วนบุคคล)
+    const maskedCid = maskCID(row.cid, false);
+
+    const rowData = [
+      String(idx + 1),
+      row.name || "-",
+      maskedCid,
+      row.position || "-",
+    ];
+
+    doc.setFont("Sarabun", "normal");
+    doc.setFontSize(10);
+
+    rowData.forEach((text, i) => {
+      // วาดเส้นขอบสีดำ ไม่มีพื้นหลัง
+      doc.setDrawColor(0, 0, 0);
+      doc.rect(xPos, yPos, colWidths[i], rowHeight, "S");
+
+      // ตั้งสีข้อความเป็นสีดำ
+      doc.setTextColor(0, 0, 0);
+
+      // ตัดข้อความถ้ายาวเกินไป
+      const maxWidth = colWidths[i] - 4;
+      let displayText = text;
+      if (doc.getTextWidth(text) > maxWidth) {
+        while (doc.getTextWidth(displayText + "...") > maxWidth && displayText.length > 0) {
+          displayText = displayText.slice(0, -1);
+        }
+        displayText += "...";
+      }
+
+      if (i === 0 || i === 2 || i === 3) {
+        // Center align: ลำดับ, เลขประจำตัวประชาชน, ระดับตำแหน่ง
+        doc.text(displayText, xPos + colWidths[i] / 2, yPos + 7, { align: "center" });
+      } else {
+        // Left align: ชื่อ-นามสกุล
+        doc.text(displayText, xPos + 2, yPos + 7);
+      }
+      xPos += colWidths[i];
+    });
+
+    yPos += rowHeight;
+    rowCountOnPage++;
+  });
+
+  doc.save(`รายชื่อผู้ใช้งาน_${new Date().toISOString().split("T")[0]}.pdf`);
+}
+
+// Export Excel function - แสดงเฉพาะคอลัมน์ที่แสดงในตาราง
+function exportUserListExcel(data) {
+  // แสดงเฉพาะ 4 คอลัมน์ตามที่แสดงในตาราง และ mask CID
+  const excelData = data.map((row, idx) => ({
+    ลำดับ: idx + 1,
+    "ชื่อ-นามสกุล": row.name || "-",
+    "เลขประจำตัวประชาชน": maskCID(row.cid, false), // Mask CID สำหรับ PDPA
+    "ระดับตำแหน่ง": row.position || "-",
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(excelData);
+  ws["!cols"] = [
+    { wch: 8 },   // ลำดับ
+    { wch: 30 },  // ชื่อ-นามสกุล
+    { wch: 22 },  // เลขประจำตัวประชาชน
+    { wch: 20 },  // ระดับตำแหน่ง
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "รายชื่อผู้ใช้งาน");
+
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(blob, `รายชื่อผู้ใช้งาน_${new Date().toISOString().split("T")[0]}.xlsx`);
+}
+
 // Download Modal
-function DownloadModal({ open, onClose }) {
+function DownloadModal({ open, onClose, users, filters }) {
   if (!open) return null;
+
+  const handleExportPDF = () => {
+    if (!users.length) {
+      Swal.fire({
+        icon: "warning",
+        title: "ไม่มีข้อมูล",
+        text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
+        confirmButtonColor: "#7e32e2",
+      });
+      return;
+    }
+    // เรียก export โดยตรง ไม่ต้องแจ้งเตือน เพราะ browser จะจัดการ download เอง
+    exportUserListPDF(users);
+  };
+
+  const handleExportExcel = () => {
+    if (!users.length) {
+      Swal.fire({
+        icon: "warning",
+        title: "ไม่มีข้อมูล",
+        text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
+        confirmButtonColor: "#7e32e2",
+      });
+      return;
+    }
+    // เรียก export โดยตรง ไม่ต้องแจ้งเตือน เพราะ browser จะจัดการ download เอง
+    exportUserListExcel(users);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -337,10 +517,13 @@ function DownloadModal({ open, onClose }) {
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
             <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
-              รายชื่อผู้ใช้งาน
+              รายชื่อผู้ใช้งาน ({users.length} รายการ)
             </div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95">
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+              >
                 <Image
                   src="/pdf.png"
                   alt="pdf"
@@ -350,7 +533,10 @@ function DownloadModal({ open, onClose }) {
                 />
                 เอกสาร PDF
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95">
+              <button
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
+              >
                 <Image
                   src="/xlsx.png"
                   alt="excel"
@@ -939,6 +1125,7 @@ const UserListComp = () => {
       <DownloadModal
         open={downloadModalOpen}
         onClose={() => setDownloadModalOpen(false)}
+        users={users}
       />
 
       {/* Header Section */}

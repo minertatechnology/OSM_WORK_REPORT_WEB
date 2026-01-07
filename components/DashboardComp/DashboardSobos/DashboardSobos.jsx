@@ -452,6 +452,19 @@ const DashboardSobos = () => {
       let filteredReports = mapData.reports || [];
       let filteredSummary = { ...summary };
 
+      // Filter ตามเขตสุขภาพ
+      if (zone) {
+        // หาจังหวัดที่อยู่ในเขตสุขภาพที่เลือก
+        const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+        const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
+        if (zoneData && zoneData.provinces) {
+          const provincesInZone = zoneData.provinces.map(p => p.trim());
+          filteredReports = filteredReports.filter(r =>
+            provincesInZone.includes(r.province_name_th?.trim())
+          );
+        }
+      }
+
       // Filter ตามจังหวัด
       if (filterProvinceName) {
         filteredReports = filteredReports.filter(r => r.province_name_th === filterProvinceName);
