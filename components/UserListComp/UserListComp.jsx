@@ -448,54 +448,175 @@ function exportUserListPDF(data) {
   doc.save(`รายชื่อผู้ใช้งาน_${new Date().toISOString().split("T")[0]}.pdf`);
 }
 
-// Export Excel function - แสดงเฉพาะคอลัมน์ที่แสดงในตาราง
+// Export Excel function - แสดงเฉพาะคอลัมน์ที่แสดงในตาราง (ใช้ HTML Table สำหรับเส้นขอบ)
 function exportUserListExcel(data) {
-  // แสดงเฉพาะ 4 คอลัมน์ตามที่แสดงในตาราง และ mask CID
-  const excelData = data.map((row, idx) => ({
-    ลำดับ: idx + 1,
-    "ชื่อ-นามสกุล": row.name || "-",
-    "เลขประจำตัวประชาชน": maskCID(row.cid, false), // Mask CID สำหรับ PDPA
-    "ระดับตำแหน่ง": row.position || "-",
-  }));
+  // สร้าง HTML Table ที่มีเส้นขอบ
+  let tableHtml = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="UTF-8">
+      <!--[if gte mso 9]>
+      <xml>
+        <x:ExcelWorkbook>
+          <x:ExcelWorksheets>
+            <x:ExcelWorksheet>
+              <x:Name>รายชื่อผู้ใช้งาน</x:Name>
+              <x:WorksheetOptions>
+                <x:DisplayGridlines/>
+              </x:WorksheetOptions>
+            </x:ExcelWorksheet>
+          </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+      <style>
+        table { border-collapse: collapse; }
+        th, td { border: 1px solid #000000; padding: 8px; }
+        th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
+        .center { text-align: center; }
+      </style>
+    </head>
+    <body>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 50px;">ลำดับ</th>
+            <th style="width: 200px;">ชื่อ-นามสกุล</th>
+            <th style="width: 150px;">เลขประจำตัวประชาชน</th>
+            <th style="width: 120px;">ระดับตำแหน่ง</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
 
-  const ws = XLSX.utils.json_to_sheet(excelData);
-  ws["!cols"] = [
-    { wch: 8 },   // ลำดับ
-    { wch: 30 },  // ชื่อ-นามสกุล
-    { wch: 22 },  // เลขประจำตัวประชาชน
-    { wch: 20 },  // ระดับตำแหน่ง
-  ];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "รายชื่อผู้ใช้งาน");
-
-  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  const blob = new Blob([excelBuffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  data.forEach((row, idx) => {
+    const maskedCid = maskCID(row.cid, false);
+    tableHtml += `
+          <tr>
+            <td class="center">${idx + 1}</td>
+            <td>${row.name || "-"}</td>
+            <td class="center">${maskedCid}</td>
+            <td class="center">${row.position || "-"}</td>
+          </tr>
+    `;
   });
-  saveAs(blob, `รายชื่อผู้ใช้งาน_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+  tableHtml += `
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([tableHtml], {
+    type: "application/vnd.ms-excel;charset=utf-8",
+  });
+  saveAs(blob, `รายชื่อผู้ใช้งาน_${new Date().toISOString().split("T")[0]}.xls`);
 }
 
 // Download Modal
-function DownloadModal({ open, onClose, users, filters }) {
+function DownloadModal({ open, onClose, totalItems, filters }) {
+  const [loading, setLoading] = useState(false);
+
   if (!open) return null;
 
-  const handleExportPDF = () => {
-    if (!users.length) {
-      Swal.fire({
-        icon: "warning",
-        title: "ไม่มีข้อมูล",
-        text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
-        confirmButtonColor: "#7e32e2",
-      });
-      return;
+  // ฟังก์ชันดึงข้อมูลทั้งหมดสำหรับ export (ดึงทีละ 100 รายการ + ดึงข้อมูลเต็มจาก OAuth2)
+  const fetchAllUsersForExport = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error("No authentication token found");
     }
-    // เรียก export โดยตรง ไม่ต้องแจ้งเตือน เพราะ browser จะจัดการ download เอง
-    exportUserListPDF(users);
+
+    const perPage = 100; // API จำกัดไม่เกิน 100
+    let allUsers = [];
+    let currentPage = 1;
+    let hasMore = true;
+
+    // ดึงข้อมูลทีละหน้าจนกว่าจะครบ
+    while (hasMore) {
+      const response = await getUsersList({
+        page: currentPage,
+        per_page: perPage,
+        keyword: filters?.keyword || "",
+        is_active: filters?.tab === "active" ? true : false,
+        province_code: filters?.province || "",
+        district_code: filters?.district || "",
+        subdistrict_code: filters?.subdistrict || "",
+        token: token
+      });
+
+      allUsers = [...allUsers, ...response.users];
+
+      // ตรวจสอบว่ายังมีข้อมูลอีกหรือไม่
+      if (response.users.length < perPage || allUsers.length >= response.total) {
+        hasMore = false;
+      } else {
+        currentPage++;
+      }
+    }
+
+    // ดึงข้อมูลเต็มจาก OAuth2 API สำหรับแต่ละ user (เหมือนที่ตารางทำ)
+    const usersWithDetails = await Promise.allSettled(
+      allUsers.map(async (user) => {
+        if (!user.external_user_id) {
+          return {
+            name: "ไม่ระบุชื่อ",
+            cid: user.citizen_id || "-",
+            position: user.user_type || "ไม่ระบุตำแหน่ง",
+            status: user.is_active ? "active" : "deleted",
+          };
+        }
+
+        try {
+          const oauthData = await getUserByExternalId(user.external_user_id);
+
+          // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
+          const prefix = oauthData?.prefix_name_th || user.prefix || "";
+          const firstName = oauthData?.first_name || user.first_name || "";
+          const lastName = oauthData?.last_name || user.last_name || "";
+          const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+
+          return {
+            name: fullName,
+            cid: oauthData?.citizen_id || user.citizen_id || "-",
+            position: oauthData?.position_level || oauthData?.permission_level || user.user_type || "ไม่ระบุตำแหน่ง",
+            status: user.is_active ? "active" : "deleted",
+          };
+        } catch (error) {
+          // ถ้าดึง OAuth2 ไม่ได้ ใช้ข้อมูลจาก user list
+          const prefix = user.prefix || "";
+          const firstName = user.first_name || "";
+          const lastName = user.last_name || "";
+          const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+
+          return {
+            name: fullName,
+            cid: user.citizen_id || "-",
+            position: user.user_type || "ไม่ระบุตำแหน่ง",
+            status: user.is_active ? "active" : "deleted",
+          };
+        }
+      })
+    );
+
+    // แปลง Promise.allSettled results เป็น array ของ users
+    const usersForExport = usersWithDetails.map(result => {
+      if (result.status === "fulfilled") {
+        return result.value;
+      }
+      return {
+        name: "ไม่ระบุชื่อ",
+        cid: "-",
+        position: "ไม่ระบุตำแหน่ง",
+        status: "unknown",
+      };
+    });
+
+    return usersForExport;
   };
 
-  const handleExportExcel = () => {
-    if (!users.length) {
+  const handleExportPDF = async () => {
+    if (totalItems === 0) {
       Swal.fire({
         icon: "warning",
         title: "ไม่มีข้อมูล",
@@ -504,8 +625,70 @@ function DownloadModal({ open, onClose, users, filters }) {
       });
       return;
     }
-    // เรียก export โดยตรง ไม่ต้องแจ้งเตือน เพราะ browser จะจัดการ download เอง
-    exportUserListExcel(users);
+
+    setLoading(true);
+    try {
+      Swal.fire({
+        title: "กำลังเตรียมข้อมูล...",
+        text: `กำลังดึงข้อมูลทั้งหมด ${totalItems} รายการ`,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const allUsers = await fetchAllUsersForExport();
+      Swal.close();
+      exportUserListPDF(allUsers);
+    } catch (error) {
+      console.error("Export PDF error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: "ไม่สามารถดึงข้อมูลสำหรับดาวน์โหลดได้",
+        confirmButtonColor: "#7e32e2",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (totalItems === 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "ไม่มีข้อมูล",
+        text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
+        confirmButtonColor: "#7e32e2",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      Swal.fire({
+        title: "กำลังเตรียมข้อมูล...",
+        text: `กำลังดึงข้อมูลทั้งหมด ${totalItems} รายการ`,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const allUsers = await fetchAllUsersForExport();
+      Swal.close();
+      exportUserListExcel(allUsers);
+    } catch (error) {
+      console.error("Export Excel error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: "ไม่สามารถดึงข้อมูลสำหรับดาวน์โหลดได้",
+        confirmButtonColor: "#7e32e2",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -517,12 +700,13 @@ function DownloadModal({ open, onClose, users, filters }) {
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
             <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
-              รายชื่อผู้ใช้งาน ({users.length} รายการ)
+              รายชื่อผู้ใช้งาน ({totalItems} รายการ)
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handleExportPDF}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Image
                   src="/pdf.png"
@@ -535,7 +719,8 @@ function DownloadModal({ open, onClose, users, filters }) {
               </button>
               <button
                 onClick={handleExportExcel}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95"
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Image
                   src="/xlsx.png"
@@ -553,6 +738,7 @@ function DownloadModal({ open, onClose, users, filters }) {
           <button
             className="px-6 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[16px] shadow hover:bg-[#f6eeff] transition"
             onClick={onClose}
+            disabled={loading}
           >
             ปิด
           </button>
@@ -1125,7 +1311,14 @@ const UserListComp = () => {
       <DownloadModal
         open={downloadModalOpen}
         onClose={() => setDownloadModalOpen(false)}
-        users={users}
+        totalItems={totalItems}
+        filters={{
+          keyword,
+          tab,
+          province,
+          district,
+          subdistrict,
+        }}
       />
 
       {/* Header Section */}
