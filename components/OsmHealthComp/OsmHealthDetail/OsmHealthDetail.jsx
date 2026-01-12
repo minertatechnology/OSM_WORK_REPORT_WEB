@@ -331,11 +331,11 @@ export const exportHealthRecordToPDF = async (record) => {
   doc.setFontSize(12);
   // 3. คัดกรองภาวะเครียด
   doc.text("3. คัดกรองภาวะเครียด (ST-5)", margin, y);
-  const stressNormal = record.stress_level === "normal";
+  const stressNone = record.stress_level === "none";
   const stressMid = record.stress_level === "mid";
   const stressHigh = record.stress_level === "high";
 
-  drawCheckbox(doc, margin + 50, y - 3, checkboxSize, stressNormal);
+  drawCheckbox(doc, margin + 50, y - 3, checkboxSize, stressNone);
   doc.text("ไม่มีความเครียด", margin + 55, y);
   drawCheckbox(doc, margin + 80, y - 3, checkboxSize, stressMid);
   doc.text("เครียดปานกลาง", margin + 85, y);
@@ -352,11 +352,11 @@ export const exportHealthRecordToPDF = async (record) => {
   // 4. คัดกรองภาวะซึมเศร้า
   doc.text("4. คัดกรองภาวะซึมเศร้า (2Q)", margin, y);
   const depressionOk = record.depression_2q === "ok";
-  const depressionAbnormal = record.depression_2q === "abnormal";
+  const depressionRisk = record.depression_2q === "risk";
 
   drawCheckbox(doc, margin + 50, y - 3, checkboxSize, depressionOk);
   doc.text("ปกติ", margin + 55, y);
-  drawCheckbox(doc, margin + 80, y - 3, checkboxSize, depressionAbnormal);
+  drawCheckbox(doc, margin + 80, y - 3, checkboxSize, depressionRisk);
   doc.text("เสี่ยงเป็นโรคซึมเศร้า", margin + 85, y);
   y += 5;
 
@@ -587,7 +587,7 @@ doc.setFontSize(12);
       ],
       referOptions: [
         { text: "ไม่สามารถทำได้", checked: record.time_up_go_test === "cannot" },
-        { text: "มี", checked: record.fall_history_6m === "yes" }
+        { text: "สามารถทำได้", checked: record.time_up_go_test === "can" }
       ],
       height: 18
     },
@@ -598,8 +598,8 @@ doc.setFontSize(12);
         "มีความอยากอาหารลดลงหรือไม่"
       ],
       referOptions: [
-        { text: "มี", checked: record.weight_loss_3m === "yes" },
-        { text: "มี", checked: record.swallow_problem_3m === "yes" }
+        { text: "มี", checked: record.weight_loss_3m === "yes" || record.appetite_loss === "yes" },
+        { text: "ไม่มี", checked: (record.weight_loss_3m === "no" || !record.weight_loss_3m) && (record.appetite_loss === "no" || !record.appetite_loss) }
       ],
       height: 18
     },
@@ -609,7 +609,8 @@ doc.setFontSize(12);
         "คุณมีปัญหาใด ๆ เกี่ยวกับดวงตาของคุณ เช่น การมองระยะไกล การอ่านหนังสือ"
       ],
       referOptions: [
-        { text: "มี", checked: record.vision_problem === "yes" }
+        { text: "มี", checked: record.vision_problem === "yes" },
+        { text: "ไม่มี", checked: record.vision_problem === "no" }
       ],
       height: 18
     },
@@ -633,7 +634,7 @@ doc.setFontSize(12);
       ],
       referOptions: [
         { text: "มี", checked: record.depression_2w === "yes" },
-        { text: "มี", checked: record.depression_2w === "yes" }
+        { text: "ไม่มี", checked: record.depression_2w === "no" }
       ],
       height: 24
     },
@@ -643,7 +644,8 @@ doc.setFontSize(12);
         "ผู้สูงอายุมีปัสสาวะเล็ดหรือปัสสาวะราด จนทำให้เกิดปัญหาในการใช้ชีวิตประจำวัน"
       ],
       referOptions: [
-        { text: "มี", checked: record.urinary_incontinence === "yes" }
+        { text: "มี", checked: record.urinary_incontinence === "yes" },
+        { text: "ไม่มี", checked: record.urinary_incontinence === "no" }
       ],
       height: 18
     },
@@ -653,6 +655,7 @@ doc.setFontSize(12);
         "ความสามารถในการช่วยตนเองของท่านในการทำกิจวัตรประจำวันโดยไม่ต้องพึ่งคนอื่น ลดลงหรือไม่ (กินอาหาร ล้างหน้าแปรงฟันหวีผม ลุกนั่งจากที่นอนหรือเตียง เข้าห้องน้ำ เคลื่อนที่ไปมาในบ้าน สวมใส่เสื้อผ้า ขึ้นลงบันได 1 ชั้น อาบน้ำ กลั้นอุจจาระ กลั้นปัสสาวะ)"
       ],
       referOptions: [
+        { text: "ปกติ", checked: record.adl_status === "normal" },
         { text: "ลดลง", checked: record.adl_status === "decrease" }
       ],
       height: 24
@@ -675,6 +678,7 @@ doc.setFontSize(12);
         "ให้ทำแบบทดสอบด้านความคิดความจำ (Mini cog)"
       ],
       referOptions: [
+        { text: "ปกติ", checked: record.cognitive_status === "normal" },
         { text: "ผิดปกติ", checked: record.cognitive_status === "abnormal" }
       ],
       height: 16
