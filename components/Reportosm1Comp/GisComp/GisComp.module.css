@@ -394,21 +394,43 @@
   position: absolute;
   top: 15px;
   right: 15px;
+  bottom: 15px;
   width: 320px;
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
+  overflow-y: auto !important;
+  overflow-x: hidden;
   z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  display: block;
   pointer-events: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #D3D4DD #f8fafc;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom scrollbar for right panel */
+.rightPanel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rightPanel::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 3px;
+}
+
+.rightPanel::-webkit-scrollbar-thumb {
+  background: #D3D4DD;
+  border-radius: 3px;
+}
+
+.rightPanel::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 .reportCard {
   background: white;
   border-radius: 8px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 .reportHeader {
@@ -674,6 +696,24 @@
   border-left: 4px solid #6e28b7;
 }
 
+/* Medium screen - ensure scroll works */
+@media (max-height: 800px) {
+  .rightPanel {
+    bottom: 10px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto !important;
+  }
+}
+
+/* Small height screens */
+@media (max-height: 600px) {
+  .rightPanel {
+    bottom: 5px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto !important;
+  }
+}
+
 /* Mobile Styles */
 @media (max-width: 768px) {
   .thaiAddressSelector {
@@ -690,8 +730,10 @@
     top: 0;
     right: 0;
     left: 0;
+    bottom: auto;
     width: 100%;
-    max-height: none;
+    max-height: 50vh;
+    overflow-y: auto !important;
     order: 2;
     margin-top: 15px;
   }

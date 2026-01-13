@@ -133,6 +133,21 @@ const normalizeMonthlyReportDataFromAnalytics = (data) => {
     return { total: data.monthly.total, items: data.monthly.items };
   }
 
+  // กรณี API ส่ง total_reports มาตรงๆ (เหมือน GisMosquitoComp)
+  if (typeof data?.total_reports === "number") {
+    return { total: data.total_reports, items: [] };
+  }
+
+  // กรณี API ส่งเป็น array ของ reports - นับจำนวน
+  if (Array.isArray(data?.reports)) {
+    return { total: data.reports.length, items: [] };
+  }
+
+  // กรณี API ส่งเป็น array โดยตรง
+  if (Array.isArray(data)) {
+    return { total: data.length, items: [] };
+  }
+
   return { total: 0, items: [] };
 };
 

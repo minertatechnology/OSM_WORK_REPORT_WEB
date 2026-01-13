@@ -129,6 +129,102 @@ const getReportsFromWeeklyDetails = (data) => {
   return [];
 };
 
+// คำนวณค่า HI (House Index) และ CI (Container Index) พร้อม S² (Variance)
+// HI = (จำนวนบ้านที่สำรวจพบลูกน้ำยุงลาย / จำนวนบ้านที่สำรวจทั้งหมด) × 100
+// CI = (จำนวนภาชนะขังน้ำที่พบลูกน้ำยุงลาย / จำนวนภาชนะขังน้ำที่สำรวจทั้งหมด) × 100
+// S² = Variance (ความแปรปรวน)
+//
+// การแปลผล:
+// HI > 10%: มีความเสี่ยงสูงที่จะเกิดการแพร่ระบาด
+// HI < 1%: มีความเสี่ยงต่ำ
+// CI = 0: ถือว่าปลอดภัย, CI สูง = มีแหล่งเพาะพันธุ์เยอะ
+const calculateHICI = (data) => {
+  const reports = getReportsFromWeeklyDetails(data);
+  const summary = data?.summary || {};
+
+  if (!Array.isArray(reports) || reports.length === 0) {
+    return {
+      hi: 0, ci: 0,
+      housesSurveyed: 0, housesWithLarvae: 0,
+      containersSurveyed: 0, containersWithLarvae: 0
+    };
+  }
+
+  // ใช้ข้อมูลจาก summary ถ้ามี (เพราะ summary มีข้อมูลบ้านที่ไม่พบลูกน้ำด้วย)
+  const housesWithLarvaeFromSummary = Number(summary.mosquito_larvae_found) || 0;
+  const housesNotFoundFromSummary = Number(summary.mosquito_larvae_not_found) || 0;
+  const housesSurveyedFromSummary = housesWithLarvaeFromSummary + housesNotFoundFromSummary;
+
+  // จำนวนบ้านที่สำรวจ - ใช้จาก summary ถ้ามี, ถ้าไม่มีใช้จาก reports
+  const housesSurveyed = housesSurveyedFromSummary > 0 ? housesSurveyedFromSummary : reports.length;
+
+  let housesWithLarvae = 0;
+  let containersSurveyed = 0;
+  let containersWithLarvae = 0;
+
+  reports.forEach((report) => {
+    // รองรับทั้ง containers และ notes (โครงสร้างเดิม)
+    const containerData = report?.containers || report?.notes || { inside: [], outside: [] };
+    const insideContainers = Array.isArray(containerData.inside) ? containerData.inside : [];
+    const outsideContainers = Array.isArray(containerData.outside) ? containerData.outside : [];
+
+    let houseHasLarvae = false;
+    let houseContainersSurveyed = 0;
+    let houseContainersWithLarvae = 0;
+
+    // นับภาชนะในบ้าน (จานรอง, แจกัน, ถังน้ำ, ฯลฯ)
+    insideContainers.forEach((container) => {
+      const total = Number(container?.total) || 0;
+      const found = Number(container?.found) || 0;
+      containersSurveyed += total;
+      containersWithLarvae += found;
+      houseContainersSurveyed += total;
+      houseContainersWithLarvae += found;
+      if (found > 0) {
+        houseHasLarvae = true;
+      }
+    });
+
+    // นับภาชนะนอกบ้าน
+    outsideContainers.forEach((container) => {
+      const total = Number(container?.total) || 0;
+      const found = Number(container?.found) || 0;
+      containersSurveyed += total;
+      containersWithLarvae += found;
+      houseContainersSurveyed += total;
+      houseContainersWithLarvae += found;
+      if (found > 0) {
+        houseHasLarvae = true;
+      }
+    });
+
+    if (houseHasLarvae) {
+      housesWithLarvae++;
+    }
+  });
+
+  // ใช้ค่าบ้านพบลูกน้ำจาก summary ถ้ามี (เพราะ summary มีข้อมูลครบทั้งพบและไม่พบ)
+  // ถ้าไม่มี summary ให้นับจาก reports (แต่จะได้เฉพาะบ้านที่มี report)
+  const finalHousesWithLarvae = housesWithLarvaeFromSummary > 0 ? housesWithLarvaeFromSummary : housesWithLarvae;
+
+  // คำนวณ HI = (จำนวนบ้านที่พบลูกน้ำ / จำนวนบ้านที่สำรวจ) × 100
+  // ตัวอย่าง: สำรวจ 100 หลังบ้าน พบลูกน้ำยุงลาย 15 หลัง จะได้ HI = (15/100) × 100 = 15%
+  const hi = housesSurveyed > 0 ? (finalHousesWithLarvae / housesSurveyed) * 100 : 0;
+
+  // คำนวณ CI = (จำนวนภาชนะที่พบลูกน้ำ / จำนวนภาชนะที่สำรวจ) × 100
+  // ตัวอย่าง: สำรวจ 200 ภาชนะ พบว่ามี 20 ภาชนะที่มีลูกน้ำ จะได้ CI = (20/200) × 100 = 10%
+  const ci = containersSurveyed > 0 ? (containersWithLarvae / containersSurveyed) * 100 : 0;
+
+  return {
+    hi: Math.round(hi * 100) / 100, // ปัดเศษ 2 ตำแหน่ง
+    ci: Math.round(ci * 100) / 100,
+    housesSurveyed,
+    housesWithLarvae: finalHousesWithLarvae,
+    containersSurveyed,
+    containersWithLarvae,
+  };
+};
+
 const normalizeMonthlyReportDataFromAnalytics = (data) => {
   if (!data) {
     return { total: 0, items: [] };
@@ -195,6 +291,14 @@ const GisMosquitoComp = () => {
   const [monthlyReportData, setMonthlyReportData] = useState({
     total: 0,
     items: [],
+  });
+  const [hiciData, setHiciData] = useState({
+    hi: 0,
+    ci: 0,
+    housesSurveyed: 0,
+    housesWithLarvae: 0,
+    containersSurveyed: 0,
+    containersWithLarvae: 0,
   });
 
   // ฟังก์ชัน hash string - ใช้ djb2 algorithm
@@ -1036,6 +1140,14 @@ const GisMosquitoComp = () => {
       setWeeklyDetails(null);
       setDisplayData([]);
       setMonthlyReportData({ total: 0, items: [] });
+      setHiciData({
+        hi: 0,
+        ci: 0,
+        housesSurveyed: 0,
+        housesWithLarvae: 0,
+        containersSurveyed: 0,
+        containersWithLarvae: 0,
+      });
       return;
     }
 
@@ -1057,6 +1169,8 @@ const GisMosquitoComp = () => {
           });
         setWeeklyDetails(data);
         setMonthlyReportData(normalizeMonthlyReportDataFromAnalytics(data));
+        // คำนวณ HI/CI จากข้อมูลที่ได้
+        setHiciData(calculateHICI(data));
       } catch (error) {
         if (error?.name === "AbortError") {
           return;
@@ -1238,9 +1352,10 @@ const GisMosquitoComp = () => {
           </div>
         </div>
 
-        <div ref={mapContainer} className={styles.mapContainer}>
-          {/* Right Panel - Report Dashboard */}
-          <div className={styles.rightPanel}>
+        <div ref={mapContainer} className={styles.mapContainer}></div>
+
+        {/* Right Panel - Report Dashboard */}
+        <div className={styles.rightPanel}>
             {/* Single Report Card */}
             <div className={styles.reportCard}>
               <div className={styles.reportHeader}>
@@ -1368,6 +1483,95 @@ const GisMosquitoComp = () => {
                   <div className={styles.totalLabel}>รวมทุกรายการ</div>
                 </div>
 
+                {/* HI/CI Section */}
+                <div style={{
+                  marginTop: "16px",
+                  padding: "12px",
+                  backgroundColor: "#f8f9fa",
+                  borderRadius: "8px",
+                  border: "1px solid #e9ecef"
+                }}>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "12px",
+                    marginBottom: "12px"
+                  }}>
+                    {/* HI Box */}
+                    <div style={{
+                      backgroundColor: "#fff",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      textAlign: "center",
+                      border: "1px solid #dee2e6"
+                    }}>
+                      <div style={{
+                        fontSize: "24px",
+                        fontWeight: "bold",
+                        color: hiciData.hi > 10 ? "#dc3545" : hiciData.hi >= 1 ? "#ffc107" : "#28a745"
+                      }}>
+                        {hiciData.hi.toFixed(2)}%
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#6c757d", fontWeight: "500" }}>
+                        HI (House Index)
+                      </div>
+                      <div style={{ fontSize: "10px", color: "#adb5bd", marginTop: "4px" }}>
+                        บ้านพบลูกน้ำ {hiciData.housesWithLarvae} / สำรวจ {hiciData.housesSurveyed}
+                      </div>
+                    </div>
+
+                    {/* CI Box */}
+                    <div style={{
+                      backgroundColor: "#fff",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      textAlign: "center",
+                      border: "1px solid #dee2e6"
+                    }}>
+                      <div style={{
+                        fontSize: "24px",
+                        fontWeight: "bold",
+                        color: hiciData.ci > 10 ? "#dc3545" : hiciData.ci > 0 ? "#ffc107" : "#28a745"
+                      }}>
+                        {hiciData.ci.toFixed(2)}%
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#6c757d", fontWeight: "500" }}>
+                        CI (Container Index)
+                      </div>
+                      <div style={{ fontSize: "10px", color: "#adb5bd", marginTop: "4px" }}>
+                        ภาชนะพบลูกน้ำ {hiciData.containersWithLarvae} / สำรวจ {hiciData.containersSurveyed}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    fontSize: "11px",
+                    color: "#495057",
+                    borderTop: "1px solid #e9ecef",
+                    paddingTop: "10px",
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "12px"
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: "600", marginBottom: "4px", color: "#333" }}>HI:</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span><span style={{ color: "#28a745" }}>●</span> {"<"}1% ปลอดภัย</span>
+                        <span><span style={{ color: "#ffc107" }}>●</span> 1-10% เฝ้าระวัง</span>
+                        <span><span style={{ color: "#dc3545" }}>●</span> {">"}10% เสี่ยงสูง</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: "600", marginBottom: "4px", color: "#333" }}>CI:</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span><span style={{ color: "#28a745" }}>●</span> 0% ปลอดภัย</span>
+                        <span><span style={{ color: "#ffc107" }}>●</span> {">"}0% มีแหล่งเพาะพันธุ์</span>
+                        <span><span style={{ color: "#dc3545" }}>●</span> {">"}10% เยอะ</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className={styles.reportItems}>
                   {mosquitoReportData.items.map((item, index) => (
                     <div key={index} className={styles.reportItem}>
@@ -1377,7 +1581,6 @@ const GisMosquitoComp = () => {
                 </div>
               </div>
             </div>
-          </div>
         </div>
       </div>
     </div>
