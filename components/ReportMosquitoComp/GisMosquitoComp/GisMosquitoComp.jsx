@@ -4,6 +4,7 @@ import { useKMLData } from "../../../composables/useKMLData.js";
 import { useMapManager } from "../../../composables/useMapManager.js";
 import { useHealthRegions } from "../../../composables/useHealthRegions.js";
 import { useLoading } from "../../../context/LoadingProvider";
+import { useUserPermission } from "@context/UserPermissionProvider";
 import reportsAnalyticsService from "@services/reportsAnalyticsService";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import {
@@ -11,6 +12,7 @@ import {
   getDistricts,
   getSubdistricts,
 } from "@services/lookupService";
+import { getCurrentFiscalYear } from "@utils/fiscalYearHelper";
 import styles from "../../Reportosm1Comp/GisComp/GisComp.module.css";
 
 const normalizeLookupValue = (value) => {
@@ -257,6 +259,16 @@ const normalizeMonthlyReportDataFromAnalytics = (data) => {
 
 const GisMosquitoComp = () => {
   const { setLoading } = useLoading();
+
+  // Permission hook
+  const {
+    user: permissionUser,
+    scope,
+    isLocked,
+    getInitialFilters,
+    loading: permissionLoading,
+  } = useUserPermission();
+
   // States for KmlMapViewer
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
@@ -274,6 +286,12 @@ const GisMosquitoComp = () => {
   // Refs for preventing wheel zoom on map
   const controlPanelRef = useRef(null);
   const chartCardRef = useRef(null);
+
+  // Refs for permission initialization tracking
+  const permissionInitializedRef = useRef(false);
+  const districtInitializedRef = useRef(false);
+  const subdistrictInitializedRef = useRef(false);
+  const isInitializingFromPermissionRef = useRef(false);
 
   // States for Health Regions
   const [selectedHealthRegion, setSelectedHealthRegion] = useState("");
@@ -628,11 +646,15 @@ const GisMosquitoComp = () => {
   }, [fitToData]);
 
   const onProvinceChange = useCallback(async () => {
-    setSelectedDistrict("");
-    setSelectedSubdistrict("");
-    setAvailableDistricts([]);
-    setAvailableSubdistricts([]);
-    setDistrictCodeByName({});
+    // Don't reset values if initializing from permission
+    const isInitializing = isInitializingFromPermissionRef.current;
+    if (!isInitializing) {
+      setSelectedDistrict("");
+      setSelectedSubdistrict("");
+      setAvailableDistricts([]);
+      setAvailableSubdistricts([]);
+      setDistrictCodeByName({});
+    }
 
     if (selectedProvince) {
       try {
@@ -746,8 +768,12 @@ const GisMosquitoComp = () => {
   ]);
 
   const onDistrictChange = useCallback(async () => {
-    setSelectedSubdistrict("");
-    setAvailableSubdistricts([]);
+    // Don't reset values if initializing from permission
+    const isInitializing = isInitializingFromPermissionRef.current;
+    if (!isInitializing) {
+      setSelectedSubdistrict("");
+      setAvailableSubdistricts([]);
+    }
 
     if (selectedDistrict) {
       try {
@@ -967,12 +993,16 @@ const GisMosquitoComp = () => {
         const provincesInRegion = getProvincesInRegion(selectedHealthRegion);
         setAvailableProvincesInRegion(provincesInRegion);
 
-        setSelectedProvince("");
-        setSelectedDistrict("");
-        setSelectedSubdistrict("");
-        setAvailableDistricts([]);
-        setAvailableSubdistricts([]);
-        setDistrictCodeByName({});
+        // Don't reset selections if initializing from permission
+        const isInitializing = isInitializingFromPermissionRef.current;
+        if (!isInitializing) {
+          setSelectedProvince("");
+          setSelectedDistrict("");
+          setSelectedSubdistrict("");
+          setAvailableDistricts([]);
+          setAvailableSubdistricts([]);
+          setDistrictCodeByName({});
+        }
 
         clearAllLayers();
 
@@ -1117,6 +1147,115 @@ const GisMosquitoComp = () => {
       cleanup();
     };
   }, [initializeMap, cleanup, updateStatus]);
+
+  // Permission initialization - auto-fill filters based on user's permission scope
+  useEffect(() => {
+    if (permissionLoading || !scope || !permissionUser) return;
+    if (permissionInitializedRef.current) return;
+    // Wait for provinces to be loaded
+    if (Object.keys(provinceCodeByName).length === 0) return;
+
+    const needsDistrictInit = isLocked('district');
+    const needsSubdistrictInit = isLocked('subdistrict');
+
+    // Set flag to prevent reset during initialization
+    if (needsDistrictInit || needsSubdistrictInit) {
+      isInitializingFromPermissionRef.current = true;
+    }
+
+    permissionInitializedRef.current = true;
+    console.log('[GisMosquitoComp] Permission init:', { needsDistrictInit, needsSubdistrictInit, isInitializingFromPermissionRef: isInitializingFromPermissionRef.current });
+
+    const initialFilters = getInitialFilters();
+
+    // Set health region (zone) if locked
+    if (isLocked('zone') && initialFilters.zone) {
+      const zoneNumber = parseInt(String(initialFilters.zone).replace(/\D/g, ''));
+      if (zoneNumber) {
+        setSelectedHealthRegion(`เขตสุขภาพที่ ${zoneNumber}`);
+      }
+    }
+
+    // Set province if locked
+    if (isLocked('province') && permissionUser?.province_name) {
+      console.log('[GisMosquitoComp] Setting province:', permissionUser.province_name);
+      setSelectedProvince(permissionUser.province_name);
+    }
+
+    // Set year to current fiscal year
+    if (!selectedYear) {
+      setSelectedYear(String(getCurrentFiscalYear()));
+    }
+  }, [permissionLoading, scope, getInitialFilters, permissionUser, isLocked, provinceCodeByName, selectedYear]);
+
+  // District initialization - wait for districts to load then set from permission
+  useEffect(() => {
+    if (permissionLoading || !permissionUser) return;
+    if (districtInitializedRef.current) return;
+    if (!isLocked('district')) return;
+    if (availableDistricts.length === 0) return;
+
+    console.log('[GisMosquitoComp] District useEffect:', {
+      permissionLoading,
+      hasPermissionUser: !!permissionUser,
+      availableDistrictsLength: availableDistricts.length,
+      districtInitialized: districtInitializedRef.current,
+      isLockedDistrict: isLocked('district')
+    });
+
+    const districtName = permissionUser?.district_name;
+    if (districtName) {
+      console.log('[GisMosquitoComp] Looking for district:', districtName, 'in', `(${availableDistricts.length})`, availableDistricts);
+
+      // Try to find the district in available districts
+      const matchedDistrict = availableDistricts.find(d => {
+        const normalizedAvailable = d.replace(/^เขต|^อำเภอ/, '').trim();
+        const normalizedTarget = districtName.replace(/^เขต|^อำเภอ/, '').trim();
+        return normalizedAvailable === normalizedTarget || d === districtName;
+      });
+
+      if (matchedDistrict) {
+        console.log('[GisMosquitoComp] Matched district:', matchedDistrict);
+        districtInitializedRef.current = true;
+        console.log('Setting district from permission:', matchedDistrict);
+        setSelectedDistrict(matchedDistrict);
+      }
+    }
+  }, [permissionLoading, permissionUser, availableDistricts, isLocked]);
+
+  // Subdistrict initialization - wait for subdistricts to load then set from permission
+  useEffect(() => {
+    if (permissionLoading || !permissionUser) return;
+    if (subdistrictInitializedRef.current) return;
+    if (!isLocked('subdistrict')) return;
+    if (availableSubdistricts.length === 0) return;
+
+    const subdistrictName = permissionUser?.subdistrict_name;
+    if (subdistrictName) {
+      console.log('[GisMosquitoComp] Looking for subdistrict:', subdistrictName, 'in', `(${availableSubdistricts.length})`, availableSubdistricts);
+
+      // Try to find the subdistrict in available subdistricts
+      const matchedSubdistrict = availableSubdistricts.find(s => {
+        const normalizedAvailable = s.replace(/^แขวง|^ตำบล/, '').trim();
+        const normalizedTarget = subdistrictName.replace(/^แขวง|^ตำบล/, '').trim();
+        return normalizedAvailable === normalizedTarget || s === subdistrictName;
+      });
+
+      if (matchedSubdistrict) {
+        console.log('[GisMosquitoComp] Matched subdistrict:', matchedSubdistrict);
+        subdistrictInitializedRef.current = true;
+
+        // Turn off init flag after subdistrict is set
+        setTimeout(() => {
+          isInitializingFromPermissionRef.current = false;
+          console.log('[GisMosquitoComp] Permission initialization complete');
+        }, 500);
+
+        console.log('Setting subdistrict from permission:', matchedSubdistrict);
+        setSelectedSubdistrict(matchedSubdistrict);
+      }
+    }
+  }, [permissionLoading, permissionUser, availableSubdistricts, isLocked]);
 
   useEffect(() => {
     if (selectedProvince) {
@@ -1303,6 +1442,7 @@ const GisMosquitoComp = () => {
                     value={selectedHealthRegion}
                     onChange={(e) => setSelectedHealthRegion(e.target.value)}
                     placeholder="-- เลือกเขตสุขภาพ --"
+                    disabled={isLocked("zone")}
                   />
                 </div>
                 <div className={styles.formGroup}>
@@ -1313,8 +1453,9 @@ const GisMosquitoComp = () => {
                     value={selectedProvince}
                     onChange={(e) => setSelectedProvince(e.target.value)}
                     disabled={
-                      selectedHealthRegion &&
-                      availableProvincesInRegion.length === 0
+                      isLocked("province") ||
+                      (selectedHealthRegion &&
+                      availableProvincesInRegion.length === 0)
                     }
                     placeholder="-- เลือกจังหวัด --"
                   />
@@ -1326,7 +1467,7 @@ const GisMosquitoComp = () => {
                     options={districtOptions}
                     value={selectedDistrict}
                     onChange={(e) => setSelectedDistrict(e.target.value)}
-                    disabled={!selectedProvince || isLoadingDistricts}
+                    disabled={isLocked("district") || !selectedProvince || isLoadingDistricts}
                     placeholder={
                       isLoadingDistricts
                         ? "กำลังโหลดข้อมูลอำเภอ..."
@@ -1341,7 +1482,7 @@ const GisMosquitoComp = () => {
                     options={subdistrictOptions}
                     value={selectedSubdistrict}
                     onChange={(e) => setSelectedSubdistrict(e.target.value)}
-                    disabled={!selectedDistrict || isLoadingSubdistricts}
+                    disabled={isLocked("subdistrict") || !selectedDistrict || isLoadingSubdistricts}
                     placeholder={
                       isLoadingSubdistricts
                         ? "กำลังโหลดข้อมูลตำบล..."
