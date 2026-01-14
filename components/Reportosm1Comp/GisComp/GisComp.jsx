@@ -247,12 +247,16 @@ const GisComp = () => {
 
   // Options data for CustomSelect components
   const currentBuddhistYear = new Date().getFullYear() + 543;
-  const yearOptions = Array.from({ length: 15 }, (_, index) => {
-    const year = currentBuddhistYear - index;
-    return { value: String(year), label: String(year) };
-  });
+  const yearOptions = [
+    { value: "0", label: "ทุกปี" },
+    ...Array.from({ length: 15 }, (_, index) => {
+      const year = currentBuddhistYear - index;
+      return { value: String(year), label: String(year) };
+    })
+  ];
 
   const monthOptions = [
+    { value: "0", label: "ทุกเดือน" },
     { value: "01", label: "มกราคม" },
     { value: "02", label: "กุมภาพันธ์" },
     { value: "03", label: "มีนาคม" },
@@ -268,6 +272,7 @@ const GisComp = () => {
   ];
 
   const weekOptions = [
+    { value: "0", label: "ทุกสัปดาห์" },
     { value: "1", label: "สัปดาห์ที่ 1 (1-7)" },
     { value: "2", label: "สัปดาห์ที่ 2 (8-14)" },
     { value: "3", label: "สัปดาห์ที่ 3 (15-21)" },
@@ -1061,7 +1066,16 @@ const GisComp = () => {
   // Log filter selections for debugging
   // Fetch weekly analytics details for the selected period
   useEffect(() => {
-    if (!selectedYear || !selectedMonth || !selectedWeek) {
+    // อนุญาตให้ fetch ข้อมูลได้เมื่อเลือกอย่างน้อย 1 ตัวเลือก (ปี, เดือน, หรือสัปดาห์)
+    if (!selectedYear && !selectedMonth && !selectedWeek) {
+      setWeeklyDetails(null);
+      setDisplayData([]);
+      setMonthlyReportData({ total: 0, items: [] });
+      return;
+    }
+
+    // ถ้าไม่ได้เลือกปีเลย (ไม่ใช่ "0" และไม่ใช่ค่าปีอื่น) ให้ return
+    if (!selectedYear) {
       setWeeklyDetails(null);
       setDisplayData([]);
       setMonthlyReportData({ total: 0, items: [] });
@@ -1070,18 +1084,18 @@ const GisComp = () => {
 
     const controller = new AbortController();
     const requestUrl = reportsAnalyticsService.buildWeeklyOsm1DetailsUrl(
-      selectedYear,
-      selectedMonth,
-      selectedWeek
+      selectedYear || "0", // ถ้าไม่เลือก ให้ใช้ "0" (ทุกปี)
+      selectedMonth || "0", // ถ้าไม่เลือก ให้ใช้ "0" (ทุกเดือน)
+      selectedWeek || "0" // ถ้าไม่เลือก ให้ใช้ "0" (ทุกสัปดาห์)
     );
 
     const fetchWeeklyDetails = async () => {
       try {
         const { data, status, url } =
           await reportsAnalyticsService.getWeeklyOsm1Details({
-            year: selectedYear,
-            month: selectedMonth,
-            week: selectedWeek,
+            year: selectedYear || "0",
+            month: selectedMonth || "0",
+            week: selectedWeek || "0",
             signal: controller.signal,
           });
         setWeeklyDetails(data);
@@ -1141,7 +1155,7 @@ const GisComp = () => {
   }, [map]);
 
   const shouldPromptForPeriod =
-    !selectedYear || !selectedMonth || !selectedWeek;
+    !selectedYear && !selectedMonth && !selectedWeek;
 
   return (
     <div className={styles.gisComp}>
