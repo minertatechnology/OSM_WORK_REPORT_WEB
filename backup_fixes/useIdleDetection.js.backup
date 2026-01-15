@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import { forceRefreshNow, stopTokenRefresh } from "@services/authService/tokenRefreshUtil";
 import { getAccessToken, clearTokens } from "@utils/tokenStorage";
@@ -84,8 +84,7 @@ export const useIdleDetection = ({
     const lastRefreshAttemptRef = useRef(0);
     const lastActivityRef = useRef(Date.now());
 
-    // ✅ Wrap forceLogout with useMemo to prevent recreation on every render
-    const forceLogout = useMemo(() => () => {
+    const forceLogout = useCallback(() => {
         if (isLoggingOutRef.current) {
             return;
         }
@@ -204,10 +203,9 @@ export const useIdleDetection = ({
             }
         };
 
-        // ✅ Store interval reference for cleanup
         const interval = setInterval(evaluateSession, checkInterval);
         return () => clearInterval(interval);
-    }, [checkInterval, refreshThreshold, router.pathname, forceLogout]); // ✅ forceLogout is now stable (memoized)
+    }, [checkInterval, forceLogout, refreshThreshold, router.pathname]);
 
     return {
         isWarningOpen: false,

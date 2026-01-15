@@ -20,14 +20,6 @@ const MAX_IDLE_BEFORE_LOGOUT = 10 * 60 * 1000;
  * ตรวจสอบและ refresh token อัตโนมัติ
  */
 const autoRefreshCheck = async () => {
-    // ✅ ตรวจสอบว่า interval ยังคงอยู่หรือไม่ (ป้องกันการทำงานหลัง cleanup)
-    if (!autoRefreshInterval) {
-        if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-            console.log("[Auto Refresh] Skipped - no active interval (cleaned up)");
-        }
-        return;
-    }
-
     if (isPaused) {
         if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
             console.log("[Auto Refresh] Skipped - refresh is paused");
@@ -101,10 +93,8 @@ const autoRefreshCheck = async () => {
  * เริ่มระบบ auto refresh token
  */
 export const startAutoRefresh = () => {
-    // ✅ Clear existing interval if any (prevent duplicates)
     if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null;
     }
 
     // เริ่มตรวจสอบทุก 5 นาที
@@ -114,7 +104,7 @@ export const startAutoRefresh = () => {
         console.log(`[Auto Refresh] Started - checking every ${AUTO_REFRESH_CHECK_INTERVAL / 60000} minutes`);
     }
 
-    // รัน check ครั้งแรกหลังจาก 1 นาที (เก็บ reference ไว้เพื่อ cleanup)
+    // รัน check ครั้งแรกหลังจาก 1 นาที (ไม่ต้องรัน
     setTimeout(autoRefreshCheck, 60000);
 };
 
@@ -124,10 +114,9 @@ export const startAutoRefresh = () => {
 export const stopAutoRefresh = () => {
     if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null; // ✅ Set to null to indicate cleanup
+        autoRefreshInterval = null;
     }
 
-    // ✅ Also clear any pending setTimeout
     if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
         console.log("[Auto Refresh] Stopped");
     }

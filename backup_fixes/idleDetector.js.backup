@@ -10,8 +10,6 @@ class IdleDetector {
     this.isIdle = false;
     this.isPageHidden = false;
     this.listeners = [];
-    this.idleCheckInterval = null; // ✅ เก็บ reference ไว้เพื่อ cleanup
-    this.activityEventHandlers = []; // ✅ เก็บ event handlers ไว้เพื่อ cleanup
 
     this.init();
   }
@@ -20,70 +18,31 @@ class IdleDetector {
     // ตรวจจับ user activity
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
 
-    // ✅ เก็บ handlers ไว้เพื่อใช้ cleanup ภายหลัง
     activityEvents.forEach(event => {
-      const handler = () => this.resetIdleTimer();
-      this.activityEventHandlers.push({ event, handler });
-      document.addEventListener(event, handler, true);
+      document.addEventListener(event, () => this.resetIdleTimer(), true);
     });
 
     // ตรวจจับการย่อ/ซ่อนหน้าต่าง
-    this.visibilityChangeHandler = () => {
+    document.addEventListener('visibilitychange', () => {
       this.isPageHidden = document.hidden;
       if (!document.hidden) {
         // เมื่อกลับมาที่หน้านี้ ให้ reset idle timer
         this.resetIdleTimer();
       }
-    };
-    document.addEventListener('visibilitychange', this.visibilityChangeHandler);
+    });
 
     // ตรวจจับ window blur/focus
-    this.blurHandler = () => {
+    window.addEventListener('blur', () => {
       this.isPageHidden = true;
-    };
-    this.focusHandler = () => {
+    });
+
+    window.addEventListener('focus', () => {
       this.isPageHidden = false;
       this.resetIdleTimer();
-    };
-    window.addEventListener('blur', this.blurHandler);
-    window.addEventListener('focus', this.focusHandler);
+    });
 
     // เริ่ม idle checker
     this.startIdleCheck();
-  }
-
-  // ✅ เพิ่ม method สำหรับ cleanup
-  destroy() {
-    // Clear interval
-    if (this.idleCheckInterval) {
-      clearInterval(this.idleCheckInterval);
-      this.idleCheckInterval = null;
-    }
-
-    // Remove activity event listeners
-    this.activityEventHandlers.forEach(({ event, handler }) => {
-      document.removeEventListener(event, handler, true);
-    });
-    this.activityEventHandlers = [];
-
-    // Remove visibility change listener
-    if (this.visibilityChangeHandler) {
-      document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
-      this.visibilityChangeHandler = null;
-    }
-
-    // Remove blur/focus listeners
-    if (this.blurHandler) {
-      window.removeEventListener('blur', this.blurHandler);
-      this.blurHandler = null;
-    }
-    if (this.focusHandler) {
-      window.removeEventListener('focus', this.focusHandler);
-      this.focusHandler = null;
-    }
-
-    // Clear listeners
-    this.listeners = [];
   }
 
   resetIdleTimer() {
@@ -95,13 +54,7 @@ class IdleDetector {
   }
 
   startIdleCheck() {
-    // ✅ Clear existing interval if any (prevent duplicate intervals)
-    if (this.idleCheckInterval) {
-      clearInterval(this.idleCheckInterval);
-    }
-
-    // ✅ Store interval reference for cleanup
-    this.idleCheckInterval = setInterval(() => {
+    setInterval(() => {
       const now = Date.now();
       const idleDuration = now - this.lastActivityTime;
 
