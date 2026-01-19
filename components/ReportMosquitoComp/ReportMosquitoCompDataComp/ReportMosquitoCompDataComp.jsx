@@ -32,6 +32,7 @@ import {
 import oauth2Service from "@services/oauth2Service";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ArrowLeft } from "lucide-react";
+import { getOsmByHealthService } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -799,6 +800,7 @@ const ReportMosquitoCompDataComp = () => {
   const [selectedUserName, setSelectedUserName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
 
   // Get current view from URL params
   const userId = searchParams.get("user_id");
@@ -819,6 +821,22 @@ const ReportMosquitoCompDataComp = () => {
         setLoading(true);
         setError(null);
         setApiData([]);
+
+        // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
+        let osmData = [];
+        if (service) {
+          try {
+            osmData = await getOsmByHealthService(service);
+            console.log("📊 OSM Data received:", osmData.length, "items");
+            console.log("🆔 OSM IDs:", osmData.map(o => o.id));
+            setOsmDataByService(osmData);
+          } catch (err) {
+            console.error("Error fetching OSM data:", err);
+            setOsmDataByService([]);
+          }
+        } else {
+          setOsmDataByService([]);
+        }
 
         // Fetch all reports
         const data = await fetchMosquitoLarvaeReports({
@@ -984,7 +1002,8 @@ const ReportMosquitoCompDataComp = () => {
     };
 
     loadData();
-  }, [userId, householdId]);
+  }, [userId, householdId, service]); // เพิ่ม service เพื่อให้ดึงข้อมูลใหม่เมื่อเลือกหน่วยบริการ
+
 
   // Filter and search
   const filteredRows = useMemo(() => {
@@ -1056,13 +1075,44 @@ const ReportMosquitoCompDataComp = () => {
         }
       }
 
+      // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
+      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
+      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
+      if (service && osmDataByService.length > 0) {
+        console.log("🎯 Service filter enabled (PRIORITY)");
+        console.log("📊 Rows before service filter:", row.id);
+
+        // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
+        const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
+        console.log("🆔 OSM ID Set (first 5):", Array.from(osmIdSet).slice(0, 5));
+        console.log("👥 Total OSMs:", osmIdSet.size);
+
+        // Filter เฉพาะที่มี external_user_id อยู่ใน osmIdSet
+        const match = row.external_user_id && osmIdSet.has(row.external_user_id);
+        if (!match && row.external_user_id) {
+          console.log("❌ No match - external_user_id:", row.external_user_id);
+        } else if (match) {
+          console.log("✅ Match - external_user_id:", row.external_user_id);
+        }
+
+        if (!match) {
+          console.log("❌ Failed service filter");
+          return false;
+        }
+
+        // ถ้าเลือกหน่วยบริการแล้ว ให้ skip filter ตามพื้นที่ทิ้ง
+        console.log("✅ Service filter passed - skipping location filters");
+        return true;
+      }
+
+      // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
       // ใช้ข้อมูลที่อยู่ของ อสม. ในการกรอง (user_location)
       const userLocation = row.user_location;
       console.log("📍 userLocation:", userLocation);
 
       // ถ้าไม่มี user_location แต่มีการเลือก filter location ให้ skip row นี้
-      if (!userLocation && (zone || province || district || subdistrict || service)) {
-        console.log("❌ No user_location but filters selected");
+      if (!userLocation && (zone || province || district || subdistrict)) {
+        console.log("❌ No user_location but location filters selected");
         return false;
       }
 
@@ -1209,7 +1259,7 @@ const ReportMosquitoCompDataComp = () => {
     console.log("\n🎯 Filter Result:", result.length, "rows passed");
     console.log("===== FILTER DEBUG END =====\n");
     return result;
-  }, [keyword, year, yearType, month, week, apiData, zone, province, district, subdistrict, village, service, healthAreas, provinces, districts, subdistricts, villages, healthServices]);
+  }, [keyword, year, yearType, month, week, apiData, zone, province, district, subdistrict, village, service, osmDataByService, healthAreas, provinces, districts, subdistricts, villages, healthServices]); // เพิ่ม osmDataByService
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(

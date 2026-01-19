@@ -26,6 +26,7 @@ import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bol
 import Reportosm1CompDetailComp from "../Reportosm1CompDetailComp/Reportosm1CompDetailComp";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getUsersBatch } from "@services/oauth2Service";
+import { getOsmByHealthService } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -655,8 +656,31 @@ const Reportosm1DataComp = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [apiData, setApiData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
 
   // Note: Location data loading is handled by usePermissionFilters hook
+
+  // Fetch OSM data when health service changes
+  useEffect(() => {
+    const fetchOsmData = async () => {
+      if (service) {
+        try {
+          console.log("🔍 Fetching OSM for service:", service);
+          const osmData = await getOsmByHealthService(service);
+          console.log("✅ OSM Data received:", osmData.length, "items");
+          console.log("🆔 OSM IDs:", osmData.map(o => o.id).slice(0, 5), "...");
+          setOsmDataByService(osmData);
+        } catch (err) {
+          console.error("Error fetching OSM data:", err);
+          setOsmDataByService([]);
+        }
+      } else {
+        setOsmDataByService([]);
+      }
+    };
+
+    fetchOsmData();
+  }, [service]);
 
   // Fetch data from API
   useEffect(() => {
@@ -725,6 +749,28 @@ const Reportosm1DataComp = () => {
 
   const filteredRows = useMemo(() => {
     return ALL_ROWS.filter((row) => {
+      // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
+      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
+      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
+      if (service && osmDataByService.length > 0) {
+        console.log("🎯 Service filter enabled (PRIORITY) - skipping location filters");
+
+        // สร้าง Set ของ OSM IDs
+        const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
+        console.log("🆔 OSM IDs in service:", Array.from(osmIdSet).slice(0, 5), "...");
+
+        // เช็คว่า external_user_id ของรายงานตรงกับ OSM ID ในหน่วยบริการนี้หรือไม่
+        const match = row.rawData?.external_user_id && osmIdSet.has(row.rawData.external_user_id);
+
+        if (!match) {
+          console.log("❌ No match - external_user_id:", row.rawData?.external_user_id);
+        } else {
+          console.log("✅ Match - external_user_id:", row.rawData?.external_user_id);
+        }
+
+        return match;
+      }
+
       // Keyword search
       const term = keyword.trim().toLowerCase();
       if (term) {
@@ -759,11 +805,11 @@ const Reportosm1DataComp = () => {
         }
       }
 
-      // Location filtering ใช้ข้อมูลที่อยู่ของ อสม.
+      // Location filtering ใช้ข้อมูลที่อยู่ของ อสม. (ใช้เฉพาะเมื่อไม่ได้เลือกหน่วยบริการ)
       const userLocation = row.user_location;
 
       // ถ้าไม่มี user_location แต่มีการเลือก filter location ให้ skip
-      if (!userLocation && (zone || province || district || subdistrict || service)) {
+      if (!userLocation && (zone || province || district || subdistrict)) {
         return false;
       }
 
@@ -804,19 +850,11 @@ const Reportosm1DataComp = () => {
             return false;
           }
         }
-
-        // Filter by health service
-        if (service) {
-          const selectedService = healthServices.find(h => h.code === service);
-          if (selectedService && userLocation.subdistrict_name_th !== selectedService.subdistrict_name_th) {
-            return false;
-          }
-        }
       }
 
       return true;
     });
-  }, [keyword, year, yearType, month, ALL_ROWS, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices]);
+  }, [keyword, year, yearType, month, ALL_ROWS, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices, osmDataByService]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
