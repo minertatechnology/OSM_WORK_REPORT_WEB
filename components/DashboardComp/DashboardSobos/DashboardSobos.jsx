@@ -6,6 +6,7 @@ import React, {
 } from "react";
 import ButtonService from "@services/buttonService/buttonService";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import { getOsmByHealthService } from "@services/lookupService";
 import {
   Users,
   UserCheck,
@@ -338,6 +339,7 @@ const DashboardSobos = () => {
   const [provinceSummary, setProvinceSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
 
   // Generate year options
   const currentFiscalYear = getCurrentFiscalYear();
@@ -445,6 +447,20 @@ const DashboardSobos = () => {
 
       filters.limit = 10000;
 
+      // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
+      let osmData = [];
+      if (service) {
+        try {
+          osmData = await getOsmByHealthService(service);
+          setOsmDataByService(osmData);
+        } catch (err) {
+          console.error("Error fetching OSM data:", err);
+          setOsmDataByService([]);
+        }
+      } else {
+        setOsmDataByService([]);
+      }
+
       // ดึงข้อมูลจาก 2 APIs พร้อมกัน
       const [mapData, summary] = await Promise.all([
         reportsMapService.getReportsMapData(filters),
@@ -481,6 +497,20 @@ const DashboardSobos = () => {
       // Filter ตามตำบล
       if (filterSubdistrictName) {
         filteredReports = filteredReports.filter(r => r.subdistrict_name_th === filterSubdistrictName);
+      }
+
+      // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
+      // โดย map external_user_id กับ id ของ OSM
+      if (service && osmData.length > 0) {
+        // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
+        const osmIdSet = new Set(osmData.map(osm => osm.id));
+
+        // Filter เฉพาะรายงานที่มี external_user_id อยู่ใน osmIdSet
+        filteredReports = filteredReports.filter(r => {
+          // ถ้ามี external_user_id และอยู่ในรายชื่อ OSM ของหน่วยบริการนี้ ให้แสดง
+          // ถ้าไม่มี external_user_id ไม่ต้องแสดง
+          return r.external_user_id && osmIdSet.has(r.external_user_id);
+        });
       }
 
       // สร้าง summary ใหม่จากข้อมูลที่ filter แล้ว

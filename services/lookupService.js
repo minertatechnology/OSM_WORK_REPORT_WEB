@@ -292,6 +292,48 @@ export const getHealthServices = async (params = {}) => {
 };
 
 /**
+ * ดึงข้อมูล OSM ตามหน่วยบริการสุขภาพ
+ * @param {string} healthServiceId - รหัสหน่วยบริการสุขภาพ (health_service_code)
+ * @returns {Promise} - Promise containing OSM data
+ */
+export const getOsmByHealthService = async (healthServiceId) => {
+  if (!healthServiceId) return [];
+
+  try {
+    console.log("🔍 Fetching OSM for service:", healthServiceId);
+    const response = await axiosInstance.get("/lookups/osm-by-health-service", {
+      params: {
+        health_service_id: healthServiceId,
+        limit: 200,
+      },
+    });
+
+    console.log("✅ OSM API response:", response.data);
+
+    // Parse response data - รองรับหลายรูปแบบ
+    if (Array.isArray(response.data)) {
+      console.log("✅ OSM data is array, length:", response.data.length);
+      return response.data;
+    } else if (response.data?.items && Array.isArray(response.data.items)) {
+      console.log("✅ OSM data.items is array, length:", response.data.items.length);
+      return response.data.items;
+    } else if (response.data?.data && Array.isArray(response.data.data)) {
+      console.log("✅ OSM data.data is array, length:", response.data.data.length);
+      return response.data.data;
+    } else if (response.data?.results && Array.isArray(response.data.results)) {
+      console.log("✅ OSM data.results is array, length:", response.data.results.length);
+      return response.data.results;
+    }
+
+    console.warn("⚠️ OSM response is not array:", response.data);
+    return [];
+  } catch (error) {
+    console.error("❌ Error fetching OSM:", error.response?.status, error.response?.data);
+    return [];
+  }
+};
+
+/**
  * ดึงรายการตำแหน่ง/บทบาทเจ้าหน้าที่
  * @param {Object} params - Query parameters
  * @returns {Promise} - Promise containing positions data
@@ -345,6 +387,7 @@ export default {
   getVillages,
   getHealthAreas,
   getHealthServices,
+  getOsmByHealthService,
   getPositions,
   clearLookupCache,
 };
