@@ -23,7 +23,7 @@ function getRoleOptions(positions) {
   if (!positions || positions.length === 0) return [];
 
   return positions
-    .filter(pos => pos.code !== 'DIR') // กรอง Director ออก
+    .filter(pos => pos.code !== 'DIR' && pos.code !== 'VIL') // กรอง Director และ Village ออก
     .map(pos => ({
       value: pos.code || pos.id,
       label: pos.name_th || pos.label || pos.position_name || pos.name || pos.id || ""
