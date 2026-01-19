@@ -197,8 +197,28 @@ export const getOSMsBatch = async (ids) => {
   }
 
   try {
+    // Filter เฉพาะ UUID ที่ถูกต้อง (32-36 ตัวอักษร)
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars) หรือ 32 chars (ไม่มี -)
+    const validIds = ids.filter(id => {
+      if (!id || typeof id !== 'string') return false;
+      // ตัด - ออกแล้วต้องเป็น 32 ตัวอักษร (hex digits)
+      const cleaned = id.replace(/-/g, '');
+      return cleaned.length === 32 && /^[0-9a-f]{32}$/i.test(cleaned);
+    });
+
+    // Log ถ้ามี ids ที่ถูก filter ออก
+    if (validIds.length < ids.length) {
+      const invalidIds = ids.filter(id => !validIds.includes(id));
+      console.warn("⚠️ Filtering out invalid UUIDs:", invalidIds);
+    }
+
+    if (validIds.length === 0) {
+      console.warn("⚠️ No valid UUIDs to send to /osm/batch");
+      return {};
+    }
+
     // ยิง POST /osm/batch พร้อม body { ids: [...] }
-    const response = await oauth2Api.post('/osm/batch', { ids });
+    const response = await oauth2Api.post('/osm/batch', { ids: validIds });
 
     // API จะส่งข้อมูลกลับมาเป็น array ใน response.data.data
     if (!response.data || !response.data.data) {
@@ -259,8 +279,28 @@ export const getOfficersBatch = async (ids) => {
   }
 
   try {
+    // Filter เฉพาะ UUID ที่ถูกต้อง (32-36 ตัวอักษร)
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars) หรือ 32 chars (ไม่มี -)
+    const validIds = ids.filter(id => {
+      if (!id || typeof id !== 'string') return false;
+      // ตัด - ออกแล้วต้องเป็น 32 ตัวอักษร (hex digits)
+      const cleaned = id.replace(/-/g, '');
+      return cleaned.length === 32 && /^[0-9a-f]{32}$/i.test(cleaned);
+    });
+
+    // Log ถ้ามี ids ที่ถูก filter ออก
+    if (validIds.length < ids.length) {
+      const invalidIds = ids.filter(id => !validIds.includes(id));
+      console.warn("⚠️ Filtering out invalid UUIDs:", invalidIds);
+    }
+
+    if (validIds.length === 0) {
+      console.warn("⚠️ No valid UUIDs to send to /officer/batch");
+      return {};
+    }
+
     // ยิง POST /officer/batch พร้อม body { ids: [...] }
-    const response = await oauth2Api.post('/officer/batch', { ids });
+    const response = await oauth2Api.post('/officer/batch', { ids: validIds });
 
     // API จะส่งข้อมูลกลับมาเป็น array ใน response.data.data
     if (!response.data || !response.data.data) {

@@ -700,7 +700,7 @@ const Reportosm1DataComp = () => {
 
         // ผสานข้อมูลชื่อและที่อยู่เข้ากับข้อมูล submission
         const enrichedData = data.map(item => {
-          const userData = usersMap.get(item.external_user_id);
+          const userData = usersMap[item.external_user_id];
           return {
             ...item,
             userName: userData?.name || item.external_user_id || "ไม่ระบุชื่อ",

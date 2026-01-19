@@ -850,7 +850,7 @@ const ReportMosquitoCompDataComp = () => {
         if (userId) {
           // ดึงข้อมูลผู้ใช้ (อสม.)
           const users = await oauth2Service.getBatch([userId]);
-          const userData = users.get(userId);
+          const userData = users[userId];
           setSelectedUserName(userData?.name || "ไม่ระบุชื่อ");
 
           console.log("👤 User data (อสม.):", {
@@ -958,7 +958,7 @@ const ReportMosquitoCompDataComp = () => {
 
           // แปลงข้อมูลพร้อมชื่อผู้ใช้และที่อยู่
           const transformedData = Object.values(groupedByUser).map((userGroup, idx) => {
-            const userData = users.get(userGroup.userId);
+            const userData = users[userGroup.userId];
 
             console.log("👤 User data (อสม.) in View 1:", {
               name: userData?.name,

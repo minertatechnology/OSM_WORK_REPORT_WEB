@@ -842,7 +842,7 @@ const ElderlyScreeningComp = () => {
     // ใช้ aggregatedData แทน records
     const result = (aggregatedData || []).map((assessorData) => {
       // ดึงข้อมูลผู้ใช้จาก OAuth2
-      const userData = userDataMap.get(assessorData.external_user_id);
+      const userData = userDataMap[assessorData.external_user_id];
 
       // ใช้ชื่อที่ service สร้างไว้แล้ว (มีชื่อเต็มอยู่แล้ว)
       const assessorName = userData?.name || "ไม่ระบุชื่อ";
@@ -1019,7 +1019,7 @@ const ElderlyScreeningComp = () => {
     }
 
     // ส่งข้อมูลผู้ประเมินและรายการผู้สูงอายุทั้งหมดที่เขาประเมิน
-    const userData = userDataMap.get(detailId);
+    const userData = userDataMap[detailId];
     const assessorName = userData?.name; // ใช้ชื่อที่ service สร้างไว้แล้ว
 
     return (
