@@ -187,37 +187,161 @@ export const getUserByExternalId = async (externalUserId) => {
 };
 
 /**
- * ดึงข้อมูลผู้ใช้หลายคนพร้อมกัน
+ * ดึงข้อมูล OSM หลายคนพร้อมกันด้วย batch API
+ * @param {Array<string>} ids - Array ของ UUID
+ * @returns {Promise<Object>} Object ที่มี external_user_id -> user data
+ */
+export const getOSMsBatch = async (ids) => {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return {};
+  }
+
+  try {
+    // ยิง POST /osm/batch พร้อม body { ids: [...] }
+    const response = await oauth2Api.post('/osm/batch', { ids });
+
+    // API จะส่งข้อมูลกลับมาเป็น array ใน response.data.data
+    if (!response.data || !response.data.data) {
+      throw new Error("No data in batch response");
+    }
+
+    const usersArray = response.data.data;
+
+    // แปลง array เป็น object โดยใช้ external_user_id (หรือ id) เป็น key
+    const usersMap = {};
+    usersArray.forEach((apiData) => {
+      const userId = apiData.id || apiData.external_user_id;
+
+      const prefix = apiData.prefix_name_th ?? apiData.prefix ?? "";
+      const firstName = apiData.first_name ?? apiData.firstName ?? "";
+      const lastName = apiData.last_name ?? apiData.lastName ?? "";
+
+      const fullName = [prefix, firstName, lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      const finalName = fullName || "ไม่ระบุชื่อ";
+
+      usersMap[userId] = {
+        ...apiData,
+        id: apiData.id || userId,
+        name: finalName,
+        prefix_name_th: apiData.prefix_name_th || prefix || null,
+        first_name: apiData.first_name || firstName || null,
+        last_name: apiData.last_name || lastName || null,
+        email: apiData.email || null,
+        external_user_id: userId,
+        profile_picture: apiData.profile_picture || apiData.avatar || null,
+        position_level: "อสม.", // ข้อมูลจาก /osm
+      };
+
+      // เก็บใน cache ด้วย
+      userCache.set(userId, usersMap[userId]);
+    });
+
+    return usersMap;
+  } catch (error) {
+    console.error("Error fetching OSMs batch:", error);
+    // ถ้า batch API ล้มเหลว ให้ return empty object
+    return {};
+  }
+};
+
+/**
+ * ดึงข้อมูล Officer หลายคนพร้อมกันด้วย batch API
+ * @param {Array<string>} ids - Array ของ UUID
+ * @returns {Promise<Object>} Object ที่มี external_user_id -> user data
+ */
+export const getOfficersBatch = async (ids) => {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return {};
+  }
+
+  try {
+    // ยิง POST /officer/batch พร้อม body { ids: [...] }
+    const response = await oauth2Api.post('/officer/batch', { ids });
+
+    // API จะส่งข้อมูลกลับมาเป็น array ใน response.data.data
+    if (!response.data || !response.data.data) {
+      throw new Error("No data in batch response");
+    }
+
+    const usersArray = response.data.data;
+
+    // แปลง array เป็น object โดยใช้ external_user_id (หรือ id) เป็น key
+    const usersMap = {};
+    usersArray.forEach((apiData) => {
+      const userId = apiData.id || apiData.external_user_id;
+
+      const prefix = apiData.prefix_name_th ?? apiData.prefix ?? "";
+      const firstName = apiData.first_name ?? apiData.firstName ?? "";
+      const lastName = apiData.last_name ?? apiData.lastName ?? "";
+
+      const fullName = [prefix, firstName, lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      const finalName = fullName || "ไม่ระบุชื่อ";
+
+      usersMap[userId] = {
+        ...apiData,
+        id: apiData.id || userId,
+        name: finalName,
+        prefix_name_th: apiData.prefix_name_th || prefix || null,
+        first_name: apiData.first_name || firstName || null,
+        last_name: apiData.last_name || lastName || null,
+        email: apiData.email || null,
+        external_user_id: userId,
+        profile_picture: apiData.profile_picture || apiData.avatar || null,
+        position_level: "เจ้าหน้าที่", // ข้อมูลจาก /officer
+      };
+
+      // เก็บใน cache ด้วย
+      userCache.set(userId, usersMap[userId]);
+    });
+
+    return usersMap;
+  } catch (error) {
+    console.error("Error fetching Officers batch:", error);
+    // ถ้า batch API ล้มเหลว ให้ return empty object
+    return {};
+  }
+};
+
+/**
+ * ดึงข้อมูลผู้ใช้หลายคนพร้อมกัน (ใช้ batch API)
  * @param {Array<string>} externalUserIds - Array ของ UUID
- * @returns {Promise<Map>} Map ของ external_user_id -> user data
+ * @returns {Promise<Object>} Object ที่มี external_user_id -> user data
  */
 export const getUsersBatch = async (externalUserIds) => {
   if (!Array.isArray(externalUserIds) || externalUserIds.length === 0) {
-    return new Map();
+    return {};
   }
 
   const uniqueIds = [...new Set(externalUserIds)];
-  const results = new Map();
 
-  // ดึงข้อมูลทีละคน (หรือใช้ batch API ถ้ามี)
-  await Promise.all(
-    uniqueIds.map(async (userId) => {
-      try {
-        const userData = await getUserByExternalId(userId);
-        results.set(userId, userData);
-      } catch (error) {
-        console.error(`Failed to fetch user ${userId}:`, error);
-        results.set(userId, {
-          id: userId,
-          name: "ไม่ระบุชื่อ",
-          email: null,
-          external_user_id: userId,
-        });
-      }
-    })
-  );
+  try {
+    // 1. ลองยิง /osm/batch ก่อน
+    const osmResults = await getOSMsBatch(uniqueIds);
 
-  return results;
+    // 2. หา ids ที่ยังไม่ได้ข้อมูล (เพื่อไปลอง /officer/batch)
+    const missingIds = uniqueIds.filter(id => !osmResults[id]);
+
+    let officerResults = {};
+    if (missingIds.length > 0) {
+      // 3. ลองยิง /officer/batch สำหรับ ids ที่เหลือ
+      officerResults = await getOfficersBatch(missingIds);
+    }
+
+    // 4. รวมผลลัพธ์จากทั้ง 2 endpoints
+    return { ...osmResults, ...officerResults };
+  } catch (error) {
+    console.error("Error in getUsersBatch:", error);
+    // ถ้า batch API ล้มเหลวทั้งหมด ให้ return empty object
+    return {};
+  }
 };
 
 /**
@@ -240,6 +364,8 @@ export const getUserFromCache = (externalUserId) => {
 export default {
   getById: getUserByExternalId,
   getBatch: getUsersBatch,
+  getOSMsBatch: getOSMsBatch,
+  getOfficersBatch: getOfficersBatch,
   clearCache: clearUserCache,
   getFromCache: getUserFromCache,
 };

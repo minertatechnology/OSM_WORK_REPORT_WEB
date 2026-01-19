@@ -41,7 +41,7 @@ import Swal from "sweetalert2";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getUsersList } from "@services/userService/userService";
 import { getAuthToken } from "@utils/tokenHelper";
-import { getUserByExternalId } from "@services/oauth2Service";
+import { getUsersBatch } from "@services/oauth2Service";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 import jsPDF from "jspdf";
@@ -555,60 +555,52 @@ function DownloadModal({ open, onClose, totalItems, filters }) {
       }
     }
 
-    // ดึงข้อมูลเต็มจาก OAuth2 API สำหรับแต่ละ user (เหมือนที่ตารางทำ)
-    const usersWithDetails = await Promise.allSettled(
-      allUsers.map(async (user) => {
-        if (!user.external_user_id) {
-          return {
-            name: "ไม่ระบุชื่อ",
-            cid: user.citizen_id || "-",
-            position: user.user_type || "ไม่ระบุตำแหน่ง",
-            status: user.is_active ? "active" : "deleted",
-          };
-        }
+    // ดึงข้อมูลเต็มจาก OAuth2 API ด้วย batch API
+    const externalUserIds = allUsers
+      .map(user => user.external_user_id)
+      .filter(id => id);
 
-        try {
-          const oauthData = await getUserByExternalId(user.external_user_id);
+    const batchUsersMap = externalUserIds.length > 0 ? await getUsersBatch(externalUserIds) : {};
 
-          // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
-          const prefix = oauthData?.prefix_name_th || user.prefix || "";
-          const firstName = oauthData?.first_name || user.first_name || "";
-          const lastName = oauthData?.last_name || user.last_name || "";
-          const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
-
-          return {
-            name: fullName,
-            cid: oauthData?.citizen_id || user.citizen_id || "-",
-            position: oauthData?.position_level || oauthData?.permission_level || user.user_type || "ไม่ระบุตำแหน่ง",
-            status: user.is_active ? "active" : "deleted",
-          };
-        } catch (error) {
-          // ถ้าดึง OAuth2 ไม่ได้ ใช้ข้อมูลจาก user list
-          const prefix = user.prefix || "";
-          const firstName = user.first_name || "";
-          const lastName = user.last_name || "";
-          const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
-
-          return {
-            name: fullName,
-            cid: user.citizen_id || "-",
-            position: user.user_type || "ไม่ระบุตำแหน่ง",
-            status: user.is_active ? "active" : "deleted",
-          };
-        }
-      })
-    );
-
-    // แปลง Promise.allSettled results เป็น array ของ users
-    const usersForExport = usersWithDetails.map(result => {
-      if (result.status === "fulfilled") {
-        return result.value;
+    // รวมข้อมูลจาก user list และ batch OAuth2
+    const usersForExport = allUsers.map(user => {
+      if (!user.external_user_id) {
+        return {
+          name: "ไม่ระบุชื่อ",
+          cid: user.citizen_id || "-",
+          position: user.user_type || "ไม่ระบุตำแหน่ง",
+          status: user.is_active ? "active" : "deleted",
+        };
       }
+
+      const oauthData = batchUsersMap[user.external_user_id];
+
+      // ถ้าไม่มีข้อมูลจาก batch API ให้ fallback ไปใช้ข้อมูลจาก user API
+      if (!oauthData) {
+        const prefix = user.prefix || "";
+        const firstName = user.first_name || "";
+        const lastName = user.last_name || "";
+        const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+
+        return {
+          name: fullName,
+          cid: user.citizen_id || "-",
+          position: user.user_type || "ไม่ระบุตำแหน่ง",
+          status: user.is_active ? "active" : "deleted",
+        };
+      }
+
+      // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
+      const prefix = oauthData?.prefix_name_th || user.prefix || "";
+      const firstName = oauthData?.first_name || user.first_name || "";
+      const lastName = oauthData?.last_name || user.last_name || "";
+      const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+
       return {
-        name: "ไม่ระบุชื่อ",
-        cid: "-",
-        position: "ไม่ระบุตำแหน่ง",
-        status: "unknown",
+        name: fullName,
+        cid: oauthData?.citizen_id || user.citizen_id || "-",
+        position: oauthData?.position_level || oauthData?.permission_level || user.user_type || "ไม่ระบุตำแหน่ง",
+        status: user.is_active ? "active" : "deleted",
       };
     });
 
@@ -939,241 +931,244 @@ const UserListComp = () => {
           token: token
         });
 
-        // 2. ดึงข้อมูลเต็มจาก OAuth2 API สำหรับแต่ละ user
-        const usersWithDetails = await Promise.allSettled(
-          response.users.map(async (user) => {
-            if (!user.external_user_id) {
-              // ถ้าไม่มี external_user_id ให้ใช้ข้อมูล base
-              return {
-                external_user_id: user.external_user_id,
-                name: "ไม่ระบุชื่อ",
-                cid: user.citizen_id || "-",
-                position: "ไม่ระบุตำแหน่ง",
-                gender: "-",
-                hospital: "-",
-                province: user.province_name || "-",
-                district: user.district_name || "-",
-                subdistrict: user.subdistrict_name || "-",
-                status: user.is_active ? "active" : "deleted",
-                email: user.email,
-                phone: user.phone || "-",
-                last_active_at: user.last_active_at, // เพิ่ม last_active_at
-              };
-            }
+        // 2. เตรียม external_user_ids สำหรับ batch API
+        const externalUserIds = response.users
+          .map(user => user.external_user_id)
+          .filter(id => id); // กรองเอาเฉพาะ id ที่ไม่ใช่ null/undefined
 
-            try {
-              // ยิง getUserByExternalId เพื่อดึงข้อมูลเต็ม
-              const oauthData = await getUserByExternalId(user.external_user_id);
+        // 3. ยิง batch API เพื่อดึงข้อมูล OAuth2 ทั้งหมดในครั้งเดียว
+        const batchUsersMap = externalUserIds.length > 0 ? await getUsersBatch(externalUserIds) : {};
 
-              // Helper function to safely get value with fallback
-              const getWithFallback = (oauthVal, userVal, defaultVal = "-") => {
-                return oauthVal || userVal || defaultVal;
-              };
+        // 4. รวมข้อมูลจาก user list และ batch OAuth2
+        const usersWithDetails = response.users.map(user => {
+          if (!user.external_user_id) {
+            // ถ้าไม่มี external_user_id ให้ใช้ข้อมูล base
+            return {
+              external_user_id: user.external_user_id,
+              name: "ไม่ระบุชื่อ",
+              cid: user.citizen_id || "-",
+              position: "ไม่ระบุตำแหน่ง",
+              gender: "-",
+              hospital: "-",
+              province: user.province_name || "-",
+              district: user.district_name || "-",
+              subdistrict: user.subdistrict_name || "-",
+              status: user.is_active ? "active" : "deleted",
+              email: user.email,
+              phone: user.phone || "-",
+              last_active_at: user.last_active_at, // เพิ่ม last_active_at
+            };
+          }
 
-              // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
-              const prefix = oauthData?.prefix_name_th || user.prefix || "";
-              const firstName = oauthData?.first_name || user.first_name || "";
-              const lastName = oauthData?.last_name || user.last_name || "";
-              const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+          // ดึงข้อมูลจาก batch results
+          const oauthData = batchUsersMap[user.external_user_id];
 
-              // แปลง gender
-              const rawGender = oauthData?.gender || user.gender;
-              const gender = rawGender === "male" ? "ชาย" :
-                            rawGender === "female" ? "หญิง" :
-                            rawGender || "-";
+          // Helper function to safely get value with fallback
+          const getWithFallback = (oauthVal, userVal, defaultVal = "-") => {
+            return oauthVal || userVal || defaultVal;
+          };
 
-              // แปลง marital_status
-              const rawMaritalStatus = oauthData?.marital_status;
-              const maritalStatus = rawMaritalStatus === "single" ? "โสด" :
-                                   rawMaritalStatus === "married" ? "สมรส" :
-                                   rawMaritalStatus === "divorced" ? "หย่าร้าง" :
-                                   rawMaritalStatus === "widowed" ? "หม้าย" :
-                                   rawMaritalStatus || "-";
+          // ถ้าไม่มีข้อมูลจาก batch API ให้ fallback ไปใช้ข้อมูลจาก user API
+          if (!oauthData) {
+            const prefix = user.prefix || "";
+            const firstName = user.first_name || "";
+            const lastName = user.last_name || "";
+            const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
 
-              // แปลง volunteer_status
-              const rawVolunteerStatus = oauthData?.volunteer_status;
-              const volunteerStatus = rawVolunteerStatus === "already_volunteer" ? "เป็น อสม. แล้ว" :
-                                     rawVolunteerStatus === "want_to_be_volunteer" ? "ต้องการเป็น อสม." :
-                                     rawVolunteerStatus === "not_volunteer" ? "ไม่เป็น อสม." :
-                                     rawVolunteerStatus || "-";
+            const rawGender = user.gender;
+            const gender = rawGender === "male" ? "ชาย" :
+                          rawGender === "female" ? "หญิง" :
+                          rawGender || "-";
 
-              // Merge ข้อมูลจาก 2 sources โดยให้ OAuth2 เป็น priority
-              return {
-                // Base user data
-                external_user_id: user.external_user_id,
-                email: getWithFallback(oauthData?.email, user.email),
-                is_active: user.is_active,
-                osm_code: user.osm_code,
-                last_login: user.last_login,
-                last_active_at: user.last_active_at, // สำหรับ online status
-                created_at: user.created_at,
+            return {
+              external_user_id: user.external_user_id,
+              name: fullName,
+              cid: user.citizen_id || "-",
+              position: user.user_type || "ไม่ระบุตำแหน่ง",
+              gender: gender,
+              hospital: user.hospital || "-",
+              province: user.province_name || "-",
+              district: user.district_name || "-",
+              subdistrict: user.subdistrict_name || "-",
+              status: user.is_active ? "active" : "deleted",
+              email: user.email,
+              phone: user.phone || "-",
+              last_active_at: user.last_active_at, // สำหรับ online status
+              prefix: prefix,
+              first_name: firstName,
+              last_name: lastName,
+            };
+          }
 
-                // Personal info (OAuth2 เป็น priority, fallback ไป user API)
-                name: fullName,
-                cid: getWithFallback(oauthData?.citizen_id, user.citizen_id),
-                position: oauthData?.position_level || getWithFallback(oauthData?.permission_level, user.user_type, "ไม่ระบุตำแหน่ง"),
-                gender: gender,
-                hospital: getWithFallback(oauthData?.health_service_name_th, user.hospital),
-                phone: getWithFallback(oauthData?.phone, user.phone),
+          // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
+          const prefix = oauthData?.prefix_name_th || user.prefix || "";
+          const firstName = oauthData?.first_name || user.first_name || "";
+          const lastName = oauthData?.last_name || user.last_name || "";
+          const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
 
-                // Location data - prefer OAuth2 with Thai names
-                province: oauthData?.province_name_th || user.province_name || "-",
-                district: oauthData?.district_name_th || user.district_name || "-",
-                subdistrict: oauthData?.subdistrict_name_th || user.subdistrict_name || "-",
+          // แปลง gender
+          const rawGender = oauthData?.gender || user.gender;
+          const gender = rawGender === "male" ? "ชาย" :
+                        rawGender === "female" ? "หญิง" :
+                        rawGender || "-";
 
-                // Status
-                status: user.is_active ? "active" : "deleted",
+          // แปลง marital_status
+          const rawMaritalStatus = oauthData?.marital_status;
+          const maritalStatus = rawMaritalStatus === "single" ? "โสด" :
+                               rawMaritalStatus === "married" ? "สมรส" :
+                               rawMaritalStatus === "divorced" ? "หย่าร้าง" :
+                               rawMaritalStatus === "widowed" ? "หม้าย" :
+                               rawMaritalStatus || "-";
 
-                // Keep original fields
-                prefix: prefix,
-                prefix_name_th: oauthData?.prefix_name_th,
-                prefix_id: oauthData?.prefix_id,
-                first_name: firstName,
-                last_name: lastName,
+          // แปลง volunteer_status
+          const rawVolunteerStatus = oauthData?.volunteer_status;
+          const volunteerStatus = rawVolunteerStatus === "already_volunteer" ? "เป็น อสม. แล้ว" :
+                                 rawVolunteerStatus === "want_to_be_volunteer" ? "ต้องการเป็น อสม." :
+                                 rawVolunteerStatus === "not_volunteer" ? "ไม่เป็น อสม." :
+                                 rawVolunteerStatus || "-";
 
-                // NEW: Demographics from OAuth2
-                birth_date: oauthData?.birth_date,
-                marital_status: maritalStatus,
-                number_of_children: oauthData?.number_of_children,
-                blood_type: oauthData?.blood_type,
-                osm_year: oauthData?.osm_year,
+          // Merge ข้อมูลจาก 2 sources โดยให้ OAuth2 เป็น priority
+          return {
+            // Base user data
+            external_user_id: user.external_user_id,
+            email: getWithFallback(oauthData?.email, user.email),
+            is_active: user.is_active,
+            osm_code: user.osm_code,
+            last_login: user.last_login,
+            last_active_at: user.last_active_at, // สำหรับ online status
+            created_at: user.created_at,
 
-                // NEW: Occupation & Education
-                occupation_id: oauthData?.occupation_id,
-                occupation_name_th: oauthData?.occupation_name_th,
-                education_id: oauthData?.education_id,
-                education_name_th: oauthData?.education_name_th,
+            // Personal info (OAuth2 เป็น priority, fallback ไป user API)
+            name: fullName,
+            cid: getWithFallback(oauthData?.citizen_id, user.citizen_id),
+            position: oauthData?.position_level || getWithFallback(oauthData?.permission_level, user.user_type, "ไม่ระบุตำแหน่ง"),
+            gender: gender,
+            hospital: getWithFallback(oauthData?.health_service_name_th, user.hospital),
+            phone: getWithFallback(oauthData?.phone, user.phone),
 
-                // NEW: Health Service & Bank
-                health_service_id: oauthData?.health_service_id,
-                health_service_name_th: oauthData?.health_service_name_th,
-                bank_id: oauthData?.bank_id,
-                bank_name_th: oauthData?.bank_name_th,
-                bank_account_number: oauthData?.bank_account_number,
+            // Location data - prefer OAuth2 with Thai names
+            province: oauthData?.province_name_th || user.province_name || "-",
+            district: oauthData?.district_name_th || user.district_name || "-",
+            subdistrict: oauthData?.subdistrict_name_th || user.subdistrict_name || "-",
 
-                // NEW: Volunteer & Device Status
-                volunteer_status: volunteerStatus,
-                is_smartphone_owner: oauthData?.is_smartphone_owner,
+            // Status
+            status: user.is_active ? "active" : "deleted",
 
-                // NEW: Detailed Address
-                address_number: oauthData?.address_number,
-                alley: oauthData?.alley,
-                street: oauthData?.street,
-                village_no: oauthData?.village_no,
-                village_name: oauthData?.village_name,
-                village_code: oauthData?.village_code,
-                province_id: oauthData?.province_id,
-                district_id: oauthData?.district_id,
-                subdistrict_id: oauthData?.subdistrict_id,
-                postal_code: oauthData?.postal_code,
+            // Keep original fields
+            prefix: prefix,
+            prefix_name_th: oauthData?.prefix_name_th,
+            prefix_id: oauthData?.prefix_id,
+            first_name: firstName,
+            last_name: lastName,
 
-                // NEW: Approval Status
-                approval_status: oauthData?.approval_status,
-                approval_by: oauthData?.approval_by,
-                approval_date: oauthData?.approval_date,
+            // NEW: Demographics from OAuth2
+            birth_date: oauthData?.birth_date,
+            marital_status: maritalStatus,
+            number_of_children: oauthData?.number_of_children,
+            blood_type: oauthData?.blood_type,
+            osm_year: oauthData?.osm_year,
 
-                // NEW: Created/Updated Info
-                created_by: oauthData?.created_by,
-                created_by_name: oauthData?.created_by_name,
-                created_by_position_name: oauthData?.created_by_position_name,
-                created_by_scope_level: oauthData?.created_by_scope_level,
-                created_by_scope_label: oauthData?.created_by_scope_label,
-                updated_by: oauthData?.updated_by,
-                updated_by_name: oauthData?.updated_by_name,
-                updated_by_position_name: oauthData?.updated_by_position_name,
-                updated_by_scope_level: oauthData?.updated_by_scope_level,
-                updated_by_scope_label: oauthData?.updated_by_scope_label,
-                updated_at: oauthData?.updated_at,
+            // NEW: Occupation & Education
+            occupation_id: oauthData?.occupation_id,
+            occupation_name_th: oauthData?.occupation_name_th,
+            education_id: oauthData?.education_id,
+            education_name_th: oauthData?.education_name_th,
 
-                // NEW: Related Data Objects
-                spouse: oauthData?.spouse,
-                children: oauthData?.children,
-                official_positions: oauthData?.official_positions,
-                special_skills: oauthData?.special_skills,
-                club_positions: oauthData?.club_positions,
-                trainings: oauthData?.trainings,
+            // NEW: Health Service & Bank
+            health_service_id: oauthData?.health_service_id,
+            health_service_name_th: oauthData?.health_service_name_th,
+            bank_id: oauthData?.bank_id,
+            bank_name_th: oauthData?.bank_name_th,
+            bank_account_number: oauthData?.bank_account_number,
 
-                // Health data จาก OAuth2
-                chronic_diseases: oauthData?.chronic_diseases,
-                drug_allergies: oauthData?.drug_allergies,
-                food_allergies: oauthData?.food_allergies,
-                blood_pressure_systolic: oauthData?.blood_pressure_systolic,
-                blood_pressure_diastolic: oauthData?.blood_pressure_diastolic,
-                weight: oauthData?.weight,
-                height: oauthData?.height,
-                bmi: oauthData?.bmi,
-                waist: oauthData?.waist,
+            // NEW: Volunteer & Device Status
+            volunteer_status: volunteerStatus,
+            is_smartphone_owner: oauthData?.is_smartphone_owner,
 
-                // Additional OAuth2 fields
-                family_history_cancer: oauthData?.family_history_cancer,
-                family_history_diabetes: oauthData?.family_history_diabetes,
-                family_history_hypertension: oauthData?.family_history_hypertension,
-                family_history_cvd: oauthData?.family_history_cvd,
-                family_history_stroke: oauthData?.family_history_stroke,
-                bse_result: oauthData?.bse_result,
-                cv_risk_score: oauthData?.cv_risk_score,
-                stress_level: oauthData?.stress_level,
-                depression_2q: oauthData?.depression_2q,
-                fasting_blood_sugar: oauthData?.fasting_blood_sugar,
-                stool_result: oauthData?.stool_result,
-                fit_result: oauthData?.fit_result,
-                hpv_result: oauthData?.hpv_result,
-                living_with_care: oauthData?.living_with_care,
-                house_safety: oauthData?.house_safety,
-                income_sufficiency: oauthData?.income_sufficiency,
-                time_up_go_test: oauthData?.time_up_go_test,
-                fall_history_6m: oauthData?.fall_history_6m,
-                swallow_problem_3m: oauthData?.swallow_problem_3m,
-                vision_problem: oauthData?.vision_problem,
-                hearing_status: oauthData?.hearing_status,
-                depression_2w: oauthData?.depression_2w,
-                urinary_incontinence: oauthData?.urinary_incontinence,
-                adl_status: oauthData?.adl_status,
-                oral_chewing_difficulty: oauthData?.oral_chewing_difficulty,
-                oral_pain: oauthData?.oral_pain,
-                cognitive_status: oauthData?.cognitive_status,
-                latitude: oauthData?.latitude,
-                longitude: oauthData?.longitude,
-              };
-            } catch (error) {
-              // Silently fallback to base user data if OAuth2 fetch fails
-              // (404 errors are normal when user doesn't exist in OAuth2 system)
-              const prefix = user.prefix || "";
-              const firstName = user.first_name || "";
-              const lastName = user.last_name || "";
-              const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
+            // NEW: Detailed Address
+            address_number: oauthData?.address_number,
+            alley: oauthData?.alley,
+            street: oauthData?.street,
+            village_no: oauthData?.village_no,
+            village_name: oauthData?.village_name,
+            village_code: oauthData?.village_code,
+            province_id: oauthData?.province_id,
+            district_id: oauthData?.district_id,
+            subdistrict_id: oauthData?.subdistrict_id,
+            postal_code: oauthData?.postal_code,
 
-              const rawGender = user.gender;
-              const gender = rawGender === "male" ? "ชาย" :
-                            rawGender === "female" ? "หญิง" :
-                            rawGender || "-";
+            // NEW: Approval Status
+            approval_status: oauthData?.approval_status,
+            approval_by: oauthData?.approval_by,
+            approval_date: oauthData?.approval_date,
 
-              return {
-                external_user_id: user.external_user_id,
-                name: fullName,
-                cid: user.citizen_id || "-",
-                position: user.user_type || "ไม่ระบุตำแหน่ง",
-                gender: gender,
-                hospital: user.hospital || "-",
-                province: user.province_name || "-",
-                district: user.district_name || "-",
-                subdistrict: user.subdistrict_name || "-",
-                status: user.is_active ? "active" : "deleted",
-                email: user.email,
-                phone: user.phone || "-",
-                last_active_at: user.last_active_at, // สำหรับ online status
-                prefix: prefix,
-                first_name: firstName,
-                last_name: lastName,
-              };
-            }
-          })
-        );
+            // NEW: Created/Updated Info
+            created_by: oauthData?.created_by,
+            created_by_name: oauthData?.created_by_name,
+            created_by_position_name: oauthData?.created_by_position_name,
+            created_by_scope_level: oauthData?.created_by_scope_level,
+            created_by_scope_label: oauthData?.created_by_scope_label,
+            updated_by: oauthData?.updated_by,
+            updated_by_name: oauthData?.updated_by_name,
+            updated_by_position_name: oauthData?.updated_by_position_name,
+            updated_by_scope_level: oauthData?.updated_by_scope_level,
+            updated_by_scope_label: oauthData?.updated_by_scope_label,
+            updated_at: oauthData?.updated_at,
+
+            // NEW: Related Data Objects
+            spouse: oauthData?.spouse,
+            children: oauthData?.children,
+            official_positions: oauthData?.official_positions,
+            special_skills: oauthData?.special_skills,
+            club_positions: oauthData?.club_positions,
+            trainings: oauthData?.trainings,
+
+            // Health data จาก OAuth2
+            chronic_diseases: oauthData?.chronic_diseases,
+            drug_allergies: oauthData?.drug_allergies,
+            food_allergies: oauthData?.food_allergies,
+            blood_pressure_systolic: oauthData?.blood_pressure_systolic,
+            blood_pressure_diastolic: oauthData?.blood_pressure_diastolic,
+            weight: oauthData?.weight,
+            height: oauthData?.height,
+            bmi: oauthData?.bmi,
+            waist: oauthData?.waist,
+
+            // Additional OAuth2 fields
+            family_history_cancer: oauthData?.family_history_cancer,
+            family_history_diabetes: oauthData?.family_history_diabetes,
+            family_history_hypertension: oauthData?.family_history_hypertension,
+            family_history_cvd: oauthData?.family_history_cvd,
+            family_history_stroke: oauthData?.family_history_stroke,
+            bse_result: oauthData?.bse_result,
+            cv_risk_score: oauthData?.cv_risk_score,
+            stress_level: oauthData?.stress_level,
+            depression_2q: oauthData?.depression_2q,
+            fasting_blood_sugar: oauthData?.fasting_blood_sugar,
+            stool_result: oauthData?.stool_result,
+            fit_result: oauthData?.fit_result,
+            hpv_result: oauthData?.hpv_result,
+            living_with_care: oauthData?.living_with_care,
+            house_safety: oauthData?.house_safety,
+            income_sufficiency: oauthData?.income_sufficiency,
+            time_up_go_test: oauthData?.time_up_go_test,
+            fall_history_6m: oauthData?.fall_history_6m,
+            swallow_problem_3m: oauthData?.swallow_problem_3m,
+            vision_problem: oauthData?.vision_problem,
+            hearing_status: oauthData?.hearing_status,
+            depression_2w: oauthData?.depression_2w,
+            urinary_incontinence: oauthData?.urinary_incontinence,
+            adl_status: oauthData?.adl_status,
+            oral_chewing_difficulty: oauthData?.oral_chewing_difficulty,
+            oral_pain: oauthData?.oral_pain,
+            cognitive_status: oauthData?.cognitive_status,
+            latitude: oauthData?.latitude,
+            longitude: oauthData?.longitude,
+          };
+        });
 
         // Filter out rejected promises and extract values
-        const successfulUsers = usersWithDetails
-          .filter(result => result.status === 'fulfilled')
-          .map(result => result.value);
+        const successfulUsers = usersWithDetails;
 
         setUsers(successfulUsers);
         setTotalItems(response.total);
