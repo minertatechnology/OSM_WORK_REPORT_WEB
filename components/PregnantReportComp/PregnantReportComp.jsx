@@ -29,6 +29,7 @@ import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
 import { getUserByExternalId } from "@services/oauth2Service";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
 import { getAddressFromCoordinates } from "@utils/geocoding";
+import { getOsmByHealthService } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -884,6 +885,9 @@ const PregnantReportComp = () => {
   const [locationDataMap, setLocationDataMap] = useState(new Map()); // Map<external_user_id, {province, district, subdistrict}>
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
+  // State สำหรับเก็บ OSM data ตามหน่วยบริการ
+  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
+
   // ดึงข้อมูลการประเมินหญิงตั้งครรภ์และข้อมูลผู้ใช้จาก API
   useEffect(() => {
     const fetchData = async () => {
@@ -1073,6 +1077,27 @@ const PregnantReportComp = () => {
     fetchData();
   }, []); // ดึงข้อมูลครั้งเดียวตอน mount
 
+  // ดึงข้อมูล OSM ตามหน่วยบริการ
+  useEffect(() => {
+    const fetchOsmData = async () => {
+      if (service) {
+        try {
+          const osmData = await getOsmByHealthService(service);
+          console.log("📊 OSM Data received:", osmData.length, "items");
+          console.log("🆔 OSM IDs:", osmData.map(o => o.id));
+          setOsmDataByService(osmData);
+        } catch (err) {
+          console.error("Error fetching OSM data:", err);
+          setOsmDataByService([]);
+        }
+      } else {
+        setOsmDataByService([]);
+      }
+    };
+
+    fetchOsmData();
+  }, [service]);
+
   // Note: Location data loading is now handled by usePermissionFilters hook
 
   // Helper function เพื่อดึงชื่อผู้ใช้จาก userDataMap
@@ -1091,6 +1116,22 @@ const PregnantReportComp = () => {
 
       // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
       const locationData = row.location_data || {};
+
+      // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
+      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
+      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
+      if (service && osmDataByService.length > 0) {
+        console.log("🎯 Service filter enabled (PRIORITY)");
+
+        // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
+        const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
+
+        // Filter เฉพาะรายงานที่มี external_user_id อยู่ใน osmIdSet
+        return row.external_user_id && osmIdSet.has(row.external_user_id) &&
+               row.status === activeTab;
+      }
+
+      // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
 
       // กรองตามเขตสุขภาพ
       if (zone) {
@@ -1159,7 +1200,7 @@ const PregnantReportComp = () => {
         keywordMatch
       );
     });
-  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, keyword, healthAreas, provinces, districts, subdistricts, userDataMap]);
+  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, service, keyword, healthAreas, provinces, districts, subdistricts, userDataMap, osmDataByService]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = filteredRows.slice(
     (page - 1) * itemsPerPage,

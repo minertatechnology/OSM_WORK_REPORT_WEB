@@ -29,6 +29,7 @@ import elderlyScreeningService from "@services/elderlyScreeningService";
 import oauth2Service from "@services/oauth2Service";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
+import { getOsmByHealthService } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -663,6 +664,7 @@ const ElderlyScreeningComp = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
 
   const currentFiscalYear = getCurrentFiscalYear();
   const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
@@ -735,6 +737,22 @@ const ElderlyScreeningComp = () => {
     try {
       console.log("📡 Fetching elderly screenings data...");
 
+      // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
+      let osmData = [];
+      if (service) {
+        try {
+          osmData = await getOsmByHealthService(service);
+          console.log("📊 OSM Data received:", osmData.length, "items");
+          console.log("🆔 OSM IDs:", osmData.map(o => o.id));
+          setOsmDataByService(osmData);
+        } catch (err) {
+          console.error("Error fetching OSM data:", err);
+          setOsmDataByService([]);
+        }
+      } else {
+        setOsmDataByService([]);
+      }
+
       // ล้าง cache ข้อมูล OAuth2 ก่อน
       oauth2Service.clearCache();
       console.log("🗑️ Cleared OAuth2 cache");
@@ -794,7 +812,7 @@ const ElderlyScreeningComp = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentBuddhistYear]);
+  }, [currentBuddhistYear, service]); // เพิ่ม service เพื่อให้ดึงข้อมูลใหม่เมื่อเลือกหน่วยบริการ
 
   useEffect(() => {
     fetchElderly();
@@ -881,6 +899,42 @@ const ElderlyScreeningComp = () => {
         }
       }
 
+      // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
+      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
+      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
+      if (service && osmDataByService.length > 0) {
+        console.log("🎯 Service filter enabled (PRIORITY)");
+        console.log("📊 Rows before service filter:", row.external_user_id);
+
+        // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
+        const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
+        console.log("🆔 OSM ID Set (first 5):", Array.from(osmIdSet).slice(0, 5));
+        console.log("👥 Total OSMs:", osmIdSet.size);
+
+        // Filter เฉพาะที่มี external_user_id อยู่ใน osmIdSet
+        const match = row.external_user_id && osmIdSet.has(row.external_user_id);
+        if (!match && row.external_user_id) {
+          console.log("❌ No match - external_user_id:", row.external_user_id);
+        } else if (match) {
+          console.log("✅ Match - external_user_id:", row.external_user_id);
+        }
+
+        if (!match) {
+          console.log("❌ Failed service filter");
+          return false;
+        }
+
+        // ถ้าเลือกหน่วยบริการแล้ว ให้ skip filter ตามพื้นที่ทิ้ง
+        console.log("✅ Service filter passed - skipping location filters");
+        // ยังคงต้อง filter keyword อยู่
+        const keywordMatch = !keywordLower || (
+          row._assessorName.toLowerCase().includes(keywordLower) ||
+          (row.external_user_id || "").toLowerCase().includes(keywordLower)
+        );
+        return keywordMatch;
+      }
+
+      // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
       // กรองตาม location_data
       const locationData = row.location_data || {};
 
@@ -920,7 +974,8 @@ const ElderlyScreeningComp = () => {
 
     console.log("✅ [filteredRows] Final result:", result);
     return result;
-  }, [aggregatedData, userDataMap, keyword, hydrated, year, yearType, month, zone, province, district, subdistrict, healthAreas, provinces, districts, subdistricts]);
+  }, [aggregatedData, userDataMap, keyword, hydrated, year, yearType, month, zone, province, district, subdistrict, service, osmDataByService, healthAreas, provinces, districts, subdistricts]); // เพิ่ม service และ osmDataByService
+
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(

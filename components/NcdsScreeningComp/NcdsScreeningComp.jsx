@@ -23,6 +23,7 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import NcdsScreeningDetail from "./NcdsScreeningDetail/NcdsScreeningDetail";
+import { getOsmByHealthService } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -672,6 +673,7 @@ const NcdsScreeningComp = () => {
   const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [availableYears, setAvailableYears] = useState([]);
+  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
 
   // Note: Location data loading is handled by usePermissionFilters hook
 
@@ -690,6 +692,23 @@ const NcdsScreeningComp = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+
+        // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
+        let osmData = [];
+        if (service) {
+          try {
+            osmData = await getOsmByHealthService(service);
+            console.log("📊 OSM Data received:", osmData.length, "items");
+            console.log("🆔 OSM IDs:", osmData.map(o => o.id));
+            setOsmDataByService(osmData);
+          } catch (err) {
+            console.error("Error fetching OSM data:", err);
+            setOsmDataByService([]);
+          }
+        } else {
+          setOsmDataByService([]);
+        }
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?skip=0&limit=100`);
         const data = await response.json();
 
@@ -702,6 +721,7 @@ const NcdsScreeningComp = () => {
           _thaiDate: formatThaiDate(item.assessment_date), // เก็บวันที่ไทยสำหรับการกรอง
           rawData: item, // เก็บข้อมูลดิบไว้ใช้ในหน้ารายละเอียด
           location_data: item.location_data || {}, // เก็บข้อมูล location
+          external_user_id: item.external_user_id, // เพิ่ม external_user_id
         }));
 
         setAllRows(transformedData);
@@ -726,7 +746,7 @@ const NcdsScreeningComp = () => {
     };
 
     fetchData();
-  }, [currentBuddhistYear]);
+  }, [currentBuddhistYear, service]); // เพิ่ม service เพื่อให้ดึงข้อมูลใหม่เมื่อเลือกหน่วยบริการ
 
   // Note: Location data loading is now handled by usePermissionFilters hook
 
@@ -746,6 +766,66 @@ const NcdsScreeningComp = () => {
 
   const filteredRows = useMemo(() => {
     return allRows.filter((row) => {
+      // Year filtering
+      if (year && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+
+          if (!matchesYear) {
+            return false;
+          }
+        }
+      }
+
+      // Month filtering
+      if (month && row._thaiDate) {
+        const parsedDate = parseThaiDate(row._thaiDate);
+        if (parsedDate && !isInMonth(parsedDate, month)) {
+          return false;
+        }
+      }
+
+      // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
+      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
+      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
+      if (service && osmDataByService.length > 0) {
+        console.log("🎯 Service filter enabled (PRIORITY)");
+        console.log("📊 Rows before service filter:", row.external_user_id);
+
+        // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
+        const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
+        console.log("🆔 OSM ID Set (first 5):", Array.from(osmIdSet).slice(0, 5));
+        console.log("👥 Total OSMs:", osmIdSet.size);
+
+        // Filter เฉพาะที่มี external_user_id อยู่ใน osmIdSet
+        const match = row.external_user_id && osmIdSet.has(row.external_user_id);
+        if (!match && row.external_user_id) {
+          console.log("❌ No match - external_user_id:", row.external_user_id);
+        } else if (match) {
+          console.log("✅ Match - external_user_id:", row.external_user_id);
+        }
+
+        if (!match) {
+          console.log("❌ Failed service filter");
+          return false;
+        }
+
+        // ถ้าเลือกหน่วยบริการแล้ว ให้ skip filter ตามพื้นที่ทิ้ง
+        console.log("✅ Service filter passed - skipping location filters");
+        // ยังคงต้อง filter keyword อยู่
+        const keywordMatch = !keyword || (
+          row.name.includes(keyword) ||
+          row.date.includes(keyword) ||
+          String(row.index).includes(keyword)
+        );
+        return keywordMatch;
+      }
+
+      // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
       // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
       const locationData = row.location_data || {};
 
@@ -784,32 +864,10 @@ const NcdsScreeningComp = () => {
         locationData.district?.includes(keyword)
       );
 
-      // Year filtering
-      if (year && row._thaiDate) {
-        const parsedDate = parseThaiDate(row._thaiDate);
-        if (parsedDate) {
-          const yearNum = parseInt(year);
-          const matchesYear = yearType === "fiscal"
-            ? isInFiscalYear(parsedDate, yearNum)
-            : isInCalendarYear(parsedDate, yearNum);
-
-          if (!matchesYear) {
-            return false;
-          }
-        }
-      }
-
-      // Month filtering
-      if (month && row._thaiDate) {
-        const parsedDate = parseThaiDate(row._thaiDate);
-        if (parsedDate && !isInMonth(parsedDate, month)) {
-          return false;
-        }
-      }
-
       return provinceMatch && districtMatch && subdistrictMatch && keywordMatch;
     });
-  }, [keyword, allRows, year, yearType, month, zone, province, district, subdistrict, healthAreas, provinces, districts, subdistricts]);
+  }, [keyword, allRows, year, yearType, month, zone, province, district, subdistrict, service, osmDataByService, healthAreas, provinces, districts, subdistricts]); // เพิ่ม service และ osmDataByService
+
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
