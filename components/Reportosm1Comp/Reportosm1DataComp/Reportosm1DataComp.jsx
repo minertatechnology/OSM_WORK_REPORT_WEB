@@ -641,6 +641,9 @@ const Reportosm1DataComp = () => {
     districts,
     subdistricts,
     healthServices,
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -934,7 +937,7 @@ const Reportosm1DataComp = () => {
             onChange={(e) => handleDistrictChange(e.target.value)}
             options={Array.isArray(districts) ? districts.map(d => ({ label: d.name_th, value: d.code })) : []}
             icon={Building2}
-            disabled={isLocked('district') || !province}
+            disabled={isLocked('district') || isDistrictDisabled}
           />
           <CustomSelect
             label="ตำบล"
@@ -943,7 +946,7 @@ const Reportosm1DataComp = () => {
             onChange={(e) => handleSubdistrictChange(e.target.value)}
             options={Array.isArray(subdistricts) ? subdistricts.map(s => ({ label: s.name_th, value: s.code })) : []}
             icon={Home}
-            disabled={isLocked('subdistrict') || !district}
+            disabled={isLocked('subdistrict') || isSubdistrictDisabled}
           />
           <CustomSelect
             label="หน่วยบริการ"
@@ -955,7 +958,7 @@ const Reportosm1DataComp = () => {
               value: h.code
             })) : []}
             icon={Home}
-            disabled={isLocked('service') || !province || !district || !subdistrict}
+            disabled={isLocked('service') || isServiceDisabled}
           />
         </div>
       </div>

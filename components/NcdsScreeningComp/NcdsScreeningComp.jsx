@@ -652,6 +652,9 @@ const NcdsScreeningComp = () => {
     subdistricts,
     healthServices,
     handleReset,
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -979,7 +982,7 @@ const NcdsScreeningComp = () => {
             }))}
             placeholder="-- เลือกอำเภอ --"
             icon={MapPin}
-            disabled={isLocked('district') || !province}
+            disabled={isLocked('district') || isDistrictDisabled}
           />
           <CustomSelect
             label="ตำบล"
@@ -991,7 +994,7 @@ const NcdsScreeningComp = () => {
             }))}
             placeholder="-- เลือกตำบล --"
             icon={MapPin}
-            disabled={isLocked('subdistrict') || !district}
+            disabled={isLocked('subdistrict') || isSubdistrictDisabled}
           />
           <CustomSelect
             label="หน่วยบริการ"
@@ -1003,7 +1006,7 @@ const NcdsScreeningComp = () => {
             }))}
             placeholder="-- เลือกหน่วยบริการ --"
             icon={Building2}
-            disabled={isLocked('service') || !province}
+            disabled={isLocked('service') || isServiceDisabled}
           />
         </div>
 

@@ -232,6 +232,22 @@ export const getHealthServices = async (params = {}) => {
   try {
     const searchParams = new URLSearchParams();
 
+    // ✅ เพิ่มการกรองหน่วยบริการไม่เอาเอกชน (exclude private health services)
+    // หน่วยบริการเอกชนที่ต้องกรองออก:
+    // - 7310dd94-0395-48cb-845b-803279a54f6c (คลินิกเอกชน)
+    // - 96ca3348-49c2-4d89-903b-32939fd1c95c (โรงพยาบาลเอกชน)
+    // - f464d614-c20e-4391-84a9-4c8edb7982a9 (หน่วยบริการเอกชนอื่นๆ)
+    const excludedHealthServiceTypeIds = [
+      "7310dd94-0395-48cb-845b-803279a54f6c",
+      "96ca3348-49c2-4d89-903b-32939fd1c95c",
+      "f464d614-c20e-4391-84a9-4c8edb7982a9",
+    ];
+
+    // เพิ่ม exclude parameters ลงใน searchParams
+    excludedHealthServiceTypeIds.forEach((id) => {
+      searchParams.append("health_service_type_ids_exclude", id);
+    });
+
     Object.entries(params).forEach(([key, value]) => {
       if (value === undefined || value === null || value === "") {
         return;

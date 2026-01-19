@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useUserPermission } from '@context/UserPermissionProvider';
 import {
   getHealthAreas,
@@ -298,6 +298,36 @@ export const usePermissionFilters = (options = {}) => {
     if (isLocked('service') && initialFilters.service) setService(initialFilters.service);
   }, [canClearFilter, isLocked, getInitialFilters]);
 
+  /**
+   * ✅ ตรวจสอบว่าควร disable dropdown หรือไม่ (cascading logic)
+   * - อำเภอ disable ถ้าไม่ได้เลือกจังหวัด
+   * - ตำบล disable ถ้าไม่ได้เลือกอำเภอ
+   * - หน่วยบริการ disable ถ้าไม่ได้เลือกตำบล
+   */
+  const isDistrictDisabled = useMemo(() => {
+    // ถ้าไม่ได้เลือกจังหวัด หรือจังหวัดถูก lock แต่ไม่มีค่า
+    if (!province || (isLocked('province') && province === '')) {
+      return true;
+    }
+    return false;
+  }, [province, isLocked]);
+
+  const isSubdistrictDisabled = useMemo(() => {
+    // ถ้าไม่ได้เลือกอำเภอ หรืออำเภอถูก lock แต่ไม่มีค่า
+    if (!district || (isLocked('district') && district === '')) {
+      return true;
+    }
+    return false;
+  }, [district, isLocked]);
+
+  const isServiceDisabled = useMemo(() => {
+    // ถ้าไม่ได้เลือกตำบล หรือตำบลถูก lock แต่ไม่มีค่า
+    if (!subdistrict || (isLocked('subdistrict') && subdistrict === '')) {
+      return true;
+    }
+    return false;
+  }, [subdistrict, isLocked]);
+
   return {
     // States
     yearType,
@@ -340,6 +370,11 @@ export const usePermissionFilters = (options = {}) => {
     isLocked,
     canClearFilter,
     canChangeFilter,
+
+    // ✅ Cascading disable states
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
 
     // Permission data
     scope,

@@ -838,6 +838,9 @@ const PregnantReportComp = () => {
     subdistricts,
     healthServices,
     handleReset,
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -1389,7 +1392,7 @@ const PregnantReportComp = () => {
             }))}
             placeholder="-- เลือกอำเภอ --"
             icon={MapPin}
-            disabled={isLocked('district') || !province}
+            disabled={isLocked('district') || isDistrictDisabled}
           />
           <CustomSelect
             label="ตำบล"
@@ -1401,7 +1404,7 @@ const PregnantReportComp = () => {
             }))}
             placeholder="-- เลือกตำบล --"
             icon={MapPin}
-            disabled={isLocked('subdistrict') || !district}
+            disabled={isLocked('subdistrict') || isSubdistrictDisabled}
           />
           <CustomSelect
             label="หน่วยบริการ"
@@ -1413,7 +1416,7 @@ const PregnantReportComp = () => {
             }))}
             placeholder="-- เลือกหน่วยบริการ --"
             icon={Building2}
-            disabled={isLocked('service') || !province}
+            disabled={isLocked('service') || isServiceDisabled}
           />
         </div>
 

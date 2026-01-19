@@ -696,6 +696,9 @@ const ElderlyScreeningComp = () => {
     districts,
     subdistricts,
     healthServices,
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -1083,7 +1086,7 @@ const ElderlyScreeningComp = () => {
             }))}
             placeholder="-- เลือกอำเภอ --"
             icon={MapPin}
-            disabled={isLocked('district')}
+            disabled={isLocked('district') || isDistrictDisabled}
           />
           <CustomSelect
             label="ตำบล"
@@ -1095,7 +1098,7 @@ const ElderlyScreeningComp = () => {
             }))}
             placeholder="-- เลือกตำบล --"
             icon={MapPin}
-            disabled={isLocked('subdistrict')}
+            disabled={isLocked('subdistrict') || isSubdistrictDisabled}
           />
           <CustomSelect
             label="หน่วยบริการ"
@@ -1107,7 +1110,7 @@ const ElderlyScreeningComp = () => {
             }))}
             placeholder="-- เลือกหน่วยบริการ --"
             icon={Building2}
-            disabled={isLocked('service')}
+            disabled={isLocked('service') || isServiceDisabled}
           />
         </div>
 

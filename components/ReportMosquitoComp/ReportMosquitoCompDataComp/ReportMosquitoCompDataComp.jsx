@@ -775,6 +775,9 @@ const ReportMosquitoCompDataComp = () => {
     subdistricts,
     villages,
     healthServices,
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -1543,7 +1546,7 @@ const ReportMosquitoCompDataComp = () => {
             onChange={(e) => handleDistrictChange(e.target.value)}
             options={Array.isArray(districts) ? districts.map(d => ({ label: d.name_th, value: d.code })) : []}
             icon={Building2}
-            disabled={isLocked('district') || !province}
+            disabled={isLocked('district') || isDistrictDisabled}
           />
           <CustomSelect
             label="ตำบล"
@@ -1552,7 +1555,7 @@ const ReportMosquitoCompDataComp = () => {
             onChange={(e) => handleSubdistrictChange(e.target.value)}
             options={Array.isArray(subdistricts) ? subdistricts.map(s => ({ label: s.name_th, value: s.code })) : []}
             icon={Home}
-            disabled={isLocked('subdistrict') || !district}
+            disabled={isLocked('subdistrict') || isSubdistrictDisabled}
           />
 {/* หมู่บ้าน - ยังไม่เปิดใช้งาน เนื่องจากข้อมูลยังไม่พร้อม
           <CustomSelect
@@ -1575,7 +1578,7 @@ const ReportMosquitoCompDataComp = () => {
               value: h.code
             })) : []}
             icon={Home}
-            disabled={isLocked('service') || !province || !district || !subdistrict}
+            disabled={isLocked('service') || isServiceDisabled}
           />
         </div>
       </div>

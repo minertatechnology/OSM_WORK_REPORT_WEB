@@ -368,6 +368,9 @@ const DashboardSobos = () => {
     subdistricts,
     healthServices,
     handleReset,
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -840,7 +843,7 @@ const DashboardSobos = () => {
               }))}
               placeholder="-- เลือกอำเภอ --"
               icon={MapPin}
-              disabled={isLocked('district') || !province}
+              disabled={isLocked('district') || isDistrictDisabled}
             />
             <CustomSelect
               label="ตำบล"
@@ -852,7 +855,7 @@ const DashboardSobos = () => {
               }))}
               placeholder="-- เลือกตำบล --"
               icon={MapPin}
-              disabled={isLocked('subdistrict') || !district}
+              disabled={isLocked('subdistrict') || isSubdistrictDisabled}
             />
             <CustomSelect
               label="หน่วยบริการ"
@@ -864,7 +867,7 @@ const DashboardSobos = () => {
               }))}
               placeholder="-- เลือกหน่วยบริการ --"
               icon={Building2}
-              disabled={isLocked('service') || !subdistrict}
+              disabled={isLocked('service') || isServiceDisabled}
             />
           </div>
 
