@@ -19,6 +19,8 @@ import {
   Gift,
   ChevronDown,
 } from "lucide-react";
+import { getMenuStructure, getUserMenuPermissions } from "@services/menuPermissionService";
+import { filterMenusByScope } from "@utils/menuPermissionHelper";
 import alertService from "@services/alertService/alertService";
 import { useSessionStorage } from "@hooks/useSessionStorage";
 import { useIsClient } from "@hooks/useIsClient";
@@ -34,7 +36,31 @@ import { useIsClient } from "@hooks/useIsClient";
  */
 // const PRIMARY = "#6E28B7";
 
-// Submenus
+// Icon mapping from API icon names to Lucide React components
+const ICON_MAP = {
+  Home: <Home className="w-5 h-5" />,
+  Users: <Users className="w-5 h-5" />,
+  Database: <Database className="w-5 h-5" />,
+  FileText: <FileText className="w-5 h-5" />,
+  BarChart2: <BarChart2 className="w-5 h-5" />,
+  UserCheck: <UserCheck className="w-5 h-5" />,
+  Activity: <Activity className="w-5 h-5" />,
+  FileCheck: <FileCheck className="w-5 h-5" />,
+  FileSearch: <FileSearch className="w-5 h-5" />,
+  Bell: <Bell className="w-5 h-5" />,
+  Gift: <Gift className="w-5 h-5" />,
+};
+
+// Helper to get icon component from API icon name or return default
+const getIconComponent = (iconName) => {
+  if (typeof iconName === 'object' && iconName !== null) {
+    // Already a React component (from static MENU_MAP)
+    return iconName;
+  }
+  return ICON_MAP[iconName] || <FileText className="w-5 h-5" />;
+};
+
+// Submenus (for fallback/static menu only)
 const REPORT_OSM1_SUBMENU = [
   { name: "ข้อมูลรายงาน อสม.1", url: "/report-osm1/data" },
   { name: "GIS รายงาน อสม.1", url: "/report-osm1/gis" },
@@ -416,9 +442,16 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
   const router = useRouter();
   const [userInfo, , isLoaded] = useSessionStorage("userInfo", {});
   const isClient = useIsClient();
-  const [osm1Open, setOsm1Open] = useState(false); // submenu state
+  const [osm1Open, setOsm1Open] = useState(false); // submenu state (for static fallback)
   const [mosquitoOpen, setMosquitoOpen] = useState(false);
   const [pointsOpen, setPointsOpen] = useState(false);
+
+  // State สำหรับเมนูจาก API
+  const [menuItems, setMenuItems] = useState([]);
+  const [menuLoading, setMenuLoading] = useState(true);
+
+  // State สำหรับเปิด/ปิด submenu จาก API (use Map to support dynamic menus)
+  const [openSubmenus, setOpenSubmenus] = useState(new Map());
 
   // คำนวณ roleType จาก sessionStorage ที่โหลดแล้ว
   const roleType = React.useMemo(() => {
@@ -426,7 +459,140 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
     return getRoleType(userInfo?.auth);
   }, [isClient, isLoaded, userInfo]);
 
-  const menuItems = roleType ? MENU_MAP[roleType] || MENU_MAP.sobos : [];
+  // ดึง user's scope level จาก permission_scope
+  const userScopeLevel = React.useMemo(() => {
+    if (!isClient || !isLoaded) return null;
+    return userInfo?.user?.permission_scope?.level || null;
+  }, [isClient, isLoaded, userInfo]);
+
+  // ดึง user's position code สำหรับเช็ค permissions
+  const userPositionCode = React.useMemo(() => {
+    if (!isClient || !isLoaded) return null;
+
+    const user = userInfo?.user;
+    const scopeLevel = user?.permission_scope?.level;
+    const scopeLevelField = user?.permission_scope?.scope_level; // ลองดู field อื่นด้วย
+
+    console.log("🔑 DEBUG: scopeLevel value:", scopeLevel, "type:", typeof scopeLevel);
+    console.log("🔑 DEBUG: scopeLevelField value:", scopeLevelField, "type:", typeof scopeLevelField);
+
+    // Map จาก scope_level (จาก /lookups/positions) → position_code (จาก database)
+    const scopeLevelToCodeMap = {
+      "country": "DHS",     // สนับสนุนบริการสุขภาพ (DHS)
+      "area": "HA",         // เขตสุขภาพ (HA)
+      "subdistrict": "SHP", // รพ.สต. (SHP) - ตาม data จริง
+      "province": "PPO",    // จังหวัด (PPO) - ตาม data จริง
+      "district": "DPO",    // อำเภอ (DPO) - ตาม data จริง
+      "village": "VIL",     // หมู่บ้าน
+    };
+
+    console.log("🔑 DEBUG: Map entries:", Object.entries(scopeLevelToCodeMap));
+
+    // ลองดูแต่ละขั้นตอน
+    const step1 = user?.position_code;
+    const step2 = user?.role_code;
+    const step3 = scopeLevelField ? scopeLevelToCodeMap[scopeLevelField] : null;
+    const step4 = scopeLevel ? scopeLevelToCodeMap[scopeLevel] : null;
+
+    console.log("🔑 DEBUG: Step by step:");
+    console.log("  - position_code:", step1);
+    console.log("  - role_code:", step2);
+    console.log("  - from scope_level:", step3);
+    console.log("  - from level (should be DHS):", step4);
+
+    const code = step1 || step2 || step3 || step4 || null;
+
+    console.log("🔑 Final userPositionCode:", code);
+    return code;
+  }, [isClient, isLoaded, userInfo]);
+
+  // ดึงเมนูจาก API + permissions จาก backend ตาม role ของ user
+  useEffect(() => {
+    if (!isClient || !isLoaded) return;
+
+    const fetchMenus = async () => {
+      try {
+        setMenuLoading(true);
+
+        // ดึง permissions จาก backend ตาม role ของ user ที่ login
+        let userPermissions = {};
+        try {
+          if (userPositionCode) {
+            console.log(`🔍 Fetching permissions for position_code: ${userPositionCode}`);
+            const permissionsData = await getUserMenuPermissions(userPositionCode);
+            console.log(`✅ Permissions API response for ${userPositionCode}:`, permissionsData);
+
+            if (permissionsData.menus && permissionsData.menus.length > 0) {
+              permissionsData.menus.forEach(menu => {
+                userPermissions[menu.code] = menu.can_view;
+                console.log(`  - ${menu.code}: ${menu.can_view}`);
+              });
+            } else {
+              console.warn(`⚠️ No menus found in permissions data for ${userPositionCode}`);
+            }
+          } else {
+            console.warn("⚠️ No userPositionCode found, skipping permissions fetch");
+          }
+        } catch (e) {
+          console.error(`❌ Failed to fetch permissions for ${userPositionCode}:`, e);
+        }
+
+        console.log(`📋 Final userPermissions object:`, userPermissions);
+        console.log(`📋 userPermissions keys:`, Object.keys(userPermissions));
+
+        // ใช้ static menu ตาม roleType
+        const staticMenus = roleType ? MENU_MAP[roleType] || MENU_MAP.sobos : [];
+
+        // กรองเมนูตาม permissions (can_view)
+        const menusWithPermissions = staticMenus.filter(menu => {
+          // ถ้าไม่มี permissions ให้แสดงทั้งหมด (fallback)
+          if (Object.keys(userPermissions).length === 0) return true;
+
+          // หา menu code จาก menu name (map กันชั่วคราว)
+          const menuCodeMap = {
+            "หน้าหลัก": "dashboard",
+            "รายชื่อผู้ใช้งานแอปพลิเคชัน": "users",
+            "รายงาน อสม.1": "osm1",
+            "รายงาน ลูกน้ำยุงลาย": "mosquito",
+            "ผลตรวจสุขภาพ อสม.": "health",
+            "คัดกรองผู้สูงอายุในชุมชน": "elderly",
+            "คัดกรองโรคไม่ติดต่อเรื้อรัง NCDs": "ncds",
+            "รายงานประเมินหญิงตั้งครรภ์": "pregnant",
+            "ประกาศข่าวสาร": "news",
+            "กำหนดสิทธิ์การเข้าถึง": "access_control",
+            "จัดการคะแนนสะสม อสม.": "osm-points",
+            "รายงานผลตรวจ ATK": "atk-report",
+          };
+
+          const menuCode = menuCodeMap[menu.name];
+          if (!menuCode) return true; // ไม่รู้จัก menu code ให้แสดง
+
+          // เช็ค can_view
+          const canView = userPermissions[menuCode];
+          console.log(`Menu "${menu.name}" (${menuCode}): can_view =`, canView);
+          return canView === true; // ต้องเป็น true เท่านั้นถึงแสดง
+        });
+
+        // กรองเมนูตาม scope level ของ user (จาก permission_scope.level)
+        const filteredMenus = userScopeLevel
+          ? filterMenusByScope(menusWithPermissions, userScopeLevel)
+          : menusWithPermissions;
+
+        console.log("Using static menus for role", roleType, "scope", userScopeLevel, ":", filteredMenus);
+        setMenuItems(filteredMenus);
+
+      } catch (error) {
+        console.error("Failed to fetch menus:", error);
+        // Fallback to static menu
+        const fallbackMenu = roleType ? MENU_MAP[roleType] || MENU_MAP.sobos : [];
+        setMenuItems(fallbackMenu);
+      } finally {
+        setMenuLoading(false);
+      }
+    };
+
+    fetchMenus();
+  }, [isClient, isLoaded, userScopeLevel, roleType, userPositionCode]);
 
   const isActive = (url) => router.pathname === url;
 
@@ -451,6 +617,430 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
         router.push("/");
       }
     });
+  };
+
+  // Toggle submenu state for API menus
+  const toggleSubmenu = (menuCode) => {
+    setOpenSubmenus((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(menuCode, !newMap.get(menuCode));
+      return newMap;
+    });
+  };
+
+  // Check if menu has children (API menus)
+  const hasChildren = (item) => {
+    return item.children && item.children.length > 0;
+  };
+
+  // Render menu item (supports both API and static menu structures)
+  const renderMenuItem = (item) => {
+    const isApiMenu = !!item.code; // API menus have 'code' field
+    const hasSub = isApiMenu ? hasChildren(item) : item.hasSub;
+    const icon = isApiMenu ? getIconComponent(item.icon_name) : item.icon;
+    const active = isActive(item.url);
+    const isSubOpen = isApiMenu ? openSubmenus.get(item.code) : false;
+
+    // For static menus, use existing submenu logic
+    if (!isApiMenu && hasSub) {
+      // Existing static submenu handling...
+      if (
+        item.name === "รายงาน อสม.1" &&
+        (roleType === "sobos" ||
+          roleType === "zone" ||
+          roleType === "province")
+      ) {
+        const subActive =
+          isActive(item.url) ||
+          REPORT_OSM1_SUBMENU.some((sub) => isActive(sub.url));
+        return (
+          <li key={item.url}>
+            <button
+              type="button"
+              className={`
+                group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+                transition-all duration-200 will-change-transform
+                ${
+                  subActive
+                    ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
+                    : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
+                }
+                ${subActive ? "translate-y-0" : "hover:-translate-y-[1px]"}
+              `}
+              style={
+                subActive
+                  ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
+                  : {}
+              }
+              onClick={() => setOsm1Open((o) => !o)}
+            >
+              <span className="flex items-center justify-center rounded-sm">
+                <span
+                  className={`
+                    flex items-center justify-center rounded-md
+                    h-6 w-6 text-[11px]
+                    ${
+                      subActive
+                        ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
+                        : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
+                    }
+                    border border-white/50
+                  `}
+                >
+                  {icon}
+                </span>
+              </span>
+              <span className="flex-1 text-left tracking-[0.1px]">
+                {item.name}
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 ml-1 transition-transform ${
+                  osm1Open ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {osm1Open && (
+              <div className="mt-1 pb-1">
+                <div className="bg-[#f4eeff] rounded-lg shadow w-full flex flex-col py-1 px-2">
+                  {REPORT_OSM1_SUBMENU.map((sub) => (
+                    <button
+                      key={sub.url}
+                      className={`
+                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
+                        transition-all
+                        ${
+                          isActive(sub.url)
+                            ? "bg-white text-[#7e32e2] shadow"
+                            : "text-[#6E28B7] hover:bg-[#ece1f7]"
+                        }
+                      `}
+                      onClick={() => {
+                        router.push(sub.url);
+                        setOsm1Open(true);
+                        onMenuClick(sub.name);
+                        if (isMobile && onClose) onClose();
+                      }}
+                    >
+                      {sub.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </li>
+        );
+      }
+
+      if (
+        item.name === "รายงาน ลูกน้ำยุงลาย" &&
+        (roleType === "sobos" ||
+          roleType === "zone" ||
+          roleType === "province")
+      ) {
+        const subActive =
+          isActive(item.url) ||
+          REPORT_MOSQUITO_SUBMENU.some((sub) => isActive(sub.url));
+        return (
+          <li key={item.url}>
+            <button
+              type="button"
+              className={`
+                group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+                transition-all duration-200 will-change-transform
+                ${
+                  subActive
+                    ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
+                    : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
+                }
+                ${subActive ? "translate-y-0" : "hover:-translate-y-[1px]"}
+              `}
+              style={
+                subActive
+                  ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
+                  : {}
+              }
+              onClick={() => setMosquitoOpen((o) => !o)}
+            >
+              <span className="flex items-center justify-center rounded-sm">
+                <span
+                  className={`
+                    flex items-center justify-center rounded-md
+                    h-6 w-6 text-[11px]
+                    ${
+                      subActive
+                        ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
+                        : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
+                    }
+                    border border-white/50
+                  `}
+                >
+                  {icon}
+                </span>
+              </span>
+              <span className="flex-1 text-left tracking-[0.1px]">
+                {item.name}
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 ml-1 transition-transform ${
+                  mosquitoOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {mosquitoOpen && (
+              <div className="mt-1 pb-1">
+                <div className="bg-[#f4eeff] rounded-lg shadow w-full flex flex-col py-1 px-2">
+                  {REPORT_MOSQUITO_SUBMENU.map((sub) => (
+                    <button
+                      key={sub.url}
+                      className={`
+                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
+                        transition-all
+                        ${
+                          isActive(sub.url)
+                            ? "bg-white text-[#7e32e2] shadow"
+                            : "text-[#6E28B7] hover:bg-[#ece1f7]"
+                        }
+                      `}
+                      onClick={() => {
+                        if (sub.name === "ข้อมูลรายงาน ลูกน้ำยุงลาย") {
+                          window.location.href = `${sub.url}?_t=${Date.now()}`;
+                        } else {
+                          router.push(sub.url);
+                        }
+                        setMosquitoOpen(true);
+                        onMenuClick(sub.name);
+                        if (isMobile && onClose) onClose();
+                      }}
+                    >
+                      {sub.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </li>
+        );
+      }
+
+      if (item.name === "จัดการคะแนนสะสม อสม." && roleType === "sobos") {
+        const subActive =
+          isActive(item.url) ||
+          OSM_POINTS_SUBMENU.some((sub) => isActive(sub.url));
+        return (
+          <li key={item.url}>
+            <button
+              type="button"
+              className={`
+                group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+                transition-all duration-200 will-change-transform
+                ${
+                  subActive
+                    ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
+                    : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
+                }
+                ${subActive ? "translate-y-0" : "hover:-translate-y-[1px]"}
+              `}
+              style={
+                subActive
+                  ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
+                  : {}
+              }
+              onClick={() => setPointsOpen((o) => !o)}
+            >
+              <span className="flex items-center justify-center rounded-sm">
+                <span
+                  className={`
+                    flex items-center justify-center rounded-md
+                    h-6 w-6 text-[11px]
+                    ${
+                      subActive
+                        ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
+                        : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
+                    }
+                    border border-white/50
+                  `}
+                >
+                  {icon}
+                </span>
+              </span>
+              <span className="flex-1 text-left tracking-[0.1px]">
+                {item.name}
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 ml-1 transition-transform ${
+                  pointsOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {pointsOpen && (
+              <div className="mt-1 pb-1">
+                <div className="bg-[#f4eeff] rounded-lg shadow w-full flex flex-col py-1 px-2">
+                  {OSM_POINTS_SUBMENU.map((sub) => (
+                    <button
+                      key={sub.url}
+                      className={`
+                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
+                        transition-all
+                        ${
+                          isActive(sub.url)
+                            ? "bg-white text-[#7e32e2] shadow"
+                            : "text-[#6E28B7] hover:bg-[#ece1f7]"
+                        }
+                      `}
+                      onClick={() => {
+                        router.push(sub.url);
+                        setPointsOpen(true);
+                        onMenuClick(sub.name);
+                        if (isMobile && onClose) onClose();
+                      }}
+                    >
+                      {sub.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </li>
+        );
+      }
+    }
+
+    // API menus with children
+    if (isApiMenu && hasSub) {
+      const subActive =
+        isActive(item.url) ||
+        (item.children && item.children.some((sub) => isActive(sub.url)));
+
+      return (
+        <li key={item.code || item.url}>
+          <button
+            type="button"
+            className={`
+              group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+              transition-all duration-200 will-change-transform
+              ${
+                subActive
+                  ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
+                  : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
+              }
+              ${subActive ? "translate-y-0" : "hover:-translate-y-[1px]"}
+            `}
+            style={
+              subActive
+                ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
+                : {}
+            }
+            onClick={() => toggleSubmenu(item.code)}
+          >
+            <span className="flex items-center justify-center rounded-sm">
+              <span
+                className={`
+                  flex items-center justify-center rounded-md
+                  h-6 w-6 text-[11px]
+                  ${
+                    subActive
+                      ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
+                      : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
+                  }
+                  border border-white/50
+                `}
+              >
+                {icon}
+              </span>
+            </span>
+            <span className="flex-1 text-left tracking-[0.1px]">
+              {item.name_th || item.name}
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 ml-1 transition-transform ${
+                isSubOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {isSubOpen && item.children && (
+            <div className="mt-1 pb-1">
+              <div className="bg-[#f4eeff] rounded-lg shadow w-full flex flex-col py-1 px-2">
+                {item.children.map((sub) => (
+                  <button
+                    key={sub.code || sub.url}
+                    className={`
+                      flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
+                      transition-all
+                      ${
+                        isActive(sub.url)
+                          ? "bg-white text-[#7e32e2] shadow"
+                          : "text-[#6E28B7] hover:bg-[#ece1f7]"
+                      }
+                    `}
+                    onClick={() => {
+                      router.push(sub.url);
+                      onMenuClick(sub.name_th || sub.name);
+                      if (isMobile && onClose) onClose();
+                    }}
+                  >
+                    {sub.name_th || sub.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </li>
+      );
+    }
+
+    // Regular menu item (no submenu)
+    return (
+      <li key={item.code || item.url}>
+        <button
+          onClick={() => go(item)}
+          className={`
+            group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+            transition-all duration-200 will-change-transform
+            ${
+              active
+                ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
+                : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
+            }
+            ${active ? "translate-y-0" : "hover:-translate-y-[1px]"}
+          `}
+          style={
+            active
+              ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
+              : {}
+          }
+        >
+          <span className="flex items-center justify-center rounded-sm">
+            <span
+              className={`
+                flex items-center justify-center rounded-md
+                h-6 w-6 text-[11px]
+                ${
+                  active
+                    ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
+                    : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
+                }
+                border border-white/50
+              `}
+            >
+              {icon}
+            </span>
+          </span>
+          <span
+            className={`flex-1 text-left tracking-[0.1px] ${
+              active ? "text-[13px]" : ""
+            }`}
+          >
+            {isApiMenu ? (item.name_th || item.name) : item.name}
+          </span>
+          {active && (
+            <span
+              className="h-2 w-2 rounded-full bg-gradient-to-br from-[#9c52ea] to-[#6E28B7] shadow-sm shadow-[#6E28B7]/40"
+              aria-hidden="true"
+            />
+          )}
+        </button>
+      </li>
+    );
   };
 
   if (!roleType) {
@@ -506,327 +1096,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
         }`}
       >
         <ul className="space-y-2">
-          {menuItems.map((item) => {
-            // Submenu รายงาน อสม.1 (เฉพาะ sobos, zone, province)
-            if (
-              item.name === "รายงาน อสม.1" &&
-              (roleType === "sobos" ||
-                roleType === "zone" ||
-                roleType === "province")
-            ) {
-              const active =
-                isActive(item.url) ||
-                REPORT_OSM1_SUBMENU.some((sub) => isActive(sub.url));
-              return (
-                <li key={item.url}>
-                  <button
-                    type="button"
-                    className={`
-                      group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
-                      transition-all duration-200 will-change-transform
-                      ${
-                        active
-                          ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
-                          : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
-                      }
-                      ${active ? "translate-y-0" : "hover:-translate-y-[1px]"}
-                    `}
-                    style={
-                      active
-                        ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
-                        : {}
-                    }
-                    onClick={() => setOsm1Open((o) => !o)}
-                  >
-                    <span className="flex items-center justify-center rounded-sm">
-                      <span
-                        className={`
-                          flex items-center justify-center rounded-md
-                          h-6 w-6 text-[11px]
-                          ${
-                            active
-                              ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
-                              : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
-                          }
-                          border border-white/50
-                        `}
-                      >
-                        {item.icon}
-                      </span>
-                    </span>
-                    <span className="flex-1 text-left tracking-[0.1px]">
-                      {item.name}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 ml-1 transition-transform ${
-                        osm1Open ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                  {osm1Open && (
-                    <div className="mt-1 pb-1">
-                      <div className="bg-[#f4eeff] rounded-lg shadow w-full flex flex-col py-1 px-2">
-                        {REPORT_OSM1_SUBMENU.map((sub) => (
-                          <button
-                            key={sub.url}
-                            className={`
-                              flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
-                              transition-all
-                              ${
-                                isActive(sub.url)
-                                  ? "bg-white text-[#7e32e2] shadow"
-                                  : "text-[#6E28B7] hover:bg-[#ece1f7]"
-                              }
-                            `}
-                            onClick={() => {
-                              router.push(sub.url);
-                              setOsm1Open(true);
-                              onMenuClick(sub.name); // <--- ส่งชื่อ submenu
-                              if (isMobile && onClose) onClose();
-                            }}
-                          >
-                            {sub.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </li>
-              );
-            }
-
-            // Submenu รายงาน ลูกน้ำยุงลาย (เฉพาะ sobos, zone, province)
-            if (
-              item.name === "รายงาน ลูกน้ำยุงลาย" &&
-              (roleType === "sobos" ||
-                roleType === "zone" ||
-                roleType === "province")
-            ) {
-              const active =
-                isActive(item.url) ||
-                REPORT_MOSQUITO_SUBMENU.some((sub) => isActive(sub.url));
-              return (
-                <li key={item.url}>
-                  <button
-                    type="button"
-                    className={`
-                      group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
-                      transition-all duration-200 will-change-transform
-                      ${
-                        active
-                          ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
-                          : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
-                      }
-                      ${active ? "translate-y-0" : "hover:-translate-y-[1px]"}
-                    `}
-                    style={
-                      active
-                        ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
-                        : {}
-                    }
-                    onClick={() => setMosquitoOpen((o) => !o)}
-                  >
-                    <span className="flex items-center justify-center rounded-sm">
-                      <span
-                        className={`
-                          flex items-center justify-center rounded-md
-                          h-6 w-6 text-[11px]
-                          ${
-                            active
-                              ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
-                              : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
-                          }
-                          border border-white/50
-                        `}
-                      >
-                        {item.icon}
-                      </span>
-                    </span>
-                    <span className="flex-1 text-left tracking-[0.1px]">
-                      {item.name}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 ml-1 transition-transform ${
-                        mosquitoOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                  {mosquitoOpen && (
-                    <div className="mt-1 pb-1">
-                      <div className="bg-[#f4eeff] rounded-lg shadow w-full flex flex-col py-1 px-2">
-                        {REPORT_MOSQUITO_SUBMENU.map((sub) => (
-                          <button
-                            key={sub.url}
-                            className={`
-                              flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
-                              transition-all
-                              ${
-                                isActive(sub.url)
-                                  ? "bg-white text-[#7e32e2] shadow"
-                                  : "text-[#6E28B7] hover:bg-[#ece1f7]"
-                              }
-                            `}
-                            onClick={() => {
-                              // รีเฟรชหน้าอัตโนมัติสำหรับเมนู "ข้อมูลรายงาน ลูกน้ำยุงลาย"
-                              if (sub.name === "ข้อมูลรายงาน ลูกน้ำยุงลาย") {
-                                // Add timestamp to force reload
-                                window.location.href = `${sub.url}?_t=${Date.now()}`;
-                              } else {
-                                router.push(sub.url);
-                              }
-                              setMosquitoOpen(true);
-                              onMenuClick(sub.name); // <--- ส่งชื่อ submenu
-                              if (isMobile && onClose) onClose();
-                            }}
-                          >
-                            {sub.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </li>
-              );
-            }
-
-            // Submenu จัดการคะแนนสะสม อสม. (เฉพาะ sobos)
-            if (item.name === "จัดการคะแนนสะสม อสม." && roleType === "sobos") {
-              const active =
-                isActive(item.url) ||
-                OSM_POINTS_SUBMENU.some((sub) => isActive(sub.url));
-              return (
-                <li key={item.url}>
-                  <button
-                    type="button"
-                    className={`
-                      group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
-                      transition-all duration-200 will-change-transform
-                      ${
-                        active
-                          ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
-                          : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
-                      }
-                      ${active ? "translate-y-0" : "hover:-translate-y-[1px]"}
-                    `}
-                    style={
-                      active
-                        ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
-                        : {}
-                    }
-                    onClick={() => setPointsOpen((o) => !o)}
-                  >
-                    <span className="flex items-center justify-center rounded-sm">
-                      <span
-                        className={`
-                          flex items-center justify-center rounded-md
-                          h-6 w-6 text-[11px]
-                          ${
-                            active
-                              ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
-                              : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
-                          }
-                          border border-white/50
-                        `}
-                      >
-                        {item.icon}
-                      </span>
-                    </span>
-                    <span className="flex-1 text-left tracking-[0.1px]">
-                      {item.name}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 ml-1 transition-transform ${
-                        pointsOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                  {pointsOpen && (
-                    <div className="mt-1 pb-1">
-                      <div className="bg-[#f4eeff] rounded-lg shadow w-full flex flex-col py-1 px-2">
-                        {OSM_POINTS_SUBMENU.map((sub) => (
-                          <button
-                            key={sub.url}
-                            className={`
-                              flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
-                              transition-all
-                              ${
-                                isActive(sub.url)
-                                  ? "bg-white text-[#7e32e2] shadow"
-                                  : "text-[#6E28B7] hover:bg-[#ece1f7]"
-                              }
-                            `}
-                            onClick={() => {
-                              router.push(sub.url);
-                              setPointsOpen(true);
-                              onMenuClick(sub.name); // <--- ส่งชื่อ submenu
-                              if (isMobile && onClose) onClose();
-                            }}
-                          >
-                            {sub.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </li>
-              );
-            }
-
-            // เมนูปกติ
-            const active = isActive(item.url);
-            return (
-              <li key={item.url}>
-                <button
-                  onClick={() => go(item)}
-                  className={`
-                    group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
-                    transition-all duration-200 will-change-transform
-                    ${
-                      active
-                        ? "bg-white text-purple-800 shadow-sm ring-1 ring-white/60"
-                        : "text-[rgba(64,40,97,0.85)] hover:text-purple-800 hover:bg-white/65"
-                    }
-                    ${active ? "translate-y-0" : "hover:-translate-y-[1px]"}
-                  `}
-                  style={
-                    active
-                      ? { boxShadow: "0 2px 6px -2px rgba(110,40,183,0.25)" }
-                      : {}
-                  }
-                >
-                  <span className="flex items-center justify-center rounded-sm">
-                    <span
-                      className={`
-                        flex items-center justify-center rounded-md
-                        h-6 w-6 text-[11px]
-                        ${
-                          active
-                            ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
-                            : "bg-[rgba(255,255,255,0.6)] backdrop-blur-[1px] text-[rgba(110,40,183,0.85)]"
-                        }
-                        border border-white/50
-                      `}
-                    >
-                      {item.icon}
-                    </span>
-                  </span>
-                  <span
-                    className={`flex-1 text-left tracking-[0.1px] ${
-                      active ? "text-[13px]" : ""
-                    }`}
-                  >
-                    {item.name}
-                  </span>
-                  {active && (
-                    <span
-                      className="h-2 w-2 rounded-full bg-gradient-to-br from-[#9c52ea] to-[#6E28B7] shadow-sm shadow-[#6E28B7]/40"
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-              </li>
-            );
-          })}
+          {menuItems.map((item) => renderMenuItem(item))}
         </ul>
       </nav>
 
