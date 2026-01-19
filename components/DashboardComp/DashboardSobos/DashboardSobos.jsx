@@ -452,6 +452,8 @@ const DashboardSobos = () => {
       if (service) {
         try {
           osmData = await getOsmByHealthService(service);
+          console.log("📊 OSM Data received:", osmData.length, "items");
+          console.log("🆔 OSM IDs:", osmData.map(o => o.id));
           setOsmDataByService(osmData);
         } catch (err) {
           console.error("Error fetching OSM data:", err);
@@ -471,46 +473,67 @@ const DashboardSobos = () => {
       let filteredReports = mapData.reports || [];
       let filteredSummary = { ...summary };
 
-      // Filter ตามเขตสุขภาพ
-      if (zone) {
-        // หาจังหวัดที่อยู่ในเขตสุขภาพที่เลือก
-        const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
-        const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
-        if (zoneData && zoneData.provinces) {
-          const provincesInZone = zoneData.provinces.map(p => p.trim());
-          filteredReports = filteredReports.filter(r =>
-            provincesInZone.includes(r.province_name_th?.trim())
-          );
-        }
-      }
-
-      // Filter ตามจังหวัด
-      if (filterProvinceName) {
-        filteredReports = filteredReports.filter(r => r.province_name_th === filterProvinceName);
-      }
-
-      // Filter ตามอำเภอ
-      if (filterDistrictName) {
-        filteredReports = filteredReports.filter(r => r.district_name_th === filterDistrictName);
-      }
-
-      // Filter ตามตำบล
-      if (filterSubdistrictName) {
-        filteredReports = filteredReports.filter(r => r.subdistrict_name_th === filterSubdistrictName);
-      }
-
       // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
-      // โดย map external_user_id กับ id ของ OSM
+      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
+      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
       if (service && osmData.length > 0) {
+        console.log("🎯 Service filter enabled (PRIORITY)");
+        console.log("📊 Reports before service filter:", filteredReports.length);
+
         // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
         const osmIdSet = new Set(osmData.map(osm => osm.id));
+        console.log("🆔 OSM ID Set (first 5):", Array.from(osmIdSet).slice(0, 5));
+        console.log("👥 Total OSMs:", osmIdSet.size);
+
+        // แสดง external_user_id ทั้งหมดของรายงาน
+        const allExternalIds = filteredReports.map(r => r.external_user_id).filter(Boolean);
+        console.log("📋 All external_user_ids (first 5):", allExternalIds.slice(0, 5));
 
         // Filter เฉพาะรายงานที่มี external_user_id อยู่ใน osmIdSet
+        const beforeFilter = filteredReports.length;
         filteredReports = filteredReports.filter(r => {
-          // ถ้ามี external_user_id และอยู่ในรายชื่อ OSM ของหน่วยบริการนี้ ให้แสดง
-          // ถ้าไม่มี external_user_id ไม่ต้องแสดง
-          return r.external_user_id && osmIdSet.has(r.external_user_id);
+          const match = r.external_user_id && osmIdSet.has(r.external_user_id);
+          if (!match && r.external_user_id) {
+            console.log("❌ No match - external_user_id:", r.external_user_id);
+          } else if (match) {
+            console.log("✅ Match - external_user_id:", r.external_user_id);
+          }
+          return match;
         });
+
+        console.log(`✅ Reports after service filter: ${beforeFilter} → ${filteredReports.length}`);
+
+        // ถ้าเลือกหน่วยบริการแล้ว ให้ skip filter ตามพื้นที่ทิ้ง
+        // ไปที่สร้าง summary ได้เลย
+      } else {
+        // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
+        // Filter ตามเขตสุขภาพ
+        if (zone) {
+          // หาจังหวัดที่อยู่ในเขตสุขภาพที่เลือก
+          const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+          const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
+          if (zoneData && zoneData.provinces) {
+            const provincesInZone = zoneData.provinces.map(p => p.trim());
+            filteredReports = filteredReports.filter(r =>
+              provincesInZone.includes(r.province_name_th?.trim())
+            );
+          }
+        }
+
+        // Filter ตามจังหวัด
+        if (filterProvinceName) {
+          filteredReports = filteredReports.filter(r => r.province_name_th === filterProvinceName);
+        }
+
+        // Filter ตามอำเภอ
+        if (filterDistrictName) {
+          filteredReports = filteredReports.filter(r => r.district_name_th === filterDistrictName);
+        }
+
+        // Filter ตามตำบล
+        if (filterSubdistrictName) {
+          filteredReports = filteredReports.filter(r => r.subdistrict_name_th === filterSubdistrictName);
+        }
       }
 
       // สร้าง summary ใหม่จากข้อมูลที่ filter แล้ว
