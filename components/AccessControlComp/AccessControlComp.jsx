@@ -13,6 +13,7 @@ import {
 import { useRouter } from "next/router";
 import AccessControlTable from "@services/Table/AccessControlTable";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import { getPositions } from "@services/lookupService";
 
 // -------------------- MOCK DATA --------------------
 export const mockList = [
@@ -549,12 +550,38 @@ export default function AccessControlComp() {
   const [search, setSearch] = useState("");
   const [searchRole, setSearchRole] = useState("");
   const [filteredList, setFilteredList] = useState(mockList);
+  const [positions, setPositions] = useState([]);
+  const [loadingPositions, setLoadingPositions] = useState(true);
 
   const router = useRouter();
 
+  // สร้าง roleOptions จาก positions data เหมือน ManageAccess
   const roleOptions = useMemo(() => {
-    const roles = mockList.map((x) => x.role);
-    return Array.from(new Set(roles));
+    if (!positions || positions.length === 0) return [];
+
+    // กรองตำแหน่งที่ไม่ต้องการแสดง
+    const excludedCodes = ['DIR', 'VIL']; // Director, Village
+
+    return positions
+      .filter(pos => !excludedCodes.includes(pos.code))
+      .map(pos => pos.name_th || pos.label || pos.position_name || pos.name || pos.id || "");
+  }, [positions]);
+
+  // ดึงข้อมูล positions จาก API
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const data = await getPositions({ limit: 100 });
+        console.log("Positions data:", data);
+        setPositions(data);
+      } catch (error) {
+        console.error("Failed to fetch positions:", error);
+        setPositions([]);
+      } finally {
+        setLoadingPositions(false);
+      }
+    };
+    fetchPositions();
   }, []);
 
   const handleSearch = (e) => {
@@ -680,17 +707,23 @@ export default function AccessControlComp() {
 
               {/* Role Select */}
               <div className="w-full lg:w-72">
-                <CustomSelect
-                  label="บทบาทเจ้าหน้าที่"
-                  placeholder="-- เลือกบทบาทเจ้าหน้าที่ --"
-                  value={searchRole}
-                  onChange={(e) => setSearchRole(e.target.value)}
-                  options={roleOptions.map((role) => ({
-                    label: role,
-                    value: role,
-                  }))}
-                  icon={Shield}
-                />
+                {loadingPositions ? (
+                  <div className="h-12 flex items-center justify-center rounded-xl border-2 border-violet-200 bg-violet-50/50 text-gray-400 text-sm">
+                    กำลังโหลด...
+                  </div>
+                ) : (
+                  <CustomSelect
+                    label="บทบาทเจ้าหน้าที่"
+                    placeholder="-- เลือกบทบาทเจ้าหน้าที่ --"
+                    value={searchRole}
+                    onChange={(e) => setSearchRole(e.target.value)}
+                    options={roleOptions.map((role) => ({
+                      label: role,
+                      value: role,
+                    }))}
+                    icon={Shield}
+                  />
+                )}
               </div>
 
               {/* Buttons */}
