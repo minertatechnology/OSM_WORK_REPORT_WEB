@@ -37,7 +37,7 @@ import {
   generateFiscalYearOptions,
 } from "@utils/fiscalYearHelper";
 
-// เดือน options
+// เดือน options (ปกติ - เริ่มต้นเดือนมกราคม)
 const MONTHS = [
   { label: "มกราคม", value: "01" },
   { label: "กุมภาพันธ์", value: "02" },
@@ -51,6 +51,22 @@ const MONTHS = [
   { label: "ตุลาคม", value: "10" },
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
+];
+
+// เดือน options (ปีงบประมาณ - เริ่มต้นเดือนตุลาคม)
+const FISCAL_MONTHS = [
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
 ];
 
 // ประเภทปี options
@@ -384,6 +400,11 @@ const DashboardSobos = () => {
     setSelectedReportType("");
   };
 
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = useMemo(() => {
+    return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
+  }, [yearType]);
+
   // ฟังก์ชันดึงข้อมูลจาก API
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -440,10 +461,11 @@ const DashboardSobos = () => {
         filters.end_date = endDate.toISOString();
       }
 
-      // กรองตามประเภทรายงาน
-      if (selectedReportType) {
-        filters.report_type = selectedReportType;
-      }
+      // ไม่กรองตามประเภทรายงานที่ API (เพื่อให้ได้ข้อมูลทั้งหมดสำหรับการ์ดสรุป)
+      // filter ตามประเภทรายงานจะทำฝั่ง frontend แทน
+      // if (selectedReportType) {
+      //   filters.report_type = selectedReportType;
+      // }
 
       filters.limit = 10000;
 
@@ -463,7 +485,7 @@ const DashboardSobos = () => {
         setOsmDataByService([]);
       }
 
-      // ดึงข้อมูลจาก 2 APIs พร้อมกัน
+      // ดึงข้อมูลจาก 2 APIs พร้อมกัน (ไม่สน selectedReportType เพื่อให้ได้ข้อมูลทั้งหมด)
       const [mapData, summary] = await Promise.all([
         reportsMapService.getReportsMapData(filters),
         reportsMapService.getProvinceSummary(filters),
@@ -536,15 +558,21 @@ const DashboardSobos = () => {
         }
       }
 
-      // สร้าง summary ใหม่จากข้อมูลที่ filter แล้ว
+      // สร้าง summary ทั้งหมดจากข้อมูลที่ filter แล้ว (ก่อน filter ตามประเภทรายงาน)
       const summaryByType = {};
       REPORT_TYPES.forEach(rt => {
         summaryByType[rt.type] = filteredReports.filter(r => r.report_type === rt.type).length;
       });
 
-      // สร้าง province summary ใหม่
+      // สำหรับแผนที่และตาราง ต้อง filter ตามประเภทรายงาน (ถ้าเลือก)
+      let mapReports = [...filteredReports];
+      if (selectedReportType) {
+        mapReports = filteredReports.filter(r => r.report_type === selectedReportType);
+      }
+
+      // สร้าง province summary ใหม่จากข้อมูลที่ filter แล้ว
       const provinceMap = {};
-      filteredReports.forEach(r => {
+      mapReports.forEach(r => {
         const pName = r.province_name_th || 'ไม่ระบุ';
         if (!provinceMap[pName]) {
           provinceMap[pName] = 0;
@@ -560,15 +588,15 @@ const DashboardSobos = () => {
       setReportsData({
         ...mapData,
         total_reports: filteredReports.length,
-        reports: filteredReports,
+        reports: mapReports,
         summary_by_type: summaryByType
       });
       setProvinceSummary({
         ...filteredSummary,
-        total_reports: filteredReports.length,
+        total_reports: mapReports.length,
         total_provinces: filteredProvinces.length,
         provinces: filteredProvinces,
-        location_data: filteredReports
+        location_data: mapReports
       });
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -643,27 +671,37 @@ const DashboardSobos = () => {
       .toLocaleString();
   }, [chartPieData]);
 
-  // สร้างข้อมูลตารางจังหวัด
+  // สร้างข้อมูลตารางจังหวัด - แสดงทุกจังหวัดเสมอ
   const tableData = useMemo(() => {
-    if (!provinceSummary || !provinceSummary.provinces) {
+    if (!provinces || provinces.length === 0) {
       return [];
     }
 
-    return provinceSummary.provinces.map((prov) => {
-      const provinceName = prov.province_name.trim();
+    // สร้าง Map ของจำนวนรายงานต่อจังหวัดจาก provinceSummary
+    const reportCountMap = {};
+    if (provinceSummary && provinceSummary.provinces) {
+      provinceSummary.provinces.forEach((prov) => {
+        reportCountMap[prov.province_name.trim()] = prov.total_reports;
+      });
+    }
+
+    // สร้างข้อมูลตารางจากทุกจังหวัด
+    return provinces.map((prov) => {
+      const provinceName = prov.name_th || prov.name || "ไม่ระบุ";
+      const provinceNameTrimmed = provinceName.trim();
 
       // หาเขตสุขภาพ
       const zone = HEALTHZONE_PROVINCES.find((z) =>
-        z.provinces.some((p) => p.trim() === provinceName)
+        z.provinces.some((p) => p.trim() === provinceNameTrimmed)
       );
 
       return {
-        province_name: provinceName,
-        total_reports: prov.total_reports,
+        province_name: provinceNameTrimmed,
+        total_reports: reportCountMap[provinceNameTrimmed] || 0,
         zone_name: zone ? zone.zoneName : "-",
       };
     });
-  }, [provinceSummary]);
+  }, [provinceSummary, provinces]);
 
   // สร้างรายชื่อจังหวัดที่ควรแสดงสีบนแผนที่
   // - ถ้าเลือกจังหวัด: แสดงเฉพาะจังหวัดนั้น
@@ -857,7 +895,7 @@ const DashboardSobos = () => {
               label="เดือน"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              options={MONTHS}
+              options={monthOptions}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
             />
@@ -1000,7 +1038,7 @@ const DashboardSobos = () => {
               ข้อมูลสรุป
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-              {/* การ์ดรวมทั้งหมด */}
+              {/* การ์ดรวมทั้งหมด - แสดงผลรวมของทั้ง 7 ประเภทรายงานเสมอ */}
               <div className="group relative flex flex-col justify-between bg-gradient-to-br from-white to-purple-50/30 rounded-2xl shadow-md hover:shadow-2xl border border-purple-100 p-5 min-h-[130px] transition-all duration-300 hover:scale-105 hover:border-purple-300 cursor-pointer overflow-hidden">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/20 to-transparent rounded-bl-full"></div>
                 <div className="flex items-start gap-3 relative z-10">
@@ -1013,13 +1051,14 @@ const DashboardSobos = () => {
                 </div>
                 <div className="mt-4 flex items-end justify-between relative z-10">
                   <span className="text-[28px] font-bold bg-gradient-to-r from-purple-600 to-purple-400 bg-clip-text text-transparent">
-                    {reportsData.total_reports.toLocaleString()}
+                    {Object.values(reportsData.summary_by_type || {}).reduce((sum, count) => sum + count, 0).toLocaleString()}
                   </span>
                 </div>
               </div>
 
-              {/* การ์ดตามประเภทรายงาน (แสดง 7 ประเภท) */}
-              {REPORT_TYPES.map((rt) => {
+              {/* การ์ดตามประเภทรายงาน */}
+              {/* ถ้าเลือก "ทั้งหมด" แสดงทุกการ์ด, ถ้าเลือกรายงานเฉพาะแสดงเฉพาะการ์ดที่เลือก */}
+              {REPORT_TYPES.filter((rt) => !selectedReportType || rt.type === selectedReportType).map((rt) => {
                 const count = reportsData.summary_by_type?.[rt.type] || 0;
                 const Icon = rt.icon;
 
@@ -1130,15 +1169,17 @@ const DashboardSobos = () => {
                   <div className="flex flex-wrap gap-x-8 gap-y-2">
                     <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
                       {chartPieData.slice(0, 7).map((item) => (
-                        <div key={item.name} className="flex items-center gap-2">
-                          <span
-                            className="inline-block w-3 h-3 rounded-full border border-white"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          <span className="text-[15px] font-semibold text-[#231d37]">
-                            {item.name}
-                          </span>
-                          <span className="ml-1 text-[15px] text-[#7e32e2] font-bold">
+                        <div key={item.name} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-block w-3 h-3 rounded-full border border-white shrink-0"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="text-[15px] font-semibold text-[#231d37]">
+                              {item.name}
+                            </span>
+                          </div>
+                          <span className="text-[15px] text-[#7e32e2] font-bold shrink-0 ml-4">
                             {item.value.toLocaleString()}
                           </span>
                         </div>
@@ -1146,15 +1187,17 @@ const DashboardSobos = () => {
                     </div>
                     <div className="flex flex-col gap-2 flex-1 min-w-[150px]">
                       {chartPieData.slice(7).map((item) => (
-                        <div key={item.name} className="flex items-center gap-2">
-                          <span
-                            className="inline-block w-3 h-3 rounded-full border border-white"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          <span className="text-[15px] font-semibold text-[#231d37]">
-                            {item.name}
-                          </span>
-                          <span className="ml-1 text-[15px] text-[#7e32e2] font-bold">
+                        <div key={item.name} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-block w-3 h-3 rounded-full border border-white shrink-0"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="text-[15px] font-semibold text-[#231d37]">
+                              {item.name}
+                            </span>
+                          </div>
+                          <span className="text-[15px] text-[#7e32e2] font-bold shrink-0 ml-4">
                             {item.value.toLocaleString()}
                           </span>
                         </div>

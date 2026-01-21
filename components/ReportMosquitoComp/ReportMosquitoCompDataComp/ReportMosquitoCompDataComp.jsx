@@ -57,6 +57,8 @@ const YEAR_TYPES = [
   { label: "ปีงบประมาณ", value: "fiscal" },
   { label: "รายปี", value: "calendar" },
 ];
+
+// เดือน options (ปกติ - เริ่มต้นเดือนมกราคม)
 const MONTHS = [
   { label: "มกราคม", value: "01" },
   { label: "กุมภาพันธ์", value: "02" },
@@ -70,6 +72,22 @@ const MONTHS = [
   { label: "ตุลาคม", value: "10" },
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
+];
+
+// เดือน options (ปีงบประมาณ - เริ่มต้นเดือนตุลาคม)
+const FISCAL_MONTHS = [
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
 ];
 
 const MOCK_REPORTS = [
@@ -790,7 +808,14 @@ const ReportMosquitoCompDataComp = () => {
     return generateWeekOptionsForMonth(parseInt(year), parseInt(month));
   }, [year, month]);
 
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = useMemo(() => {
+    return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
+  }, [yearType]);
+
   const [keyword, setKeyword] = useState("");
+  const [searchHouseNumber, setSearchHouseNumber] = useState("");
+  const [searchVillageNumber, setSearchVillageNumber] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -1014,7 +1039,8 @@ const ReportMosquitoCompDataComp = () => {
       district,
       subdistrict,
       service,
-      keyword
+      searchHouseNumber,
+      searchVillageNumber
     });
     console.log("📊 Total apiData:", apiData.length);
 
@@ -1026,17 +1052,35 @@ const ReportMosquitoCompDataComp = () => {
         user_location: row.user_location
       });
 
-      // Keyword search (ทำก่อนเสมอ)
-      const term = keyword.trim().toLowerCase();
-      if (term) {
-        const nameMatch = row.name?.toLowerCase().includes(term);
-        const dateMatch = row.date?.toLowerCase().includes(term);
-        const indexMatch = String(row.index).includes(term);
-        const houseNumMatch = row.houseNumber?.toLowerCase().includes(term);
-        const villageNumMatch = row.villageNumber?.toLowerCase().includes(term);
+      // Keyword search - สำหรับ View 1 (รายชื่อผู้รับผิดชอบ) เท่านั้น
+      // View 2 (รายการบ้าน) ไม่ใช้ keyword search
+      if (!userId && !householdId) {
+        const term = keyword.trim().toLowerCase();
+        if (term) {
+          const nameMatch = row.name?.toLowerCase().includes(term);
+          if (!nameMatch) {
+            console.log("❌ Failed keyword search (name)");
+            return false;
+          }
+        }
+      }
 
-        if (!(nameMatch || dateMatch || indexMatch || houseNumMatch || villageNumMatch)) {
-          console.log("❌ Failed keyword search");
+      // ค้นหาบ้านเลขที่ (สำหรับ View 2)
+      const houseTerm = searchHouseNumber.trim().toLowerCase();
+      if (houseTerm) {
+        const houseNumMatch = row.houseNumber?.toLowerCase().includes(houseTerm);
+        if (!houseNumMatch) {
+          console.log("❌ Failed house number search");
+          return false;
+        }
+      }
+
+      // ค้นหาหมู่ที่
+      const villageTerm = searchVillageNumber.trim().toLowerCase();
+      if (villageTerm) {
+        const villageNumMatch = row.villageNumber?.toLowerCase().includes(villageTerm);
+        if (!villageNumMatch) {
+          console.log("❌ Failed village number search");
           return false;
         }
       }
@@ -1259,7 +1303,7 @@ const ReportMosquitoCompDataComp = () => {
     console.log("\n🎯 Filter Result:", result.length, "rows passed");
     console.log("===== FILTER DEBUG END =====\n");
     return result;
-  }, [keyword, year, yearType, month, week, apiData, zone, province, district, subdistrict, village, service, osmDataByService, healthAreas, provinces, districts, subdistricts, villages, healthServices]); // เพิ่ม osmDataByService
+  }, [userId, householdId, keyword, searchHouseNumber, searchVillageNumber, year, yearType, month, week, apiData, zone, province, district, subdistrict, village, service, osmDataByService, healthAreas, provinces, districts, subdistricts, villages, healthServices]); // เพิ่ม searchHouseNumber, searchVillageNumber
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -1349,18 +1393,34 @@ const ReportMosquitoCompDataComp = () => {
         <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-4 my-6">
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
-              <Search
+              <Home
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
                 size={20}
               />
               <input
                 type="text"
-                value={keyword}
+                value={searchHouseNumber}
                 onChange={(e) => {
-                  setKeyword(e.target.value);
+                  setSearchHouseNumber(e.target.value);
                   setPage(1);
                 }}
-                placeholder="พิมพ์คำค้นหาชื่อบ้าน เลขที่บ้าน หมู่..."
+                placeholder="บ้านเลขที่"
+                className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
+              />
+            </div>
+            <div className="relative flex-1 w-full">
+              <Home
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="text"
+                value={searchVillageNumber}
+                onChange={(e) => {
+                  setSearchVillageNumber(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="หมู่ที่"
                 className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
               />
             </div>
@@ -1559,7 +1619,7 @@ const ReportMosquitoCompDataComp = () => {
             placeholder="-- เลือกเดือน --"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS}
+            options={monthOptions}
             icon={Calendar}
           />
           <CustomSelect
@@ -1647,7 +1707,7 @@ const ReportMosquitoCompDataComp = () => {
                 setKeyword(e.target.value);
                 setPage(1);
               }}
-              placeholder="พิมพ์คำค้นหาชื่อผู้รับผิดชอบ วันที่..."
+              placeholder="ค้นหาชื่อผู้รับผิดชอบ"
               className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
             />
           </div>

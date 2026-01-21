@@ -58,6 +58,23 @@ const MONTHS = [
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
 ];
+
+// เดือน options (ปีงบประมาณ - เริ่มต้นเดือนตุลาคม)
+const FISCAL_MONTHS = [
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+];
+
 const WEEKS = [
   "สัปดาห์ที่ 1 (1/6/68-7/6/68)",
   "สัปดาห์ที่ 2 (8/6/68-14/6/68)",
@@ -660,7 +677,7 @@ const ElderlyScreeningComp = () => {
 
   const [records, setRecords] = useState([]);
   const [aggregatedData, setAggregatedData] = useState([]);
-  const [userDataMap, setUserDataMap] = useState(new Map());
+  const [userDataMap, setUserDataMap] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
@@ -830,6 +847,11 @@ const ElderlyScreeningComp = () => {
     }
   }, [searchParams, hydrated]);
 
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = useMemo(() => {
+    return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
+  }, [yearType]);
+
   const filteredRows = useMemo(() => {
     if (!hydrated) return []; // รอให้ hydrate เสร็จก่อน
 
@@ -837,7 +859,7 @@ const ElderlyScreeningComp = () => {
 
     console.log("🔍 [filteredRows] Starting filter...");
     console.log("📊 [filteredRows] Aggregated data count:", aggregatedData?.length);
-    console.log("👥 [filteredRows] User data map size:", userDataMap?.size);
+    console.log("👥 [filteredRows] User data map size:", Object.keys(userDataMap || {}).length);
 
     // ใช้ aggregatedData แทน records
     const result = (aggregatedData || []).map((assessorData) => {
@@ -1095,7 +1117,7 @@ const ElderlyScreeningComp = () => {
             label="เดือน"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS}
+            options={monthOptions}
             placeholder="-- เลือกเดือน --"
             icon={Calendar}
           />

@@ -63,7 +63,7 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
 
   // Transform API reports to table format
   const transformToTableFormat = (apiReports) => {
-    return apiReports.map((report, index) => {
+    return apiReports.map((report) => {
       const notes = report.notes || { inside: [], outside: [] };
 
       // Extract data from notes
@@ -73,9 +73,9 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
       };
 
       return {
-        no: index + 1,
         week: String(report.weekNumber),
         house: report.household?.house_number || '-',
+        moo: report.household?.village_number || '-',
         // ภาชนะนอกบ้าน (outside) - 12 ประเภท (รวมภาชนะอื่นๆ)
         outdoor_drinking_survey: getContainerValue(notes.outside, 'โอ่งน้ำดื่ม', 'total'),
         outdoor_drinking_found: getContainerValue(notes.outside, 'โอ่งน้ำดื่ม', 'found'),
@@ -132,9 +132,52 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
   const tableData = reports.length > 0 ? transformToTableFormat(reports) : [];
   const displayData = tableData; // For backward compatibility with existing code
 
+  // ฟังก์ชันคำนวณปี, เดือน, สัปดาห์จากข้อมูลรายงานจริง
+  const getReportPeriod = () => {
+    if (reports.length === 0) {
+      return { year: "2568", month: "มิถุนายน", week: "สัปดาห์ที่ 1" };
+    }
+
+    // ดึงข้อมูลวันที่จากรายงานแรก
+    const firstReport = reports[0];
+    const reportDate = firstReport.report_date || firstReport.createdAt;
+
+    if (!reportDate) {
+      return { year: "2568", month: "มิถุนายน", week: "สัปดาห์ที่ 1" };
+    }
+
+    const date = new Date(reportDate);
+
+    // คำนวณปี พ.ศ. (เพิ่ม 543 จาก ค.ศ.)
+    const thaiYear = date.getFullYear() + 543;
+
+    // คำนวณเดือนไทย
+    const thaiMonths = [
+      "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+      "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+    ];
+    const thaiMonth = thaiMonths[date.getMonth()];
+
+    // คำนวณสัปดาห์ในเดือน - เริ่มนับจากวันที่ 1 (สูงสุด 4 สัปดาห์)
+    const dayOfMonth = date.getDate();
+    const weekOfMonth = Math.min(Math.ceil(dayOfMonth / 7), 4);
+
+    return {
+      year: String(thaiYear),
+      month: thaiMonth,
+      week: `สัปดาห์ที่ ${weekOfMonth}`
+    };
+  };
+
+  // ดึงข้อมูลปี, เดือน, สัปดาห์จากวันที่บันทึกของรายงานจริง สำหรับแสดงผลในหน้าเว็บ
+  const { year: displayYear, month: displayMonth, week: displayWeek } = getReportPeriod();
+
   const handleExportPDF = () => {
     try {
       const doc = new jsPDF('landscape', 'mm', 'a4'); // เปลี่ยนเป็น landscape (แนวนอน) เพื่อรองรับภาชนะ 11 ประเภท
+
+      // ดึงข้อมูลปี, เดือน, สัปดาห์จากวันที่บันทึกของรายงาน
+      const { year: reportYear, month: reportMonth, week: reportWeek } = getReportPeriod();
 
       // เพิ่ม Thai font
       doc.addFileToVFS("Sarabun-Regular.ttf", SarabunFont);
@@ -168,14 +211,14 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
 
       // Table settings - แนวนอน A4 มีความกว้าง 297mm
       const colWidths = {
-        no: 6,        // ลำดับ
         week: 7,      // สัปดาห์
         house: 9,     // บ้านเลขที่
-        data: 5.6     // คอลัมน์ข้อมูลแต่ละช่อง (สำรวจ/พบ) - 46 columns x 5.6 = 257.6mm
+        moo: 6,       // หมู่ที่
+        data: 5.7     // คอลัมน์ข้อมูลแต่ละช่อง (สำรวจ/พบ) - 46 columns x 5.7 = 262.2mm
       };
 
-      // คำนวณความกว้างตาราง: 6 + 7 + 9 + (5.6 * 46) = 279.6mm
-      const tableWidth = colWidths.no + colWidths.week + colWidths.house + (colWidths.data * 46);
+      // คำนวณความกว้างตาราง: 7 + 9 + 6 + (5.7 * 46) = 284.2mm
+      const tableWidth = colWidths.week + colWidths.house + colWidths.moo + (colWidths.data * 46);
       const margin = (297 - tableWidth) / 2; // คำนวณ margin ให้ตารางอยู่กลาง
       const startX = margin;
       const rowHeight = 5;
@@ -203,15 +246,15 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
 
         let currentX = startX;
 
-        // ลำดับ
-        doc.rect(currentX, startY, colWidths.no, rowHeight * 3);
-        doc.text("ลำดับ", currentX + colWidths.no / 2, startY + 8, { align: "center" });
-        currentX += colWidths.no;
-
         // สัปดาห์
         doc.rect(currentX, startY, colWidths.week, rowHeight * 3);
         doc.text("สัปดาห์", currentX + colWidths.week / 2, startY + 8, { align: "center" });
         currentX += colWidths.week;
+
+        // หมู่ที่
+        doc.rect(currentX, startY, colWidths.moo, rowHeight * 3);
+        doc.text("หมู่ที่", currentX + colWidths.moo / 2, startY + 8, { align: "center" });
+        currentX += colWidths.moo;
 
         // บ้านเลขที่
         doc.rect(currentX, startY, colWidths.house, rowHeight * 3);
@@ -238,7 +281,7 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
 
         // แถวที่ 2: ประเภทภาชนะ
         doc.setFontSize(4.5);
-        let containerX = startX + colWidths.no + colWidths.week + colWidths.house;
+        let containerX = startX + colWidths.week + colWidths.house + colWidths.moo;
 
         // ภาชนะนอกบ้าน - 12 ประเภท
         outdoorContainerTypes.forEach((type) => {
@@ -266,7 +309,7 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
 
         // แถวที่ 3: สำรวจ/พบ
         doc.setFontSize(4.5);
-        let surveyX = startX + colWidths.no + colWidths.week + colWidths.house;
+        let surveyX = startX + colWidths.week + colWidths.house + colWidths.moo;
 
         // ภาชนะนอกบ้าน (12 types)
         for (let i = 0; i < 12; i++) {
@@ -302,15 +345,15 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
 
         let dataX = startX;
 
-        // ลำดับ
-        doc.rect(dataX, currentY, colWidths.no, rowHeight);
-        doc.text(String(row.no), dataX + colWidths.no / 2, currentY + 3.5, { align: "center" });
-        dataX += colWidths.no;
-
         // สัปดาห์
         doc.rect(dataX, currentY, colWidths.week, rowHeight);
         doc.text(row.week, dataX + colWidths.week / 2, currentY + 3.5, { align: "center" });
         dataX += colWidths.week;
+
+        // หมู่ที่
+        doc.rect(dataX, currentY, colWidths.moo, rowHeight);
+        doc.text(row.moo, dataX + colWidths.moo / 2, currentY + 3.5, { align: "center" });
+        dataX += colWidths.moo;
 
         // บ้านเลขที่
         doc.rect(dataX, currentY, colWidths.house, rowHeight);
@@ -374,9 +417,9 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
 
         let sumX = startX;
 
-        doc.rect(sumX, currentY, colWidths.no + colWidths.week + colWidths.house, rowHeight);
-        doc.text("รวมทั้งหมด", sumX + (colWidths.no + colWidths.week + colWidths.house) / 2, currentY + 3.5, { align: "center" });
-        sumX += colWidths.no + colWidths.week + colWidths.house;
+        doc.rect(sumX, currentY, colWidths.week + colWidths.moo + colWidths.house, rowHeight);
+        doc.text("รวมทั้งหมด", sumX + (colWidths.week + colWidths.moo + colWidths.house) / 2, currentY + 3.5, { align: "center" });
+        sumX += colWidths.week + colWidths.moo + colWidths.house;
 
         // คำนวณผลรวม - นอกบ้าน 12 ประเภท + ในบ้าน 11 ประเภท
         const sumValues = [
@@ -451,11 +494,11 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
         // Header - Title
         doc.setFontSize(12);
         doc.setFont("Sarabun", "bold");
-        doc.text(`รายละเอียดการสำรวจลูกน้ำยุงลาย ปี ${year}`, 148.5, 10, { align: "center" });
+        doc.text(`รายละเอียดการสำรวจลูกน้ำยุงลาย ปี ${reportYear}`, 148.5, 10, { align: "center" });
 
         doc.setFontSize(9);
         doc.setFont("Sarabun", "normal");
-        doc.text(`ประจำเดือน ${month} ${week}`, 148.5, 16, { align: "center" });
+        doc.text(`ประจำเดือน ${reportMonth} ${reportWeek}`, 148.5, 16, { align: "center" });
 
         const nameParts = doc.splitTextToSize(name, 180);
         let yPos = 21;
@@ -464,9 +507,6 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
           yPos += 4;
         });
 
-        // แสดงหมายเลขหน้า
-        doc.setFontSize(10);
-        doc.text(`หน้า ${pageNum + 1} / ${totalPages}`, 280, 10, { align: "right" });
 
         // วาด Header ตาราง
         const startY = yPos + 2;
@@ -489,7 +529,7 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
       }
 
       // บันทึกไฟล์
-      doc.save(`รายละเอียดลูกน้ำยุงลาย_${month}_${year}.pdf`);
+      doc.save(`รายละเอียดลูกน้ำยุงลาย_${reportMonth}_${reportYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -563,10 +603,10 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
           {/* Report Info - Center aligned */}
           <div className="flex-1 text-center">
             <h2 className="font-bold text-[#231d37] text-lg mb-2">
-              รายละเอียดการสำรวจลูกน้ำยุงลาย ปี {year}
+              รายละเอียดการสำรวจลูกน้ำยุงลาย ปี {displayYear}
             </h2>
             <p className="text-gray-700 font-medium text-base mb-1">
-              ประจำเดือน {month} {week}
+              ประจำเดือน {displayMonth} {displayWeek}
             </p>
             <p className="text-gray-700 font-medium text-base">{name}</p>
           </div>
@@ -586,10 +626,10 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
               {/* Row 1: Main headers */}
               <tr className="bg-white">
                 <th rowSpan={3} className="border border-black py-2 px-2 font-bold text-center text-[#231d37]">
-                  ลำดับ
+                  สัปดาห์
                 </th>
                 <th rowSpan={3} className="border border-black py-2 px-2 font-bold text-center text-[#231d37]">
-                  สัปดาห์
+                  หมู่ที่
                 </th>
                 <th rowSpan={3} className="border border-black py-2 px-2 font-bold text-center text-[#231d37]">
                   บ้านเลขที่
@@ -648,13 +688,13 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
               </tr>
             </thead>
             <tbody>
-              {displayData.map((row) => (
-                <tr key={row.no} className="bg-white hover:bg-[#faf8ff] transition-colors">
-                  <td className="border border-black py-2 px-2 text-center font-semibold text-[#231d37]">
-                    {row.no}
-                  </td>
+              {displayData.map((row, index) => (
+                <tr key={index} className="bg-white hover:bg-[#faf8ff] transition-colors">
                   <td className="border border-black py-2 px-2 text-center text-[#231d37]">
                     {row.week}
+                  </td>
+                  <td className="border border-black py-2 px-2 text-center text-[#231d37]">
+                    {row.moo}
                   </td>
                   <td className="border border-black py-2 px-2 text-center text-[#231d37]">
                     {row.house}

@@ -63,6 +63,22 @@ const MONTHS = [
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
 ];
+
+// เดือน options (ปีงบประมาณ - เริ่มต้นเดือนตุลาคม)
+const FISCAL_MONTHS = [
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+];
 // Removed mock data - will use API data instead
 
 // Export functions
@@ -650,6 +666,11 @@ const Reportosm1DataComp = () => {
     defaultYearType: "fiscal",
   });
 
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = useMemo(() => {
+    return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
+  }, [yearType]);
+
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -947,7 +968,7 @@ const Reportosm1DataComp = () => {
             placeholder="เลือกเดือน"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS}
+            options={monthOptions}
             icon={Calendar}
           />
           <CustomSelect

@@ -13,11 +13,13 @@ import {
   Heart,
   Users,
   Calendar,
+  MapPin,
 } from "lucide-react";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getHealthRecords } from "@services/healthRecordService";
 import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
 import { getUserByExternalId } from "@services/oauth2Service";
+import { getOsmByHealthService } from "@services/lookupService";
 import * as XLSX from "xlsx";
 import {
   getCurrentFiscalYear,
@@ -27,6 +29,8 @@ import {
   parseThaiDate,
   isInMonth,
 } from "@utils/fiscalYearHelper";
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
 
 // Thai month names
 const THAI_MONTHS = [
@@ -57,6 +61,22 @@ const MONTHS = [
   { label: "ตุลาคม", value: "10" },
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
+];
+
+// เดือน options (ปีงบประมาณ - เริ่มต้นเดือนตุลาคม)
+const FISCAL_MONTHS = [
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
 ];
 
 /**
@@ -218,11 +238,38 @@ const OsmHealthComp = () => {
 
   const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
 
-  const [yearType, setYearType] = useState("fiscal");
-  const [year, setYear] = useState(String(currentFiscalYear));
-  const [month, setMonth] = useState("");
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  // Use permission-based filters
+  const { isLocked } = useUserPermission();
+  const {
+    yearType,
+    year,
+    month,
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    setYearType,
+    setYear,
+    setMonth,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+    handleReset,
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
+  } = usePermissionFilters({ currentFiscalYear });
 
   // Data state
   const [healthRecords, setHealthRecords] = useState([]);
@@ -232,13 +279,70 @@ const OsmHealthComp = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Fetch health records on mount
+  // State for OSM data
+  const [osmDataByService, setOsmDataByService] = useState([]);
+  const [osmDataMap, setOsmDataMap] = useState(new Map());
+
+  // แปลงข้อมูล location เป็น options สำหรับ CustomSelect (ใช้เฉพาะชื่อภาษาไทย)
+  const healthAreaOptions = healthAreas.map(ha => ({
+    label: ha.name_th,
+    value: ha.code
+  }));
+
+  const provinceOptions = provinces.map(p => ({
+    label: p.name_th,
+    value: p.code
+  }));
+
+  const districtOptions = districts.map(d => ({
+    label: d.name_th,
+    value: d.code
+  }));
+
+  const subdistrictOptions = subdistricts.map(sd => ({
+    label: sd.name_th,
+    value: sd.code
+  }));
+
+  const healthServiceOptions = healthServices.map(hs => ({
+    label: hs.name_th,
+    value: hs.id
+  }));
+
+  // Fetch health records and OSM data on mount
   useEffect(() => {
     const fetchHealthRecords = async () => {
       try {
         setIsLoading(true);
         const data = await getHealthRecords({ limit: 1000 });
         setHealthRecords(data || []);
+
+        // ดึง external_user_ids ทั้งหมด
+        const externalUserIds = data
+          .map(item => item.external_user_id)
+          .filter(Boolean);
+
+        // ดึงข้อมูล OSM ของผู้ใช้ทั้งหมดแบบ batch
+        const osmUsers = await Promise.all(
+          externalUserIds.map(async (id) => {
+            try {
+              return await getUserByExternalId(id);
+            } catch (error) {
+              console.error(`Failed to fetch OSM data for ${id}:`, error);
+              return null;
+            }
+          })
+        );
+
+        // สร้าง Map ของ OSM data ตาม external_user_id
+        const osmMap = new Map();
+        osmUsers.forEach(osm => {
+          if (osm && osm.external_user_id) {
+            osmMap.set(osm.external_user_id, osm);
+          }
+        });
+
+        setOsmDataMap(osmMap);
       } catch (error) {
         console.error("Failed to fetch health records:", error);
         setHealthRecords([]);
@@ -249,7 +353,30 @@ const OsmHealthComp = () => {
     fetchHealthRecords();
   }, []);
 
-  // Filter health records based on year and month
+  // Fetch OSM data when service is selected
+  useEffect(() => {
+    const fetchOsmData = async () => {
+      if (service) {
+        try {
+          const osmData = await getOsmByHealthService(service);
+          setOsmDataByService(osmData || []);
+        } catch (error) {
+          console.error("Error fetching OSM data:", error);
+          setOsmDataByService([]);
+        }
+      } else {
+        setOsmDataByService([]);
+      }
+    };
+    fetchOsmData();
+  }, [service]);
+
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = React.useMemo(() => {
+    return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
+  }, [yearType]);
+
+  // Filter health records based on year, month, and location
   const filteredRecords = React.useMemo(() => {
     if (!healthRecords.length) return [];
 
@@ -277,9 +404,44 @@ const OsmHealthComp = () => {
         }
       }
 
+      // Get OSM data for this record
+      const osmUser = osmDataMap.get(record.external_user_id);
+
+      // Service filtering (เฉพาะบริการสุขภาพอสม.)
+      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
+      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
+      if (service && osmDataByService.length > 0) {
+        const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
+        if (!record.external_user_id || !osmIdSet.has(record.external_user_id)) {
+          return false;
+        }
+      } else if (!service) {
+        // ถ้าไม่ได้เลือกหน่วยบริการ ให้กรองตามตำแหน่ง
+        // Province filtering
+        if (province && osmUser) {
+          if (osmUser.province_name_th !== province) {
+            return false;
+          }
+        }
+
+        // District filtering
+        if (district && osmUser) {
+          if (osmUser.district_name_th !== district) {
+            return false;
+          }
+        }
+
+        // Subdistrict filtering
+        if (subdistrict && osmUser) {
+          if (osmUser.subdistrict_name_th !== subdistrict) {
+            return false;
+          }
+        }
+      }
+
       return true;
     });
-  }, [healthRecords, year, month, yearType]);
+  }, [healthRecords, year, month, yearType, service, osmDataByService, osmDataMap, province, district, subdistrict]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
@@ -302,9 +464,7 @@ const OsmHealthComp = () => {
 
   // Reset filters
   const resetFilters = () => {
-    setYearType("fiscal");
-    setYear(String(currentFiscalYear));
-    setMonth("");
+    handleReset(String(currentFiscalYear), "fiscal");
     setCurrentPage(1);
   };
 
@@ -677,9 +837,56 @@ const OsmHealthComp = () => {
               label="เดือน"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              options={MONTHS}
+              options={monthOptions}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
+            />
+          </div>
+
+          {/* Location Filters: เขตสุขภาพ จังหวัด อำเภอ ตำบล หน่วยบริการ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-5">
+            <CustomSelect
+              label="เขตสุขภาพ"
+              placeholder="เลือกเขต"
+              value={zone}
+              onChange={(e) => handleZoneChange(e.target.value)}
+              options={healthAreaOptions}
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="จังหวัด"
+              placeholder="เลือกจังหวัด"
+              value={province}
+              onChange={(e) => handleProvinceChange(e.target.value)}
+              options={provinceOptions}
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="อำเภอ"
+              placeholder="เลือกอำเภอ"
+              value={district}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              options={districtOptions}
+              disabled={isDistrictDisabled}
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="ตำบล"
+              placeholder="เลือกตำบล"
+              value={subdistrict}
+              onChange={(e) => handleSubdistrictChange(e.target.value)}
+              options={subdistrictOptions}
+              disabled={isSubdistrictDisabled}
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="หน่วยบริการ"
+              placeholder="เลือกหน่วยบริการ"
+              value={service}
+              onChange={(e) => handleServiceChange(e.target.value)}
+              options={healthServiceOptions}
+              disabled={isServiceDisabled}
+              icon={MapPin}
             />
           </div>
 

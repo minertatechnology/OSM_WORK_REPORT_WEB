@@ -66,6 +66,23 @@ const MONTHS = [
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
 ];
+
+// เดือน options (ปีงบประมาณ - เริ่มต้นเดือนตุลาคม)
+const FISCAL_MONTHS = [
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+];
+
 const WEEKS = [
   "สัปดาห์ 1 (1/6/68 - 7/6/68)",
   "สัปดาห์ 2 (8/6/68 - 14/6/68)",
@@ -1109,6 +1126,11 @@ const PregnantReportComp = () => {
   // ใช้ข้อมูลจาก API หรือ fallback เป็น mock data
   const dataSource = pregnantData.length > 0 ? pregnantData : ALL_ROWS;
 
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = useMemo(() => {
+    return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
+  }, [yearType]);
+
   // Filter rows by tab, year, location, and keyword
   const filteredRows = useMemo(() => {
     return dataSource.filter((row) => {
@@ -1390,7 +1412,7 @@ const PregnantReportComp = () => {
             label="เดือน"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            options={MONTHS}
+            options={monthOptions}
             placeholder="-- เลือกเดือน --"
             icon={Calendar}
           />

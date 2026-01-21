@@ -294,8 +294,7 @@ const GisComp = () => {
     { value: "1", label: "สัปดาห์ที่ 1 (1-7)" },
     { value: "2", label: "สัปดาห์ที่ 2 (8-14)" },
     { value: "3", label: "สัปดาห์ที่ 3 (15-21)" },
-    { value: "4", label: "สัปดาห์ที่ 4 (22-28)" },
-    { value: "5", label: "สัปดาห์ที่ 5 (29-31)" },
+    { value: "4", label: "สัปดาห์ที่ 4 (22-31)" },
   ];
 
   // Convert arrays to options format for CustomSelect

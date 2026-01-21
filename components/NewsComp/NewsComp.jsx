@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useTransition } from "react";
 import {
   Plus,
   Calendar,
@@ -10,6 +10,7 @@ import {
   Megaphone,
   FileText,
   X,
+  MapPin,
 } from "lucide-react";
 import NewsCompService from "@services/Table/NewsCompService";
 import NewsAddPopup from "@components/NewsComp/NewsAddPopup";
@@ -20,27 +21,55 @@ import {
   deleteNotification,
   transformNotificationData,
 } from "@services/notificationService/notificationService";
+import { usePermissionFilters } from "@hooks/usePermissionFilters";
+import { useUserPermission } from "@context/UserPermissionProvider";
+import {
+  getCurrentFiscalYear,
+  generateFiscalYearOptions,
+  isInFiscalYear,
+  isInCalendarYear,
+  parseThaiDate,
+} from "@utils/fiscalYearHelper";
 
 // Dummy auth สำหรับตัวอย่าง
 const dummyAuth = { roles: ["สบส."] };
 
-// ตัวเลือกปี
-const years = ["2567", "2568", "2569", "2570"];
+// เดือน options (ปกติ - เริ่มต้นเดือนมกราคม)
+const MONTHS = [
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
+];
 
-// ตัวเลือกเดือน
-const months = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
+// เดือน options (ปีงบประมาณ - เริ่มต้นเดือนตุลาคม)
+const FISCAL_MONTHS = [
+  { label: "ตุลาคม", value: "10" },
+  { label: "พฤศจิกายน", value: "11" },
+  { label: "ธันวาคม", value: "12" },
+  { label: "มกราคม", value: "01" },
+  { label: "กุมภาพันธ์", value: "02" },
+  { label: "มีนาคม", value: "03" },
+  { label: "เมษายน", value: "04" },
+  { label: "พฤษภาคม", value: "05" },
+  { label: "มิถุนายน", value: "06" },
+  { label: "กรกฎาคม", value: "07" },
+  { label: "สิงหาคม", value: "08" },
+  { label: "กันยายน", value: "09" },
+];
+
+// ประเภทปี options
+const YEAR_TYPES = [
+  { label: "ปีงบประมาณ", value: "fiscal" },
+  { label: "รายปี", value: "calendar" },
 ];
 
 // ตัวเลือกสัปดาห์ (1 เดือนมี 4-5 สัปดาห์)
@@ -202,10 +231,44 @@ function TableWithPagination({
   );
 }
 
-const NewsComp = () => {
-  const [searchType, setSearchType] = useState("yearly");
-  const [year, setYear] = useState("");
-  const [month, setMonth] = useState("");
+// Inner component that uses the hooks (client-only)
+const NewsCompContent = () => {
+  const currentFiscalYear = getCurrentFiscalYear();
+  const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
+
+  // Use permission-based filters
+  const { isLocked } = useUserPermission();
+  const {
+    yearType,
+    year,
+    month,
+    zone,
+    province,
+    district,
+    subdistrict,
+    service,
+    setYearType,
+    setYear,
+    setMonth,
+    handleZoneChange,
+    handleProvinceChange,
+    handleDistrictChange,
+    handleSubdistrictChange,
+    handleServiceChange,
+    healthAreas,
+    provinces,
+    districts,
+    subdistricts,
+    healthServices,
+    handleReset,
+    isDistrictDisabled,
+    isSubdistrictDisabled,
+    isServiceDisabled,
+  } = usePermissionFilters({
+    defaultYear: String(currentFiscalYear),
+    defaultYearType: "fiscal",
+  });
+
   const [week, setWeek] = useState("");
   const [rawNewsList, setRawNewsList] = useState([]);
   const [filteredNews, setFilteredNews] = useState([]);
@@ -213,6 +276,32 @@ const NewsComp = () => {
   const [showDetailPopup, setShowDetailPopup] = useState(false);
   const [detailData, setDetailData] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // แปลงข้อมูล location เป็น options สำหรับ CustomSelect (ใช้เฉพาะชื่อภาษาไทย)
+  const healthAreaOptions = healthAreas.map(ha => ({
+    label: ha.name_th,
+    value: ha.code
+  }));
+
+  const provinceOptions = provinces.map(p => ({
+    label: p.name_th,
+    value: p.code
+  }));
+
+  const districtOptions = districts.map(d => ({
+    label: d.name_th,
+    value: d.code
+  }));
+
+  const subdistrictOptions = subdistricts.map(sd => ({
+    label: sd.name_th,
+    value: sd.code
+  }));
+
+  const healthServiceOptions = healthServices.map(hs => ({
+    label: hs.name_th,
+    value: hs.id
+  }));
 
   // ดึงข้อมูลจาก API เมื่อ component โหลด
   useEffect(() => {
@@ -242,6 +331,11 @@ const NewsComp = () => {
       setLoading(false);
     }
   };
+
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = useMemo(() => {
+    return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
+  }, [yearType]);
 
   // ดูรายละเอียดข่าวสาร
   const handleDetail = (item) => {
@@ -311,10 +405,8 @@ const NewsComp = () => {
 
   // ล้างข้อมูลค้นหา
   const resetAll = () => {
-    setYear("");
-    setMonth("");
+    handleReset(String(currentFiscalYear), "fiscal");
     setWeek("");
-    setSearchType("yearly");
     setFilteredNews(rawNewsList);
   };
 
@@ -328,11 +420,24 @@ const NewsComp = () => {
       filtered = filtered.filter((n) => {
         const dateStr = n.date || "";
 
+        // แปลงวันที่ไทยเป็น Date object
+        const parsedDate = parseThaiDate(dateStr);
+        if (!parsedDate) return false;
+
         // เช็คปี
-        if (year && !dateStr.includes(year)) return false;
+        if (year) {
+          const yearNum = parseInt(year);
+          const matchesYear = yearType === "fiscal"
+            ? isInFiscalYear(parsedDate, yearNum)
+            : isInCalendarYear(parsedDate, yearNum);
+          if (!matchesYear) return false;
+        }
 
         // เช็คเดือน
-        if (month && !dateStr.includes(month)) return false;
+        if (month) {
+          const targetMonth = parseInt(month);
+          if (parsedDate.getMonth() + 1 !== targetMonth) return false;
+        }
 
         // สัปดาห์ - ต้องแปลงวันที่เป็นตัวเลข
         if (week) {
@@ -432,7 +537,7 @@ const NewsComp = () => {
           onSubmit={handleSearch}
           className="bg-white rounded-2xl shadow-lg border border-purple-100 p-5 sm:p-6 mb-6"
         >
-          {/* Search Type Radio */}
+          {/* Year Type Radio */}
           <div className="mb-5">
             <p className="text-sm font-semibold text-gray-700 mb-3">
               รูปแบบการค้นหา
@@ -441,18 +546,18 @@ const NewsComp = () => {
               <label className="flex items-center gap-2 cursor-pointer group">
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                    searchType === "yearly"
+                    yearType === "calendar"
                       ? "border-purple-600 bg-purple-600"
                       : "border-gray-300 group-hover:border-purple-400"
                   }`}
                 >
-                  {searchType === "yearly" && (
+                  {yearType === "calendar" && (
                     <div className="w-2 h-2 bg-white rounded-full" />
                   )}
                 </div>
                 <span
                   className={`text-sm font-medium ${
-                    searchType === "yearly"
+                    yearType === "calendar"
                       ? "text-purple-600"
                       : "text-gray-600"
                   }`}
@@ -461,27 +566,27 @@ const NewsComp = () => {
                 </span>
                 <input
                   type="radio"
-                  name="searchType"
-                  checked={searchType === "yearly"}
-                  onChange={() => setSearchType("yearly")}
+                  name="yearType"
+                  checked={yearType === "calendar"}
+                  onChange={() => setYearType("calendar")}
                   className="sr-only"
                 />
               </label>
               <label className="flex items-center gap-2 cursor-pointer group">
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                    searchType === "budget"
+                    yearType === "fiscal"
                       ? "border-purple-600 bg-purple-600"
                       : "border-gray-300 group-hover:border-purple-400"
                   }`}
                 >
-                  {searchType === "budget" && (
+                  {yearType === "fiscal" && (
                     <div className="w-2 h-2 bg-white rounded-full" />
                   )}
                 </div>
                 <span
                   className={`text-sm font-medium ${
-                    searchType === "budget"
+                    yearType === "fiscal"
                       ? "text-purple-600"
                       : "text-gray-600"
                   }`}
@@ -490,23 +595,23 @@ const NewsComp = () => {
                 </span>
                 <input
                   type="radio"
-                  name="searchType"
-                  checked={searchType === "budget"}
-                  onChange={() => setSearchType("budget")}
+                  name="yearType"
+                  checked={yearType === "fiscal"}
+                  onChange={() => setYearType("fiscal")}
                   className="sr-only"
                 />
               </label>
             </div>
           </div>
 
-          {/* Filter Dropdowns */}
+          {/* Date Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
             {/* Year */}
             <CustomSelect
               label="ปี"
               value={year}
               onChange={(e) => setYear(e.target.value)}
-              options={years.map((y) => ({ label: y, value: y }))}
+              options={YEARS}
               placeholder="-- เลือกปี --"
               icon={Calendar}
             />
@@ -516,7 +621,7 @@ const NewsComp = () => {
               label="เดือน"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              options={months.map((m) => ({ label: m, value: m }))}
+              options={monthOptions}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
             />
@@ -529,6 +634,53 @@ const NewsComp = () => {
               options={weeks.map((w) => ({ label: w, value: w }))}
               placeholder="-- เลือกสัปดาห์ --"
               icon={Calendar}
+            />
+          </div>
+
+          {/* Location Filters: เขตสุขภาพ จังหวัด อำเภอ ตำบล หน่วยบริการ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-5">
+            <CustomSelect
+              label="เขตสุขภาพ"
+              placeholder="เลือกเขต"
+              value={zone}
+              onChange={(e) => handleZoneChange(e.target.value)}
+              options={healthAreaOptions}
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="จังหวัด"
+              placeholder="เลือกจังหวัด"
+              value={province}
+              onChange={(e) => handleProvinceChange(e.target.value)}
+              options={provinceOptions}
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="อำเภอ"
+              placeholder="เลือกอำเภอ"
+              value={district}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              options={districtOptions}
+              disabled={isDistrictDisabled}
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="ตำบล"
+              placeholder="เลือกตำบล"
+              value={subdistrict}
+              onChange={(e) => handleSubdistrictChange(e.target.value)}
+              options={subdistrictOptions}
+              disabled={isSubdistrictDisabled}
+              icon={MapPin}
+            />
+            <CustomSelect
+              label="หน่วยบริการ"
+              placeholder="เลือกหน่วยบริการ"
+              value={service}
+              onChange={(e) => handleServiceChange(e.target.value)}
+              options={healthServiceOptions}
+              disabled={isServiceDisabled}
+              icon={MapPin}
             />
           </div>
 
@@ -578,7 +730,7 @@ const NewsComp = () => {
         </div>
       </div>
 
-      {/* Popups */}
+      {/* Popups - always rendered */}
       <NewsAddPopup
         open={showAddPopup}
         onClose={handleClosePopup}
@@ -595,6 +747,39 @@ const NewsComp = () => {
       />
     </div>
   );
+};
+
+// Main wrapper component with hydration protection
+const NewsComp = () => {
+  const [mounted, setMounted] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    // Use startTransition to mark the state update as non-urgent
+    startTransition(() => {
+      setMounted(true);
+    });
+  }, [startTransition]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="h-24 bg-gray-200 rounded"></div>
+              <div className="h-24 bg-gray-200 rounded"></div>
+            </div>
+            <div className="h-64 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <NewsCompContent />;
 };
 
 export default NewsComp;
