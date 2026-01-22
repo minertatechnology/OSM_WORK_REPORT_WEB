@@ -28,7 +28,7 @@ function MyApp({ Component, pageProps }) {
     defaultOptions: {
       queries: {
         staleTime: 1000 * 60 * 30, // ✅ cache 30 นาที (เพิ่มจาก 5)
-        gcTime: 1000 * 60 * 60 * 2, // ✅ เก็บไว้ใน memory 2 ชั่วโมง (เพิ่มจาก 30 นาที)
+        gcTime: 1000 * 60 * 5, // ✅ เก็บไว้ใน memory 5 นาที (ลดจาก 2 ชั่วโมง เพื่อให้ข้อมูลสดใหม่ขึ้นสำหรับ online status)
         refetchOnWindowFocus: false,
         refetchOnMount: false, // ✅ ไม่ refetch เมื่อ component mount
         refetchOnReconnect: true, // ✅ refetch เมื่อกลับมา online

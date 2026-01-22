@@ -8,6 +8,7 @@ import {
   getVillages,
   getHealthServices,
 } from '@services/lookupService';
+import { HEALTHZONE_PROVINCES } from '@utils/healthzone-province-data';
 
 /**
  * Hook สำหรับจัดการ filters ที่มี permission control
@@ -71,12 +72,27 @@ export const usePermissionFilters = (options = {}) => {
     const loadProvinces = async () => {
       try {
         if (!zone) {
+          // ไม่ได้เลือกเขต - โหลดจังหวัดทั้งหมด
           const data = await getProvinces({ limit: 100 });
           setProvinces(data || []);
         } else {
-          const selectedHealthArea = healthAreas.find(h => h.code === zone);
-          if (selectedHealthArea && selectedHealthArea.provinces) {
-            setProvinces(selectedHealthArea.provinces);
+          // เลือกเขตแล้ว - ใช้ข้อมูลจาก HEALTHZONE_PROVINCES
+          // แปลง zone code (เช่น "HA1", "HA12") เป็นเลขเขต (1, 12)
+          const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+
+          // หาข้อมูลเขตจาก HEALTHZONE_PROVINCES
+          const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
+
+          if (zoneData && zoneData.provinces) {
+            // ดึงชื่อจังหวัดที่อยู่ในเขตนี้
+            const provinceNamesInZone = zoneData.provinces.map(p => p.trim());
+
+            // โหลดจังหวัดทั้งหมด แล้วกรองเอาเฉพาะที่อยู่ในเขต
+            const allProvinces = await getProvinces({ limit: 100 });
+            const filteredProvinces = allProvinces.filter(p =>
+              provinceNamesInZone.includes(p.name_th?.trim())
+            );
+            setProvinces(filteredProvinces);
           } else {
             setProvinces([]);
           }
@@ -178,9 +194,15 @@ export const usePermissionFilters = (options = {}) => {
 
       // Set initial values from scope (locked values) สำหรับสิทธิ์อื่นๆ
       if (initialFilters.zone) setZone(initialFilters.zone);
-      if (initialFilters.province) setProvince(initialFilters.province);
-      if (initialFilters.district) setDistrict(initialFilters.district);
-      if (initialFilters.subdistrict) setSubdistrict(initialFilters.subdistrict);
+
+      // ⚠️ สำหรับสิทธิ์ระดับเขต (zone) ไม่ set province/district/subdistrict ให้
+      // ให้ user เลือกเอง เพราะมีสิทธิ์เข้าถึงทุกจังหวัดในเขต
+      if (lockLevel !== 'zone') {
+        if (initialFilters.province) setProvince(initialFilters.province);
+        if (initialFilters.district) setDistrict(initialFilters.district);
+        if (initialFilters.subdistrict) setSubdistrict(initialFilters.subdistrict);
+      }
+
       if (initialFilters.service) setService(initialFilters.service);
     }
   }, [permissionLoading, scope, lockLevel, getInitialFilters]);

@@ -904,8 +904,6 @@ const UserListComp = () => {
   // CID visibility state - track which rows show full CID
   const [cidVisibility, setCidVisibility] = useState({});
 
-  // Auto-refresh state for online status - รีเฟรชทุก 1 นาทีเพื่ออัพเดทสถานะ online/offline
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Fetch users from API
   useEffect(() => {
@@ -1204,12 +1202,13 @@ const UserListComp = () => {
     fetchUsers();
   }, [currentPage, itemsPerPage, keyword, tab, zone, province, district, subdistrict]);
 
-  // Auto-refresh online status ทุก 1 นาที
+  // Auto-refresh online status ทุก 30 วินาที
+  const [, forceUpdate] = useState({});
   useEffect(() => {
     const interval = setInterval(() => {
       // Force re-render เพื่ออัพเดทการคำนวณ online/offline status
-      setRefreshTrigger(prev => prev + 1);
-    }, 60 * 1000); // 60 วินาที = 1 นาที
+      forceUpdate({});
+    }, 30 * 1000); // 30 วินาที
 
     return () => clearInterval(interval);
   }, []);
@@ -1543,9 +1542,9 @@ const UserListComp = () => {
                             ? (now.getTime() - lastActiveAt.getTime()) / (1000 * 60)
                             : Infinity;
 
-                          // ถ้า last_active_at อยู่ภายใน 3 นาที = Online (ส่งทุก 2 นาที + buffer 1 นาที)
-                          // refreshTrigger จะทำให้ component re-render ทุก 1 นาทีเพื่ออัพเดทสถานะ
-                          const isOnline = refreshTrigger !== undefined && minutesSinceActive <= 3;
+                          // ✅ แก้ไข: เช็คให้ถูกต้อง และเพิ่ม threshold เป็น 5 นาทีสำหรับ production
+                          // refreshTrigger ใช้เพื่อ force re-render ทุก 1 นาที
+                          const isOnline = lastActiveAt && minutesSinceActive <= 5;
 
                           return (
                             <div
