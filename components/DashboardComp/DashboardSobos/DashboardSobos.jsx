@@ -472,40 +472,66 @@ const DashboardSobos = () => {
 
       filters.limit = 10000;
 
-      // เพิ่ม permission-based filters (ค่าที่ user ถูก lock ไว้)
+      // ✅ ให้ user selection มี priority สูงสุดเสมอ
+      // ถ้า user เลือก filter เอง ให้ใช้ค่าที่ user เลือก ไม่ใช่ค่า locked
       const initialFilters = getInitialFilters();
-      const lockedZone = initialFilters.zone || "";
-      const lockedProvince = initialFilters.province || "";
-      const lockedDistrict = initialFilters.district || "";
-      const lockedSubdistrict = initialFilters.subdistrict || "";
+      const defaultZone = initialFilters.zone || "";
+      const defaultProvince = initialFilters.province || "";
+      const defaultDistrict = initialFilters.district || "";
+      const defaultSubdistrict = initialFilters.subdistrict || "";
 
-      // ถ้า lock อยู่ ให้ยิงไป backend เสมอ ไม่ว่า user จะเลือกอะไร
-      if (lockedZone) {
-        const zoneNumber = parseInt(String(lockedZone).replace(/\D/g, ''));
-        filters.health_region = zoneNumber;
-      }
-      if (lockedProvince) {
-        filters.province_code = lockedProvince;
-      }
-      if (lockedDistrict) {
-        filters.district_code = lockedDistrict;
-      }
-      if (lockedSubdistrict) {
-        filters.subdistrict_code = lockedSubdistrict;
-      }
+      console.log("🔒 DEBUG: initialFilters:", initialFilters);
+      console.log("🔒 DEBUG: defaultZone:", defaultZone, "defaultProvince:", defaultProvince, "defaultDistrict:", defaultDistrict, "defaultSubdistrict:", defaultSubdistrict);
+      console.log("🔒 DEBUG: user selection - zone:", zone, "province:", province, "district:", district, "subdistrict:", subdistrict);
+      console.log("🔒 DEBUG: lockLevel:", lockLevel);
 
-      // เพิ่ม health_region filter ถ้าเลือกเขต (user เลือกเอง)
-      if (zone) {
+      // ✅ User selection override: ถ้า user เลือกค่าใหม่ (ไม่เท่ากับ default) ให้ใช้ค่าที่ user เลือก
+      // ถ้า user ไม่ได้เลือก (ค่าว่าง) ให้ใช้ค่า locked (สำหรับ user ที่มี restriction)
+
+      // Zone filter
+      if (zone && zone !== defaultZone) {
+        // User เลือก zone เอง
         const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
         filters.health_region = zoneNumber;
+        console.log("✅ Using user-selected zone:", zone, "→ health_region:", zoneNumber);
+      } else if (defaultZone && lockLevel !== 'none') {
+        // User ไม่ได้เลือก ใช้ค่า locked (สำหรับ user ที่ไม่ใช่ระดับกรม)
+        const zoneNumber = parseInt(String(defaultZone).replace(/\D/g, ''));
+        filters.health_region = zoneNumber;
+        console.log("🔒 Using locked zone:", defaultZone, "→ health_region:", zoneNumber);
       }
 
-      // เพิ่ม province/district filter (user เลือกเอง)
-      if (province) {
+      // Province filter
+      if (province && province !== defaultProvince) {
+        // User เลือก province เอง
         filters.province_code = province;
+        console.log("✅ Using user-selected province:", province);
+      } else if (defaultProvince && lockLevel !== 'none' && !district) {
+        // User ไม่ได้เลือก ใช้ค่า locked (ถ้าไม่ได้เลือก district ลงไป)
+        filters.province_code = defaultProvince;
+        console.log("🔒 Using locked province:", defaultProvince);
       }
-      if (district) {
+
+      // District filter
+      if (district && district !== defaultDistrict) {
+        // User เลือก district เอง
         filters.district_code = district;
+        console.log("✅ Using user-selected district:", district);
+      } else if (defaultDistrict && lockLevel !== 'none' && !subdistrict) {
+        // User ไม่ได้เลือก ใช้ค่า locked (ถ้าไม่ได้เลือก subdistrict ลงไป)
+        filters.district_code = defaultDistrict;
+        console.log("🔒 Using locked district:", defaultDistrict);
+      }
+
+      // Subdistrict filter
+      if (subdistrict && subdistrict !== defaultSubdistrict) {
+        // User เลือก subdistrict เอง
+        filters.subdistrict_code = subdistrict;
+        console.log("✅ Using user-selected subdistrict:", subdistrict);
+      } else if (defaultSubdistrict && lockLevel !== 'none') {
+        // User ไม่ได้เลือก ใช้ค่า locked
+        filters.subdistrict_code = defaultSubdistrict;
+        console.log("🔒 Using locked subdistrict:", defaultSubdistrict);
       }
 
       // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
@@ -646,10 +672,7 @@ const DashboardSobos = () => {
       let tableLevel = "province";
 
       // หาค่า default filter จาก permission (ค่าที่ user ถูกล็อคไว้)
-      // ใช้ initialFilters จากด้านบนที่ประกาศไปแล้ว
-      const defaultZone = initialFilters.zone || "";
-      const defaultProvince = initialFilters.province || "";
-      const defaultDistrict = initialFilters.district || "";
+      // ใช้ defaultZone, defaultProvince, defaultDistrict จากด้านบนที่ประกาศไปแล้ว
 
       // ถ้าเลือก zone filter (ไม่ว่า lockLevel จะเป็นอะไร) → แสดงผลระดับ zone
       // เช็คว่า zone ต่างจากค่า default (แปลว่า user เลือกเพิ่ม)
