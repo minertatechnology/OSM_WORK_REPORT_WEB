@@ -473,9 +473,6 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
     const scopeLevel = user?.permission_scope?.level;
     const scopeLevelField = user?.permission_scope?.scope_level; // ลองดู field อื่นด้วย
 
-    console.log("🔑 DEBUG: scopeLevel value:", scopeLevel, "type:", typeof scopeLevel);
-    console.log("🔑 DEBUG: scopeLevelField value:", scopeLevelField, "type:", typeof scopeLevelField);
-
     // Map จาก scope_level (จาก /lookups/positions) → position_code (จาก database)
     const scopeLevelToCodeMap = {
       "country": "DHS",     // สนับสนุนบริการสุขภาพ (DHS)
@@ -486,23 +483,14 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
       "village": "VIL",     // หมู่บ้าน
     };
 
-    console.log("🔑 DEBUG: Map entries:", Object.entries(scopeLevelToCodeMap));
-
     // ลองดูแต่ละขั้นตอน
     const step1 = user?.position_code;
     const step2 = user?.role_code;
     const step3 = scopeLevelField ? scopeLevelToCodeMap[scopeLevelField] : null;
     const step4 = scopeLevel ? scopeLevelToCodeMap[scopeLevel] : null;
 
-    console.log("🔑 DEBUG: Step by step:");
-    console.log("  - position_code:", step1);
-    console.log("  - role_code:", step2);
-    console.log("  - from scope_level:", step3);
-    console.log("  - from level (should be DHS):", step4);
-
     const code = step1 || step2 || step3 || step4 || null;
 
-    console.log("🔑 Final userPositionCode:", code);
     return code;
   }, [isClient, isLoaded, userInfo]);
 
@@ -518,27 +506,21 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
         let userPermissions = {};
         try {
           if (userPositionCode) {
-            console.log(`🔍 Fetching permissions for position_code: ${userPositionCode}`);
             const permissionsData = await getUserMenuPermissions(userPositionCode);
-            console.log(`✅ Permissions API response for ${userPositionCode}:`, permissionsData);
 
             if (permissionsData.menus && permissionsData.menus.length > 0) {
               permissionsData.menus.forEach(menu => {
                 userPermissions[menu.code] = menu.can_view;
-                console.log(`  - ${menu.code}: ${menu.can_view}`);
               });
             } else {
-              console.warn(`⚠️ No menus found in permissions data for ${userPositionCode}`);
+              console.warn(`No menus found in permissions data for ${userPositionCode}`);
             }
           } else {
-            console.warn("⚠️ No userPositionCode found, skipping permissions fetch");
+            console.warn("No userPositionCode found, skipping permissions fetch");
           }
         } catch (e) {
-          console.error(`❌ Failed to fetch permissions for ${userPositionCode}:`, e);
+          console.error(`Failed to fetch permissions for ${userPositionCode}:`, e);
         }
-
-        console.log(`📋 Final userPermissions object:`, userPermissions);
-        console.log(`📋 userPermissions keys:`, Object.keys(userPermissions));
 
         // ใช้ static menu ตาม roleType
         const staticMenus = roleType ? MENU_MAP[roleType] || MENU_MAP.sobos : [];
@@ -569,7 +551,6 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
 
           // เช็ค can_view
           const canView = userPermissions[menuCode];
-          console.log(`Menu "${menu.name}" (${menuCode}): can_view =`, canView);
           return canView === true; // ต้องเป็น true เท่านั้นถึงแสดง
         });
 
@@ -578,7 +559,6 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
           ? filterMenusByScope(menusWithPermissions, userScopeLevel)
           : menusWithPermissions;
 
-        console.log("Using static menus for role", roleType, "scope", userScopeLevel, ":", filteredMenus);
         setMenuItems(filteredMenus);
 
       } catch (error) {

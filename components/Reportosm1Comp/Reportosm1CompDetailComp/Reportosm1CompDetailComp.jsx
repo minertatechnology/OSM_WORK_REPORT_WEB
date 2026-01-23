@@ -15,15 +15,13 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
   const year = reportData?.year || "2568";
   const month = reportData?.month || "มิถุนายน";
   const name = reportData?.name || "นางสาวชบุษบก ผดุงจิตร";
+  const date = reportData?.date || "";
   const externalUserId = reportData?.rawData?.external_user_id;
   const fiscalYear = reportData?.rawData?.fiscal_year;
 
   // Debug: แสดงข้อมูลที่ได้รับ
   useEffect(() => {
-    console.log("🔍 reportData received:", reportData);
-    console.log("🔍 externalUserId:", externalUserId);
-    console.log("🔍 fiscalYear:", fiscalYear);
-    console.log("🔍 rawData:", reportData?.rawData);
+    // Debug info removed for production
   }, [reportData, externalUserId, fiscalYear]);
 
   // Fetch activity data from API
@@ -33,26 +31,17 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
     const fetchActivityData = async () => {
       if (!externalUserId) {
-        console.log("❌ No externalUserId provided - reportData:", reportData);
-        console.log("❌ rawData:", reportData?.rawData);
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        console.log("🔍 Fetching activity data for:", {
-          externalUserId,
-          fiscalYear,
-          name
-        });
 
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/activity-data/all?skip=0&limit=1000`
         );
         const data = await response.json();
-
-        console.log("📦 Total API records received:", data.length);
 
         // กรองข้อมูลเฉพาะของ external_user_id และ fiscal_year นี้
         const userActivities = data.filter(
@@ -60,11 +49,6 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
             item.external_user_id === externalUserId &&
             item.fiscal_year === fiscalYear
         );
-
-        console.log("✅ Filtered activities for user:", name);
-        console.log("✅ External User ID:", externalUserId);
-        console.log("✅ Filtered count:", userActivities.length);
-        console.log("📊 Sample data:", userActivities.slice(0, 3));
 
         setActivityData(userActivities);
       } catch (error) {
@@ -380,16 +364,11 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
   // แปลงข้อมูลจาก API โดยใช้โครงสร้างจากเอกสาร และดึงเฉพาะจำนวนจาก API
   const transformedData = React.useMemo(() => {
-    console.log("🔄 Transforming data with document structure...");
-
     // สร้าง Map จากข้อมูล API เพื่อหา value ตาม activityId
     const activityValueMap = new Map();
     activityData.forEach((item) => {
       activityValueMap.set(item.activity_id, item.value || 0);
     });
-
-    console.log("📊 Activity values from API:", Object.fromEntries(activityValueMap));
-    console.log("📊 smokeData count:", smokeData.length);
 
     // นับจำนวนจาก smokeData สำหรับ 9.1
     const smokeCount = smokeData.length;
@@ -420,7 +399,6 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       };
     });
 
-    console.log("✅ Transformed data rows:", result.length);
     return result;
   }, [activityData, ACTIVITY_STRUCTURE, smokeData]);
 
@@ -465,12 +443,15 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       doc.setFont("Sarabun", "bold");
       doc.text("แบบรายงานการปฏิบัติงานของ อสม.", 105, 18, { align: "center" });
 
-      doc.setFontSize(13);
-      doc.setFont("Sarabun", "normal");
-      doc.text(`ประจำเดือน ${month} พ.ศ. ${year}`, 105, 26, { align: "center" });
+      doc.setFontSize(16);
+      doc.setFont("Sarabun", "bold");
+      if (date) {
+        doc.text(`วันที่: ${date}`, 105, 26, { align: "center" });
+      }
 
-      doc.setFontSize(12);
-      doc.text(`ชื่อ-นามสกุล: ${name}`, 105, 33, { align: "center" });
+      doc.setFontSize(16);
+      doc.setFont("Sarabun", "bold");
+      doc.text(`ชื่อ-นามสกุล: ${name}`, 105, date ? 33 : 26, { align: "center" });
 
       // Table settings
       const margin = 15;
@@ -720,9 +701,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
               <h2 className="font-bold text-black text-base mb-2">
                 แบบรายงานการปฏิบัติงานของ อสม.
               </h2>
-              <p className="text-black text-sm mb-1">
-                ประจำเดือน {month} พ.ศ. {year}
-              </p>
+              {date && <p className="text-black text-sm mb-1">วันที่: {date}</p>}
               <p className="text-black text-sm">ชื่อ-นามสกุล: {name}</p>
             </div>
 

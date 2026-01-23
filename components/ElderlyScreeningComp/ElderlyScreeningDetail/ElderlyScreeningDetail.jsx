@@ -64,7 +64,7 @@ const ElderlyScreeningDetail = ({
     }
   };
 
-  // ฟังก์ชันแสดงผลการคัดกรองรวมจาก API
+  // ฟังก์ชันแสดงผลการประเมินรวมจาก API
   const getOverallResult = (elderly) => {
     if (!elderly || !elderly.overall_status) return "-";
 
@@ -117,12 +117,12 @@ const ElderlyScreeningDetail = ({
       // Header
       doc.setFontSize(14);
       doc.setFont("Sarabun", "bold");
-      doc.text("รายงานผลการคัดกรองสุขภาพผู้สูงอายุในชุมชน", 148, 12, { align: "center" });
+      doc.text("รายงานผลการประเมินสุขภาพผู้สูงอายุในชุมชน", 148, 12, { align: "center" });
 
       doc.setFontSize(10);
       doc.setFont("Sarabun", "normal");
       doc.text(`ผู้ประเมิน: ${assessorName || "ไม่ระบุชื่อ"}`, 148, 18, { align: "center" });
-      doc.text(`นายทะเบียน อสม.`, 148, 23, { align: "center" });
+      // doc.text(`นายทะเบียน อสม.`, 148, 23, { align: "center" });
 
       // Define table columns - total width should be ~287mm (297mm - 10mm margins)
       // ลำดับ(10) + ชื่อ(50) + อยู่ร่วม(20) + เพศ(10) + อายุ(10) = 100mm
@@ -134,8 +134,8 @@ const ElderlyScreeningDetail = ({
       const livingWidth = 20; // อยู่ร่วม (เพิ่มจาก 17 เป็น 20)
       const genderWidth = 10; // เพศ (เพิ่มจาก 8 เป็น 10)
       const ageWidth = 10; // อายุ (เพิ่มจาก 8 เป็น 10)
-      const assessWidth = 14; // แต่ละคอลัมน์แบบคัดกรอง (ลดจาก 15 เป็น 14 เพื่อให้พอที่จะเพิ่มคอลัมน์ผลการคัดกรอง)
-      const resultWidth = 18; // คอลัมน์ผลการคัดกรอง
+      const assessWidth = 14; // แต่ละคอลัมน์แบบคัดกรอง (ลดจาก 15 เป็น 14 เพื่อให้พอที่จะเพิ่มคอลัมน์ผลการประเมิน)
+      const resultWidth = 18; // คอลัมน์ผลการประเมิน
 
       // คำนวณความกว้างรวมของตาราง
       const totalTableWidth = colWidth + nameWidth + livingWidth + genderWidth + ageWidth + (assessWidth * 12) + resultWidth;
@@ -175,64 +175,81 @@ const ElderlyScreeningDetail = ({
 
         const headerHeight = 14; // ลดความสูง header ให้สมดุลกับ rowHeight
 
-        // ลำดับ
-        doc.rect(currentX, yPos, colWidth, headerHeight);
+        // ========== Row 1: Main Headers ==========
+        // ลำดับ (rowSpan=2)
+        doc.rect(currentX, yPos, colWidth, headerHeight * 2);
         doc.text("ลำดับ", currentX + colWidth / 2, yPos + 9, { align: "center" });
         currentX += colWidth;
 
-        // ชื่อ-นามสกุล
-        doc.rect(currentX, yPos, nameWidth, headerHeight);
-        doc.text("ชื่อ-นามสกุล ผู้ประเมิน", currentX + nameWidth / 2, yPos + 9, { align: "center" });
+        // ชื่อ-นามสกุล (rowSpan=2)
+        doc.rect(currentX, yPos, nameWidth, headerHeight * 2);
+        doc.text("ชื่อ-นามสกุล", currentX + nameWidth / 2, yPos + 9, { align: "center" });
         currentX += nameWidth;
 
-        // ข้อมูลครัวเรือน
+        // ข้อมูลครัวเรือน (colSpan=3)
+        const householdHeaderWidth = livingWidth + genderWidth + ageWidth;
+        doc.rect(currentX, yPos, householdHeaderWidth, headerHeight);
+        doc.text("ข้อมูลครัวเรือน", currentX + householdHeaderWidth / 2, yPos + 9, { align: "center" });
+        currentX += householdHeaderWidth;
+
+        // แบบคัดกรองสุขภาพผู้สูงอายุ (colSpan=12)
+        const assessHeaderWidth = assessWidth * 12;
+        doc.rect(currentX, yPos, assessHeaderWidth, headerHeight);
+        doc.text("แบบคัดกรองสุขภาพผู้สูงอายุ", currentX + assessHeaderWidth / 2, yPos + 9, { align: "center" });
+        currentX += assessHeaderWidth;
+
+        // ผลการประเมิน (rowSpan=2)
+        doc.rect(currentX, yPos, resultWidth, headerHeight * 2);
+        doc.text("ผลการ", currentX + resultWidth / 2, yPos + 9 - 2.5, { align: "center" });
+        doc.text("ประเมิน", currentX + resultWidth / 2, yPos + 9 + 2.5, { align: "center" });
+
+        // ========== Row 2: Sub Headers ==========
+        let row2Y = yPos + headerHeight;
+        currentX = startX + colWidth + nameWidth; // เริ่มหลังจาก ลำดับและชื่อ
+
+        // ข้อมูลครัวเรือน sub headers
         householdColumns.forEach(col => {
-          doc.rect(currentX, yPos, col.width, headerHeight);
+          doc.rect(currentX, row2Y, col.width, headerHeight);
           const lines = col.label.split('\n');
           if (lines.length === 2) {
-            doc.text(lines[0], currentX + col.width / 2, yPos + 6, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, yPos + 10.5, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 6, { align: "center" });
+            doc.text(lines[1], currentX + col.width / 2, row2Y + 10.5, { align: "center" });
           } else {
-            doc.text(col.label, currentX + col.width / 2, yPos + 9, { align: "center" });
+            doc.text(col.label, currentX + col.width / 2, row2Y + 9, { align: "center" });
           }
           currentX += col.width;
         });
 
-        // แบบคัดกรอง
+        // แบบคัดกรอง sub headers
         pdfAssessmentColumns.forEach(col => {
-          doc.rect(currentX, yPos, col.width, headerHeight);
+          doc.rect(currentX, row2Y, col.width, headerHeight);
           const lines = col.label.split('\n');
 
           if (lines.length === 1) {
-            doc.text(lines[0], currentX + col.width / 2, yPos + 9, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 9, { align: "center" });
           } else if (lines.length === 2) {
-            doc.text(lines[0], currentX + col.width / 2, yPos + 6, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, yPos + 10.5, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 6, { align: "center" });
+            doc.text(lines[1], currentX + col.width / 2, row2Y + 10.5, { align: "center" });
           } else if (lines.length === 3) {
-            doc.text(lines[0], currentX + col.width / 2, yPos + 4.5, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, yPos + 8, { align: "center" });
-            doc.text(lines[2], currentX + col.width / 2, yPos + 11.5, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 4.5, { align: "center" });
+            doc.text(lines[1], currentX + col.width / 2, row2Y + 8, { align: "center" });
+            doc.text(lines[2], currentX + col.width / 2, row2Y + 11.5, { align: "center" });
           } else if (lines.length === 4) {
-            doc.text(lines[0], currentX + col.width / 2, yPos + 3.5, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, yPos + 6, { align: "center" });
-            doc.text(lines[2], currentX + col.width / 2, yPos + 8.5, { align: "center" });
-            doc.text(lines[3], currentX + col.width / 2, yPos + 11, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 3.5, { align: "center" });
+            doc.text(lines[1], currentX + col.width / 2, row2Y + 6, { align: "center" });
+            doc.text(lines[2], currentX + col.width / 2, row2Y + 8.5, { align: "center" });
+            doc.text(lines[3], currentX + col.width / 2, row2Y + 11, { align: "center" });
           } else if (lines.length >= 5) {
-            doc.text(lines[0], currentX + col.width / 2, yPos + 3, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, yPos + 5.5, { align: "center" });
-            doc.text(lines[2], currentX + col.width / 2, yPos + 8, { align: "center" });
-            doc.text(lines[3], currentX + col.width / 2, yPos + 10.5, { align: "center" });
-            doc.text(lines[4], currentX + col.width / 2, yPos + 13, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 3, { align: "center" });
+            doc.text(lines[1], currentX + col.width / 2, row2Y + 5.5, { align: "center" });
+            doc.text(lines[2], currentX + col.width / 2, row2Y + 8, { align: "center" });
+            doc.text(lines[3], currentX + col.width / 2, row2Y + 10.5, { align: "center" });
+            doc.text(lines[4], currentX + col.width / 2, row2Y + 13, { align: "center" });
           }
           currentX += col.width;
         });
 
-        // ผลการคัดกรอง
-        doc.rect(currentX, yPos, resultWidth, headerHeight);
-        doc.text("ผลการ", currentX + resultWidth / 2, yPos + 6, { align: "center" });
-        doc.text("คัดกรอง", currentX + resultWidth / 2, yPos + 10.5, { align: "center" });
-
-        return headerHeight; // คืนค่าความสูงของ header
+        return headerHeight * 2; // คืนค่าความสูงรวมของ header (2 แถว)
       };
 
       // Draw initial headers
@@ -308,7 +325,7 @@ const ElderlyScreeningDetail = ({
           currentX += col.width;
         });
 
-        // ผลการคัดกรอง
+        // ผลการประเมิน
         doc.rect(currentX, currentY, resultWidth, rowHeight);
         const overallResult = getOverallResult(elderly);
         doc.text(overallResult, currentX + resultWidth / 2, currentY + 5.5, { align: "center" });
@@ -377,27 +394,26 @@ const ElderlyScreeningDetail = ({
       {/* Header */}
       <div className="relative mb-6 rounded-3xl overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7]" />
-        <div className="absolute inset-0 bg-white/5" />
 
         <div className="relative p-6 sm:p-8 text-white">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
                 onClick={goBack}
-                className="flex items-center gap-2 px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-xl transition"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl transition"
               >
                 <ArrowLeft size={18} />
                 <span className="font-semibold">กลับ</span>
               </button>
-              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl">
                 <Users size={28} className="text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">รายงานผลการคัดกรองสุขภาพผู้สูงอายุในชุมชน</h1>
-                <p className="text-white/90 text-sm mt-1">
+                <h1 className="text-2xl sm:text-3xl font-bold">รายงานผลการประเมินสุขภาพผู้สูงอายุในชุมชน</h1>
+                <p className="text-white/95 text-sm mt-1">
                   ผู้ประเมิน: <span className="font-bold">{assessorName || "ไม่ระบุชื่อ"}</span>
                 </p>
-                <p className="text-white/80 text-sm">
+                <p className="text-white/95 text-sm">
                   จำนวนทั้งหมด: <span className="font-bold">{elderlyCount}</span> คน
                 </p>
               </div>
@@ -419,36 +435,36 @@ const ElderlyScreeningDetail = ({
           <table className="w-full text-xs border-collapse" style={{ minWidth: "2000px" }}>
             <thead>
               {/* Row 1: Main Headers */}
-              <tr className="bg-gradient-to-r from-[#7e32e2] to-[#a855f7]">
-                <th rowSpan={2} className="border border-white/20 py-3 px-2 text-white font-semibold text-center w-12">
+              <tr className="bg-[#7e32e2]">
+                <th rowSpan={2} className="border border-white/30 py-3 px-2 text-white font-semibold text-center w-12">
                   ลำดับ
                 </th>
-                <th rowSpan={2} className="border border-white/20 py-3 px-3 text-white font-semibold text-center min-w-[180px]">
-                  ชื่อ-นามสกุล ผู้ประเมิน
+                <th rowSpan={2} className="border border-white/30 py-3 px-3 text-white font-semibold text-center min-w-[180px]">
+                  ชื่อ-นามสกุล
                 </th>
-                <th colSpan={3} className="border border-white/20 py-2 px-3 text-white font-semibold text-center">
+                <th colSpan={3} className="border border-white/30 py-2 px-3 text-white font-semibold text-center">
                   ข้อมูลครัวเรือน
                 </th>
-                <th colSpan={12} className="border border-white/20 py-2 px-3 text-white font-semibold text-center">
+                <th colSpan={12} className="border border-white/30 py-2 px-3 text-white font-semibold text-center">
                   แบบคัดกรองสุขภาพผู้สูงอายุ
                 </th>
-                <th rowSpan={2} className="border border-white/20 py-3 px-2 text-white font-semibold text-center min-w-[80px]">
-                  ผลการคัดกรอง
+                <th rowSpan={2} className="border border-white/30 py-3 px-2 text-white font-semibold text-center min-w-[80px]">
+                  ผลการประเมิน
                 </th>
               </tr>
               {/* Row 2: Sub Headers */}
-              <tr className="bg-gradient-to-r from-[#8b3def] to-[#b35ff9]">
-                <th className="border border-white/20 py-2 px-2 text-white font-medium text-center text-[10px] w-16">
+              <tr className="bg-[#7e32e2]">
+                <th className="border border-white/30 py-2 px-2 text-white font-medium text-center text-[10px] w-16">
                   ผู้สูงอายุ<br />อยู่ร่วม
                 </th>
-                <th className="border border-white/20 py-2 px-2 text-white font-medium text-center text-[10px] w-16">
+                <th className="border border-white/30 py-2 px-2 text-white font-medium text-center text-[10px] w-16">
                   เพศ
                 </th>
-                <th className="border border-white/20 py-2 px-2 text-white font-medium text-center text-[10px] w-16">
+                <th className="border border-white/30 py-2 px-2 text-white font-medium text-center text-[10px] w-16">
                   อายุ<br />(ปี)
                 </th>
                 {assessmentColumns.map((col) => (
-                  <th key={col.key} className="border border-white/20 py-2 px-2 text-white font-medium text-center text-[10px] min-w-[60px]">
+                  <th key={col.key} className="border border-white/30 py-2 px-2 text-white font-medium text-center text-[10px] min-w-[60px]">
                     {col.label.split('\n').map((line, i) => (
                       <React.Fragment key={i}>
                         {line}
@@ -506,7 +522,7 @@ const ElderlyScreeningDetail = ({
                           </td>
                         );
                       })}
-                      {/* คอลัมน์ผลการคัดกรอง */}
+                      {/* คอลัมน์ผลการประเมิน */}
                       {(() => {
                         const overallResult = getOverallResult(elderly);
                         const isOverallRisk = overallResult === "เสี่ยง";

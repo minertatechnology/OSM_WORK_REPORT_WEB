@@ -15,11 +15,9 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const withCache = async (key, fetchFn, ttl = CACHE_TTL) => {
   const cached = cache.get(key);
   if (cached && Date.now() - cached.timestamp < ttl) {
-    console.log(`📦 Cache hit: ${key}`);
     return cached.data;
   }
 
-  console.log(`🔄 Cache miss: ${key}, fetching...`);
   const data = await fetchFn();
   cache.set(key, { data, timestamp: Date.now() });
   return data;
@@ -300,7 +298,6 @@ export const getOsmByHealthService = async (healthServiceId) => {
   if (!healthServiceId) return [];
 
   try {
-    console.log("🔍 Fetching OSM for service:", healthServiceId);
     const response = await axiosInstance.get("/lookups/osm-by-health-service", {
       params: {
         health_service_id: healthServiceId,
@@ -308,27 +305,21 @@ export const getOsmByHealthService = async (healthServiceId) => {
       },
     });
 
-    console.log("✅ OSM API response:", response.data);
-
     // Parse response data - รองรับหลายรูปแบบ
     if (Array.isArray(response.data)) {
-      console.log("✅ OSM data is array, length:", response.data.length);
       return response.data;
     } else if (response.data?.items && Array.isArray(response.data.items)) {
-      console.log("✅ OSM data.items is array, length:", response.data.items.length);
       return response.data.items;
     } else if (response.data?.data && Array.isArray(response.data.data)) {
-      console.log("✅ OSM data.data is array, length:", response.data.data.length);
       return response.data.data;
     } else if (response.data?.results && Array.isArray(response.data.results)) {
-      console.log("✅ OSM data.results is array, length:", response.data.results.length);
       return response.data.results;
     }
 
-    console.warn("⚠️ OSM response is not array:", response.data);
+    console.warn("OSM response is not array:", response.data);
     return [];
   } catch (error) {
-    console.error("❌ Error fetching OSM:", error.response?.status, error.response?.data);
+    console.error("Error fetching OSM:", error.response?.status, error.response?.data);
     return [];
   }
 };
@@ -377,7 +368,6 @@ export const getPositions = async (params = {}) => {
  */
 export const clearLookupCache = () => {
   cache.clear();
-  console.log("🗑️ Lookup cache cleared");
 };
 
 export default {

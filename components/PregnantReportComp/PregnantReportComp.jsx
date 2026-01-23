@@ -998,13 +998,10 @@ const PregnantReportComp = () => {
         // รวมพิกัดจาก evaluations ทั้งหมดที่มี latitude และ longitude
         const coordinatesMap = new Map(); // Map<external_user_id, {lat, lng}>
 
-        console.log('\n🔍 กำลังค้นหาพิกัดจากข้อมูล evaluations...');
-        console.log(`📦 จำนวน evaluations ทั้งหมด: ${evaluations.length}`);
-
         let foundCoordinatesCount = 0;
         let invalidCoordinatesCount = 0;
 
-        evaluations.forEach((evaluation, index) => {
+        evaluations.forEach((evaluation) => {
           if (evaluation.latitude && evaluation.longitude && evaluation.external_user_id) {
             const lat = parseFloat(evaluation.latitude);
             const lng = parseFloat(evaluation.longitude);
@@ -1015,69 +1012,40 @@ const PregnantReportComp = () => {
               if (!coordinatesMap.has(evaluation.external_user_id)) {
                 coordinatesMap.set(evaluation.external_user_id, { lat, lng });
                 foundCoordinatesCount++;
-                console.log(`✓ Evaluation #${index + 1}: User ${evaluation.external_user_id} - Lat: ${lat}, Lng: ${lng}`);
               }
             } else {
               invalidCoordinatesCount++;
-              console.log(`✗ Evaluation #${index + 1}: พิกัดไม่ถูกต้อง - Lat: ${lat}, Lng: ${lng}`);
             }
           }
         });
 
-        console.log(`\n📊 สรุปการค้นหาพิกัด:`);
-        console.log(`   ✅ พบพิกัดที่ถูกต้อง: ${foundCoordinatesCount} รายการ`);
-        console.log(`   ❌ พิกัดไม่ถูกต้อง: ${invalidCoordinatesCount} รายการ`);
-        console.log(`   ⚠️  ไม่มีพิกัด: ${evaluations.length - foundCoordinatesCount - invalidCoordinatesCount} รายการ\n`);
-
         // แปลงพิกัดเป็นพื้นที่ (ทำทีละ user เพื่อไม่ให้โดน rate limit)
         const userIds = Array.from(coordinatesMap.keys());
-        console.log('🌍 เริ่มต้นการแปลงพิกัดเป็นพื้นที่');
-        console.log(`📊 พบพิกัดทั้งหมด ${userIds.length} รายการ`);
-        console.log('─────────────────────────────────────────');
 
         for (let i = 0; i < userIds.length; i++) {
           const userId = userIds[i];
           const coords = coordinatesMap.get(userId);
 
-          console.log(`\n[${i + 1}/${userIds.length}] กำลังแปลงพิกัดของ User: ${userId}`);
-          console.log(`📍 Latitude: ${coords.lat}`);
-          console.log(`📍 Longitude: ${coords.lng}`);
-
           try {
             const locationData = await getAddressFromCoordinates(coords.lat, coords.lng);
 
             if (locationData.success) {
-              console.log('✅ แปลงพิกัดสำเร็จ!');
-              console.log(`   จังหวัด: ${locationData.province || 'ไม่พบข้อมูล'}`);
-              console.log(`   อำเภอ: ${locationData.district || 'ไม่พบข้อมูล'}`);
-              console.log(`   ตำบล: ${locationData.subdistrict || 'ไม่พบข้อมูล'}`);
-              console.log(`   ที่อยู่เต็ม: ${locationData.fullAddress || 'ไม่พบข้อมูล'}`);
-
               newLocationDataMap.set(userId, {
                 province: locationData.province,
                 district: locationData.district,
                 subdistrict: locationData.subdistrict,
                 fullAddress: locationData.fullAddress,
               });
-            } else {
-              console.log('❌ แปลงพิกัดล้มเหลว');
-              console.log(`   Error: ${locationData.error || 'Unknown error'}`);
             }
 
             // เพิ่ม delay เล็กน้อยเพื่อไม่ให้โดน rate limit (1 request/second)
             if (i < userIds.length - 1) {
-              console.log('⏳ รอ 1.1 วินาทีก่อนดึงข้อมูลต่อไป...');
               await new Promise(resolve => setTimeout(resolve, 1100));
             }
           } catch (error) {
-            console.error(`❌ เกิดข้อผิดพลาดในการแปลงพิกัดของ user ${userId}:`, error);
-            console.error(`   Lat: ${coords.lat}, Lng: ${coords.lng}`);
+            console.error(`Error converting coordinates for user ${userId}:`, error);
           }
         }
-
-        console.log('\n─────────────────────────────────────────');
-        console.log(`🎉 แปลงพิกัดเสร็จสิ้น! สำเร็จ ${newLocationDataMap.size}/${userIds.length} รายการ`);
-        console.log('─────────────────────────────────────────\n');
 
         setLocationDataMap(newLocationDataMap);
         setIsLoadingLocations(false);
@@ -1100,8 +1068,6 @@ const PregnantReportComp = () => {
       if (service) {
         try {
           const osmData = await getOsmByHealthService(service);
-          console.log("📊 OSM Data received:", osmData.length, "items");
-          console.log("🆔 OSM IDs:", osmData.map(o => o.id));
           setOsmDataByService(osmData);
         } catch (err) {
           console.error("Error fetching OSM data:", err);
@@ -1143,8 +1109,6 @@ const PregnantReportComp = () => {
       // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
       // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
       if (service && osmDataByService.length > 0) {
-        console.log("🎯 Service filter enabled (PRIORITY)");
-
         // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
         const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
 
@@ -1273,6 +1237,7 @@ const PregnantReportComp = () => {
           year: reportYear,
           month,
           name: userName || "ไม่พบข้อมูล",
+          date: selectedRow?.date || selectedRow?._thaiDate || "",
           external_user_id: selectedRow?.external_user_id,
         }}
         evaluations={userEvaluations}

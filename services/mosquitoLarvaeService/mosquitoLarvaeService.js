@@ -106,7 +106,15 @@ export const transformReportData = (reports) => {
 
     try {
       if (report.notes) {
-        parsedNotes = JSON.parse(report.notes);
+        // ตรวจสอบก่อนว่าเป็น JSON string ที่ถูกต้อง (ขึ้นต้นด้วย { หรือ [)
+        const trimmedNotes = report.notes.trim();
+        if ((trimmedNotes.startsWith('{') && trimmedNotes.endsWith('}')) ||
+            (trimmedNotes.startsWith('[') && trimmedNotes.endsWith(']'))) {
+          parsedNotes = JSON.parse(report.notes);
+        } else {
+          // ถ้าไม่ใช่ JSON format ให้ใช้ค่าเริ่มต้น
+          console.warn("[MosquitoLarvae] Notes is not valid JSON, using default:", trimmedNotes);
+        }
       }
     } catch (error) {
       console.error("[MosquitoLarvae] Failed to parse notes:", error);

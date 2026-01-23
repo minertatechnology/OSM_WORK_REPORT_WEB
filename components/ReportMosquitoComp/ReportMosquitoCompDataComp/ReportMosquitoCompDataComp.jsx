@@ -852,8 +852,6 @@ const ReportMosquitoCompDataComp = () => {
         if (service) {
           try {
             osmData = await getOsmByHealthService(service);
-            console.log("📊 OSM Data received:", osmData.length, "items");
-            console.log("🆔 OSM IDs:", osmData.map(o => o.id));
             setOsmDataByService(osmData);
           } catch (err) {
             console.error("Error fetching OSM data:", err);
@@ -869,8 +867,6 @@ const ReportMosquitoCompDataComp = () => {
           limit: 1000,
         });
 
-        console.log("📊 All data received:", data.length);
-
         // View 2: Household list for specific user
         if (userId) {
           // ดึงข้อมูลผู้ใช้ (อสม.)
@@ -878,19 +874,10 @@ const ReportMosquitoCompDataComp = () => {
           const userData = users[userId];
           setSelectedUserName(userData?.name || "ไม่ระบุชื่อ");
 
-          console.log("👤 User data (อสม.):", {
-            name: userData?.name,
-            province: userData?.province_name_th,
-            district: userData?.district_name_th,
-            subdistrict: userData?.subdistrict_name_th
-          });
-
           // กรองข้อมูล reports ของ user นี้
           const userReports = data.filter(
             (report) => report.external_user_id === userId
           );
-
-          console.log("📊 User reports:", userReports.length);
 
           // Group by household_id และเก็บข้อมูลบ้าน + วันที่ล่าสุด
           const householdsMap = new Map();
@@ -921,18 +908,9 @@ const ReportMosquitoCompDataComp = () => {
                   health_service_id: userData?.health_service_id,
                 },
               };
-              console.log("💾 Saving household data:", {
-                householdId,
-                hasLocationData: !!householdData.location_data,
-                locationData: householdData.location_data,
-                hasHousehold: !!householdData.household,
-                userLocation: householdData.user_location
-              });
               householdsMap.set(householdId, householdData);
             }
           });
-
-          console.log("📊 Unique households:", householdsMap.size);
 
           // แปลงเป็น array และเพิ่มวันที่แบบไทย
           const transformedData = Array.from(householdsMap.values()).map((household, idx) => ({
@@ -940,11 +918,6 @@ const ReportMosquitoCompDataComp = () => {
             index: idx + 1,
             date: household.lastReportDate ? formatThaiDate(household.lastReportDate) : "-",
           }));
-
-          console.log("🔍 Transformed Data Sample:", transformedData[0]);
-          console.log("🔍 Has location_data?", transformedData[0]?.location_data);
-          console.log("🔍 Has household?", transformedData[0]?.household);
-          console.log("🔍 Has user_location?", transformedData[0]?.user_location);
 
           setApiData(transformedData);
         }
@@ -985,15 +958,6 @@ const ReportMosquitoCompDataComp = () => {
           const transformedData = Object.values(groupedByUser).map((userGroup, idx) => {
             const userData = users[userGroup.userId];
 
-            console.log("👤 User data (อสม.) in View 1:", {
-              name: userData?.name,
-              province: userData?.province_name_th,
-              district: userData?.district_name_th,
-              subdistrict: userData?.subdistrict_name_th,
-              village_no: userData?.village_no,
-              health_service_id: userData?.health_service_id,
-            });
-
             return {
               id: userGroup.userId,
               external_user_id: userGroup.userId,
@@ -1013,9 +977,6 @@ const ReportMosquitoCompDataComp = () => {
             };
           });
 
-          console.log("🔍 Transformed Data Sample (View 1):", transformedData[0]);
-          console.log("🔍 Has user_location (View 1)?", transformedData[0]?.user_location);
-
           setApiData(transformedData);
         }
       } catch (err) {
@@ -1032,26 +993,7 @@ const ReportMosquitoCompDataComp = () => {
 
   // Filter and search
   const filteredRows = useMemo(() => {
-    console.log("🔍 ===== FILTER DEBUG START =====");
-    console.log("📍 Selected Filters:", {
-      zone,
-      province,
-      district,
-      subdistrict,
-      service,
-      searchHouseNumber,
-      searchVillageNumber
-    });
-    console.log("📊 Total apiData:", apiData.length);
-
-    const result = apiData.filter((row, index) => {
-      console.log(`\n--- Checking Row ${index} ---`);
-      console.log("Row data:", {
-        household: row.household,
-        location_data: row.location_data,
-        user_location: row.user_location
-      });
-
+    const result = apiData.filter((row) => {
       // Keyword search - สำหรับ View 1 (รายชื่อผู้รับผิดชอบ) เท่านั้น
       // View 2 (รายการบ้าน) ไม่ใช้ keyword search
       if (!userId && !householdId) {
@@ -1059,7 +1001,6 @@ const ReportMosquitoCompDataComp = () => {
         if (term) {
           const nameMatch = row.name?.toLowerCase().includes(term);
           if (!nameMatch) {
-            console.log("❌ Failed keyword search (name)");
             return false;
           }
         }
@@ -1070,7 +1011,6 @@ const ReportMosquitoCompDataComp = () => {
       if (houseTerm) {
         const houseNumMatch = row.houseNumber?.toLowerCase().includes(houseTerm);
         if (!houseNumMatch) {
-          console.log("❌ Failed house number search");
           return false;
         }
       }
@@ -1080,7 +1020,6 @@ const ReportMosquitoCompDataComp = () => {
       if (villageTerm) {
         const villageNumMatch = row.villageNumber?.toLowerCase().includes(villageTerm);
         if (!villageNumMatch) {
-          console.log("❌ Failed village number search");
           return false;
         }
       }
@@ -1095,7 +1034,6 @@ const ReportMosquitoCompDataComp = () => {
             : isInCalendarYear(parsedDate, yearNum);
 
           if (!matchesYear) {
-            console.log("❌ Failed year filter");
             return false;
           }
         }
@@ -1105,7 +1043,6 @@ const ReportMosquitoCompDataComp = () => {
       if (month && row.date) {
         const parsedDate = parseThaiDate(row.date);
         if (parsedDate && !isInMonth(parsedDate, month)) {
-          console.log("❌ Failed month filter");
           return false;
         }
       }
@@ -1114,7 +1051,6 @@ const ReportMosquitoCompDataComp = () => {
       if (week && month && row.date) {
         const parsedDate = parseThaiDate(row.date);
         if (parsedDate && !isInWeekOfMonth(parsedDate, week)) {
-          console.log("❌ Failed week filter");
           return false;
         }
       }
@@ -1123,40 +1059,26 @@ const ReportMosquitoCompDataComp = () => {
       // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
       // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
       if (service && osmDataByService.length > 0) {
-        console.log("🎯 Service filter enabled (PRIORITY)");
-        console.log("📊 Rows before service filter:", row.id);
-
         // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
         const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
-        console.log("🆔 OSM ID Set (first 5):", Array.from(osmIdSet).slice(0, 5));
-        console.log("👥 Total OSMs:", osmIdSet.size);
 
         // Filter เฉพาะที่มี external_user_id อยู่ใน osmIdSet
         const match = row.external_user_id && osmIdSet.has(row.external_user_id);
-        if (!match && row.external_user_id) {
-          console.log("❌ No match - external_user_id:", row.external_user_id);
-        } else if (match) {
-          console.log("✅ Match - external_user_id:", row.external_user_id);
-        }
 
         if (!match) {
-          console.log("❌ Failed service filter");
           return false;
         }
 
         // ถ้าเลือกหน่วยบริการแล้ว ให้ skip filter ตามพื้นที่ทิ้ง
-        console.log("✅ Service filter passed - skipping location filters");
         return true;
       }
 
       // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
       // ใช้ข้อมูลที่อยู่ของ อสม. ในการกรอง (user_location)
       const userLocation = row.user_location;
-      console.log("📍 userLocation:", userLocation);
 
       // ถ้าไม่มี user_location แต่มีการเลือก filter location ให้ skip row นี้
       if (!userLocation && (zone || province || district || subdistrict)) {
-        console.log("❌ No user_location but location filters selected");
         return false;
       }
 
@@ -1168,13 +1090,7 @@ const ReportMosquitoCompDataComp = () => {
             const provinceInHealthArea = selectedHealthArea.provinces.find(
               p => p.name_th === userLocation.province_name_th
             );
-            console.log("🏥 Health Area check:", {
-              selected: selectedHealthArea.name_th,
-              dataProvince: userLocation.province_name_th,
-              match: !!provinceInHealthArea
-            });
             if (!provinceInHealthArea) {
-              console.log("❌ Failed health area filter - province not in selected health area");
               return false;
             }
           }
@@ -1183,13 +1099,7 @@ const ReportMosquitoCompDataComp = () => {
         // Filter by province
         if (province) {
           const selectedProvince = provinces.find(p => p.code === province);
-          console.log("🏛️ Province check:", {
-            selected: selectedProvince?.name_th,
-            data: userLocation.province_name_th,
-            match: userLocation.province_name_th === selectedProvince?.name_th
-          });
           if (selectedProvince && userLocation.province_name_th !== selectedProvince.name_th) {
-            console.log("❌ Failed province filter");
             return false;
           }
         }
@@ -1197,13 +1107,7 @@ const ReportMosquitoCompDataComp = () => {
         // Filter by district
         if (district) {
           const selectedDistrict = districts.find(d => d.code === district);
-          console.log("🏙️ District check:", {
-            selected: selectedDistrict?.name_th,
-            data: userLocation.district_name_th,
-            match: userLocation.district_name_th === selectedDistrict?.name_th
-          });
           if (selectedDistrict && userLocation.district_name_th !== selectedDistrict.name_th) {
-            console.log("❌ Failed district filter");
             return false;
           }
         }
@@ -1211,13 +1115,7 @@ const ReportMosquitoCompDataComp = () => {
         // Filter by subdistrict
         if (subdistrict) {
           const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
-          console.log("🏘️ Subdistrict check:", {
-            selected: selectedSubdistrict?.name_th,
-            data: userLocation.subdistrict_name_th,
-            match: userLocation.subdistrict_name_th === selectedSubdistrict?.name_th
-          });
           if (selectedSubdistrict && userLocation.subdistrict_name_th !== selectedSubdistrict.name_th) {
-            console.log("❌ Failed subdistrict filter");
             return false;
           }
         }
@@ -1235,13 +1133,6 @@ const ReportMosquitoCompDataComp = () => {
             (v.village_code && String(v.village_code) === String(village)) ||
             String(v.village_no) === String(village)
           );
-
-          console.log("🏠 Village check:", {
-            selected: village,
-            selectedVillageObj: selectedVillage,
-            userVillageNo: userVillageNo,
-            userVillageCode: userVillageCode
-          });
 
           // เทียบหลายรูปแบบ:
           // 1. เทียบ village_no ของ user กับ selected village code
@@ -1266,10 +1157,7 @@ const ReportMosquitoCompDataComp = () => {
             }
           }
 
-          console.log("🏠 Village match result:", villageMatch);
-
           if (!villageMatch) {
-            console.log("❌ Failed village filter");
             return false;
           }
         }
@@ -1277,31 +1165,21 @@ const ReportMosquitoCompDataComp = () => {
         // Filter by health service - เทียบ health_service_id ของ user กับ service ที่เลือก
         if (service) {
           const userHealthServiceId = userLocation.health_service_id;
-          console.log("🏥 Service check:", {
-            selected: service,
-            userHealthServiceId: userHealthServiceId,
-            match: String(userHealthServiceId) === String(service)
-          });
           // เทียบ health_service_id โดยตรง
           if (userHealthServiceId) {
             if (String(userHealthServiceId) !== String(service)) {
-              console.log("❌ Failed service filter");
               return false;
             }
           } else {
             // ถ้าไม่มี health_service_id ให้ไม่ผ่าน filter
-            console.log("❌ Failed service filter - no health_service_id in user data");
             return false;
           }
         }
       }
 
-      console.log("✅ Row passed all filters");
       return true;
     });
 
-    console.log("\n🎯 Filter Result:", result.length, "rows passed");
-    console.log("===== FILTER DEBUG END =====\n");
     return result;
   }, [userId, householdId, keyword, searchHouseNumber, searchVillageNumber, year, yearType, month, week, apiData, zone, province, district, subdistrict, village, service, osmDataByService, healthAreas, provinces, districts, subdistricts, villages, healthServices]); // เพิ่ม searchHouseNumber, searchVillageNumber
 

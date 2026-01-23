@@ -686,10 +686,7 @@ const Reportosm1DataComp = () => {
     const fetchOsmData = async () => {
       if (service) {
         try {
-          console.log("🔍 Fetching OSM for service:", service);
           const osmData = await getOsmByHealthService(service);
-          console.log("✅ OSM Data received:", osmData.length, "items");
-          console.log("🆔 OSM IDs:", osmData.map(o => o.id).slice(0, 5), "...");
           setOsmDataByService(osmData);
         } catch (err) {
           console.error("Error fetching OSM data:", err);
@@ -774,20 +771,11 @@ const Reportosm1DataComp = () => {
       // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
       // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
       if (service && osmDataByService.length > 0) {
-        console.log("🎯 Service filter enabled (PRIORITY) - skipping location filters");
-
         // สร้าง Set ของ OSM IDs
         const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
-        console.log("🆔 OSM IDs in service:", Array.from(osmIdSet).slice(0, 5), "...");
 
         // เช็คว่า external_user_id ของรายงานตรงกับ OSM ID ในหน่วยบริการนี้หรือไม่
         const match = row.rawData?.external_user_id && osmIdSet.has(row.rawData.external_user_id);
-
-        if (!match) {
-          console.log("❌ No match - external_user_id:", row.rawData?.external_user_id);
-        } else {
-          console.log("✅ Match - external_user_id:", row.rawData?.external_user_id);
-        }
 
         return match;
       }
@@ -899,6 +887,7 @@ const Reportosm1DataComp = () => {
           year,
           month: monthLabel,
           name: selectedRow?.name || "ไม่พบข้อมูล",
+          date: selectedRow?.date || "",
           rawData: selectedRow?.rawData,
         }}
       />

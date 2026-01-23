@@ -48,24 +48,14 @@ export const getUserByExternalId = async (externalUserId) => {
     };
   }
 
-  // ตรวจสอบ cache ก่อน (ปิดการใช้งาน cache ชั่วคราวเพื่อ debug)
-  // if (userCache.has(externalUserId)) {
-  //   console.log(`📦 Cache hit for user: ${externalUserId}`);
-  //   return userCache.get(externalUserId);
-  // }
-
   // ล้าง cache เก่าออกก่อน
   if (userCache.has(externalUserId)) {
-    // console.log(`🗑️ Clearing old cache for: ${externalUserId}`);
     userCache.delete(externalUserId);
   }
 
   try {
     // เรียก API: https://thaiphc2dev.minertatech.com/api/v1/osm/{external_user_id}
-    // console.log(`👥 Fetching user from OAuth2: /osm/${externalUserId}`);
     const response = await oauth2Api.get(`/osm/${externalUserId}`);
-
-    // console.log(`✅ OAuth2 RAW Response for ${externalUserId}:`, JSON.stringify(response.data, null, 2));
 
     // ตรวจสอบว่า response มีข้อมูลหรือไม่
     if (!response.data || !response.data.data) {
@@ -81,21 +71,10 @@ export const getUserByExternalId = async (externalUserId) => {
     const firstName = apiData.first_name ?? apiData.firstName ?? "";
     const lastName = apiData.last_name ?? apiData.lastName ?? "";
 
-    // console.log(`🔍 API Data:`, apiData);
-    // console.log(`🔍 Raw values:`, {
-    //   prefix_name_th: apiData.prefix_name_th,
-    //   first_name: apiData.first_name,
-    //   last_name: apiData.last_name
-    // });
-
-    // console.log(`📋 Name parts:`, { prefix, firstName, lastName });
-
     const fullName = [prefix, firstName, lastName]
       .filter(Boolean)
       .join(" ")
       .trim();
-
-    // console.log(`👤 Full name constructed: "${fullName}"`);
 
     // ถ้าไม่มีชื่อเลย ให้แสดง "ไม่ระบุชื่อ" แทน UUID
     const finalName = fullName || "ไม่ระบุชื่อ";
@@ -120,7 +99,6 @@ export const getUserByExternalId = async (externalUserId) => {
 
     // เก็บใน cache
     userCache.set(externalUserId, userData);
-    // console.log(`✅ User data fetched and cached: "${userData.name}"`);
 
     return userData;
   } catch (error) {
@@ -389,7 +367,6 @@ export const getUsersBatch = async (externalUserIds) => {
  */
 export const clearUserCache = () => {
   userCache.clear();
-  console.log("🗑️ User cache cleared");
 };
 
 /**

@@ -59,7 +59,6 @@ export const exportHealthRecordToPDF = async (record) => {
   if (record.external_user_id) {
     try {
       osmData = await getUserByExternalId(record.external_user_id);
-      console.log("OSM Data fetched:", osmData);
     } catch (error) {
       console.error("Failed to fetch OSM data:", error);
     }

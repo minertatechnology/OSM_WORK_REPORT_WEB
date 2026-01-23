@@ -10,8 +10,6 @@ const NcdsScreeningDetail = ({ reportData }) => {
   const tableRef = useRef(null);
 
   // ถ้าไม่มีข้อมูล ให้ใช้ค่า default
-  const year = reportData?.year || "2568";
-  const month = reportData?.month || "มิถุนายน";
   const name = reportData?.name || "นางสาวชุชนาถ ผดุงจิตร";
   const date = reportData?.date || "";
   const rawData = reportData?.rawData || {};
@@ -81,14 +79,15 @@ const NcdsScreeningDetail = ({ reportData }) => {
       };
 
       // ตั้งค่าตาราง
-      const startX = 17;
-      const startY = 22;
-      const rowHeight = 9;
-      const headerHeight = 16;
-      const ROWS_PER_PAGE = 10;
+      const startX = 12;
+      const startY = 28;
+      const rowHeight = 11;
+      const headerHeight = 18;
+      const ROWS_PER_PAGE = 9;
 
-      // Column widths - 17 columns total (เพิ่ม BMI, ปรับให้พอดีกับกระดาษ A4 แนวนอน)
-      const colWidths = [8, 30, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14];
+      // Column widths - 17 columns total (ปรับให้พอดีกับกระดาษ A4 แนวนอน 297mm)
+      // รวมทั้งหมด = 273mm (เหลือ margin ซ้ายขวา 12mm ต้นท้าย)
+      const colWidths = [10, 35, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15];
 
       const headers = [
         "ลำดับ",
@@ -146,7 +145,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
       // ฟังก์ชันวาด header ตาราง
       const drawTableHeader = (currentY) => {
         doc.setFont("Sarabun", "bold");
-        doc.setFontSize(8.5);
+        doc.setFontSize(7.5);
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.3);
 
@@ -167,7 +166,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
       // ฟังก์ชันวาดแถวข้อมูล
       const drawDataRow = (currentY, rowIndex, rowData, rowName) => {
         doc.setFont("Sarabun", "normal");
-        doc.setFontSize(6.5);
+        doc.setFontSize(7);
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.3);
 
@@ -181,7 +180,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
 
         // รายชื่อ - แบ่งชื่อยาวเป็นหลายบรรทัด
         doc.rect(currentX, currentY, colWidths[1], rowHeight);
-        doc.setFont("Sarabun", "normal");
+        doc.setFont("Sarabun", "bold");
 
         // แบ่งชื่อถ้ายาวเกิน
         const nameLines = [];
@@ -265,14 +264,18 @@ const NcdsScreeningDetail = ({ reportData }) => {
         // Add title on each page
         doc.setFontSize(14);
         doc.setFont("Sarabun", "bold");
-        doc.text(`แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs) ปีงบประมาณ ${year}`, 148.5, 10, { align: "center" });
-        doc.setFontSize(12);
-        doc.setFont("Sarabun", "normal");
-        doc.text(`ประจำเดือน ${month}`, 148.5, 16, { align: "center" });
+        doc.text(`แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)`, 148.5, 10, { align: "center" });
+
+        // แสดงวันที่ถ้ามี
+        if (date) {
+          doc.setFontSize(8);
+          doc.setFont("Sarabun", "normal");
+          doc.text(`วันที่: ${date}`, 148.5, 16, { align: "center" });
+        }
 
         // แสดงหมายเลขหน้า
-        doc.setFontSize(10);
-        doc.text(`หน้า ${pageNum + 1} / ${totalPages}`, 280, 10, { align: "right" });
+        // doc.setFontSize(10);
+        // doc.text(`หน้า ${pageNum + 1} / ${totalPages}`, 280, 10, { align: "right" });
 
         // วาด header ตาราง
         let currentY = drawTableHeader(startY);
@@ -326,7 +329,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
       }
 
       // บันทึกไฟล์
-      doc.save(`รายงานคัดกรอง_NCDs_${month}_${year}.pdf`);
+      const now = new Date();
+      const fileNameDate = now.toISOString().split('T')[0];
+      doc.save(`รายงานคัดกรอง_NCDs_${fileNameDate}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -374,11 +379,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
           {/* Report Info - Center aligned */}
           <div className="flex-1 text-center">
             <h2 className="font-bold text-[#231d37] text-lg mb-2">
-              แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs) ปีงบประมาณ {year}
+              แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)
             </h2>
-            <p className="text-gray-700 font-medium text-base mb-1">
-              ประจำเดือน {month}
-            </p>
+            {date && <p className="text-gray-600 text-sm mb-1">วันที่: {date}</p>}
             <p className="text-gray-700 font-medium text-base">{name}</p>
           </div>
 

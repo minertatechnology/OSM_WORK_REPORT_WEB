@@ -752,15 +752,11 @@ const ElderlyScreeningComp = () => {
     setLoading(true);
     setError("");
     try {
-      console.log("📡 Fetching elderly screenings data...");
-
       // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
       let osmData = [];
       if (service) {
         try {
           osmData = await getOsmByHealthService(service);
-          console.log("📊 OSM Data received:", osmData.length, "items");
-          console.log("🆔 OSM IDs:", osmData.map(o => o.id));
           setOsmDataByService(osmData);
         } catch (err) {
           console.error("Error fetching OSM data:", err);
@@ -772,16 +768,12 @@ const ElderlyScreeningComp = () => {
 
       // ล้าง cache ข้อมูล OAuth2 ก่อน
       oauth2Service.clearCache();
-      console.log("🗑️ Cleared OAuth2 cache");
 
       // ดึงข้อมูลผู้สูงอายุทั้งหมด
       const data = await elderlyScreeningService.getAll({ skip: 0, limit: 1000 });
 
-      console.log("📊 Data received:", data);
-      console.log("📊 Data length:", data.length);
-
       if (data.length === 0) {
-        console.warn("⚠️ Empty data received from API!");
+        console.warn("Empty data received from API");
         setError("ไม่พบข้อมูลในระบบ กรุณาตรวจสอบ token หรือติดต่อผู้ดูแลระบบ");
         setRecords([]);
         setAggregatedData([]);
@@ -791,9 +783,7 @@ const ElderlyScreeningComp = () => {
       setRecords(data);
 
       // รวมข้อมูลตาม external_user_id (ผู้ประเมิน)
-      console.log("📊 Aggregating data by assessor...");
       const aggregated = elderlyScreeningService.aggregateByAssessor(data);
-      console.log("📊 Aggregated data:", aggregated);
 
       setAggregatedData(aggregated);
 
@@ -810,11 +800,9 @@ const ElderlyScreeningComp = () => {
       setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear?.toString() || "2568"]);
 
       // ดึงข้อมูลผู้ใช้จาก OAuth2
-      console.log("👥 Fetching user data from OAuth2...");
       const externalUserIds = aggregated.map((item) => item.external_user_id);
       const users = await oauth2Service.getBatch(externalUserIds);
 
-      console.log("👥 User data fetched:", users);
       setUserDataMap(users);
     } catch (err) {
       const message =
@@ -822,7 +810,7 @@ const ElderlyScreeningComp = () => {
         err?.response?.data?.detail ||
         err?.message ||
         "ไม่สามารถโหลดข้อมูล";
-      console.error("❌ Fetch Error:", err);
+      console.error("Fetch Error:", err);
       setError(message);
       setRecords([]);
       setAggregatedData([]);
@@ -857,10 +845,6 @@ const ElderlyScreeningComp = () => {
 
     const keywordLower = keyword.trim().toLowerCase();
 
-    console.log("🔍 [filteredRows] Starting filter...");
-    console.log("📊 [filteredRows] Aggregated data count:", aggregatedData?.length);
-    console.log("👥 [filteredRows] User data map size:", Object.keys(userDataMap || {}).length);
-
     // ใช้ aggregatedData แทน records
     const result = (aggregatedData || []).map((assessorData) => {
       // ดึงข้อมูลผู้ใช้จาก OAuth2
@@ -888,23 +872,11 @@ const ElderlyScreeningComp = () => {
       // Year filtering
       if (year && row._thaiDate) {
         const parsedDate = parseThaiDate(row._thaiDate);
-        console.log("🔍 Year Filter Debug:", {
-          yearType,
-          selectedYear: year,
-          thaiDate: row._thaiDate,
-          parsedDate,
-        });
         if (parsedDate) {
           const yearNum = parseInt(year);
           const matchesYear = yearType === "fiscal"
             ? isInFiscalYear(parsedDate, yearNum)
             : isInCalendarYear(parsedDate, yearNum);
-
-          console.log("✅ Year Match Result:", {
-            yearNum,
-            matchesYear,
-            filterType: yearType === "fiscal" ? "ปีงบประมาณ" : "รายปี"
-          });
 
           if (!matchesYear) {
             return false;
@@ -916,7 +888,6 @@ const ElderlyScreeningComp = () => {
       if (month && row._thaiDate) {
         const parsedDate = parseThaiDate(row._thaiDate);
         if (parsedDate && !isInMonth(parsedDate, month)) {
-          console.log("❌ Failed month filter");
           return false;
         }
       }
@@ -925,29 +896,17 @@ const ElderlyScreeningComp = () => {
       // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
       // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
       if (service && osmDataByService.length > 0) {
-        console.log("🎯 Service filter enabled (PRIORITY)");
-        console.log("📊 Rows before service filter:", row.external_user_id);
-
         // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
         const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
-        console.log("🆔 OSM ID Set (first 5):", Array.from(osmIdSet).slice(0, 5));
-        console.log("👥 Total OSMs:", osmIdSet.size);
 
         // Filter เฉพาะที่มี external_user_id อยู่ใน osmIdSet
         const match = row.external_user_id && osmIdSet.has(row.external_user_id);
-        if (!match && row.external_user_id) {
-          console.log("❌ No match - external_user_id:", row.external_user_id);
-        } else if (match) {
-          console.log("✅ Match - external_user_id:", row.external_user_id);
-        }
 
         if (!match) {
-          console.log("❌ Failed service filter");
           return false;
         }
 
         // ถ้าเลือกหน่วยบริการแล้ว ให้ skip filter ตามพื้นที่ทิ้ง
-        console.log("✅ Service filter passed - skipping location filters");
         // ยังคงต้อง filter keyword อยู่
         const keywordMatch = !keywordLower || (
           row._assessorName.toLowerCase().includes(keywordLower) ||
@@ -994,7 +953,6 @@ const ElderlyScreeningComp = () => {
       return provinceMatch && districtMatch && subdistrictMatch && keywordMatch;
     });
 
-    console.log("✅ [filteredRows] Final result:", result);
     return result;
   }, [aggregatedData, userDataMap, keyword, hydrated, year, yearType, month, zone, province, district, subdistrict, service, osmDataByService, healthAreas, provinces, districts, subdistricts]); // เพิ่ม service และ osmDataByService
 

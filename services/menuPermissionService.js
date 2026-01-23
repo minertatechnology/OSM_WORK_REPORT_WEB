@@ -15,11 +15,9 @@ const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const withCache = async (key, fetchFn, ttl = CACHE_TTL) => {
   const cached = cache.get(key);
   if (cached && Date.now() - cached.timestamp < ttl) {
-    console.log(`📦 Cache hit: ${key}`);
     return cached.data;
   }
 
-  console.log(`🔄 Cache miss: ${key}, fetching...`);
   const data = await fetchFn();
   cache.set(key, { data, timestamp: Date.now() });
   return data;
@@ -253,7 +251,6 @@ export const deleteMenu = async (menuId) => {
  */
 export const clearMenuCache = () => {
   cache.clear();
-  console.log("🗑️ Menu permission cache cleared");
 };
 
 /**
