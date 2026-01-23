@@ -172,6 +172,22 @@ export default function UserPermissionProvider({ children }) {
     return !isLocked(field);
   };
 
+  /**
+   * Get permission level (country, region, province, district, subdistrict, village)
+   * @returns {string}
+   */
+  const getPermissionLevel = () => {
+    return user?.permission_scope?.level || 'country';
+  };
+
+  /**
+   * Check if user has country/grand department permission
+   * @returns {boolean}
+   */
+  const isCountryLevel = () => {
+    return getPermissionLevel() === 'country';
+  };
+
   const value = {
     user,
     roles,
@@ -184,6 +200,8 @@ export default function UserPermissionProvider({ children }) {
     getInitialFilters,
     canClearFilter,
     canChangeFilter,
+    getPermissionLevel,
+    isCountryLevel,
   };
 
   return (

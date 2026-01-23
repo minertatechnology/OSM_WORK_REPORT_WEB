@@ -865,7 +865,7 @@ function Pagination({
 
 const UserListComp = () => {
   // Use permission-based filters (เหมือน ElderlyScreeningComp)
-  const { isLocked } = useUserPermission();
+  const { isLocked, isCountryLevel } = useUserPermission();
   const {
     zone,
     province,
@@ -1081,6 +1081,7 @@ const UserListComp = () => {
 
             // NEW: Volunteer & Device Status
             volunteer_status: volunteerStatus,
+            rawVolunteerStatus: rawVolunteerStatus, // เก็บค่าดิบไว้ใช้กรอง
             is_smartphone_owner: oauthData?.is_smartphone_owner,
 
             // NEW: Detailed Address
@@ -1213,8 +1214,19 @@ const UserListComp = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // ใช้ users โดยตรง เพราะ API ส่งมาแบบ paginated แล้ว
-  const displayUsers = users;
+  // กรองผู้ใช้ตามสิทธิ์: ถ้าเป็นสิทธิ์กรม (country) แสดงทั้งหมด ถ้าไม่ใช่แสดงเฉพาะ อสม.
+  const { displayUsers, filteredTotalItems } = useMemo(() => {
+    if (isCountryLevel()) {
+      // สิทธิ์กรม: แสดงทั้งหมด
+      return { displayUsers: users, filteredTotalItems: totalItems };
+    } else {
+      // สิทธิ์อื่นๆ: แสดงทุกคนยกเว้น "เจ้าหน้าที่" และ "ไม่ระบุชื่อ"
+      const filtered = users.filter(user => {
+        return user.position !== "เจ้าหน้าที่" && user.name !== "ไม่ระบุชื่อ";
+      });
+      return { displayUsers: filtered, filteredTotalItems: filtered.length };
+    }
+  }, [users, isCountryLevel, totalItems]);
 
   const handleRestoreUser = () => {
     if (!selectedUser) return;
@@ -1478,7 +1490,7 @@ const UserListComp = () => {
                   ลำดับ
                 </th>
                 <th className="py-4 px-4 font-semibold text-left text-white">
-                  รายชื่อ ({totalItems} รายการ)
+                  รายชื่อ ({filteredTotalItems} รายการ)
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
                   เลขประจำตัวประชาชน
