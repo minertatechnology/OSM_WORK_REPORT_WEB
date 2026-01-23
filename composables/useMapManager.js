@@ -27,11 +27,50 @@ export const useMapManager = () => {
     "#F4511E", "#1565C0", "#33691E", "#9E9D24", "#3E2723",
   ];
 
+  // Get responsive minZoom based on screen size - เพิ่ม zoom สำหรับหน้าจอเล็กมาก
+  const getResponsiveMinZoom = useCallback(() => {
+    if (typeof window === "undefined") return 7;
+    const screenWidth = window.innerWidth;
+    // Very small screens (mobile portrait) need much higher zoom
+    if (screenWidth < 400) return 10; // Very small mobile
+    if (screenWidth < 480) return 9; // Small mobile
+    if (screenWidth < 768) return 8; // Mobile
+    if (screenWidth < 1024) return 7; // Tablet
+    return 6; // Desktop
+  }, []);
+
+  // Get responsive center based on screen size - จัดศูนย์กลางแผนที่ตามหน้าจอ
+  const getResponsiveCenter = useCallback(() => {
+    if (typeof window === "undefined") return [13.7563, 100.5018];
+    const screenWidth = window.innerWidth;
+    // For mobile portrait, adjust center slightly north for better Thailand view
+    if (screenWidth < 480) return [14.5, 101.0]; // Shift center for mobile portrait
+    return [13.7563, 100.5018]; // Default center
+  }, []);
+
+  // Get responsive default zoom
+  const getResponsiveDefaultZoom = useCallback(() => {
+    if (typeof window === "undefined") return 7;
+    const screenWidth = window.innerWidth;
+    if (screenWidth < 400) return 10;
+    if (screenWidth < 480) return 9;
+    if (screenWidth < 768) return 8;
+    if (screenWidth < 1024) return 7;
+    return 6;
+  }, []);
+
   // Configuration
   const config = {
     colors: PROVINCE_COLORS, // ใช้สีที่หลากหลายสำหรับแต่ละจังหวัด
-    defaultCenter: [13.7563, 100.5018],
-    defaultZoom: 6,
+    get defaultCenter() {
+      return getResponsiveCenter();
+    },
+    get defaultZoom() {
+      return getResponsiveDefaultZoom();
+    },
+    get minZoom() {
+      return getResponsiveMinZoom();
+    },
   };
 
   // เริ่มต้นแผนที่
@@ -51,9 +90,15 @@ export const useMapManager = () => {
       L = await import("leaflet");
     }
 
+    // Get responsive values at initialization time
+    const defaultCenter = getResponsiveCenter();
+    const defaultZoom = getResponsiveDefaultZoom();
+    const minZoom = getResponsiveMinZoom();
+
     mapRef.current = L.map(mapContainer, {
-      center: config.defaultCenter,
-      zoom: config.defaultZoom,
+      center: defaultCenter,
+      zoom: defaultZoom,
+      minZoom: minZoom, // ป้องกันการซูมออกเกินระดับที่กำหนด
       zoomControl: true,
       attributionControl: true,
     });
@@ -67,7 +112,7 @@ export const useMapManager = () => {
     if (mapRef.current) {
       mapRef.current.invalidateSize();
     }
-  }, []);
+  }, [getResponsiveCenter, getResponsiveDefaultZoom, getResponsiveMinZoom]);
 
   // ฟังก์ชันสำหรับหาค่าจาก properties
   const findPropertyValue = useCallback((properties, possibleKeys) => {
@@ -336,7 +381,7 @@ export const useMapManager = () => {
     [getFeatureStyle, createPointLayer, bindFeatureInteractions]
   );
 
-  // ปรับมุมมองแผนที่ให้เหมาะสมกับข้อมูล
+  // ปรับมุมมองแผนที่ให้เหมาะสมกับข้อมูล โดยไม่ให้ซูมเกิน minZoom
   const fitToData = useCallback(() => {
     if (!mapRef.current || allLayers.length === 0) {
       console.warn("ไม่มีข้อมูลให้แสดง");
@@ -344,8 +389,19 @@ export const useMapManager = () => {
     }
 
     const group = L.featureGroup(allLayers);
-    mapRef.current.fitBounds(group.getBounds(), { padding: [20, 20] });
-  }, [allLayers]);
+    const minZoom = getResponsiveMinZoom();
+    mapRef.current.fitBounds(group.getBounds(), {
+      padding: [20, 20],
+      maxZoom: mapRef.current.getMaxZoom(),
+    });
+
+    // Prevent zooming out beyond minZoom (fitBounds can go below minZoom)
+    setTimeout(() => {
+      if (mapRef.current && mapRef.current.getZoom() < minZoom) {
+        mapRef.current.setZoom(minZoom);
+      }
+    }, 100);
+  }, [allLayers, getResponsiveMinZoom]);
 
   // ล้าง layers ทั้งหมด
   const clearAllLayers = useCallback(() => {
@@ -402,9 +458,21 @@ export const useMapManager = () => {
         setLoadedFiles(1);
 
         // ปรับมุมมองแผนที่ให้เหมาะสม - ใช้ layers ที่สร้างใหม่
+        // โดยไม่ให้ซูมเกิน minZoom เพื่อป้องกันการทับซ้อน
         if (newLayers && newLayers.length > 0) {
           const group = L.featureGroup(newLayers);
-          mapRef.current.fitBounds(group.getBounds(), { padding: [20, 20] });
+          const minZoom = getResponsiveMinZoom();
+          mapRef.current.fitBounds(group.getBounds(), {
+            padding: [20, 20],
+            maxZoom: mapRef.current.getMaxZoom(),
+          });
+
+          // Prevent zooming out beyond minZoom (fitBounds can go below minZoom)
+          setTimeout(() => {
+            if (mapRef.current && mapRef.current.getZoom() < minZoom) {
+              mapRef.current.setZoom(minZoom);
+            }
+          }, 100);
         }
 
         const loadTime = ((Date.now() - loadStartTime) / 1000).toFixed(2);
@@ -437,6 +505,23 @@ export const useMapManager = () => {
     }
   }, []);
 
+  // อัพเดท minZoom เมื่อขนาดหน้าจอเปลี่ยน (สำหรับ responsive)
+  const updateResponsiveZoom = useCallback(() => {
+    if (!mapRef.current) return;
+    const minZoom = getResponsiveMinZoom();
+    const recommendedZoom = getResponsiveDefaultZoom();
+    const recommendedCenter = getResponsiveCenter();
+    const currentZoom = mapRef.current.getZoom();
+
+    // ตั้งค่า minZoom ใหม่
+    mapRef.current.setMinZoom(minZoom);
+
+    // ถ้า zoom ปัจจุบันต่ำกว่า minZoom ให้ปรับให้ตรงกับ recommended zoom
+    if (currentZoom < minZoom) {
+      mapRef.current.setView(recommendedCenter, recommendedZoom, { animate: false });
+    }
+  }, [getResponsiveMinZoom, getResponsiveDefaultZoom, getResponsiveCenter]);
+
   return {
     // State
     map: mapRef.current,
@@ -451,5 +536,7 @@ export const useMapManager = () => {
     clearAllLayers,
     fitToData,
     cleanup,
+    updateResponsiveZoom,
+    getResponsiveMinZoom,
   };
 };

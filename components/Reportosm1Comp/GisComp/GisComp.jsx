@@ -196,6 +196,7 @@ const GisComp = () => {
   );
 
   // States for year and month selection
+  const [selectedYearType, setSelectedYearType] = useState("fiscal"); // fiscal = ปีงบประมาณ, calendar = รายปี
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -255,7 +256,7 @@ const GisComp = () => {
     clearAllLayers,
     fitToData,
     cleanup,
-    // currentLevel,
+    updateResponsiveZoom,
   } = useMapManager();
 
   const {
@@ -264,12 +265,21 @@ const GisComp = () => {
   } = useHealthRegions();
 
   // Options data for CustomSelect components
+  const yearTypeOptions = [
+    { value: "fiscal", label: "ปีงบประมาณ" },
+    { value: "calendar", label: "รายปี" },
+  ];
+
   const currentBuddhistYear = new Date().getFullYear() + 543;
   const yearOptions = [
     { value: "0", label: "ทุกปี" },
     ...Array.from({ length: 15 }, (_, index) => {
       const year = currentBuddhistYear - index;
-      return { value: String(year), label: String(year) };
+      // แสดงผลเป็น ปีงบประมาณ (เช่น 2568) หรือ รายปี (เช่น 2568)
+      const label = selectedYearType === "fiscal"
+        ? ` ${year}`
+        : ` ${year}`;
+      return { value: String(year), label };
     })
   ];
 
@@ -322,11 +332,9 @@ const GisComp = () => {
 
   const buildDisplayDataFromReports = useCallback(() => {
     const reports = weeklyDetails?.report_osm1_reports;
-    if (!Array.isArray(reports) || reports.length === 0) {
-      return [];
-    }
+    // Don't return early - we want to show all areas with 0 values even if no reports
 
-    const filteredReports = reports.filter((report) => {
+    const filteredReports = (reports || []).filter((report) => {
       const provinceKey = normalizeAreaKeyWithThai(
         getReportProvinceName(report),
         "province"
@@ -371,13 +379,14 @@ const GisComp = () => {
       selectedHealthRegion &&
       availableProvincesInRegion.length > 0;
 
+    // Use availableProvinces when no area filters are applied (show all provinces)
     const areaList = isLevelSubdistrict
       ? availableSubdistricts
       : isLevelDistrict
       ? availableDistricts
       : isLevelProvince
       ? availableProvincesInRegion
-      : [];
+      : availableProvinces;
 
     const getAreaName = isLevelSubdistrict
       ? getReportSubdistrictName
@@ -385,13 +394,15 @@ const GisComp = () => {
       ? getReportDistrictName
       : getReportProvinceName;
 
+    const level = isLevelSubdistrict
+      ? "subdistrict"
+      : isLevelDistrict
+      ? "district"
+      : "province";
+
+    // Build a map of normalized key to display name
     const areaKeyByName = new Map(
       areaList.map((name) => {
-        const level = isLevelSubdistrict
-          ? "subdistrict"
-          : isLevelDistrict
-          ? "district"
-          : "province";
         const key =
           level === "province"
             ? normalizeAreaKeyWithThai(name, level)
@@ -400,14 +411,11 @@ const GisComp = () => {
       })
     );
 
+    // Count reports by area
+    // Count reports by area
     const counts = new Map();
     filteredReports.forEach((report) => {
       const name = getAreaName(report);
-      const level = isLevelSubdistrict
-        ? "subdistrict"
-        : isLevelDistrict
-        ? "district"
-        : "province";
       const key =
         level === "province"
           ? normalizeAreaKeyWithThai(name, level)
@@ -415,21 +423,24 @@ const GisComp = () => {
       if (!key) {
         return;
       }
-      const displayName = areaKeyByName.get(key) || name;
+      // Find matching display name from areaList (case-insensitive match via normalized key)
+      let displayName = name;
+      for (const [areaKey, areaName] of areaKeyByName) {
+        if (key === areaKey) {
+          displayName = areaName;
+          break;
+        }
+      }
       counts.set(displayName, (counts.get(displayName) || 0) + 1);
     });
 
-    const data = areaList.length
-      ? areaList.map((name) => ({
-          name,
-          value: counts.get(name) || 0,
-        }))
-      : Array.from(counts.entries()).map(([name, value]) => ({
-          name,
-          value,
-        }));
+    // Map all areas in areaList to display data (show 0 for areas with no reports)
+    const data = areaList.map((name) => ({
+      name,
+      value: counts.get(name) || 0,
+    }));
 
-    return data.filter((item) => item.value > 0);
+    return data; // Don't filter - show all areas including those with 0 value
   }, [
     weeklyDetails,
     selectedProvince,
@@ -439,6 +450,7 @@ const GisComp = () => {
     availableSubdistricts,
     availableDistricts,
     availableProvincesInRegion,
+    availableProvinces,
     normalizeAreaKeyWithThai,
   ]);
 
@@ -869,6 +881,7 @@ const GisComp = () => {
 
   const clearFilter = useCallback(() => {
     // ล้างการเลือกทั้งหมด
+    setSelectedYearType("fiscal");
     setSelectedYear("");
     setSelectedMonth("");
     setSelectedWeek("");
@@ -1062,6 +1075,30 @@ const GisComp = () => {
     };
   }, [initializeMap, cleanup, updateStatus]);
 
+  // Handle window resize - update responsive zoom levels
+  useEffect(() => {
+    if (!map) return;
+
+    // Initial update
+    updateResponsiveZoom();
+
+    // Add resize listener with debounce
+    let resizeTimeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        updateResponsiveZoom();
+      }, 200);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [map, updateResponsiveZoom]);
+
   // Permission initialization - auto-fill filters based on user's permission scope
   useEffect(() => {
     if (permissionLoading || !scope || !permissionUser) return;
@@ -1182,6 +1219,104 @@ const GisComp = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedHealthRegion]);
 
+  // Load all provinces of Thailand when no area filters are selected
+  useEffect(() => {
+    // Only load when provinces are available and no area filters are active
+    if (availableProvinces.length === 0) return;
+    if (selectedHealthRegion || selectedProvince || selectedDistrict || selectedSubdistrict) return;
+
+    let mounted = true;
+    const BATCH_SIZE = 20; // Load 20 provinces at a time
+
+    const loadAllProvinces = async () => {
+      try {
+        setIsLoading(true);
+        clearAllLayers();
+
+        updateStatus(`กำลังโหลดแผนที่ประเทศไทย (${availableProvinces.length} จังหวัด)...`, "info");
+
+        const allFeatures = [];
+        let loadedCount = 0;
+
+        // Load provinces in batches
+        for (let i = 0; i < availableProvinces.length; i += BATCH_SIZE) {
+          if (!mounted) break;
+
+          const batch = availableProvinces.slice(i, i + BATCH_SIZE);
+
+          const loadPromises = batch.map(async (provinceName) => {
+            try {
+              const filePath = `/split-provinces/${provinceName}.kml`;
+              const response = await fetch(filePath);
+              if (!response.ok) {
+                console.warn(`ไม่พบไฟล์: ${filePath}`);
+                return null;
+              }
+
+              const kmlText = await response.text();
+              const parser = new DOMParser();
+              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
+              const toGeoJSON = await import("@mapbox/togeojson");
+              const geoJsonData = toGeoJSON.kml(kmlDoc);
+
+              if (geoJsonData && geoJsonData.features) {
+                return geoJsonData.features;
+              }
+              return null;
+            } catch (error) {
+              console.error(`Error loading ${provinceName}:`, error);
+              return null;
+            }
+          });
+
+          const results = await Promise.all(loadPromises);
+          const batchFeatures = results.filter((f) => f !== null).flat();
+
+          allFeatures.push(...batchFeatures);
+          loadedCount += batch.length;
+
+          // Update progress
+          updateStatus(
+            `กำลังโหลดแผนที่: ${loadedCount}/${availableProvinces.length} จังหวัด...`,
+            "info"
+          );
+
+          // Render current batch progressively (optional - shows map faster)
+          if (batchFeatures.length > 0 && allFeatures.length > 0) {
+            const combinedGeoJSON = {
+              type: "FeatureCollection",
+              features: [...allFeatures],
+            };
+            await loadAndDisplayKML(combinedGeoJSON, "province");
+          }
+        }
+
+        if (mounted && allFeatures.length > 0) {
+          updateStatus(
+            `โหลดแผนที่ประเทศไทยสำเร็จ: ${availableProvinces.length} จังหวัด, ${allFeatures.length} features`,
+            "success"
+          );
+        }
+      } catch (error) {
+        console.error("Error loading all provinces:", error);
+        if (mounted) {
+          updateStatus(`ข้อผิดพลาดในการโหลดแผนที่: ${error}`, "error");
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadAllProvinces();
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableProvinces, selectedHealthRegion, selectedProvince, selectedDistrict, selectedSubdistrict]);
+
   // Log filter selections for debugging
   // Fetch weekly analytics details for the selected period
   useEffect(() => {
@@ -1299,6 +1434,15 @@ const GisComp = () => {
                 <div className={styles.dateSelector}>
                   <div className={styles.formGroup}>
                     <CustomSelect
+                      id="yearTypeSelect"
+                      label="ประเภทปี"
+                      options={yearTypeOptions}
+                      value={selectedYearType}
+                      onChange={(e) => setSelectedYearType(e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <CustomSelect
                       id="yearSelect"
                       label="ปี"
                       options={yearOptions}
@@ -1307,6 +1451,8 @@ const GisComp = () => {
                       placeholder="-- เลือกปี --"
                     />
                   </div>
+                </div>
+                <div className={styles.dateSelector}>
                   <div className={styles.formGroup}>
                     <CustomSelect
                       id="monthSelect"
@@ -1317,16 +1463,16 @@ const GisComp = () => {
                       placeholder="-- เลือกเดือน --"
                     />
                   </div>
-                </div>
-                <div className={styles.formGroup}>
-                  <CustomSelect
-                    id="weekSelect"
-                    label="สัปดาห์"
-                    options={weekOptions}
-                    value={selectedWeek}
-                    onChange={(e) => setSelectedWeek(e.target.value)}
-                    placeholder="-- เลือกสัปดาห์ --"
-                  />
+                  <div className={styles.formGroup}>
+                    <CustomSelect
+                      id="weekSelect"
+                      label="สัปดาห์"
+                      options={weekOptions}
+                      value={selectedWeek}
+                      onChange={(e) => setSelectedWeek(e.target.value)}
+                      placeholder="-- เลือกสัปดาห์ --"
+                    />
+                  </div>
                 </div>
                 <div className={styles.formGroup}>
                   <CustomSelect
@@ -1403,18 +1549,19 @@ const GisComp = () => {
           </div>
         </div>
 
-        <div ref={mapContainer} className={styles.mapContainer}>
-          {/* Right Panel - Report Dashboard */}
-          <div className={styles.rightPanel}>
-            {/* Single Report Card */}
-            <div className={styles.reportCard}>
-              <div className={styles.reportHeader}>
-                <h3>แผนภาพรายงาน อสม.1</h3>
-              </div>
-              <div className={styles.reportDivider}></div>
+        <div ref={mapContainer} className={styles.mapContainer}></div>
 
-              {/* Spatial Chart Section */}
-              <div className={styles.chartSection}>
+        {/* Right Panel - Report Dashboard */}
+        <div className={styles.rightPanel}>
+          {/* Single Report Card */}
+          <div className={styles.reportCard}>
+            <div className={styles.reportHeader}>
+              <h3>แผนภาพรายงาน อสม.1</h3>
+            </div>
+            <div className={styles.reportDivider}></div>
+
+            {/* Spatial Chart Section */}
+            <div className={styles.chartSection}>
                 <div className={styles.chartTitleRow}>
                   <div className={styles.chartTitle}>แผนภาพเชิงพื้นที่</div>
                   <button className={styles.downloadBtn}>
@@ -1518,28 +1665,27 @@ const GisComp = () => {
                 </div>
               </div>
 
-              <div className={styles.reportDivider}></div>
+            <div className={styles.reportDivider}></div>
 
-              {/* Monthly Report Section */}
-              <div className={styles.monthlyReportSection}>
-                <div className={styles.sectionTitle}>
-                  กราฟสรุปผลรายงานรายเดือน
+            {/* Monthly Report Section */}
+            <div className={styles.monthlyReportSection}>
+              <div className={styles.sectionTitle}>
+                กราฟสรุปผลรายงานรายเดือน
+              </div>
+
+              <div className={styles.totalSection}>
+                <div className={styles.totalValue}>
+                  {monthlyReportData.total}
                 </div>
+                <div className={styles.totalLabel}>รวมทุกรายการ</div>
+              </div>
 
-                <div className={styles.totalSection}>
-                  <div className={styles.totalValue}>
-                    {monthlyReportData.total}
+              <div className={styles.reportItems}>
+                {monthlyReportData.items.map((item, index) => (
+                  <div key={index} className={styles.reportItem}>
+                    {item}
                   </div>
-                  <div className={styles.totalLabel}>รวมทุกรายการ</div>
-                </div>
-
-                <div className={styles.reportItems}>
-                  {monthlyReportData.items.map((item, index) => (
-                    <div key={index} className={styles.reportItem}>
-                      {item}
-                    </div>
-                  ))}
-                </div>
+                ))}
               </div>
             </div>
           </div>

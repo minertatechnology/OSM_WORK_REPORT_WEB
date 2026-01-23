@@ -1270,10 +1270,10 @@ const PregnantReportComp = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold">
-                    รายงานการติดตามการได้รับยาเม็ดเสริมไอโอดีน
+                    การติดตามการได้รับยาเม็ดเสริมไอโอดีน
                   </h1>
                   <p className="text-white/80 text-sm mt-1">
-                    แดชบอร์ดรายงานและดาวน์โหลดสำหรับหญิงตั้งครรภ์
+                    แดชบอร์ดรายงานและดาวน์โหลดสำหรับการติดตามการได้รับยาเม็ดเสริมไอโอดีน
                   </p>
                 </div>
               </div>
@@ -1536,10 +1536,10 @@ const PregnantReportComp = () => {
                   พื้นที่
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
-                  ส่งวันที่
+                  วันที่คัดกรอง
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
-                  จำนวนหญิงตั้งครรภ์
+                  จำนวนการติดตาม
                 </th>
                 {activeTab === "submitted" && (
                   <th className="py-4 px-4 font-semibold text-center rounded-tr-xl">

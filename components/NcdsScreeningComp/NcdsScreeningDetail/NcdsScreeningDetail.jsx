@@ -1,7 +1,8 @@
 import React, { useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Heart, FileText, Download } from "lucide-react";
+import { ArrowLeft, Heart, FileText, Download, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
+import XLSX from 'xlsx-js-style';
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 
@@ -338,6 +339,157 @@ const NcdsScreeningDetail = ({ reportData }) => {
     }
   };
 
+  const handleExportExcel = () => {
+    try {
+      // สร้าง workbook และ worksheet
+      const wb = XLSX.utils.book_new();
+
+      // Header
+      const headers = [
+        "ลำดับ",
+        "รายชื่อ",
+        "พฤติกรรมเสี่ยงโรคไม่ติดต่อเรื้อรัง",
+        "BMI",
+        "ภาวะอ้วนลงพุง",
+        "ระดับความดันโลหิต",
+        "ระดับน้ำตาลในเลือด",
+        "ความเสี่ยงการเกิดโรคเบาหวาน",
+        "กิจกรรมทางกายเหนื่อยกว่าปกติ",
+        "ประเมินการนอนหลับ",
+        "คัดกรองภาวะซึมเศร้า2Q",
+        "ประเมินความเครียดST-5",
+        "ความเสี่ยงต่อการเกิดโรคหัวใจและหลอดเลือด",
+        "พฤติกรรมบริโภคผัก",
+        "พฤติกรรมบริโภคน้ำตาล",
+        "พฤติกรรมบริโภคไขมัน",
+        "พฤติกรรมบริโภคเกลือ"
+      ];
+
+      // Data row
+      const rowData = [
+        rawData.q1_has_ncds === "yes" ? "มี" : rawData.q1_has_ncds === "no" ? "ไม่มี" : "-",
+        bmiResult.level_th || "-",
+        waistResult.level_th || "-",
+        bloodPressureResult.level_th || "-",
+        glucoseResult.level_th || "-",
+        diabetesRiskResult.level_th || "-",
+        exerciseResult.level_th || "-",
+        sleepResult.level_th || "-",
+        depressionResult.level_th || "-",
+        stressResult.level_th || "-",
+        cvRiskResult.level_th || "-",
+        dietVegetableResult.level_th || "-",
+        dietSugarResult.level_th || "-",
+        dietFatResult.level_th || "-",
+        dietSodiumResult.level_th || "-"
+      ];
+
+      const wsData = [
+        headers,
+        [1, name, ...rowData]
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // คำนวณความกว้างคอลัมน์อัตโนมัติตามความยาวข้อความ
+      const calculateColumnWidth = (colIndex) => {
+        let maxWidth = 0;
+        const minPixels = 14;
+
+        for (let rowIndex = 0; rowIndex < wsData.length; rowIndex++) {
+          const cellValue = wsData[rowIndex][colIndex];
+          if (cellValue) {
+            const textStr = String(cellValue);
+            const thaiChars = (textStr.match(/[\u0E00-\u0E7F]/g) || []).length;
+            const otherChars = textStr.length - thaiChars;
+            const estimatedWidth = (thaiChars * 1.4) + otherChars;
+            maxWidth = Math.max(maxWidth, estimatedWidth);
+          }
+        }
+
+        let pixelWidth = maxWidth * minPixels;
+
+        // Min/max settings for each column
+        const colSettings = [
+          { min: 50, max: 60 },    // 0: ลำดับ
+          { min: 120, max: 200 },  // 1: รายชื่อ
+          { min: 100, max: 130 },  // 2-16: ข้อมูลต่างๆ
+        ];
+
+        const setting = colIndex === 0 ? colSettings[0] :
+                        colIndex === 1 ? colSettings[1] :
+                        colSettings[2];
+        return Math.max(setting.min, Math.min(setting.max, pixelWidth));
+      };
+
+      // ตั้งค่าความกว้างคอลัมน์
+      const numCols = wsData[0].length;
+      ws['!cols'] = [];
+      for (let i = 0; i < numCols; i++) {
+        ws['!cols'].push({ wpx: calculateColumnWidth(i) });
+      }
+
+      // ตั้งค่าความสูงแถว
+      ws['!rows'] = [
+        { hpx: 35 },  // Header row
+        { hpx: 30 },  // Data row
+      ];
+
+      // เพิ่ม borders และ styles
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[cellAddress]) {
+            ws[cellAddress] = { v: "" };
+          }
+
+          const cellStyle = {
+            border: {
+              top: { style: "thin", color: { rgb: "FF000000" } },
+              left: { style: "thin", color: { rgb: "FF000000" } },
+              bottom: { style: "thin", color: { rgb: "FF000000" } },
+              right: { style: "thin", color: { rgb: "FF000000" } }
+            },
+            alignment: {
+              vertical: "center",
+              horizontal: "center",
+              wrapText: true
+            },
+            font: {
+              name: "Tahoma",
+              sz: 10
+            }
+          };
+
+          ws[cellAddress].s = cellStyle;
+
+          // Header row: ทำให้ตัวหนาและเพิ่มสีพื้นหลัง
+          if (R === 0) {
+            ws[cellAddress].s.font.bold = true;
+            ws[cellAddress].s.font.sz = 9;
+            ws[cellAddress].s.fill = { fgColor: { rgb: "E8F4F8" } };
+          }
+
+          // Data row: รายชื่อ - จัดซ้าย
+          if (R === 1 && C === 1) {
+            ws[cellAddress].s.alignment.horizontal = "left";
+          }
+        }
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws, "รายงานคัดกรอง NCDs");
+
+      // สร้างชื่อไฟล์
+      const now = new Date();
+      const fileNameDate = now.toISOString().split('T')[0];
+      XLSX.writeFile(wb, `รายงานคัดกรอง_NCDs_${fileNameDate}.xlsx`);
+    } catch (error) {
+      console.error("Error generating Excel:", error);
+      alert("เกิดข้อผิดพลาดในการสร้าง Excel");
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#faf8ff] via-white to-[#f5f0ff] p-4 sm:p-6">
       {/* Header Section with Gradient */}
@@ -385,14 +537,26 @@ const NcdsScreeningDetail = ({ reportData }) => {
             <p className="text-gray-700 font-medium text-base">{name}</p>
           </div>
 
-          {/* Export Button - Right top - Hide in PDF */}
-          <button
-            onClick={handleExportPDF}
-            className="export-button flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-base"
-          >
-            <Download size={20} />
-            Export PDF
-          </button>
+          {/* Export Buttons - Right top - Hide in PDF */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-2 px-5 py-3 !bg-green-500 hover:!bg-green-600 text-white font-bold rounded-xl shadow-lg hover:shadow-green-500/30 hover:scale-[1.02] transition-all duration-200 text-base border-2 border-green-400"
+              style={{ backgroundColor: '#10b981', borderColor: '#34d399' }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+            >
+              <FileSpreadsheet size={20} />
+              Export Excel
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className="export-button flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-base"
+            >
+              <Download size={20} />
+              Export PDF
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto p-4">
           <table className="w-full border-collapse" style={{ minWidth: "1360px" }}>

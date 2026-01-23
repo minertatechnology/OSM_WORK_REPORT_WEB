@@ -113,8 +113,8 @@ function exportSummaryPDF(data) {
   const startX = 15;
   const startY = 35;
   const rowHeight = 8;
-  const colWidths = [20, 90, 40, 40];
-  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "วันที่", "สถานะ"];
+  const colWidths = [20, 80, 50, 50];
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล ผู้ประเมิน", "วันที่บันทึกล่าสุด", "จำนวน (คน)"];
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
@@ -149,17 +149,18 @@ function exportSummaryPDF(data) {
     xPos += colWidths[0];
 
     doc.rect(xPos, yPos, colWidths[1], rowHeight);
-    doc.text(row.name, xPos + 3, yPos + 5.5);
+    doc.text(row.name || "-", xPos + 3, yPos + 5.5);
     xPos += colWidths[1];
 
     doc.rect(xPos, yPos, colWidths[2], rowHeight);
-    doc.text(row.date, xPos + colWidths[2] / 2, yPos + 5.5, {
+    doc.text(row.date || "-", xPos + colWidths[2] / 2, yPos + 5.5, {
       align: "center",
     });
     xPos += colWidths[2];
 
     doc.rect(xPos, yPos, colWidths[3], rowHeight);
-    doc.text(String(row.amount ?? "-"), xPos + colWidths[3] / 2, yPos + 5.5, {
+    const amount = row.amount ? `${row.amount} คน` : "-";
+    doc.text(amount, xPos + colWidths[3] / 2, yPos + 5.5, {
       align: "center",
     });
 
@@ -194,8 +195,8 @@ function exportOverviewPDF(data) {
   const startX = 15;
   const startY = 35;
   const rowHeight = 8;
-  const colWidths = [20, 70, 30, 40, 40];
-  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "สถานะ", "วันที่", "เลขบัตรประชาชน"];
+  const colWidths = [20, 70, 40, 50, 50];
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล ผู้ประเมิน", "จำนวน (คน)", "วันที่บันทึก", "รหัสผู้ประเมิน"];
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
@@ -230,11 +231,12 @@ function exportOverviewPDF(data) {
     xPos += colWidths[0];
 
     doc.rect(xPos, yPos, colWidths[1], rowHeight);
-    doc.text(row.name, xPos + 3, yPos + 5.5);
+    doc.text(row.name || "-", xPos + 3, yPos + 5.5);
     xPos += colWidths[1];
 
     doc.rect(xPos, yPos, colWidths[2], rowHeight);
-    doc.text(String(row.amount ?? "-"), xPos + colWidths[2] / 2, yPos + 5.5, {
+    const amount = row.amount ? `${row.amount} คน` : "-";
+    doc.text(amount, xPos + colWidths[2] / 2, yPos + 5.5, {
       align: "center",
     });
     xPos += colWidths[2];
@@ -277,15 +279,16 @@ function exportNotSubmittedPDF(data) {
     align: "center",
   });
 
+  // Filter: Show rows with amount = 0 or empty (no screenings)
   const notSubmittedData = data.filter(
-    (row) => (row.amount || "").toString().toLowerCase() !== "done"
+    (row) => !row.amount || row.amount === "0" || parseInt(row.amount) === 0
   );
 
   const startX = 15;
   const startY = 35;
   const rowHeight = 8;
   const colWidths = [20, 100, 65];
-  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "สถานะ"];
+  const headers = ["ลำดับ", "ชื่อ-นามสกุล ผู้ประเมิน", "สถานะ"];
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
@@ -306,28 +309,34 @@ function exportNotSubmittedPDF(data) {
   doc.setFont("Sarabun", "normal");
   doc.setFontSize(10);
 
-  notSubmittedData.forEach((row, idx) => {
-    if (yPos > 270) {
-      doc.addPage();
-      yPos = 20;
-    }
-
-    xPos = startX;
-    doc.rect(xPos, yPos, colWidths[0], rowHeight);
-    doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, {
+  if (notSubmittedData.length === 0) {
+    doc.text("ไม่พบข้อมูล อสม. ที่ยังไม่ส่งรายงาน", 105, yPos + 10, {
       align: "center",
     });
-    xPos += colWidths[0];
+  } else {
+    notSubmittedData.forEach((row, idx) => {
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
 
-    doc.rect(xPos, yPos, colWidths[1], rowHeight);
-    doc.text(row.name, xPos + 3, yPos + 5.5);
-    xPos += colWidths[1];
+      xPos = startX;
+      doc.rect(xPos, yPos, colWidths[0], rowHeight);
+      doc.text(String(idx + 1), xPos + colWidths[0] / 2, yPos + 5.5, {
+        align: "center",
+      });
+      xPos += colWidths[0];
 
-    doc.rect(xPos, yPos, colWidths[2], rowHeight);
-    doc.text("ยังไม่ส่งรายงาน", xPos + 3, yPos + 5.5);
+      doc.rect(xPos, yPos, colWidths[1], rowHeight);
+      doc.text(row.name || "-", xPos + 3, yPos + 5.5);
+      xPos += colWidths[1];
 
-    yPos += rowHeight;
-  });
+      doc.rect(xPos, yPos, colWidths[2], rowHeight);
+      doc.text("ยังไม่ส่งรายงาน", xPos + 3, yPos + 5.5);
+
+      yPos += rowHeight;
+    });
+  }
 
   doc.save(
     `อสม_ที่ยังไม่ส่งรายงาน_ผู้สูงอายุ_${
@@ -339,13 +348,14 @@ function exportNotSubmittedPDF(data) {
 function exportToExcel(data, title = "รายงานคัดกรองผู้สูงอายุ") {
   const excelData = data.map((row, idx) => ({
     ลำดับ: idx + 1,
-    "ชื่อ-นามสกุล": row.name,
-    วันที่ส่ง: row.date,
-    สถานะ: row.amount,
+    "ชื่อ-นามสกุล ผู้ประเมิน": row.name || "-",
+    "วันที่บันทึกล่าสุด": row.date || "-",
+    "จำนวน (คน)": row.amount ? `${row.amount} คน` : "0 คน",
+    "รหัสผู้ประเมิน": row.citizen_id || "-",
   }));
 
   const ws = XLSX.utils.json_to_sheet(excelData);
-  ws["!cols"] = [{ wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
+  ws["!cols"] = [{ wch: 8 }, { wch: 35 }, { wch: 20 }, { wch: 15 }, { wch: 20 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "รายงาน");
@@ -379,35 +389,15 @@ function getPageNumbers(currentPage, totalPages) {
 function DetailModal({ open, onClose, data = [] }) {
   if (!open) return null;
 
+  // Transform data based on the actual filteredRows structure
   const rows = (data || []).map((row, idx) => {
-    let formattedDate = "-";
-    if (row._createdDate) {
-      formattedDate = row._createdDate;
-    } else if (row.created_at) {
-      try {
-        const date = new Date(row.created_at);
-        const year = date.getFullYear() + 543;
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        formattedDate = `${day}/${month}/${year}`;
-      } catch (e) {
-        formattedDate = row.date || "-";
-      }
-    } else {
-      formattedDate = row.date || "-";
-    }
-
+    // filteredRows has: _assessorName, _thaiDate, _elderlyCount, external_user_id
     return {
-      index: row.index ?? idx + 1,
-      name:
-        row._fullName ||
-        row.name ||
-        [row.prefix, row.first_name, row.last_name].filter(Boolean).join(" ") ||
-        row.citizen_id ||
-        `รายการที่ ${idx + 1}`,
-      date: formattedDate,
-      amount: row.overall_status || row.screening_status || "-",
-      citizen_id: row.citizen_id,
+      index: idx + 1,
+      name: row._assessorName || row.name || "ไม่ระบุชื่อ",
+      date: row._thaiDate || row.date || "-",
+      amount: row._elderlyCount?.toString() || row.amount?.toString() || "0",
+      citizen_id: row.external_user_id || row.citizen_id || "-",
     };
   });
 
@@ -817,7 +807,7 @@ const ElderlyScreeningComp = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentBuddhistYear, service]); // เพิ่ม service เพื่อให้ดึงข้อมูลใหม่เมื่อเลือกหน่วยบริการ
+  }, [service]); // ใช้เฉพาะ service เพราะ currentBuddhistYear ทำให้ fetch ซ้ำโดยไม่จำเป็น
 
   useEffect(() => {
     fetchElderly();
@@ -829,11 +819,12 @@ const ElderlyScreeningComp = () => {
   }, []);
 
   useEffect(() => {
-    // ตรวจสอบ detailId หลังจาก component hydrate แล้ว
-    if (hydrated && searchParams) {
-      setDetailId(searchParams.get("detail"));
+    // อ่าน detailId ทันทีเมื่อ searchParams เปลี่ยน (ไม่ต้องรอ hydrated)
+    if (searchParams) {
+      const detailParam = searchParams.get("detail");
+      setDetailId(detailParam);
     }
-  }, [searchParams, hydrated]);
+  }, [searchParams]);
 
   // เลือกรายการเดือนตามประเภทปี
   const monthOptions = useMemo(() => {
@@ -982,25 +973,33 @@ const ElderlyScreeningComp = () => {
   };
 
 
-  // แสดง loading spinner จนกว่า component จะ hydrate เสร็จ
-  if (!hydrated) {
-    return <ComponentLoadingSpinner />;
-  }
-
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
-    // หา aggregated data ของผู้ประเมินคนนี้
+    // ตรวจสอบว่ามี assessorData และ userData สำหรับ detailId นี้หรือยัง
     const assessorData = aggregatedData.find(
       (item) => item.external_user_id === detailId
     );
+    const userData = userDataMap[detailId];
 
-    if (loading && aggregatedData.length === 0) {
+    // Debug logging
+    console.log("🔍 Detail View Check:", {
+      detailId,
+      loading,
+      aggregatedDataLength: aggregatedData.length,
+      foundAssessorData: !!assessorData,
+      foundUserData: !!userData,
+      assessorData,
+      userData
+    });
+
+    // ถ้ายังโหลดข้อมูล หรือไม่พบข้อมูล ให้แสดง loading
+    if (loading || aggregatedData.length === 0 || !assessorData || !userData) {
+      console.log("⏳ Showing loading spinner...");
       return <ComponentLoadingSpinner />;
     }
 
     // ส่งข้อมูลผู้ประเมินและรายการผู้สูงอายุทั้งหมดที่เขาประเมิน
-    const userData = userDataMap[detailId];
-    const assessorName = userData?.name; // ใช้ชื่อที่ service สร้างไว้แล้ว
+    const assessorName = userData?.name || "ไม่ระบุชื่อ";
 
     return (
       <ElderlyScreeningDetail
