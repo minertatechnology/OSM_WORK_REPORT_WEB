@@ -898,6 +898,7 @@ const UserListComp = () => {
   const [modalType, setModalType] = useState("detail");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(null); // สำหรับแสดง progress กรณีดึงข้อมูลเยอะๆ
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -917,28 +918,80 @@ const UserListComp = () => {
           throw new Error("No authentication token found. Please login again.");
         }
 
-        // 1. ดึง user list จาก /auth/users
-        const response = await getUsersList({
-          page: currentPage,
-          per_page: itemsPerPage,
-          keyword: keyword,
-          is_active: tab === "active" ? true : false,
-          province_code: province || "",
-          district_code: district || "",
-          subdistrict_code: subdistrict || "",
-          token: token
-        });
+        // ถ้าไม่ใช่สิทธิ์กรม ต้องดึงข้อมูลทั้งหมดเพื่อกรอง (loop จนกว่าจะครบ)
+        const shouldFetchAll = !isCountryLevel();
 
-        // 2. เตรียม external_user_ids สำหรับ batch API
-        const externalUserIds = response.users
-          .map(user => user.external_user_id)
-          .filter(id => id); // กรองเอาเฉพาะ id ที่ไม่ใช่ null/undefined
+        let allUsers = [];
+        let allUserCount = 0;
+        let batchUsersMap = {};
 
-        // 3. ยิง batch API เพื่อดึงข้อมูล OAuth2 ทั้งหมดในครั้งเดียว
-        const batchUsersMap = externalUserIds.length > 0 ? await getUsersBatch(externalUserIds) : {};
+        if (shouldFetchAll) {
+          // ดึงข้อมูลทีละ 100 รายการ จนกว่าจะครบ
+          let page = 1;
+          const perPage = 100;
+          let hasMore = true;
+
+          while (hasMore) {
+            const response = await getUsersList({
+              page: page,
+              per_page: perPage,
+              keyword: keyword,
+              is_active: tab === "active" ? true : false,
+              province_code: province || "",
+              district_code: district || "",
+              subdistrict_code: subdistrict || "",
+              token: token
+            });
+
+            allUsers = [...allUsers, ...response.users];
+            allUserCount = response.total;
+
+            // เตรียม external_user_ids สำหรับ batch API
+            const externalUserIds = response.users
+              .map(user => user.external_user_id)
+              .filter(id => id);
+
+            // ยิง batch API เพื่อดึงข้อมูล OAuth2
+            if (externalUserIds.length > 0) {
+              const batchMap = await getUsersBatch(externalUserIds);
+              batchUsersMap = { ...batchUsersMap, ...batchMap };
+            }
+
+            // เช็คว่ายังมีข้อมูลอีกไหม
+            if (response.users.length < perPage || allUsers.length >= response.total) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          }
+        } else {
+          // สิทธิ์กรม: ดึงแบบ pagination ปกติ
+          const response = await getUsersList({
+            page: currentPage,
+            per_page: itemsPerPage,
+            keyword: keyword,
+            is_active: tab === "active" ? true : false,
+            province_code: province || "",
+            district_code: district || "",
+            subdistrict_code: subdistrict || "",
+            token: token
+          });
+
+          allUsers = response.users;
+          allUserCount = response.total;
+
+          // เตรียม external_user_ids สำหรับ batch API
+          const externalUserIds = response.users
+            .map(user => user.external_user_id)
+            .filter(id => id);
+
+          batchUsersMap = externalUserIds.length > 0 ? await getUsersBatch(externalUserIds) : {};
+        }
+
+        // 2-3. ยิง batch API เพื่อดึงข้อมูล OAuth2 ทั้งหมดในครั้งเดียว (ทำแล้วด้านบน)
 
         // 4. รวมข้อมูลจาก user list และ batch OAuth2
-        const usersWithDetails = response.users.map(user => {
+        const usersWithDetails = allUsers.map(user => {
           if (!user.external_user_id) {
             // ถ้าไม่มี external_user_id ให้ใช้ข้อมูล base
             return {
@@ -1170,8 +1223,8 @@ const UserListComp = () => {
         const successfulUsers = usersWithDetails;
 
         setUsers(successfulUsers);
-        setTotalItems(response.total);
-        setTotalPages(response.total_pages);
+        setTotalItems(allUserCount);
+        setTotalPages(shouldFetchAll ? 1 : Math.ceil(allUserCount / itemsPerPage));
       } catch (error) {
         console.error("Error fetching users:", error);
 
@@ -1201,7 +1254,7 @@ const UserListComp = () => {
     };
 
     fetchUsers();
-  }, [currentPage, itemsPerPage, keyword, tab, zone, province, district, subdistrict]);
+  }, [currentPage, itemsPerPage, keyword, tab, zone, province, district, subdistrict, isCountryLevel]);
 
   // Auto-refresh online status ทุก 30 วินาที
   const [, forceUpdate] = useState({});
@@ -1215,18 +1268,19 @@ const UserListComp = () => {
   }, []);
 
   // กรองผู้ใช้ตามสิทธิ์: ถ้าเป็นสิทธิ์กรม (country) แสดงทั้งหมด ถ้าไม่ใช่แสดงเฉพาะ อสม.
-  const { displayUsers, filteredTotalItems } = useMemo(() => {
+  const { displayUsers, filteredTotalItems, filteredTotalPages } = useMemo(() => {
     if (isCountryLevel()) {
       // สิทธิ์กรม: แสดงทั้งหมด
-      return { displayUsers: users, filteredTotalItems: totalItems };
+      return { displayUsers: users, filteredTotalItems: totalItems, filteredTotalPages: totalPages };
     } else {
       // สิทธิ์อื่นๆ: แสดงทุกคนยกเว้น "เจ้าหน้าที่" และ "ไม่ระบุชื่อ"
       const filtered = users.filter(user => {
         return user.position !== "เจ้าหน้าที่" && user.name !== "ไม่ระบุชื่อ";
       });
-      return { displayUsers: filtered, filteredTotalItems: filtered.length };
+      const filteredPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+      return { displayUsers: filtered, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages };
     }
-  }, [users, isCountryLevel, totalItems]);
+  }, [users, isCountryLevel, totalItems, totalPages, itemsPerPage]);
 
   const handleRestoreUser = () => {
     if (!selectedUser) return;
@@ -1640,7 +1694,7 @@ const UserListComp = () => {
         <Pagination
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
-          totalPages={totalPages}
+          totalPages={filteredTotalPages}
           itemsPerPage={itemsPerPage}
           setItemsPerPage={setItemsPerPage}
         />
