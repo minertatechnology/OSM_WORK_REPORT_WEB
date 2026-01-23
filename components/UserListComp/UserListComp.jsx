@@ -926,12 +926,16 @@ const UserListComp = () => {
         let batchUsersMap = {};
 
         if (shouldFetchAll) {
-          // ดึงข้อมูลทีละ 100 รายการ จนกว่าจะครบ
+          // ดึงข้อมูลทีละ 100 รายการ จนกว่าจะครบ (จำกัดสูงสุด 10,000 รายการ)
           let page = 1;
           const perPage = 100;
+          const maxPages = 100; // จำกัดสูงสุด 10,000 รายการ
           let hasMore = true;
 
-          while (hasMore) {
+          while (hasMore && page <= maxPages) {
+            // อัพเดท progress
+            setLoadingProgress({ page, total: allUserCount });
+
             const response = await getUsersList({
               page: page,
               per_page: perPage,
@@ -964,6 +968,8 @@ const UserListComp = () => {
               page++;
             }
           }
+
+          setLoadingProgress(null); // เคลียร์ progress เมื่อโหลดเสร็จ
         } else {
           // สิทธิ์กรม: ดึงแบบ pagination ปกติ
           const response = await getUsersList({
@@ -1531,6 +1537,21 @@ const UserListComp = () => {
             </button>
           </div>
         </div>
+
+        {/* Loading Progress Indicator */}
+        {loadingProgress && (
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-3">
+              <Loader2 size={24} className="text-purple-600 animate-spin" />
+              <div className="flex-1">
+                <p className="text-purple-800 font-semibold">กำลังดึงข้อมูล...</p>
+                <p className="text-purple-600 text-sm">
+                  หน้า {loadingProgress.page} (ดึงข้อมูลแล้ว {Math.min(loadingProgress.page * 100, loadingProgress.total)} จากทั้งหมด {loadingProgress.total} รายการ)
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto">
