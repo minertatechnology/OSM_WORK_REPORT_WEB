@@ -42,6 +42,7 @@ import CustomSelect from "@services/customSelectService/customSelectService";
 import { getUsersList } from "@services/userService/userService";
 import { getAuthToken } from "@utils/tokenHelper";
 import { getUsersBatch } from "@services/oauth2Service";
+import { getOsmByHealthService } from "@services/lookupService";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 import jsPDF from "jspdf";
@@ -49,6 +50,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
+import { getHealthAreaNameWithFallback } from "@utils/healthZoneHelper";
 
 // Mock data for select options (ลบ ZONES, PROVINCES, DISTRICTS, SUBDISTRICTS เพราะใช้จาก usePermissionFilters แทน)
 const PER_PAGE_OPTIONS = [
@@ -901,6 +903,7 @@ const UserListComp = () => {
   const [loadingProgress, setLoadingProgress] = useState(null); // สำหรับแสดง progress กรณีดึงข้อมูลเยอะๆ
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บ OSM ตามหน่วยบริการ
 
   // CID visibility state - track which rows show full CID
   const [cidVisibility, setCidVisibility] = useState({});
@@ -916,6 +919,20 @@ const UserListComp = () => {
 
         if (!token) {
           throw new Error("No authentication token found. Please login again.");
+        }
+
+        // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือก)
+        let osmData = [];
+        if (service) {
+          try {
+            osmData = await getOsmByHealthService(service);
+            setOsmDataByService(osmData);
+          } catch (err) {
+            console.error("Error fetching OSM data:", err);
+            setOsmDataByService([]);
+          }
+        } else {
+          setOsmDataByService([]);
         }
 
         // ถ้าไม่ใช่สิทธิ์กรม ต้องดึงข้อมูลทั้งหมดเพื่อกรอง (loop จนกว่าจะครบ)
@@ -941,9 +958,10 @@ const UserListComp = () => {
               per_page: perPage,
               keyword: keyword,
               is_active: tab === "active" ? true : false,
-              province_code: province || "",
-              district_code: district || "",
-              subdistrict_code: subdistrict || "",
+              // ❌ เอา filter พื้นที่ออก - จะกรองใน frontend แทน
+              // province_code: province || "",
+              // district_code: district || "",
+              // subdistrict_code: subdistrict || "",
               token: token
             });
 
@@ -977,9 +995,10 @@ const UserListComp = () => {
             per_page: itemsPerPage,
             keyword: keyword,
             is_active: tab === "active" ? true : false,
-            province_code: province || "",
-            district_code: district || "",
-            subdistrict_code: subdistrict || "",
+            // ❌ เอา filter พื้นที่ออก - จะกรองใน frontend แทน
+            // province_code: province || "",
+            // district_code: district || "",
+            // subdistrict_code: subdistrict || "",
             token: token
           });
 
@@ -1010,6 +1029,8 @@ const UserListComp = () => {
               province: user.province_name || "-",
               district: user.district_name || "-",
               subdistrict: user.subdistrict_name || "-",
+              // Health Area: คำนวณจาก province_name ถ้าเป็นไปได้
+              health_area_name_th: getHealthAreaNameWithFallback({ province_name_th: user.province_name }) || "-",
               status: user.is_active ? "active" : "deleted",
               email: user.email,
               phone: user.phone || "-",
@@ -1047,6 +1068,8 @@ const UserListComp = () => {
               province: user.province_name || "-",
               district: user.district_name || "-",
               subdistrict: user.subdistrict_name || "-",
+              // Health Area: คำนวณจาก province_name ถ้าเป็นไปได้
+              health_area_name_th: getHealthAreaNameWithFallback({ province_name_th: user.province_name }) || "-",
               status: user.is_active ? "active" : "deleted",
               email: user.email,
               phone: user.phone || "-",
@@ -1107,6 +1130,8 @@ const UserListComp = () => {
             province: oauthData?.province_name_th || user.province_name || "-",
             district: oauthData?.district_name_th || user.district_name || "-",
             subdistrict: oauthData?.subdistrict_name_th || user.subdistrict_name || "-",
+            // Health Area: ใช้ค่าจาก OAuth2 หรือคำนวณจาก lookup ถ้าไม่มี
+            health_area_name_th: getHealthAreaNameWithFallback(oauthData) || "-",
 
             // Status
             status: user.is_active ? "active" : "deleted",
@@ -1226,11 +1251,65 @@ const UserListComp = () => {
         });
 
         // Filter out rejected promises and extract values
-        const successfulUsers = usersWithDetails;
+        let successfulUsers = usersWithDetails;
+
+        // ✅ กรองตามเขตสุขภาพ (zone) - ใช้ health_area_name_th ที่คำนวณจาก /batch
+        if (zone) {
+          // แปลง zone code (เช่น "1", "9") เป็นชื่อ (เช่น "เขตสุขภาพที่ 1")
+          const zoneFilterName = healthAreas.find(h => h.code === zone)?.name_th;
+          if (zoneFilterName) {
+            successfulUsers = successfulUsers.filter(user => {
+              // ใช้ health_area_name_th ที่คำนวณจาก province หรือมาจาก OAuth2
+              return user.health_area_name_th === zoneFilterName;
+            });
+          }
+        }
+
+        // ✅ กรองตามจังหวัด (province) - ใช้ชื่อจังหวัดจาก /batch
+        if (province) {
+          const provinceFilterName = provinces.find(p => p.code === province)?.name_th;
+          if (provinceFilterName) {
+            successfulUsers = successfulUsers.filter(user => {
+              // ใช้ province ที่มาจาก OAuth2 (province_name_th)
+              return user.province === provinceFilterName;
+            });
+          }
+        }
+
+        // ✅ กรองตามอำเภอ (district) - ใช้ชื่ออำเภอจาก /batch
+        if (district) {
+          const districtFilterName = districts.find(d => d.code === district)?.name_th;
+          if (districtFilterName) {
+            successfulUsers = successfulUsers.filter(user => {
+              // ใช้ district ที่มาจาก OAuth2 (district_name_th)
+              return user.district === districtFilterName;
+            });
+          }
+        }
+
+        // ✅ กรองตามตำบล (subdistrict) - ใช้ชื่อตำบลจาก /batch
+        if (subdistrict) {
+          const subdistrictFilterName = subdistricts.find(s => s.code === subdistrict)?.name_th;
+          if (subdistrictFilterName) {
+            successfulUsers = successfulUsers.filter(user => {
+              // ใช้ subdistrict ที่มาจาก OAuth2 (subdistrict_name_th)
+              return user.subdistrict === subdistrictFilterName;
+            });
+          }
+        }
+
+        // Filter ตามหน่วยบริการ (ถ้าเลือก)
+        if (service && osmData.length > 0) {
+          const osmIdSet = new Set(osmData.map(osm => osm.id));
+          successfulUsers = successfulUsers.filter(user =>
+            user.external_user_id && osmIdSet.has(user.external_user_id)
+          );
+        }
 
         setUsers(successfulUsers);
-        setTotalItems(allUserCount);
-        setTotalPages(shouldFetchAll ? 1 : Math.ceil(allUserCount / itemsPerPage));
+        // ใช้จำนวน users ที่กรองแล้ว เพราะเรากรองใน frontend
+        setTotalItems(successfulUsers.length);
+        setTotalPages(shouldFetchAll ? 1 : Math.ceil(successfulUsers.length / itemsPerPage));
       } catch (error) {
         console.error("Error fetching users:", error);
 
@@ -1260,7 +1339,7 @@ const UserListComp = () => {
     };
 
     fetchUsers();
-  }, [currentPage, itemsPerPage, keyword, tab, zone, province, district, subdistrict, isCountryLevel]);
+  }, [currentPage, itemsPerPage, keyword, tab, zone, province, district, subdistrict, service, isCountryLevel]);
 
   // Auto-refresh online status ทุก 30 วินาที
   const [, forceUpdate] = useState({});
@@ -1384,6 +1463,7 @@ const UserListComp = () => {
           province,
           district,
           subdistrict,
+          service,
         }}
       />
 
@@ -1458,6 +1538,20 @@ const UserListComp = () => {
             options={(subdistricts || []).map((s) => ({ label: s.name_th, value: s.code }))}
             icon={Home}
             disabled={isLocked("subdistrict")}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+          <CustomSelect
+            label="หน่วยบริการ"
+            placeholder="เลือกหน่วยบริการ"
+            value={service}
+            onChange={(e) => handleServiceChange(e.target.value)}
+            options={(healthServices || []).map((s) => ({
+              label: s.name_th || s.name || s.service_name || "ไม่ระบุ",
+              value: String(s.id || s.code || "")
+            }))}
+            icon={Building2}
+            disabled={isLocked("service")}
           />
         </div>
         <div className="flex gap-3 mt-4">
