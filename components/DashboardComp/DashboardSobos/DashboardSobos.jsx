@@ -1082,7 +1082,8 @@ const DashboardSobos = () => {
     }));
   }, [provinceSummary]);
 
-  // สร้างรายชื่อสำหรับแสดงสีบนแผนที่ (ใช้ map_items)
+  // ✅ สร้างรายชื่อสำหรับแสดงสีบนแผนที่ (ใช้ map_items)
+  // สำหรับ district/subdistrict level - จะหาจังหวัดที่เกี่ยวข้องเพื่อ highlight บนแผนที่
   const provincesWithData = useMemo(() => {
     if (!provinceSummary || !provinceSummary.map_items) {
       return [];
@@ -1097,15 +1098,41 @@ const DashboardSobos = () => {
       // แสดงชื่อจังหวัดทั้งหมดที่มีใน map_items
       return provinceSummary.map_items.map(item => item.name_th || item.name);
     } else if (mapLevel === "district") {
-      // แสดงชื่ออำเภอทั้งหมด
-      return provinceSummary.map_items.map(item => item.name_th || item.name);
+      // ✅ สำหรับ district level - หาจังหวัดที่เกี่ยวข้องกับอำเภอเหล่านั้น
+      // โดยใช้ province_name จาก table_items หรือ map_items
+      const provinceSet = new Set();
+      provinceSummary.table_items?.forEach(item => {
+        if (item.province_name) {
+          provinceSet.add(item.province_name);
+        }
+      });
+      // ถ้าไม่มี province_name ให้ใช้จังหวัดที่เลือกจาก filter
+      if (provinceSet.size === 0 && province) {
+        const foundProv = provinces.find(p => String(p.code || p.id) === province);
+        if (foundProv) provinceSet.add(foundProv.name_th);
+      }
+      return Array.from(provinceSet);
+    } else if (mapLevel === "subdistrict") {
+      // ✅ สำหรับ subdistrict level - หาจังหวัดที่เกี่ยวข้องกับตำบลเหล่านั้น
+      const provinceSet = new Set();
+      provinceSummary.table_items?.forEach(item => {
+        if (item.province_name) {
+          provinceSet.add(item.province_name);
+        }
+      });
+      // ถ้าไม่มี province_name ให้ใช้จังหวัดที่เลือกจาก filter
+      if (provinceSet.size === 0 && province) {
+        const foundProv = provinces.find(p => String(p.code || p.id) === province);
+        if (foundProv) provinceSet.add(foundProv.name_th);
+      }
+      return Array.from(provinceSet);
     } else {
-      // subdistrict - แสดงชื่อตำบล
-      return provinceSummary.map_items.map(item => item.name_th || item.name);
+      return [];
     }
-  }, [provinceSummary]);
+  }, [provinceSummary, province, provinces]);
 
-  // หาชื่อที่เลือก (สำหรับ zoom แผนที่) - ใช้ map_level
+  // ✅ หาชื่อที่เลือก (สำหรับ zoom แผนที่) - ใช้ map_level
+  // สำหรับ district/subdistrict level จะ zoom ไปยังจังหวัดที่เกี่ยวข้อง
   const selectedAreaName = useMemo(() => {
     if (!provinceSummary) return null;
 
@@ -1114,16 +1141,18 @@ const DashboardSobos = () => {
     if (mapLevel === "province" && province && provinces.length) {
       const found = provinces.find(p => String(p.code || p.id) === province);
       return found?.name_th || null;
-    } else if (mapLevel === "district" && district && districts.length) {
-      const found = districts.find(d => String(d.code || d.id) === district);
+    } else if (mapLevel === "district" && province && provinces.length) {
+      // ✅ district level - zoom ไปยังจังหวัดที่เลือก
+      const found = provinces.find(p => String(p.code || p.id) === province);
       return found?.name_th || null;
-    } else if (mapLevel === "subdistrict" && subdistrict && subdistricts.length) {
-      const found = subdistricts.find(s => String(s.code || s.id) === subdistrict);
+    } else if (mapLevel === "subdistrict" && province && provinces.length) {
+      // ✅ subdistrict level - zoom ไปยังจังหวัดที่เลือก
+      const found = provinces.find(p => String(p.code || p.id) === province);
       return found?.name_th || null;
     }
 
     return null;
-  }, [provinceSummary, province, district, subdistrict, provinces, districts, subdistricts]);
+  }, [provinceSummary, province, provinces]);
 
   // หาเลขเขต/จังหวัดที่เลือก (สำหรับ zoom แผนที่)
   const selectedZoneNumber = useMemo(() => {
@@ -1502,7 +1531,11 @@ const DashboardSobos = () => {
             >
               <div className="font-bold text-purple-600 text-lg mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5" />
-                แผนภาพ
+                {provinceSummary?.map_level === "zone" && "แผนที่เขตสุขภาพ"}
+                {provinceSummary?.map_level === "province" && "แผนที่จังหวัด"}
+                {provinceSummary?.map_level === "district" && "แผนที่อำเภอ"}
+                {provinceSummary?.map_level === "subdistrict" && "แผนที่ตำบล"}
+                {!provinceSummary?.map_level && "แผนภาพ"}
               </div>
               <div className="flex-1 flex items-center justify-center">
                 <div className="w-full" style={{ minHeight: 600 }}>
@@ -1513,6 +1546,7 @@ const DashboardSobos = () => {
                     provincesWithData={provincesWithData}
                     zoomToZone={selectedZoneNumber}
                     zoomToProvince={selectedAreaName}
+                    mapLevel={provinceSummary?.map_level || "province"}
                   />
                 </div>
               </div>

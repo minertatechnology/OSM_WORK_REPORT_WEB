@@ -4,21 +4,22 @@ import HighchartsReact from "highcharts-react-official";
 import thMapGeoJSON from "@highcharts/map-collection/countries/th/th-all.geo.json";
 
 /** โทนสีให้เหมือนภาพตัวอย่าง */
+// ✅ Standardized colors to match DashboardSobos.jsx
 const ZONE_COLORS = [
   "#E5E5E5", // 0 สีเทา (ไม่มีข้อมูล หรือไม่ได้ส่งเขตสุขภาพ)
-  "#3D0072", // 1
-  "#6C59B4", // 2
-  "#6D6FB0", // 3
-  "#8384C4", // 4
-  "#B56CC1", // 5
-  "#C872CF", // 6
-  "#E5A4C6", // 7
-  "#F1B7E5", // 8
-  "#F7C7C3", // 9
-  "#FF80A0", // 10
-  "#FF4C7F", // 11
-  "#FF5A93", // 12
-  "#D37BD3", // 13
+  "#6E28B7", // 1
+  "#4B61CF", // 2
+  "#5D86E7", // 3
+  "#4CA3DD", // 4
+  "#7C83E1", // 5
+  "#A682FF", // 6
+  "#E0AAFF", // 7
+  "#FFB3E6", // 8
+  "#FF9CEE", // 9
+  "#FFB7B2", // 10
+  "#FFDAC1", // 11
+  "#FFB347", // 12
+  "#EB6383", // 13
 ];
 
 /** ตำแหน่งป้ายเลข (lat, lon) ต่อ "เขตสุขภาพ" เพื่อให้เหมือนรูป */
@@ -40,194 +41,112 @@ const ZONE_LABELS = [
 ];
 
 /**
- * แม็ปจังหวัด -> เขตสุขภาพ (อ้างอิงชื่อจังหวัดภาษาไทยหลัก ๆ)
- * หมายเหตุ: หากชื่อในไฟล์ GeoJSON เป็นภาษาอังกฤษ Highcharts มักมี field 'name' เป็นอังกฤษ
+ * ✅ แม็ปจังหวัด -> เขตสุขภาพ (ครบทั้ง 77 จังหวัด อ้างอิงตามกรมอนามัย)
+ * รองรับทั้งชื่อภาษาไทยและภาษาอังกฤษสำหรับ GeoJSON
  */
 const PROVINCE_TO_ZONE = {
   // เขต 1 (เหนือบน)
-  เชียงใหม่: 1,
-  "Chiang Mai": 1,
-  เชียงราย: 1,
-  "Chiang Rai": 1,
-  แม่ฮ่องสอน: 1,
-  "Mae Hong Son": 1,
-  พะเยา: 1,
-  Phayao: 1,
-  น่าน: 1,
-  Nan: 1,
-  แพร่: 1,
-  Phrae: 1,
-  ลำพูน: 1,
-  Lamphun: 1,
-  ลำปาง: 1,
-  Lampang: 1,
+  เชียงใหม่: 1, "Chiang Mai": 1,
+  เชียงราย: 1, "Chiang Rai": 1,
+  ลำพูน: 1, Lamphun: 1,
+  ลำปาง: 1, Lampang: 1,
+  พะเยา: 1, Phayao: 1,
+  แพร่: 1, Phrae: 1,
+  น่าน: 1, Nan: 1,
+  แม่ฮ่องสอน: 1, "Mae Hong Son": 1,
 
   // เขต 2 (เหนือกลาง/ล่าง)
-  ตาก: 2,
-  Tak: 2,
-  สุโขทัย: 2,
-  Sukhothai: 2,
-  พิษณุโลก: 2,
-  Phitsanulok: 2,
-  พิจิตร: 2,
-  Phichit: 2,
-  เพชรบูรณ์: 2,
-  Phetchabun: 2,
-  อุตรดิตถ์: 2,
-  Uttaradit: 2,
-  กำแพงเพชร: 2,
-  "Kamphaeng Phet": 2,
+  พิษณุโลก: 2, Phitsanulok: 2,
+  สุโขทัย: 2, Sukhothai: 2,
+  เพชรบูรณ์: 2, Phetchabun: 2,
+  ตาก: 2, Tak: 2,
+  กำแพงเพชร: 2, "Kamphaeng Phet": 2,
+  พิจิตร: 2, Phichit: 2,
+  อุตรดิตถ์: 2, Uttaradit: 2,
 
-  // เขต 3 (ลพบุรี/สวรรค์/ภาคกลางตอนบน)
-  นครสวรรค์: 3,
-  "Nakhon Sawan": 3,
-  อุทัยธานี: 3,
-  "Uthai Thani": 3,
-  ชัยนาท: 3,
-  "Chai Nat": 3,
-  สิงห์บุรี: 3,
-  "Sing Buri": 3,
-  ลพบุรี: 3,
-  "Lop Buri": 3,
+  // เขต 3 (ภาคกลางตอนบน - นครสวรรค์ และปริมณฑล)
+  นครสวรรค์: 3, "Nakhon Sawan": 3,
+  ชัยนาท: 3, "Chai Nat": 3,
+  อุทัยธานี: 3, "Uthai Thani": 3,
 
   // เขต 4 (รอบ กทม. ด้านเหนือ/ตะวันออกเฉียงเหนือ)
-  พระนครศรีอยุธยา: 4,
-  "Phra Nakhon Si Ayutthaya": 4,
-  Ayutthaya: 4,
-  อ่างทอง: 4,
-  "Ang Thong": 4,
-  สระบุรี: 4,
-  Saraburi: 4,
-  ปทุมธานี: 4,
-  "Pathum Thani": 4,
-  นนทบุรี: 4,
-  Nonthaburi: 4,
-  นครนายก: 4,
-  "Nakhon Nayok": 4,
+  ปทุมธานี: 4, "Pathum Thani": 4,
+  พระนครศรีอยุธยา: 4, "Phra Nakhon Si Ayutthaya": 4, Ayutthaya: 4,
+  นนทบุรี: 4, Nonthaburi: 4,
+  สระบุรี: 4, Saraburi: 4,
+  สิงห์บุรี: 4, "Sing Buri": 4,
+  ลพบุรี: 4, "Lop Buri": 4,
+  อ่างทอง: 4, "Ang Thong": 4,
+  นครนายก: 4, "Nakhon Nayok": 4,
 
   // เขต 5 (ตะวันตก/ภาคกลางชายฝั่งอ่าวไทย)
-  ราชบุรี: 5,
-  Ratchaburi: 5,
-  กาญจนบุรี: 5,
-  Kanchanaburi: 5,
-  สุพรรณบุรี: 5,
-  "Suphan Buri": 5,
-  นครปฐม: 5,
-  "Nakhon Pathom": 5,
-  สมุทรสาคร: 5,
-  "Samut Sakhon": 5,
-  สมุทรสงคราม: 5,
-  "Samut Songkhram": 5,
-  เพชรบุรี: 5,
-  Phetchaburi: 5,
-  ประจวบคีรีขันธ์: 5,
-  "Prachuap Khiri Khan": 5,
+  ราชบุรี: 5, Ratchaburi: 5,
+  กาญจนบุรี: 5, Kanchanaburi: 5,
+  สุพรรณบุรี: 5, "Suphan Buri": 5,
+  นครปฐม: 5, "Nakhon Pathom": 5,
+  สมุทรสาคร: 5, "Samut Sakhon": 5,
+  สมุทรสงคราม: 5, "Samut Songkhram": 5,
+  เพชรบุรี: 5, Phetchaburi: 5,
+  ประจวบคีรีขันธ์: 5, "Prachuap Khiri Khan": 5,
 
   // เขต 6 (ภาคตะวันออก)
-  ฉะเชิงเทรา: 6,
-  Chachoengsao: 6,
-  ปราจีนบุรี: 6,
-  "Prachin Buri": 6,
-  สระแก้ว: 6,
-  "Sa Kaeo": 6,
-  ชลบุรี: 6,
-  "Chon Buri": 6,
-  Chonburi: 6,
-  ระยอง: 6,
-  Rayong: 6,
-  จันทบุรี: 6,
-  Chanthaburi: 6,
-  ตราด: 6,
-  Trat: 6,
-  สมุทรปราการ: 6,
-  "Samut Prakan": 6,
+  ชลบุรี: 6, "Chon Buri": 6, Chonburi: 6,
+  ระยอง: 6, Rayong: 6,
+  จันทบุรี: 6, Chanthaburi: 6,
+  ตราด: 6, Trat: 6,
+  ฉะเชิงเทรา: 6, Chachoengsao: 6,
+  ปราจีนบุรี: 6, "Prachin Buri": 6,
+  สระแก้ว: 6, "Sa Kaeo": 6,
+  สมุทรปราการ: 6, "Samut Prakan": 6,
 
   // เขต 7 (อีสานกลาง – ขอนแก่น)
-  ขอนแก่น: 7,
-  "Khon Kaen": 7,
-  ร้อยเอ็ด: 7,
-  "Roi Et": 7,
-  มหาสารคาม: 7,
-  "Maha Sarakham": 7,
-  กาฬสินธุ์: 7,
-  Kalasin: 7,
+  ขอนแก่น: 7, "Khon Kaen": 7,
+  มหาสารคาม: 7, "Maha Sarakham": 7,
+  ร้อยเอ็ด: 7, "Roi Et": 7,
+  กาฬสินธุ์: 7, Kalasin: 7,
 
   // เขต 8 (อีสานบน – อุดรธานี)
-  อุดรธานี: 8,
-  "Udon Thani": 8,
-  หนองคาย: 8,
-  "Nong Khai": 8,
-  เลย: 8,
-  Loei: 8,
-  หนองบัวลำภู: 8,
-  "Nong Bua Lam Phu": 8,
-  บึงกาฬ: 8,
-  "Bueng Kan": 8,
-  สกลนคร: 8,
-  "Sakon Nakhon": 8,
-  นครพนม: 8,
-  "Nakhon Phanom": 8,
+  อุดรธานี: 8, "Udon Thani": 8,
+  หนองคาย: 8, "Nong Khai": 8,
+  เลย: 8, Loei: 8,
+  หนองบัวลำภู: 8, "Nong Bua Lam Phu": 8,
+  บึงกาฬ: 8, "Bueng Kan": 8,
+  สกลนคร: 8, "Sakon Nakhon": 8,
+  นครพนม: 8, "Nakhon Phanom": 8,
 
   // เขต 9 (อีสานล่าง – โคราช)
-  นครราชสีมา: 9,
-  "Nakhon Ratchasima": 9,
-  บุรีรัมย์: 9,
-  "Buri Ram": 9,
-  Buriram: 9,
-  สุรินทร์: 9,
-  Surin: 9,
-  ชัยภูมิ: 9,
-  Chaiyaphum: 9,
+  นครราชสีมา: 9, "Nakhon Ratchasima": 9,
+  สุรินทร์: 9, Surin: 9,
+  บุรีรัมย์: 9, "Buri Ram": 9, Buriram: 9,
+  ชัยภูมิ: 9, Chaiyaphum: 9,
 
   // เขต 10 (อีสานตะวันออก – อุบล)
-  อุบลราชธานี: 10,
-  "Ubon Ratchathani": 10,
-  ศรีสะเกษ: 10,
-  "Si Sa Ket": 10,
-  ยโสธร: 10,
-  Yasothon: 10,
-  อำนาจเจริญ: 10,
-  "Amnat Charoen": 10,
-  มุกดาหาร: 10,
-  Mukdahan: 10,
+  อุบลราชธานี: 10, "Ubon Ratchathani": 10,
+  ศรีสะเกษ: 10, "Si Sa Ket": 10,
+  ยโสธร: 10, Yasothon: 10,
+  อำนาจเจริญ: 10, "Amnat Charoen": 10,
+  มุกดาหาร: 10, Mukdahan: 10,
 
   // เขต 11 (ใต้บน/อันดามัน-อ่าวไทยตอนบน)
-  สุราษฎร์ธานี: 11,
-  "Surat Thani": 11,
-  นครศรีธรรมราช: 11,
-  "Nakhon Si Thammarat": 11,
-  ชุมพร: 11,
-  Chumphon: 11,
-  ระนอง: 11,
-  Ranong: 11,
-  ภูเก็ต: 11,
-  Phuket: 11,
-  พังงา: 11,
-  Phangnga: 11,
-  "Phang Nga": 11,
-  กระบี่: 11,
-  Krabi: 11,
+  สุราษฎร์ธานี: 11, "Surat Thani": 11,
+  นครศรีธรรมราช: 11, "Nakhon Si Thammarat": 11,
+  ชุมพร: 11, Chumphon: 11,
+  ระนอง: 11, Ranong: 11,
+  ภูเก็ต: 11, Phuket: 11,
+  พังงา: 11, Phangnga: 11, "Phang Nga": 11,
+  กระบี่: 11, Krabi: 11,
 
   // เขต 12 (ใต้ล่าง/ชายแดนใต้)
-  สงขลา: 12,
-  Songkhla: 12,
-  สตูล: 12,
-  Satun: 12,
-  ตรัง: 12,
-  Trang: 12,
-  พัทลุง: 12,
-  Phatthalung: 12,
-  ปัตตานี: 12,
-  Pattani: 12,
-  ยะลา: 12,
-  Yala: 12,
-  นราธิวาส: 12,
-  Narathiwat: 12,
+  สงขลา: 12, Songkhla: 12,
+  สตูล: 12, Satun: 12,
+  ตรัง: 12, Trang: 12,
+  พัทลุง: 12, Phatthalung: 12,
+  ปัตตานี: 12, Pattani: 12,
+  ยะลา: 12, Yala: 12,
+  นราธิวาส: 12, Narathiwat: 12,
 
   // เขต 13 (กทม.)
-  กรุงเทพมหานคร: 13,
-  Bangkok: 13,
-  "Bangkok Metropolis": 13,
+  กรุงเทพมหานคร: 13, Bangkok: 13, "Bangkok Metropolis": 13,
 };
 
 class MapThailandService {
@@ -429,7 +348,7 @@ class MapThailandService {
   }
 }
 
-// ตำแหน่งศูนย์กลางของแต่ละเขตสุขภาพ (lat, lon) สำหรับ zoom
+// ✅ ตำแหน่งศูนย์กลางของแต่ละเขตสุขภาพ (lat, lon) สำหรับ zoom
 const ZONE_CENTER = {
   1: { lat: 19.0, lon: 99.5, zoom: 4 },    // เหนือบน
   2: { lat: 17.5, lon: 100.0, zoom: 4 },   // เหนือล่าง
@@ -446,7 +365,7 @@ const ZONE_CENTER = {
   13: { lat: 13.75, lon: 100.5, zoom: 8 }, // กทม.
 };
 
-// ตำแหน่งศูนย์กลางของแต่ละจังหวัด (lat, lon) สำหรับ zoom
+// ✅ ตำแหน่งศูนย์กลางของแต่ละจังหวัด (lat, lon) สำหรับ zoom (ครบทั้ง 77 จังหวัด)
 const PROVINCE_CENTER = {
   // เขต 1
   "เชียงใหม่": { lat: 18.8, lon: 98.9, zoom: 6 },
@@ -467,16 +386,16 @@ const PROVINCE_CENTER = {
   "กำแพงเพชร": { lat: 16.5, lon: 99.5, zoom: 7 },
   // เขต 3
   "นครสวรรค์": { lat: 15.7, lon: 100.1, zoom: 6 },
-  "อุทัยธานี": { lat: 15.4, lon: 99.9, zoom: 7 },
   "ชัยนาท": { lat: 15.2, lon: 100.1, zoom: 7 },
+  "อุทัยธานี": { lat: 15.4, lon: 99.9, zoom: 7 },
+  // เขต 4
+  "ปทุมธานี": { lat: 14.0, lon: 100.5, zoom: 8 },
+  "พระนครศรีอยุธยา": { lat: 14.4, lon: 100.6, zoom: 7 },
+  "นนทบุรี": { lat: 13.9, lon: 100.5, zoom: 9 },
+  "สระบุรี": { lat: 14.5, lon: 100.9, zoom: 7 },
   "สิงห์บุรี": { lat: 14.9, lon: 100.4, zoom: 8 },
   "ลพบุรี": { lat: 14.8, lon: 100.6, zoom: 7 },
-  // เขต 4
-  "พระนครศรีอยุธยา": { lat: 14.4, lon: 100.6, zoom: 7 },
   "อ่างทอง": { lat: 14.6, lon: 100.5, zoom: 8 },
-  "สระบุรี": { lat: 14.5, lon: 100.9, zoom: 7 },
-  "ปทุมธานี": { lat: 14.0, lon: 100.5, zoom: 8 },
-  "นนทบุรี": { lat: 13.9, lon: 100.5, zoom: 9 },
   "นครนายก": { lat: 14.2, lon: 101.2, zoom: 7 },
   // เขต 5
   "ราชบุรี": { lat: 13.5, lon: 99.8, zoom: 7 },
@@ -488,13 +407,13 @@ const PROVINCE_CENTER = {
   "เพชรบุรี": { lat: 13.1, lon: 99.9, zoom: 6 },
   "ประจวบคีรีขันธ์": { lat: 11.8, lon: 99.8, zoom: 5 },
   // เขต 6
-  "ฉะเชิงเทรา": { lat: 13.7, lon: 101.1, zoom: 7 },
-  "ปราจีนบุรี": { lat: 14.1, lon: 101.4, zoom: 7 },
-  "สระแก้ว": { lat: 13.8, lon: 102.1, zoom: 6 },
   "ชลบุรี": { lat: 13.4, lon: 100.9, zoom: 7 },
   "ระยอง": { lat: 12.7, lon: 101.3, zoom: 7 },
   "จันทบุรี": { lat: 12.6, lon: 102.1, zoom: 6 },
   "ตราด": { lat: 12.2, lon: 102.5, zoom: 7 },
+  "ฉะเชิงเทรา": { lat: 13.7, lon: 101.1, zoom: 7 },
+  "ปราจีนบุรี": { lat: 14.1, lon: 101.4, zoom: 7 },
+  "สระแก้ว": { lat: 13.8, lon: 102.1, zoom: 6 },
   "สมุทรปราการ": { lat: 13.6, lon: 100.6, zoom: 8 },
   // เขต 7
   "ขอนแก่น": { lat: 16.4, lon: 102.8, zoom: 6 },
@@ -545,9 +464,10 @@ const MapThailandComponent = ({
   customOptions = {},
   onMapReady = null,
   onProvinceClick = null,
-  provincesWithData = null, // รายชื่อจังหวัดที่มีข้อมูล (ถ้าไม่ส่งมา = แสดงทุกจังหวัด)
+  provincesWithData = null, // รายชื่อพื้นที่ที่มีข้อมูล (จังหวัด/อำเภอ/ตำบล)
   zoomToZone = null,        // เขตสุขภาพที่ต้องการ zoom (1-13)
   zoomToProvince = null,    // ชื่อจังหวัดที่ต้องการ zoom (ภาษาไทย)
+  mapLevel = "province",    // ระดับแผนที่: "zone", "province", "district", "subdistrict"
 }) => {
   const chartRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -655,45 +575,81 @@ const MapThailandComponent = ({
     if (!ready) return {};
     const mapOptions = mapService.createMapOptions(height, customOptions);
 
-    // ถ้ามี provincesWithData ให้ซ่อนจังหวัดที่ไม่มีข้อมูล
+    // ✅ ถ้ามี provincesWithData ให้ซ่อน/แสดงตาม mapLevel
     if (provincesWithData && provincesWithData.length > 0) {
-      // แก้ไข series data ให้แสดงเฉพาะจังหวัดที่มีข้อมูล
       const mapSeries = mapOptions.series.find(s => s.type === 'map');
       if (mapSeries && mapSeries.data) {
+        // ✅ สำหรับ district/subdistrict level - หาจังหวัดที่มีข้อมูล
+        let provincesWithDataSet = new Set();
+
+        if (mapLevel === "district" || mapLevel === "subdistrict") {
+          // provincesWithData คือชื่ออำเภอ/ตำบล - ต้องหาจังหวัดที่เกี่ยวข้อง
+          // แต่เนื่องจากเราไม่มีข้อมูล mapping จังหวัด->อำเภอ/ตำบล
+          // เราจะแสดงจังหวัดทั้งหมดที่มีข้อมูล โดยใช้ provincesWithData เป็นชื่อจังหวัดโดยตรง
+          // (DashboardSobos จะส่งชื่อจังหวัดมาในกรณีนี้)
+          provincesWithDataSet = new Set(provincesWithData);
+        } else {
+          // zone/province level - ใช้ provincesWithData โดยตรง
+          provincesWithDataSet = new Set(provincesWithData);
+        }
+
         mapSeries.data = mapSeries.data.map(item => {
-          // ตรวจสอบว่าจังหวัดนี้มีข้อมูลหรือไม่
-          const hasData = provincesWithData.some(p =>
-            p === item.name ||
-            p === item['hc-key'] ||
-            // รองรับชื่อภาษาไทยและอังกฤษ
-            PROVINCE_TO_ZONE[p] === item.value
-          );
+          // ✅ ตรวจสอบว่าจังหวัดนี้มีข้อมูลหรือไม่ (รองรับทั้งชื่อไทยและอังกฤษ)
+          const hasData = provincesWithDataSet.has(item.name) ||
+                         provincesWithDataSet.has(item['hc-key']) ||
+                         // ถ้า item.name เป็นภาษาอังกฤษ ลองหาใน PROVINCE_TO_ZONE
+                         (PROVINCE_TO_ZONE[item.name] && Array.from(provincesWithDataSet).some(p => {
+                           const zone = PROVINCE_TO_ZONE[p];
+                           return zone === PROVINCE_TO_ZONE[item.name];
+                         }));
 
           if (!hasData) {
             // ถ้าไม่มีข้อมูล ให้แสดงเป็นสีเทา
             return {
               ...item,
-              value: 0, // value = 0 จะใช้สีเทาจาก ZONE_COLORS[0]
-              color: ZONE_COLORS[0], // สีเทา #E5E5E5
+              value: 0,
+              color: ZONE_COLORS[0],
             };
           }
           return item;
         });
       }
 
-      // ซ่อน zone badges ที่ไม่มีข้อมูล
+      // ✅ ซ่อน zone badges ตาม mapLevel
       const badgeSeries = mapOptions.series.find(s => s.type === 'mappoint');
       if (badgeSeries && badgeSeries.data) {
-        // หา zones ที่มีข้อมูล
-        const zonesWithData = new Set();
-        provincesWithData.forEach(p => {
-          const zone = PROVINCE_TO_ZONE[p];
-          if (zone) zonesWithData.add(zone);
-        });
+        if (mapLevel === "zone") {
+          // แสดง badges เฉพาะเขตที่มีข้อมูล
+          const zonesWithData = new Set();
+          provincesWithData.forEach(p => {
+            // ถ้า p เป็นรูปแบบ "HA1", "HA2" หรือชื่อเขต
+            const zoneMatch = String(p).match(/(\d+)/);
+            if (zoneMatch) {
+              zonesWithData.add(parseInt(zoneMatch[1]));
+            }
+            // ถ้า p เป็นชื่อจังหวัด หาเขตจาก PROVINCE_TO_ZONE
+            const zone = PROVINCE_TO_ZONE[p];
+            if (zone) zonesWithData.add(zone);
+          });
 
-        badgeSeries.data = badgeSeries.data.filter(badge =>
-          zonesWithData.has(badge.zone)
-        );
+          badgeSeries.data = badgeSeries.data.filter(badge =>
+            zonesWithData.has(badge.zone)
+          );
+        } else if (mapLevel === "district" || mapLevel === "subdistrict") {
+          // district/subdistrict level - ซ่อน badges เพราะแสดงจังหวัด
+          badgeSeries.data = [];
+        } else {
+          // province level - แสดง badges ตามจังหวัดที่มีข้อมูล
+          const zonesWithData = new Set();
+          provincesWithData.forEach(p => {
+            const zone = PROVINCE_TO_ZONE[p];
+            if (zone) zonesWithData.add(zone);
+          });
+
+          badgeSeries.data = badgeSeries.data.filter(badge =>
+            zonesWithData.has(badge.zone)
+          );
+        }
       }
     }
 
@@ -707,13 +663,30 @@ const MapThailandComponent = ({
               province: provinceName,
               zone: zoneNumber,
               color: mapService.getZoneColor(zoneNumber),
+              mapLevel: mapLevel,
             });
           },
         },
       };
     }
+
+    // ✅ ปรับ title/caption ตาม mapLevel
+    if (mapLevel === "district") {
+      mapOptions.title = { text: "" };
+      mapOptions.subtitle = {
+        text: "แผนที่แสดงจังหวัดที่มีข้อมูลระดับอำเภอ",
+        style: { fontSize: "12px", color: "#666" }
+      };
+    } else if (mapLevel === "subdistrict") {
+      mapOptions.title = { text: "" };
+      mapOptions.subtitle = {
+        text: "แผนที่แสดงจังหวัดที่มีข้อมูลระดับตำบล",
+        style: { fontSize: "12px", color: "#666" }
+      };
+    }
+
     return mapOptions;
-  }, [ready, height, customOptions, mapService, onProvinceClick, provincesWithData]);
+  }, [ready, height, customOptions, mapService, onProvinceClick, provincesWithData, mapLevel]);
 
   if (!ready) {
     return (
