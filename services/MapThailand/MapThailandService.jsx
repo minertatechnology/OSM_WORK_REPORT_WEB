@@ -315,14 +315,7 @@ class MapThailandService {
     const dataClasses = this.createDataClasses();
     const zoneBadges = this.createZoneBadges();
 
-    // Debug: ดูว่า customOptions มีอะไร
-    console.log('🔧 createMapOptions called with customOptions:', {
-      hasColorAxis: !!customOptions.colorAxis,
-      hasDataClasses: !!customOptions.colorAxis?.dataClasses,
-      dataClassesLength: customOptions.colorAxis?.dataClasses?.length,
-      firstClass: customOptions.colorAxis?.dataClasses?.[0]
-    });
-
+  
     // Default options
     const defaultOptions = {
       chart: {
@@ -404,7 +397,6 @@ class MapThailandService {
 
     // Deep merge customOptions - ให้ colorAxis.dataClasses จาก customOptions override ได้
     if (customOptions.colorAxis?.dataClasses) {
-      console.log('📍 Applying custom dataClasses:', customOptions.colorAxis.dataClasses.length, 'classes');
       defaultOptions.colorAxis.dataClasses = customOptions.colorAxis.dataClasses;
       defaultOptions.colorAxis.min = customOptions.colorAxis.min ?? 0;
       defaultOptions.colorAxis.max = customOptions.colorAxis.max ?? 13;
@@ -588,21 +580,12 @@ const MapThailandComponent = ({
 
     const mapSeries = chart.series[0];
 
-    // Debug: แสดงชื่อจังหวัดทั้งหมดใน map
-    const allPointNames = mapSeries.points?.map(p => p.name) || [];
-    console.log('🗺️ Map zoom triggered:', {
-      zoomToZone,
-      zoomToProvince,
-      pointsCount: mapSeries.points?.length,
-      sampleNames: allPointNames.slice(0, 5) // แสดง 5 ชื่อแรก
-    });
-
+  
     // รอให้ chart render เสร็จก่อน
     setTimeout(() => {
       try {
         // ถ้าเลือกจังหวัด - zoom ไปที่จังหวัด
         if (zoomToProvince) {
-          console.log('🔍 Zooming to province:', zoomToProvince);
 
           // หาจังหวัดที่ต้องการ zoom - ลองทั้งชื่อไทยและอังกฤษ
           let point = mapSeries.points?.find(p => p.name === zoomToProvince);
@@ -628,17 +611,14 @@ const MapThailandComponent = ({
 
           if (point) {
             point.zoomTo();
-            console.log('✅ point.zoomTo() called for province:', point.name);
           } else {
-            console.log('⚠️ Province not found in map points:', zoomToProvince);
-            console.log('Available names:', allPointNames);
+            // Province not found in map points
           }
           return;
         }
 
         // ถ้าเลือกเขต (ไม่ได้เลือกจังหวัด) - zoom ไปที่เขต (รวมทุกจังหวัดในเขต)
         if (zoomToZone) {
-          console.log('🔍 Zooming to zone:', zoomToZone);
 
           // หาจังหวัดทั้งหมดในเขตนี้
           const zonePoints = mapSeries.points?.filter(p => PROVINCE_TO_ZONE[p.name] === zoomToZone);
@@ -654,16 +634,14 @@ const MapThailandComponent = ({
                   chart.mapZoom(0.5); // zoom out
                 }
               }, 100);
-              console.log('✅ Zoomed to zone:', zoomToZone, 'via province:', firstPoint.name);
             }
           } else {
-            console.log('⚠️ No provinces found for zone:', zoomToZone);
+            // No provinces found for zone
           }
           return;
         }
 
         // ถ้าไม่ได้เลือกเขต/จังหวัด - reset zoom กลับไปเห็นทั้งประเทศ
-        console.log('🔄 Resetting zoom to full map');
         if (chart.mapZoom) {
           chart.mapZoom(); // Reset to default view
         }

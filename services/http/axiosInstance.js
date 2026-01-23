@@ -17,7 +17,6 @@ const axiosInstance = axios.create({
 let isRefreshing = false;
 let failedQueue = [];
 let hasShownIdleWarning = false; // Track if we've shown idle warning
-let isSessionExpired = false; // Track if session has expired (prevent multiple redirects)
 
 const TOKEN_REFRESH_THRESHOLD_MS =
   Number(process.env.NEXT_PUBLIC_TOKEN_REFRESH_THRESHOLD_SECONDS || 60) * 1000;
@@ -162,16 +161,7 @@ const handleTokenRefresh = async () => {
     const clientId = process.env.NEXT_PUBLIC_CLIENT_ID;
 
     if (!refreshToken || !clientId) {
-      // Don't throw error - just clear tokens and mark session as expired
-      if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-        console.warn("[Token Refresh] No refresh token or client ID available - user not logged in");
-      }
-      isSessionExpired = true;
-      clearTokens();
-      if (typeof window !== "undefined" && window.location.pathname !== "/") {
-        window.location.href = "/";
-      }
-      throw new Error("No refresh token available");
+      throw new Error("Missing refresh token or client ID");
     }
 
     const response = await axiosInstance.post("/auth/token/refresh", {
@@ -181,9 +171,6 @@ const handleTokenRefresh = async () => {
 
     const { access_token, refresh_token: newRefreshToken } = response.data;
 
-    // Reset session expired flag on successful refresh
-    isSessionExpired = false;
-
     setTokens({
       accessToken: access_token,
       refreshToken: newRefreshToken ?? refreshToken,
@@ -191,21 +178,6 @@ const handleTokenRefresh = async () => {
 
     return access_token;
   } catch (error) {
-    // Mark session as expired to prevent multiple redirects
-    isSessionExpired = true;
-
-    // Check if this is a 401 error (refresh token expired)
-    if (error.response?.status === 401) {
-      if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-        console.error("[Token Refresh] Refresh token expired - user must log in again");
-      }
-      clearTokens();
-      if (typeof window !== "undefined" && window.location.pathname !== "/") {
-        window.location.href = "/";
-      }
-      throw new Error("Session expired. Please log in again.");
-    }
-
     if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
       console.error("Token refresh failed:", error);
     }
@@ -320,15 +292,14 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      // If session is already marked as expired, don't attempt refresh again
-      if (isSessionExpired) {
-        return Promise.reject(error);
-      }
-
       originalRequest._retry = true;
 
       try {
         const newToken = await refreshAccessToken();
+
+        if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+          console.log("[Token Refresh] Successfully refreshed token");
+        }
 
         // Reset idle warning flag เมื่อ refresh สำเร็จ
         hasShownIdleWarning = false;
@@ -337,13 +308,18 @@ axiosInstance.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return axiosInstance(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - ตรวจสอบว่า user idle นานเกิน 7 นาทีหรือไม่
-        const idleDurationMs = idleDetector?.getIdleDuration() || 0;
-        const MAX_IDLE_MS = 7 * 60 * 1000; // 7 นาที
+        // Refresh failed - ตรวจสอบว่า user idle หรือไม่
+        const isUserIdle = idleDetector?.isUserIdle() || false;
+        const isPageHidden = idleDetector?.isPageHiddenOrMinimized() || false;
 
-        // ✅ แสดง alert เฉพาะเมื่อ user idle เกิน 7 นาที
+        if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+          console.error("Token refresh failed");
+        }
+
+        // ✅ แสดง popup/alert เฉพาะเมื่อ user ไม่ได้ใช้งาน (idle หรือเปลี่ยนแท็บ/ย่อหน้าจอ)
+        // ✅ ถ้า user กำลังใช้งานอยู่ (tab active, ไม่ย่อหน้าจอ) ไม่ต้องแสดง popup
         if (
-          idleDurationMs >= MAX_IDLE_MS &&
+          (isUserIdle || isPageHidden) &&
           !hasShownIdleWarning &&
           typeof window !== "undefined"
         ) {
@@ -353,25 +329,21 @@ axiosInstance.interceptors.response.use(
           const idleDuration = idleDetector?.getIdleDurationInMinutes() || 0;
 
           alert(
-            `Session หมดอายุ\n\nคุณไม่ได้ใช้งานระบบเป็นเวลา ${idleDuration} นาที\nกรุณาเข้าสู่ระบบใหม่อีกครั้ง`
+            `Session หมดอายุ\n\nคุณไม่ได้ใช้งานระบบเป็นเวลา ${idleDuration} นาที กรุณาเข้าสู่ระบบใหม่อีกครั้ง`
           );
 
           clearTokens();
           window.location.href = "/";
         } else {
-          // ถ้า idle น้อยกว่า 7 นาที แต่ refresh ไม่สำเร็จ
-          // หรือ refresh token หมดอายุ ให้ redirect ไปหน้า login ทันที
-          if (!isSessionExpired) {
-            // Only show this message once
-            isSessionExpired = true;
-            clearTokens();
+          // ถ้ายังใช้งานอยู่ (tab active) แต่ refresh ไม่สำเร็จ
+          // ให้ redirect ไปหน้า login ทันที โดยไม่แสดง alert
+          clearTokens();
 
-            if (
-              typeof window !== "undefined" &&
-              window.location.pathname !== "/"
-            ) {
-              window.location.href = "/";
-            }
+          if (
+            typeof window !== "undefined" &&
+            window.location.pathname !== "/"
+          ) {
+            window.location.href = "/";
           }
         }
 
@@ -382,20 +354,5 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-/**
- * Reset the session expired flag (call after successful login)
- */
-export const resetSessionExpiredFlag = () => {
-  isSessionExpired = false;
-  hasShownIdleWarning = false;
-};
-
-/**
- * Check if session is currently marked as expired
- */
-export const isSessionCurrentlyExpired = () => {
-  return isSessionExpired;
-};
 
 export default axiosInstance;

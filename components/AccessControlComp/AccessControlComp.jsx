@@ -572,7 +572,6 @@ export default function AccessControlComp() {
     const fetchPositions = async () => {
       try {
         const data = await getPositions({ limit: 100 });
-        console.log("Positions data:", data);
         setPositions(data);
       } catch (error) {
         console.error("Failed to fetch positions:", error);
@@ -770,7 +769,7 @@ export default function AccessControlComp() {
             data={filteredList}
             defaultItemsPerPage={10}
             onDetail={(row) => {
-              console.log("Detail clicked for:", row);
+              // Detail clicked
             }}
           />
         </div>

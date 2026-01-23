@@ -450,7 +450,7 @@ const GisComp = () => {
 
   // Methods
   const updateStatus = useCallback((message, type = "info") => {
-    console.log(`[${type.toUpperCase()}] ${message}`);
+    // Status update logged for debugging
   }, []);
 
   const toggleControlPanel = () => {
@@ -1078,7 +1078,6 @@ const GisComp = () => {
     }
 
     permissionInitializedRef.current = true;
-    console.log('[GisComp] Permission init:', { needsDistrictInit, needsSubdistrictInit, isInitializingFromPermissionRef: isInitializingFromPermissionRef.current });
 
     const initialFilters = getInitialFilters();
 
@@ -1092,7 +1091,6 @@ const GisComp = () => {
 
     // Set province if locked
     if (isLocked('province') && permissionUser?.province_name) {
-      console.log('[GisComp] Setting province:', permissionUser.province_name);
       setSelectedProvince(permissionUser.province_name);
     }
 
@@ -1109,18 +1107,8 @@ const GisComp = () => {
     if (!isLocked('district')) return;
     if (availableDistricts.length === 0) return;
 
-    console.log('[GisComp] District useEffect:', {
-      permissionLoading,
-      hasPermissionUser: !!permissionUser,
-      availableDistrictsLength: availableDistricts.length,
-      districtInitialized: districtInitializedRef.current,
-      isLockedDistrict: isLocked('district')
-    });
-
     const districtName = permissionUser?.district_name;
     if (districtName) {
-      console.log('[GisComp] Looking for district:', districtName, 'in', `(${availableDistricts.length})`, availableDistricts);
-
       // Try to find the district in available districts
       const matchedDistrict = availableDistricts.find(d => {
         const normalizedAvailable = d.replace(/^เขต|^อำเภอ/, '').trim();
@@ -1129,9 +1117,7 @@ const GisComp = () => {
       });
 
       if (matchedDistrict) {
-        console.log('[GisComp] Matched district:', matchedDistrict);
         districtInitializedRef.current = true;
-        console.log('Setting district from permission:', matchedDistrict);
         setSelectedDistrict(matchedDistrict);
       }
     }
@@ -1146,8 +1132,6 @@ const GisComp = () => {
 
     const subdistrictName = permissionUser?.subdistrict_name;
     if (subdistrictName) {
-      console.log('[GisComp] Looking for subdistrict:', subdistrictName, 'in', `(${availableSubdistricts.length})`, availableSubdistricts);
-
       // Try to find the subdistrict in available subdistricts
       const matchedSubdistrict = availableSubdistricts.find(s => {
         const normalizedAvailable = s.replace(/^แขวง|^ตำบล/, '').trim();
@@ -1156,16 +1140,13 @@ const GisComp = () => {
       });
 
       if (matchedSubdistrict) {
-        console.log('[GisComp] Matched subdistrict:', matchedSubdistrict);
         subdistrictInitializedRef.current = true;
 
         // Turn off init flag after subdistrict is set
         setTimeout(() => {
           isInitializingFromPermissionRef.current = false;
-          console.log('[GisComp] Permission initialization complete');
         }, 500);
 
-        console.log('Setting subdistrict from permission:', matchedSubdistrict);
         setSelectedSubdistrict(matchedSubdistrict);
       }
     }

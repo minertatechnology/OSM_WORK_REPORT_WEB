@@ -279,6 +279,24 @@ const OsmHealthComp = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // State for managing citizen ID visibility (key: record.id, value: boolean)
+  const [visibleCitizenIds, setVisibleCitizenIds] = useState(new Map());
+
+  // Toggle citizen ID visibility
+  const toggleCitizenIdVisibility = (recordId) => {
+    setVisibleCitizenIds((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(recordId, !newMap.get(recordId));
+      return newMap;
+    });
+  };
+
+  // Mask citizen ID (show last 4 digits as ****)
+  const maskCitizenId = (citizenId) => {
+    if (!citizenId || citizenId.length < 4) return citizenId || "-";
+    return citizenId.slice(0, -4) + "****";
+  };
+
   // State for OSM data
   const [osmDataByService, setOsmDataByService] = useState([]);
   const [osmDataMap, setOsmDataMap] = useState(new Map());
@@ -974,22 +992,27 @@ const OsmHealthComp = () => {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[500px]">
+            <table className="w-full border-collapse min-w-[700px]">
               <thead>
-                <tr className="bg-gradient-to-r from-purple-100 to-violet-100">
-                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tl-xl w-[140px]">
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar size={14} />
-                      วันที่
-                    </span>
-                  </th>
-                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-left">
+                <tr className="bg-[#7e32e2]">
+                  <th className="py-4 px-3 text-white font-bold text-sm text-left rounded-tl-xl">
                     <span className="inline-flex items-center gap-1">
                       <Users size={14} />
                       รายชื่อ
                     </span>
                   </th>
-                  <th className="py-4 px-3 text-purple-700 font-bold text-sm text-center rounded-tr-xl w-[180px]">
+                  <th className="py-4 px-3 text-white font-bold text-sm text-center">
+                    <span className="inline-flex items-center gap-1">
+                      เลขบัตรประชาชน
+                    </span>
+                  </th>
+                  <th className="py-4 px-3 text-white font-bold text-sm text-center">
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar size={14} />
+                      วันที่
+                    </span>
+                  </th>
+                  <th className="py-4 px-3 text-white font-bold text-sm text-center rounded-tr-xl w-[180px]">
                     <span className="inline-flex items-center gap-1">
                       <Download size={14} />
                       ดาวน์โหลดผลตรวจ
@@ -1000,7 +1023,7 @@ const OsmHealthComp = () => {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan="3" className="py-8 text-center text-gray-500">
+                    <td colSpan="4" className="py-8 text-center text-gray-500">
                       <div className="flex items-center justify-center gap-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
                         <span>กำลังโหลดข้อมูล...</span>
@@ -1009,23 +1032,53 @@ const OsmHealthComp = () => {
                   </tr>
                 ) : paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan="3" className="py-8 text-center text-gray-500">
+                    <td colSpan="4" className="py-8 text-center text-gray-500">
                       ไม่พบข้อมูล
                     </td>
                   </tr>
                 ) : (
                   paginatedData.map((record, idx) => {
                     const fullName = `${record.prefix || ""}${record.first_name || ""} ${record.last_name || ""}`.trim() || "ไม่ระบุชื่อ";
+                    const recordId = record.id || idx;
+                    const isCitizenIdVisible = visibleCitizenIds.get(recordId) || false;
+                    const citizenId = record.id_card || "-";
+
                     return (
                       <tr
-                        key={record.id || idx}
+                        key={recordId}
                         className="border-b border-purple-50 hover:bg-purple-50/50 transition-colors"
                       >
-                        <td className="py-3 px-3 text-center text-gray-600 text-sm">
-                          {formatThaiDate(record.updated_at)}
-                        </td>
                         <td className="py-3 px-3 text-gray-800 text-sm font-medium">
                           {fullName}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-gray-700 text-sm font-mono">
+                              {isCitizenIdVisible ? citizenId : maskCitizenId(citizenId)}
+                            </span>
+                            <button
+                              onClick={() => toggleCitizenIdVisibility(recordId)}
+                              className="text-gray-400 hover:text-purple-600 transition-colors focus:outline-none"
+                              title={isCitizenIdVisible ? "ซ่อนเลขบัตร" : "แสดงเลขบัตร"}
+                            >
+                              {isCitizenIdVisible ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                                  <line x1="2" x2="22" y1="2" y2="22"/>
+                                </svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                                  <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-center text-gray-600 text-sm">
+                          {formatThaiDate(record.updated_at)}
                         </td>
                         <td className="py-3 px-3 text-center">
                           <button

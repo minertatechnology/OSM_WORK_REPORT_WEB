@@ -28,8 +28,6 @@ export async function getAddressFromCoordinates(lat, lng) {
     // This is needed because browsers cannot set User-Agent header required by Nominatim
     const url = `/api/geocoding/reverse?lat=${lat}&lon=${lng}`;
 
-    console.log(`   🌐 กำลังเรียก API: ${url}`);
-
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -37,7 +35,6 @@ export async function getAddressFromCoordinates(lat, lng) {
     }
 
     const data = await response.json();
-    console.log('   📥 ข้อมูลที่ได้จาก API:', JSON.stringify(data, null, 2));
 
     // Check if the API returned an error (graceful failure from our proxy)
     if (data.error) {
@@ -67,19 +64,6 @@ export async function getAddressFromCoordinates(lat, lng) {
     // Extract address components
     const address = data.address || {};
     const displayName = data.display_name || '';
-
-    console.log('   🏠 Address components:', JSON.stringify(address, null, 2));
-    console.log('   🔍 Debug address fields:');
-    console.log(`      - city: ${address.city || 'N/A'}`);
-    console.log(`      - city_district: ${address.city_district || 'N/A'}`);
-    console.log(`      - county: ${address.county || 'N/A'}`);
-    console.log(`      - state: ${address.state || 'N/A'}`);
-    console.log(`      - province: ${address.province || 'N/A'}`);
-    console.log(`      - suburb: ${address.suburb || 'N/A'}`);
-    console.log(`      - neighbourhood: ${address.neighbourhood || 'N/A'}`);
-    console.log(`      - village: ${address.village || 'N/A'}`);
-    console.log(`      - quarter: ${address.quarter || 'N/A'}`);
-    console.log(`      - display_name: ${displayName}`);
 
     let province = null;
     let district = null;
@@ -141,25 +125,12 @@ export async function getAddressFromCoordinates(lat, lng) {
         const subdistrictPart = parts.find(p => p.includes('แขวง'));
         subdistrict = subdistrictPart || null;
       }
-
-      console.log(`   ℹ️  ตรวจพบ: กรุงเทพมหานคร`);
-      console.log(`   🔧 Debug Bangkok mapping:`);
-      console.log(`      - district from: ${address.county?.includes('เขต') ? 'county' : 'city_district'}`);
-      console.log(`      - subdistrict from: ${!address.suburb?.includes('เขต') && address.suburb ? 'suburb' : address.neighbourhood ? 'neighbourhood' : 'other'}`);
     } else {
       // โครงสร้างสำหรับจังหวัดอื่นๆ
       province = address.province || address.state || address.region || null;
       district = address.county || address.city_district || address.municipality || address.city || null;
       subdistrict = address.suburb || address.village || address.neighbourhood || address.quarter || null;
-
-      console.log(`   ℹ️  ตรวจพบ: จังหวัดอื่น`);
     }
-
-    console.log('   🏷️  ผลการแปลง:');
-    console.log(`      - จังหวัด: ${province || 'ไม่พบ'}`);
-    console.log(`      - อำเภอ: ${district || 'ไม่พบ'}`);
-    console.log(`      - ตำบล: ${subdistrict || 'ไม่พบ'}`);
-    console.log(`      - ประเภท: ${isBangkok ? 'กรุงเทพมหานคร' : 'จังหวัดอื่น'}`);
 
     return {
       success: true,

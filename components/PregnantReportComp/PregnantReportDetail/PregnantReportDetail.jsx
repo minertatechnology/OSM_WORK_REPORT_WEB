@@ -10,14 +10,11 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
   const tableRef = useRef(null);
 
   // ถ้าไม่มีข้อมูล ให้ใช้ค่า default
-  const year = reportData?.year || "2568";
-  const month = reportData?.month || "มิถุนายน";
   const name = reportData?.name || "ไม่พบข้อมูล";
+  const date = reportData?.date || "";
 
   // แปลงข้อมูลเป็นรูปแบบตาราง (1 แถวต่อ 1 คน)
   const tableData = evaluations.map((evaluation, index) => {
-    console.log("Evaluation data:", evaluation); // Debug log
-
     // รองรับหลายรูปแบบของชื่อฟิลด์
     const category = evaluation.category || evaluation.q0_category;
     const stage = evaluation.stage || evaluation.q0_stage;
@@ -38,7 +35,6 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       q2_frequency: evaluation.q2_frequency,
       q3_reason: evaluation.q3_reason,
     };
-    console.log("Row data (category:", category, ", stage:", stage, "):", row); // Debug log
     return row;
   });
 
@@ -60,10 +56,6 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
 
   const handleExportPDF = () => {
     try {
-      console.log("=== Exporting PDF ===");
-      console.log("tableData:", tableData);
-      console.log("First row:", tableData[0]);
-
       const doc = new jsPDF();
 
       // เพิ่ม Thai font
@@ -98,7 +90,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       // Table settings
       const rowHeight = 12;
       const headerHeight = 11;
-      const colWidths = [7, 22, 13, 13, 13, 13, 13, 13, 14, 20, 36];
+      const colWidths = [7, 22, 13, 13, 13, 13, 13, 14, 20, 36];
       const tableWidth = colWidths.reduce((sum, w) => sum + w, 0);
       const startX = (210 - tableWidth) / 2;
 
@@ -108,8 +100,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         "อายุครรภ์\n13 - 24\nสัปดาห์",
         "อายุครรภ์\n25 สัปดาห์\nขึ้นไป",
         "หลังคลอด\nไม่เกิน\n12 สัปดาห์",
-        "หลังคลอด\n13 - 24\nสัปดาห์",
-        "หลังคลอด\n25 สัปดาห์\nขึ้นไป"
+        "หลังคลอด\n13 - 24\nสัปดาห์"
       ];
 
       // ฟังก์ชันวาด Header ของตาราง
@@ -140,35 +131,35 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         doc.rect(currentX, currentY, pregnantWidth, headerHeight);
         doc.text("หญิงตั้งครรภ์", currentX + pregnantWidth / 2, currentY + 5.5, { align: "center" });
 
-        // หญิงหลังคลอด (colSpan 3)
-        const postpartumWidth = colWidths[5] + colWidths[6] + colWidths[7];
+        // หญิงหลังคลอด (colSpan 2)
+        const postpartumWidth = colWidths[5] + colWidths[6];
         doc.rect(currentX + pregnantWidth, currentY, postpartumWidth, headerHeight);
         doc.text("หญิงหลังคลอด", currentX + pregnantWidth + postpartumWidth / 2, currentY + 5.5, { align: "center" });
 
         // รับยา (rowSpan 2)
-        doc.rect(currentX + pregnantWidth + postpartumWidth, currentY, colWidths[8], headerHeight * 2);
-        doc.text("รับยา", currentX + pregnantWidth + postpartumWidth + colWidths[8] / 2, currentY + headerHeight, { align: "center" });
+        doc.rect(currentX + pregnantWidth + postpartumWidth, currentY, colWidths[7], headerHeight * 2);
+        doc.text("รับยา", currentX + pregnantWidth + postpartumWidth + colWidths[7] / 2, currentY + headerHeight, { align: "center" });
 
         // จำนวนวันฯ (rowSpan 2)
-        doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[8], currentY, colWidths[9], headerHeight * 2);
+        doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[7], currentY, colWidths[8], headerHeight * 2);
         const daysText = "จำนวนวันใน\n1 สัปดาห์\nที่ทานยา";
         const daysLines = daysText.split('\n');
-        doc.setFontSize(6);
-        doc.text(daysLines[0], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight - 3, { align: "center" });
-        doc.text(daysLines[1], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight, { align: "center" });
-        doc.text(daysLines[2], currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] / 2, currentY + headerHeight + 3, { align: "center" });
+        doc.setFontSize(6.5);
+        doc.text(daysLines[0], currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8] / 2, currentY + headerHeight - 3, { align: "center" });
+        doc.text(daysLines[1], currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8] / 2, currentY + headerHeight, { align: "center" });
+        doc.text(daysLines[2], currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8] / 2, currentY + headerHeight + 3, { align: "center" });
         doc.setFontSize(11);
 
         // สาเหตุ (rowSpan 2)
-        doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9], currentY, colWidths[10], headerHeight * 2);
-        doc.text("สาเหตุ", currentX + pregnantWidth + postpartumWidth + colWidths[8] + colWidths[9] + colWidths[10] / 2, currentY + headerHeight, { align: "center" });
+        doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8], currentY, colWidths[9], headerHeight * 2);
+        doc.text("สาเหตุ", currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8] + colWidths[9] / 2, currentY + headerHeight, { align: "center" });
 
         // Header Row 2 - Sub headers
         currentY += headerHeight;
         currentX = startX + colWidths[0] + colWidths[1];
 
         doc.setFontSize(7);
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 5; i++) {
           doc.rect(currentX, currentY, colWidths[i + 2], headerHeight);
           const lines = subHeaders[i].split('\n');
           const subStartY = currentY + 2;
@@ -208,42 +199,41 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
           row.pregnant_13_24 ? "/" : "-",
           row.pregnant_25_plus ? "/" : "-",
           row.postpartum_0_12 ? "/" : "-",
-          row.postpartum_13_24 ? "/" : "-",
-          row.postpartum_25_plus ? "/" : "-"
+          row.postpartum_13_24 ? "/" : "-"
         ];
 
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 5; i++) {
           doc.rect(currentX, currentY, colWidths[i + 2], rowHeight);
           doc.text(values[i], currentX + colWidths[i + 2] / 2, currentY + 7.5, { align: "center" });
           currentX += colWidths[i + 2];
         }
 
         // รับยา
-        doc.rect(currentX, currentY, colWidths[8], rowHeight);
+        doc.rect(currentX, currentY, colWidths[7], rowHeight);
         doc.setFont("Sarabun", "normal");
-        doc.setFontSize(6);
+        doc.setFontSize(6.5);
         const medStatus = getMedicineStatus(row.q1_received_medicine);
-        doc.text(medStatus, currentX + colWidths[8] / 2, currentY + 7, { align: "center", maxWidth: colWidths[8] - 2 });
-        currentX += colWidths[8];
+        doc.text(medStatus, currentX + colWidths[7] / 2, currentY + 7, { align: "center", maxWidth: colWidths[7] - 2 });
+        currentX += colWidths[7];
 
         // จำนวนวันฯ
-        doc.rect(currentX, currentY, colWidths[9], rowHeight);
-        doc.setFontSize(5.5);
+        doc.rect(currentX, currentY, colWidths[8], rowHeight);
+        doc.setFontSize(6.5);
         const freqLabel = getFrequencyLabel(row.q2_frequency);
-        const freqLines = doc.splitTextToSize(freqLabel, colWidths[9] - 2);
+        const freqLines = doc.splitTextToSize(freqLabel, colWidths[8] - 2);
         if (freqLines.length > 1) {
-          doc.text(freqLines[0], currentX + colWidths[9] / 2, currentY + 5.5, { align: "center" });
-          doc.text(freqLines[1], currentX + colWidths[9] / 2, currentY + 8.5, { align: "center" });
+          doc.text(freqLines[0], currentX + colWidths[8] / 2, currentY + 5.5, { align: "center" });
+          doc.text(freqLines[1], currentX + colWidths[8] / 2, currentY + 8.5, { align: "center" });
         } else {
-          doc.text(freqLabel, currentX + colWidths[9] / 2, currentY + 7, { align: "center" });
+          doc.text(freqLabel, currentX + colWidths[8] / 2, currentY + 7, { align: "center" });
         }
-        currentX += colWidths[9];
+        currentX += colWidths[8];
 
         // สาเหตุ
-        doc.rect(currentX, currentY, colWidths[10], rowHeight);
-        doc.setFontSize(5);
+        doc.rect(currentX, currentY, colWidths[9], rowHeight);
+        doc.setFontSize(6.5);
         const reason = row.q3_reason || "-";
-        const reasonLines = doc.splitTextToSize(reason, colWidths[10] - 2);
+        const reasonLines = doc.splitTextToSize(reason, colWidths[9] - 2);
         const displayLines = reasonLines.slice(0, 3);
         let textY = currentY + 3.5;
         displayLines.forEach((line, index) => {
@@ -263,16 +253,18 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         // Header - Title
         doc.setFontSize(14);
         doc.setFont("Sarabun", "bold");
-        doc.text(`แบบรายงานผลการปฏิบัติงานของ อสม. ปีงบประมาณ ${year}`, 105, 15, { align: "center" });
+        doc.text(`การติดตามการได้รับยาเม็ดเสริมไอโอดีน`, 105, 15, { align: "center" });
 
-        doc.setFontSize(12);
+        doc.setFontSize(9);
         doc.setFont("Sarabun", "normal");
-        doc.text(`ประจำเดือน ${month}`, 105, 22, { align: "center" });
-        doc.text(name, 105, 28, { align: "center" });
+        if (date) {
+          doc.text(`วันที่: ${date}`, 105, 22, { align: "center" });
+        }
+        doc.text(name, 105, date ? 28 : 22, { align: "center" });
 
         // แสดงหมายเลขหน้า
-        doc.setFontSize(10);
-        doc.text(`หน้า ${pageNum + 1} / ${totalPages}`, 105, 34, { align: "center" });
+        // doc.setFontSize(10);
+        // doc.text(`หน้า ${pageNum + 1} / ${totalPages}`, 105, 34, { align: "center" });
 
         // วาด Header ตาราง
         const startY = 40;
@@ -294,7 +286,9 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       }
 
       // บันทึกไฟล์
-      doc.save(`รายงานหญิงตั้งครรภ์_${month}_${year}_${name}.pdf`);
+      const now = new Date();
+      const fileNameDate = now.toISOString().split('T')[0];
+      doc.save(`การติดตามการได้รับยาเม็ดเสริมไอโอดีน_${fileNameDate}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -324,7 +318,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">
-                  รายละเอียดข้อมูลรายงานประเมินหญิงตั้งครรภ์
+                  การติดตามการได้รับยาเม็ดเสริมไอโอดีน
                 </h1>
                 <p className="text-white/80 text-sm mt-1">
                   ตรวจสอบรายละเอียดรายงานผลการปฏิบัติงาน
@@ -342,11 +336,9 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
           {/* Report Info - Center aligned */}
           <div className="flex-1 text-center">
             <h2 className="font-bold text-[#231d37] text-lg mb-2">
-              แบบรายงานผลการปฏิบัติงานของ อสม. ปีงบประมาณ {year}
+              การติดตามการได้รับยาเม็ดเสริมไอโอดีน
             </h2>
-            <p className="text-gray-700 font-medium text-base mb-1">
-              ประจำเดือน {month}
-            </p>
+            {date && <p className="text-gray-600 text-sm mb-1">วันที่: {date}</p>}
             <p className="text-gray-700 font-medium text-base">{name}</p>
             <p className="text-gray-600 text-sm mt-2">จำนวนทั้งหมด: {new Set(tableData.map(row => row.name)).size} คน</p>
           </div>
@@ -393,7 +385,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
                     หญิงตั้งครรภ์
                   </th>
                   <th
-                    colSpan={3}
+                    colSpan={2}
                     className="border border-black py-4 px-4 font-bold text-center text-[#231d37] text-base"
                   >
                     หญิงหลังคลอด
@@ -444,10 +436,6 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
                     <div>หลังคลอด</div>
                     <div>13 - 24 สัปดาห์</div>
                   </th>
-                  <th className="border border-black py-3 px-3 font-semibold text-center text-sm text-[#231d37] leading-tight">
-                    <div>หลังคลอด</div>
-                    <div>25 สัปดาห์ขึ้นไป</div>
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -478,9 +466,6 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
                     </td>
                     <td className="border border-black py-3 px-3 text-center text-[#231d37] font-bold text-base">
                       {row.postpartum_13_24 ? "✓" : "-"}
-                    </td>
-                    <td className="border border-black py-3 px-3 text-center text-[#231d37] font-bold text-base">
-                      {row.postpartum_25_plus ? "✓" : "-"}
                     </td>
                     {/* รับยา */}
                     <td className="border border-black py-3 px-3 text-center text-[#231d37] text-sm">

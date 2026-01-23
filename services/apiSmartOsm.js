@@ -1,16 +1,11 @@
 import axios from "axios";
-import { getAuthToken, debugTokens } from "../utils/tokenHelper";
+import { getAuthToken } from "../utils/tokenHelper";
 import {
   getAccessToken,
   getRefreshToken,
   setTokens,
   clearTokens,
 } from "@utils/tokenStorage";
-
-// Export debugTokens เพื่อให้เรียกใช้ได้จาก window
-if (typeof window !== "undefined") {
-  window.debugTokens = debugTokens;
-}
 
 // เชื่อมต่อตรงกับ Smart OSM API
 const apiSmartOsm = axios.create({

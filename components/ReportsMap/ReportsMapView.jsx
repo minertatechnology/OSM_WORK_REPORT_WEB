@@ -141,7 +141,6 @@ const ReportsMapView = () => {
 
       const data = await reportsMapService.getReportsMapData(filters);
       setReportsData(data);
-      console.log("📊 Reports data:", data);
     } catch (err) {
       console.error("Error fetching reports:", err);
       setError("เกิดข้อผิดพลาดในการดึงข้อมูล กรุณาลองใหม่อีกครั้ง");

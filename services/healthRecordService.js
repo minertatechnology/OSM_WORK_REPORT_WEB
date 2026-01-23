@@ -18,11 +18,6 @@ export const getHealthRecords = async (params = {}) => {
       params: { skip, limit, ...rest },
     });
 
-    console.log("✅ Health records fetched:", {
-      count: Array.isArray(response.data) ? response.data.length : 0,
-      dataType: Array.isArray(response.data) ? "array" : typeof response.data,
-    });
-
     // Parse response data - รองรับหลายรูปแบบ
     if (Array.isArray(response.data)) {
       return response.data;
@@ -67,8 +62,6 @@ export const getHealthRecordsByYearMonth = async (buddhistYear, month = null) =>
 
       return true;
     });
-
-    console.log(`📅 Filtered health records for ${buddhistYear}${month ? `/${month}` : ""}:`, filtered.length);
 
     return filtered;
   } catch (error) {

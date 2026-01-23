@@ -71,30 +71,3 @@ export const hasAuthToken = () => {
   return !!getAuthToken();
 };
 
-/**
- * แสดงข้อมูล token ทั้งหมดที่มี (สำหรับ debug)
- */
-export const debugTokens = () => {
-  console.group("🔍 Token Debug Info");
-
-  console.log("Cookies:");
-  console.log("  - token:", Cookies.get("token") || "❌ Not found");
-  console.log("  - authToken:", Cookies.get("authToken") || "❌ Not found");
-  console.log("  - access_token:", Cookies.get("access_token") || "❌ Not found");
-
-  if (typeof window !== "undefined") {
-    console.log("\nLocalStorage:");
-    console.log("  - token:", localStorage.getItem("token") || "❌ Not found");
-    console.log("  - authToken:", localStorage.getItem("authToken") || "❌ Not found");
-    console.log("  - access_token:", localStorage.getItem("access_token") || "❌ Not found");
-  }
-
-  const currentToken = getAuthToken();
-  if (currentToken) {
-    console.log("\n✅ Active Token:", currentToken.substring(0, 30) + "...");
-  } else {
-    console.log("\n❌ No active token found!");
-  }
-
-  console.groupEnd();
-};

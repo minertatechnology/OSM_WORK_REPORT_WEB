@@ -87,16 +87,13 @@ export default function ManageAccess() {
       try {
         // ดึง positions
         const positionsData = await getPositions({ limit: 100 });
-        console.log("Positions data:", positionsData);
         setPositions(positionsData);
 
         // ดึง menu structure
         const menusData = await getMenuStructure();
-        console.log("Menu structure:", menusData);
 
         // แปลงเมนูเป็น flat list
         const flat = convertMenuToFlatList(menusData);
-        console.log("Flat menus:", flat);
         setFlatMenus(flat);
 
         // ตั้งค่า role เริ่มต้น (หลังจากได้ positionsData แล้ว)
@@ -131,7 +128,6 @@ export default function ManageAccess() {
         }));
 
         const permissionsData = await getUserMenuPermissions(role);
-        console.log(`Permissions for role ${role}:`, permissionsData);
 
         if (permissionsData.menus && permissionsData.menus.length > 0) {
           const access = {};
@@ -241,7 +237,6 @@ export default function ManageAccess() {
         flatPermissions[menu.code] = permissions[menu.code].can_view;
       });
       localStorage.setItem('menu_permissions', JSON.stringify(flatPermissions));
-      console.log("Saved permissions to localStorage:", flatPermissions);
 
       savedAccess.current = JSON.parse(JSON.stringify(menuAccess));
       savedRole.current = role;

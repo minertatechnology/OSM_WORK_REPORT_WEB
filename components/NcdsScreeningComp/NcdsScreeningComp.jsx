@@ -715,8 +715,6 @@ const NcdsScreeningComp = () => {
         if (service) {
           try {
             osmData = await getOsmByHealthService(service);
-            console.log("📊 OSM Data received:", osmData.length, "items");
-            console.log("🆔 OSM IDs:", osmData.map(o => o.id));
             setOsmDataByService(osmData);
           } catch (err) {
             console.error("Error fetching OSM data:", err);
@@ -815,29 +813,17 @@ const NcdsScreeningComp = () => {
       // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
       // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
       if (service && osmDataByService.length > 0) {
-        console.log("🎯 Service filter enabled (PRIORITY)");
-        console.log("📊 Rows before service filter:", row.external_user_id);
-
         // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
         const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
-        console.log("🆔 OSM ID Set (first 5):", Array.from(osmIdSet).slice(0, 5));
-        console.log("👥 Total OSMs:", osmIdSet.size);
 
         // Filter เฉพาะที่มี external_user_id อยู่ใน osmIdSet
         const match = row.external_user_id && osmIdSet.has(row.external_user_id);
-        if (!match && row.external_user_id) {
-          console.log("❌ No match - external_user_id:", row.external_user_id);
-        } else if (match) {
-          console.log("✅ Match - external_user_id:", row.external_user_id);
-        }
 
         if (!match) {
-          console.log("❌ Failed service filter");
           return false;
         }
 
         // ถ้าเลือกหน่วยบริการแล้ว ให้ skip filter ตามพื้นที่ทิ้ง
-        console.log("✅ Service filter passed - skipping location filters");
         // ยังคงต้อง filter keyword อยู่
         const keywordMatch = !keyword || (
           row.name.includes(keyword) ||
