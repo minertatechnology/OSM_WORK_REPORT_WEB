@@ -156,7 +156,7 @@ function exportSummaryPDF(data, userDataMap) {
   // Title
   doc.setFontSize(16);
   doc.setFont("Sarabun", "bold");
-  doc.text("สรุปจำนวนการส่งรายงานประเมินหญิงตั้งครรภ์", 105, 15, {
+  doc.text("การติดตามการได้รับยาเม็ดเสริมไอโอดีน", 105, 15, {
     align: "center",
   });
 
@@ -1270,7 +1270,7 @@ const PregnantReportComp = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold">
-                    รายงานประเมินหญิงตั้งครรภ์
+                    รายงานการติดตามการได้รับยาเม็ดเสริมไอโอดีน
                   </h1>
                   <p className="text-white/80 text-sm mt-1">
                     แดชบอร์ดรายงานและดาวน์โหลดสำหรับหญิงตั้งครรภ์
