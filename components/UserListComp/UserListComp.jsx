@@ -866,8 +866,8 @@ function Pagination({
 }
 
 const UserListComp = () => {
-  // Use permission-based filters (เหมือน ElderlyScreeningComp)
-  const { isLocked, isCountryLevel } = useUserPermission();
+  // Use permission-based filters
+  const { isLocked, isCountryLevel, getInitialFilters } = useUserPermission();
   const {
     zone,
     province,
@@ -935,8 +935,8 @@ const UserListComp = () => {
           setOsmDataByService([]);
         }
 
-        // ถ้าไม่ใช่สิทธิ์กรม ต้องดึงข้อมูลทั้งหมดเพื่อกรอง (loop จนกว่าจะครบ)
-        const shouldFetchAll = !isCountryLevel();
+        // ดึงข้อมูลทั้งหมดเพื่อกรองใน frontend (ทุกสิทธิ์ต้องกรองเหมือนกัน)
+        const shouldFetchAll = true;
 
         let allUsers = [];
         let allUserCount = 0;
@@ -988,29 +988,6 @@ const UserListComp = () => {
           }
 
           setLoadingProgress(null); // เคลียร์ progress เมื่อโหลดเสร็จ
-        } else {
-          // สิทธิ์กรม: ดึงแบบ pagination ปกติ
-          const response = await getUsersList({
-            page: currentPage,
-            per_page: itemsPerPage,
-            keyword: keyword,
-            is_active: tab === "active" ? true : false,
-            // ❌ เอา filter พื้นที่ออก - จะกรองใน frontend แทน
-            // province_code: province || "",
-            // district_code: district || "",
-            // subdistrict_code: subdistrict || "",
-            token: token
-          });
-
-          allUsers = response.users;
-          allUserCount = response.total;
-
-          // เตรียม external_user_ids สำหรับ batch API
-          const externalUserIds = response.users
-            .map(user => user.external_user_id)
-            .filter(id => id);
-
-          batchUsersMap = externalUserIds.length > 0 ? await getUsersBatch(externalUserIds) : {};
         }
 
         // 2-3. ยิง batch API เพื่อดึงข้อมูล OAuth2 ทั้งหมดในครั้งเดียว (ทำแล้วด้านบน)
@@ -1253,49 +1230,111 @@ const UserListComp = () => {
         // Filter out rejected promises and extract values
         let successfulUsers = usersWithDetails;
 
-        // ✅ กรองตามเขตสุขภาพ (zone) - ใช้ health_area_name_th ที่คำนวณจาก /batch
-        if (zone) {
-          // แปลง zone code (เช่น "1", "9") เป็นชื่อ (เช่น "เขตสุขภาพที่ 1")
-          const zoneFilterName = healthAreas.find(h => h.code === zone)?.name_th;
-          if (zoneFilterName) {
-            successfulUsers = successfulUsers.filter(user => {
-              // ใช้ health_area_name_th ที่คำนวณจาก province หรือมาจาก OAuth2
-              return user.health_area_name_th === zoneFilterName;
-            });
-          }
+        // ✅ กรองตามสิทธิ์ของ user (จาก /auth/me)
+        const initialFilters = getInitialFilters();
+        const defaultZone = initialFilters.zone || "";
+        const defaultProvince = initialFilters.province || "";
+        const defaultDistrict = initialFilters.district || "";
+        const defaultSubdistrict = initialFilters.subdistrict || "";
+
+        console.log("🔒 UserListComp Permission Debug:");
+        console.log("  defaultZone:", defaultZone, "zone:", zone);
+        console.log("  defaultProvince:", defaultProvince, "province:", province);
+        console.log("  defaultDistrict:", defaultDistrict, "district:", district);
+        console.log("  defaultSubdistrict:", defaultSubdistrict, "subdistrict:", subdistrict);
+
+        // ✅ กรองตามเขตสุขภาพ (zone)
+        // มี priority: user selection > permission locked
+        let shouldFilterByZone = false;
+        let zoneFilterName = null;
+
+        if (zone && zone !== defaultZone) {
+          // User เลือก zone เอง
+          shouldFilterByZone = true;
+          zoneFilterName = healthAreas.find(h => h.code === zone)?.name_th;
+          console.log("✅ Filter by user-selected zone:", zone, "→", zoneFilterName);
+        } else if (defaultZone) {
+          // ใช้ค่าจาก permission (locked zone)
+          shouldFilterByZone = true;
+          zoneFilterName = healthAreas.find(h => h.code === defaultZone)?.name_th;
+          console.log("🔒 Filter by permission zone:", defaultZone, "→", zoneFilterName);
         }
 
-        // ✅ กรองตามจังหวัด (province) - ใช้ชื่อจังหวัดจาก /batch
-        if (province) {
-          const provinceFilterName = provinces.find(p => p.code === province)?.name_th;
-          if (provinceFilterName) {
-            successfulUsers = successfulUsers.filter(user => {
-              // ใช้ province ที่มาจาก OAuth2 (province_name_th)
-              return user.province === provinceFilterName;
-            });
-          }
+        if (shouldFilterByZone && zoneFilterName) {
+          console.log("🔍 Before zone filter - total:", successfulUsers.length);
+          successfulUsers = successfulUsers.filter(user => {
+            return user.health_area_name_th === zoneFilterName;
+          });
+          console.log("🔍 After zone filter - result:", successfulUsers.length);
         }
 
-        // ✅ กรองตามอำเภอ (district) - ใช้ชื่ออำเภอจาก /batch
-        if (district) {
-          const districtFilterName = districts.find(d => d.code === district)?.name_th;
-          if (districtFilterName) {
-            successfulUsers = successfulUsers.filter(user => {
-              // ใช้ district ที่มาจาก OAuth2 (district_name_th)
-              return user.district === districtFilterName;
-            });
-          }
+        // ✅ กรองตามจังหวัด (province)
+        let shouldFilterByProvince = false;
+        let provinceFilterName = null;
+
+        if (province && province !== defaultProvince) {
+          // User เลือก province เอง
+          shouldFilterByProvince = true;
+          provinceFilterName = provinces.find(p => p.code === province)?.name_th;
+          console.log("✅ Filter by user-selected province:", province, "→", provinceFilterName);
+        } else if (defaultProvince) {
+          // ใช้ค่าจาก permission (locked province)
+          shouldFilterByProvince = true;
+          provinceFilterName = provinces.find(p => p.code === defaultProvince)?.name_th;
+          console.log("🔒 Filter by permission province:", defaultProvince, "→", provinceFilterName);
         }
 
-        // ✅ กรองตามตำบล (subdistrict) - ใช้ชื่อตำบลจาก /batch
-        if (subdistrict) {
-          const subdistrictFilterName = subdistricts.find(s => s.code === subdistrict)?.name_th;
-          if (subdistrictFilterName) {
-            successfulUsers = successfulUsers.filter(user => {
-              // ใช้ subdistrict ที่มาจาก OAuth2 (subdistrict_name_th)
-              return user.subdistrict === subdistrictFilterName;
-            });
-          }
+        if (shouldFilterByProvince && provinceFilterName) {
+          successfulUsers = successfulUsers.filter(user => {
+            return user.province === provinceFilterName;
+          });
+          console.log("🔍 After province filter - result:", successfulUsers.length);
+        }
+
+        // ✅ กรองตามอำเภอ (district)
+        let shouldFilterByDistrict = false;
+        let districtFilterName = null;
+
+        if (district && district !== defaultDistrict) {
+          // User เลือก district เอง
+          shouldFilterByDistrict = true;
+          districtFilterName = districts.find(d => d.code === district)?.name_th;
+          console.log("✅ Filter by user-selected district:", district, "→", districtFilterName);
+        } else if (defaultDistrict) {
+          // ใช้ค่าจาก permission (locked district)
+          shouldFilterByDistrict = true;
+          districtFilterName = districts.find(d => d.code === defaultDistrict)?.name_th;
+          console.log("🔒 Filter by permission district:", defaultDistrict, "→", districtFilterName);
+        }
+
+        if (shouldFilterByDistrict && districtFilterName) {
+          successfulUsers = successfulUsers.filter(user => {
+            return user.district === districtFilterName;
+          });
+          console.log("🔍 After district filter - result:", successfulUsers.length);
+        }
+
+        // ✅ กรองตามตำบล (subdistrict)
+        let shouldFilterBySubdistrict = false;
+        let subdistrictFilterName = null;
+
+        if (subdistrict && subdistrict !== defaultSubdistrict) {
+          // User เลือก subdistrict เอง
+          shouldFilterBySubdistrict = true;
+          subdistrictFilterName = subdistricts.find(s => s.code === subdistrict)?.name_th;
+          console.log("✅ Filter by user-selected subdistrict:", subdistrict, "→", subdistrictFilterName);
+        } else if (defaultSubdistrict) {
+          // ใช้ค่าจาก permission (locked subdistrict)
+          shouldFilterBySubdistrict = true;
+          subdistrictFilterName = subdistricts.find(s => s.code === defaultSubdistrict)?.name_th;
+          console.log("🔒 Filter by permission subdistrict:", defaultSubdistrict, "→", subdistrictFilterName);
+        }
+
+        if (shouldFilterBySubdistrict && subdistrictFilterName) {
+          successfulUsers = successfulUsers.filter(user => {
+            return user.subdistrict === subdistrictFilterName;
+          });
+          console.log("🔍 After subdistrict filter - result:", successfulUsers.length);
         }
 
         // Filter ตามหน่วยบริการ (ถ้าเลือก)
@@ -1309,7 +1348,7 @@ const UserListComp = () => {
         setUsers(successfulUsers);
         // ใช้จำนวน users ที่กรองแล้ว เพราะเรากรองใน frontend
         setTotalItems(successfulUsers.length);
-        setTotalPages(shouldFetchAll ? 1 : Math.ceil(successfulUsers.length / itemsPerPage));
+        setTotalPages(Math.ceil(successfulUsers.length / itemsPerPage) || 1);
       } catch (error) {
         console.error("Error fetching users:", error);
 
@@ -1339,7 +1378,7 @@ const UserListComp = () => {
     };
 
     fetchUsers();
-  }, [currentPage, itemsPerPage, keyword, tab, zone, province, district, subdistrict, service, isCountryLevel]);
+  }, [itemsPerPage, keyword, tab, zone, province, district, subdistrict, service, isCountryLevel]);
 
   // Auto-refresh online status ทุก 30 วินาที
   const [, forceUpdate] = useState({});
@@ -1352,20 +1391,25 @@ const UserListComp = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // กรองผู้ใช้ตามสิทธิ์: ถ้าเป็นสิทธิ์กรม (country) แสดงทั้งหมด ถ้าไม่ใช่แสดงเฉพาะ อสม.
+  // กรองผู้ใช้และทำ frontend pagination
   const { displayUsers, filteredTotalItems, filteredTotalPages } = useMemo(() => {
-    if (isCountryLevel()) {
-      // สิทธิ์กรม: แสดงทั้งหมด
-      return { displayUsers: users, filteredTotalItems: totalItems, filteredTotalPages: totalPages };
-    } else {
+    let filtered = users;
+
+    if (!isCountryLevel()) {
       // สิทธิ์อื่นๆ: แสดงทุกคนยกเว้น "เจ้าหน้าที่" และ "ไม่ระบุชื่อ"
-      const filtered = users.filter(user => {
+      filtered = users.filter(user => {
         return user.position !== "เจ้าหน้าที่" && user.name !== "ไม่ระบุชื่อ";
       });
-      const filteredPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-      return { displayUsers: filtered, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages };
     }
-  }, [users, isCountryLevel, totalItems, totalPages, itemsPerPage]);
+
+    // Frontend pagination: slice ตาม currentPage และ itemsPerPage
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedUsers = filtered.slice(startIndex, endIndex);
+
+    const filteredPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+    return { displayUsers: paginatedUsers, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages };
+  }, [users, isCountryLevel, currentPage, itemsPerPage]);
 
   const handleRestoreUser = () => {
     if (!selectedUser) return;
