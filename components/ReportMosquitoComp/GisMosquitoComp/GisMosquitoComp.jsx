@@ -2078,7 +2078,7 @@ const GisMosquitoComp = () => {
                         HI (House Index)
                       </div>
                       <div style={{ fontSize: "10px", color: "#adb5bd", marginTop: "4px" }}>
-                        บ้านพบลูกน้ำ {hiciData.housesWithLarvae} / สำรวจ {hiciData.housesSurveyed}
+                        พบลูกน้ำ {hiciData.housesWithLarvae} หลัง / สำรวจ {hiciData.housesSurveyed} หลัง
                       </div>
                     </div>
 
@@ -2101,7 +2101,7 @@ const GisMosquitoComp = () => {
                         CI (Container Index)
                       </div>
                       <div style={{ fontSize: "10px", color: "#adb5bd", marginTop: "4px" }}>
-                        ภาชนะพบลูกน้ำ {hiciData.containersWithLarvae} / สำรวจ {hiciData.containersSurveyed}
+                        พบลูกน้ำ {hiciData.containersWithLarvae} ภาชนะ / สำรวจ {hiciData.containersSurveyed} ภาชนะ
                       </div>
                     </div>
                   </div>
