@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Eye,
+  EyeOff,
   Download,
   ChevronsLeft,
   ChevronsRight,
@@ -721,6 +722,9 @@ const ElderlyScreeningComp = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [availableYears, setAvailableYears] = useState([]);
 
+  // State สำหรับเปิด/ปิดการแสดงเลขบัตรประชาชน
+  const [visibleCitizenIds, setVisibleCitizenIds] = useState(new Set());
+
   // Note: Location data loading is handled by usePermissionFilters hook
 
   // โหลด searchParams และปีปัจจุบันหลัง hydration เสร็จ
@@ -1206,7 +1210,10 @@ const ElderlyScreeningComp = () => {
                   ลำดับ
                 </th>
                 <th className="py-4 px-4 font-semibold text-left text-white">
-                  ชื่อ-นามสกุล ผู้ประเมิน
+                  ชื่อ-นามสกุล
+                </th>
+                <th className="py-4 px-4 font-semibold text-center text-white">
+                  เลขบัตรประชาชน
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
                   วันที่บันทึกล่าสุด
@@ -1222,19 +1229,19 @@ const ElderlyScreeningComp = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center">
+                  <td colSpan={6} className="py-12 text-center">
                     <ComponentLoadingSpinner />
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-red-600 font-semibold">
+                  <td colSpan={6} className="py-10 text-center text-red-600 font-semibold">
                     {error}
                   </td>
                 </tr>
               ) : paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center">
+                  <td colSpan={6} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <FileText size={48} className="text-gray-300" />
                       <p className="text-gray-500">ไม่พบข้อมูล</p>
@@ -1242,43 +1249,83 @@ const ElderlyScreeningComp = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row, idx) => (
-                  <tr
-                    key={row.external_user_id || idx}
-                    className={`${
-                      idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
-                    } hover:bg-purple-50 transition-colors`}
-                  >
-                    <td className="py-4 px-4 text-center font-medium text-gray-600">
-                      {(page - 1) * itemsPerPage + idx + 1}
-                    </td>
-                    <td className="py-4 px-4 font-medium text-[#231d37]">
-                      {row._assessorName}
-                    </td>
-                    <td className="py-4 px-4 text-center text-gray-700">
-                      {row._thaiDate}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-sm">
-                        <Users size={16} />
-                        {row._elderlyCount} คน
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <button
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
-                        onClick={() =>
-                          router.push(
-                            `/elderly-screening?detail=${row.external_user_id}`
-                          )
-                        }
-                      >
-                        <Eye size={16} />
-                        รายละเอียด
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                paginatedRows.map((row, idx) => {
+                  // ดึง citizen_id จาก screening แรก (ถ้ามี)
+                  const citizenId = row.screenings?.[0]?.citizen_id || "";
+                  return (
+                    <tr
+                      key={row.external_user_id || idx}
+                      className={`${
+                        idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
+                      } hover:bg-purple-50 transition-colors`}
+                    >
+                      <td className="py-4 px-4 text-center font-medium text-gray-600">
+                        {(page - 1) * itemsPerPage + idx + 1}
+                      </td>
+                      <td className="py-4 px-4 font-medium text-[#231d37]">
+                        {row._assessorName}
+                      </td>
+                      <td className="py-4 px-4 text-center text-sm text-gray-600">
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="font-mono">
+                            {citizenId ? (
+                              visibleCitizenIds.has(row.external_user_id) ? (
+                                citizenId
+                              ) : (
+                                citizenId.slice(0, -4) + "XXXX"
+                              )
+                            ) : (
+                              <span className="text-gray-400">ไม่ระบุ</span>
+                            )}
+                          </span>
+                          {citizenId && (
+                            <button
+                              onClick={() => {
+                                const newVisible = new Set(visibleCitizenIds);
+                                if (newVisible.has(row.external_user_id)) {
+                                  newVisible.delete(row.external_user_id);
+                                } else {
+                                  newVisible.add(row.external_user_id);
+                                }
+                                setVisibleCitizenIds(newVisible);
+                              }}
+                              className="p-1 rounded hover:bg-gray-100 transition-colors"
+                              title={visibleCitizenIds.has(row.external_user_id) ? "ซ่อนเลขบัตร" : "แสดงเลขบัตร"}
+                            >
+                              {visibleCitizenIds.has(row.external_user_id) ? (
+                                <EyeOff size={16} className="text-gray-500" />
+                              ) : (
+                                <Eye size={16} className="text-gray-500" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center text-gray-700">
+                        {row._thaiDate}
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold text-sm">
+                          <Users size={16} />
+                          {row._elderlyCount} คน
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <button
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                          onClick={() =>
+                            router.push(
+                              `/elderly-screening?detail=${row.external_user_id}`
+                            )
+                          }
+                        >
+                          <Eye size={16} />
+                          รายละเอียด
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

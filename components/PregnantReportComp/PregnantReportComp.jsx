@@ -868,6 +868,7 @@ const PregnantReportComp = () => {
   const [searchType, setSearchType] = useState("year");
   const [week, setWeek] = useState("สัปดาห์ 4 (22/6/68-30/6/68)");
   const [keyword, setKeyword] = useState("");
+  const [citizenIdKeyword, setCitizenIdKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
   // Tab state
@@ -1081,15 +1082,19 @@ const PregnantReportComp = () => {
       const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
       const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
 
-      // กรองตาม keyword
-      const keywordMatch = !keyword || (
+      // กรองตาม keyword (ชื่อ-นามสกุล)
+      const nameKeywordMatch = !keyword || (
         userName.includes(keyword) ||
         row.date.includes(keyword) ||
         String(row.index).includes(keyword) ||
-        row.citizen_id?.includes(keyword) ||
         locationData.region?.includes(keyword) ||
         locationData.city?.includes(keyword) ||
         locationData.district?.includes(keyword)
+      );
+
+      // กรองตามเลขบัตรประชาชน
+      const citizenIdMatch = !citizenIdKeyword || (
+        row.citizen_id?.includes(citizenIdKeyword)
       );
 
       // Year filtering
@@ -1120,10 +1125,11 @@ const PregnantReportComp = () => {
         provinceMatch &&
         districtMatch &&
         subdistrictMatch &&
-        keywordMatch
+        nameKeywordMatch &&
+        citizenIdMatch
       );
     });
-  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, service, keyword, healthAreas, provinces, districts, subdistricts, userDataMap, osmDataByService]);
+  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, service, keyword, citizenIdKeyword, healthAreas, provinces, districts, subdistricts, userDataMap, osmDataByService]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = filteredRows.slice(
     (page - 1) * itemsPerPage,
@@ -1146,6 +1152,7 @@ const PregnantReportComp = () => {
     handleReset(String(currentFiscalYear), "fiscal");
     setWeek("สัปดาห์ 4 (22/6/68-30/6/68)");
     setKeyword("");
+    setCitizenIdKeyword("");
   };
 
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
@@ -1428,34 +1435,58 @@ const PregnantReportComp = () => {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-          <div className="relative flex-1 w-full">
-            <Search
-              size={20}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => {
-                setKeyword(e.target.value);
-                setPage(1);
-              }}
-              placeholder="ค้นหาชื่อและนามสกุล..."
-              className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 focus:outline-none focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 transition-all duration-200"
-            />
-            {keyword && (
-              <button
-                onClick={() => setKeyword("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X size={18} />
-              </button>
-            )}
+          <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ช่องค้นหาชื่อ-นามสกุล */}
+            <div className="relative">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="ค้นหาชื่อ-นามสกุล"
+                className="w-full h-11 pl-10 pr-8 rounded-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 focus:outline-none focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 transition-all duration-200 text-sm"
+              />
+              {keyword && (
+                <button
+                  onClick={() => setKeyword("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {/* ช่องค้นหาเลขบัตรประชาชน */}
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">
+                ID
+              </div>
+              <input
+                type="text"
+                value={citizenIdKeyword}
+                onChange={(e) => {
+                  setCitizenIdKeyword(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="ค้นหาเลขบัตรประชาชน"
+                className="w-full h-11 pl-10 pr-8 rounded-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 focus:outline-none focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 transition-all duration-200 text-sm font-mono"
+              />
+              {citizenIdKeyword && (
+                <button
+                  onClick={() => setCitizenIdKeyword("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200">
-            <Search size={18} />
-            <span>ค้นหา</span>
-          </button>
         </div>
 
         {/* Table */}

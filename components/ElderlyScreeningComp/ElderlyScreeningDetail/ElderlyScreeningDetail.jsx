@@ -14,6 +14,42 @@ const buildFullName = (record) =>
   record?.citizen_id ||
   "ไม่ทราบชื่อ";
 
+const buildLocationText = (record) => {
+  const parts = [];
+
+  // จังหวัด
+  if (record?.province_name) {
+    parts.push(`จ.${record.province_name}`);
+  } else if (record?.location_data?.region) {
+    parts.push(`จ.${record.location_data.region}`);
+  }
+
+  // อำเภอ (ในกรุงเทพฯ คือ "เขต" - ลบคำว่า "เขต" ออกเพื่อไม่ให้ซ้ำซ้อน)
+  if (record?.district_name) {
+    parts.push(`อ.${record.district_name}`);
+  } else if (record?.location_data?.city) {
+    // ลบคำว่า "เขต" หรือ "อำเภอ" ออกจากชื่อ
+    let district = record.location_data.city.replace(/^(เขต|อำเภอ)\s*/, "");
+    parts.push(`อ.${district}`);
+  }
+
+  // ตำบล (ในกรุงเทพฯ คือ "แขวง" - ลบคำว่า "แขวง" ออกเพื่อไม่ให้ซ้ำซ้อน)
+  if (record?.subdistrict_name) {
+    parts.push(`ต.${record.subdistrict_name}`);
+  } else if (record?.location_data?.district) {
+    // ลบคำว่า "แขวง" หรือ "ตำบล" ออกจากชื่อ
+    let subdistrict = record.location_data.district.replace(/^(แขวง|ตำบล)\s*/, "");
+    parts.push(`ต.${subdistrict}`);
+  }
+
+  // หมู่ที่
+  if (record?.moo) {
+    parts.push(`ม.${record.moo}`);
+  }
+
+  return parts.length > 0 ? parts.join(" ") : null;
+};
+
 const ElderlyScreeningDetail = ({
   assessorName,
   elderlyList = [],
@@ -283,9 +319,20 @@ const ElderlyScreeningDetail = ({
 
         // ชื่อ-นามสกุล
         const fullName = buildFullName(elderly);
+        const citizenId = elderly?.citizen_id || "";
+        const nameWithId = citizenId ? `${fullName} (${citizenId})` : fullName;
+        const locationText = buildLocationText(elderly);
         doc.rect(currentX, currentY, nameWidth, rowHeight);
-        const nameLines = doc.splitTextToSize(fullName, nameWidth - 2);
-        doc.text(nameLines[0] || fullName, currentX + 1, currentY + 5.5);
+        // แสดงชื่อ, เลขบัตร และที่อยู่ในคอลัมน์เดียวกัน
+        if (locationText) {
+          doc.text(nameWithId, currentX + 1, currentY + 4);
+          doc.setFontSize(5.5);
+          doc.text(locationText, currentX + 1, currentY + 7.5);
+          doc.setFontSize(6.5);
+        } else {
+          const nameLines = doc.splitTextToSize(nameWithId, nameWidth - 2);
+          doc.text(nameLines[0] || nameWithId, currentX + 1, currentY + 5.5);
+        }
         currentX += nameWidth;
 
         // ข้อมูลครัวเรือน
@@ -435,6 +482,10 @@ const ElderlyScreeningDetail = ({
         // Data rows
         ...elderlyList.map((elderly, idx) => {
           const fullName = buildFullName(elderly);
+          const citizenId = elderly?.citizen_id || "";
+          const nameWithId = citizenId ? `${fullName} (${citizenId})` : fullName;
+          const locationText = buildLocationText(elderly);
+          const nameWithLocation = locationText ? `${nameWithId}\n${locationText}` : nameWithId;
 
           // ข้อมูลครัวเรือน
           const livingValue = formatValue(elderly.living_arrangement, "living_arrangement");
@@ -453,7 +504,7 @@ const ElderlyScreeningDetail = ({
 
           return [
             idx + 1,
-            fullName,
+            nameWithLocation,
             livingValue,
             genderValue,
             ageValue,
@@ -482,7 +533,7 @@ const ElderlyScreeningDetail = ({
       // คำนวณความกว้างคอลัมน์
       const colSettings = [
         { min: 50, max: 70 },    // 0: ลำดับ
-        { min: 150, max: 250 },  // 1: ชื่อ-นามสกุล
+        { min: 200, max: 300 },  // 1: ชื่อ-นามสกุล (เพิ่มความกว้างสำหรับแสดงที่อยู่)
         { min: 80, max: 100 },   // 2: ผู้สูงอายุอยู่ร่วม
         { min: 50, max: 70 },    // 3: เพศ
         { min: 50, max: 70 },    // 4: อายุ
@@ -508,7 +559,7 @@ const ElderlyScreeningDetail = ({
         ws['!cols'].push({ wpx: setting.min });
       }
 
-      // ตั้งค่าความสูงแถว
+      // ตั้งค่าความสูงแถว (เพิ่มความสูงสำหรับ data rows เพื่อรองรับ 2 บรรทัด)
       ws['!rows'] = [];
       for (let i = 0; i < totalRows; i++) {
         if (i === 0) {
@@ -516,7 +567,7 @@ const ElderlyScreeningDetail = ({
         } else if (i === 1) {
           ws['!rows'].push({ hpx: 60 });
         } else {
-          ws['!rows'].push({ hpx: 25 });
+          ws['!rows'].push({ hpx: 40 }); // เพิ่มจาก 25 เป็น 40 เพื่อรองรับ 2 บรรทัด
         }
       }
 
@@ -724,6 +775,9 @@ const ElderlyScreeningDetail = ({
               ) : (
                 elderlyList.map((elderly, idx) => {
                   const fullName = buildFullName(elderly);
+                  const citizenId = elderly?.citizen_id || "";
+                  const nameWithId = citizenId ? `${fullName} (${citizenId})` : fullName;
+                  const locationText = buildLocationText(elderly);
 
                   return (
                     <tr
@@ -733,8 +787,9 @@ const ElderlyScreeningDetail = ({
                       <td className="border border-gray-200 py-2 px-2 text-center text-gray-700 font-medium">
                         {idx + 1}
                       </td>
-                      <td className="border border-gray-200 py-2 px-3 text-gray-800 font-medium">
-                        {fullName}
+                      <td className="border border-gray-200 py-2 px-3 text-gray-800">
+                        <div className="font-medium">{nameWithId}</div>
+                        {locationText && <div className="text-[10px] text-gray-500 mt-0.5">{locationText}</div>}
                       </td>
                       <td className="border border-gray-200 py-2 px-2 text-center text-gray-700 text-[11px]">
                         {formatValue(elderly.living_arrangement, "living_arrangement")}
