@@ -12,7 +12,12 @@ import {
   getDistricts,
   getSubdistricts,
 } from "@services/lookupService";
-import { getCurrentFiscalYear } from "@utils/fiscalYearHelper";
+import {
+  getCurrentFiscalYear,
+  isInFiscalYear,
+  isInCalendarYear,
+  isInMonth,
+} from "@utils/fiscalYearHelper";
 import styles from "./GisComp.module.css";
 
 const normalizeLookupValue = (value) => {
@@ -257,6 +262,8 @@ const GisComp = () => {
     fitToData,
     cleanup,
     updateResponsiveZoom,
+    setColorsByAreaData,
+    updateLayerColors,
   } = useMapManager();
 
   const {
@@ -283,7 +290,8 @@ const GisComp = () => {
     })
   ];
 
-  const monthOptions = [
+  // เดือน options สำหรับปีปฏิทิน (เริ่มต้นที่มกราคม)
+  const calendarMonths = [
     { value: "0", label: "ทุกเดือน" },
     { value: "01", label: "มกราคม" },
     { value: "02", label: "กุมภาพันธ์" },
@@ -298,6 +306,26 @@ const GisComp = () => {
     { value: "11", label: "พฤศจิกายน" },
     { value: "12", label: "ธันวาคม" },
   ];
+
+  // เดือน options สำหรับปีงบประมาณ (เริ่มต้นที่ตุลาคม)
+  const fiscalMonths = [
+    { value: "0", label: "ทุกเดือน" },
+    { value: "10", label: "ตุลาคม" },
+    { value: "11", label: "พฤศจิกายน" },
+    { value: "12", label: "ธันวาคม" },
+    { value: "01", label: "มกราคม" },
+    { value: "02", label: "กุมภาพันธ์" },
+    { value: "03", label: "มีนาคม" },
+    { value: "04", label: "เมษายน" },
+    { value: "05", label: "พฤษภาคม" },
+    { value: "06", label: "มิถุนายน" },
+    { value: "07", label: "กรกฎาคม" },
+    { value: "08", label: "สิงหาคม" },
+    { value: "09", label: "กันยายน" },
+  ];
+
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = selectedYearType === "fiscal" ? fiscalMonths : calendarMonths;
 
   const weekOptions = [
     { value: "0", label: "ทุกสัปดาห์" },
@@ -1337,23 +1365,56 @@ const GisComp = () => {
     }
 
     const controller = new AbortController();
-    const requestUrl = reportsAnalyticsService.buildWeeklyOsm1DetailsUrl(
-      selectedYear || "0", // ถ้าไม่เลือก ให้ใช้ "0" (ทุกปี)
-      selectedMonth || "0", // ถ้าไม่เลือก ให้ใช้ "0" (ทุกเดือน)
-      selectedWeek || "0" // ถ้าไม่เลือก ให้ใช้ "0" (ทุกสัปดาห์)
-    );
 
     const fetchWeeklyDetails = async () => {
       try {
-        const { data, status, url } =
-          await reportsAnalyticsService.getWeeklyOsm1Details({
-            year: selectedYear || "0",
-            month: selectedMonth || "0",
-            week: selectedWeek || "0",
-            signal: controller.signal,
-          });
-        setWeeklyDetails(data);
-        setMonthlyReportData(normalizeMonthlyReportDataFromAnalytics(data));
+        // ดึงข้อมูลทั้งหมด (ส่ง 0 เพื่อไม่ให้ server filter)
+        const { data } = await reportsAnalyticsService.getWeeklyOsm1Details({
+          year: "0",
+          month: "0",
+          week: "0",
+          signal: controller.signal,
+        });
+
+        // ดึง reports จาก response
+        const reports = data?.report_osm1_reports || [];
+
+        // กรองข้อมูล client-side เหมือน GisMosquitoComp
+        const filteredReports = reports.filter((report) => {
+          const reportDate = new Date(report.created_at);
+
+          // กรองตามปี (ปีงบประมาณ หรือ รายปี)
+          if (selectedYear && selectedYear !== "0") {
+            const yearNum = parseInt(selectedYear);
+            const matchesYear = selectedYearType === "fiscal"
+              ? isInFiscalYear(reportDate, yearNum)
+              : isInCalendarYear(reportDate, yearNum);
+
+            if (!matchesYear) return false;
+          }
+
+          // กรองตามเดือน
+          if (selectedMonth && selectedMonth !== "0") {
+            if (!isInMonth(reportDate, selectedMonth)) return false;
+          }
+
+          // กรองตามสัปดาห์ (ต้องมีการเลือกเดือนก่อน)
+          if (selectedWeek && selectedWeek !== "0" && selectedMonth && selectedMonth !== "0") {
+            const weekOfMonth = Math.ceil(new Date(reportDate).getDate() / 7);
+            if (weekOfMonth !== parseInt(selectedWeek)) return false;
+          }
+
+          return true;
+        });
+
+        // สร้าง data object ใหม่จาก reports ที่กรองแล้ว
+        const filteredData = {
+          ...data,
+          report_osm1_reports: filteredReports
+        };
+
+        setWeeklyDetails(filteredData);
+        setMonthlyReportData(normalizeMonthlyReportDataFromAnalytics(filteredData));
       } catch (error) {
         if (error?.name === "AbortError") {
           return;
@@ -1364,7 +1425,73 @@ const GisComp = () => {
     fetchWeeklyDetails();
 
     return () => controller.abort();
-  }, [selectedYear, selectedMonth, selectedWeek]);
+  }, [selectedYear, selectedMonth, selectedWeek, selectedYearType]);
+
+  // Calculate CI by area for OSM reports and pass to useMapManager
+  useEffect(() => {
+    if (!weeklyDetails) {
+      return;
+    }
+
+    // Determine current level
+    const isLevelSubdistrict = selectedDistrict && availableSubdistricts.length > 0;
+    const isLevelDistrict = !isLevelSubdistrict && selectedProvince && availableDistricts.length > 0;
+    const isLevelProvince = !isLevelSubdistrict && !isLevelDistrict && selectedHealthRegion && availableProvincesInRegion.length > 0;
+    const isLevelAll = !isLevelSubdistrict && !isLevelDistrict && !isLevelProvince;
+
+    const level = isLevelSubdistrict
+      ? "subdistrict"
+      : isLevelDistrict
+      ? "district"
+      : "province";
+
+    // Get available areas
+    let availableAreas = [];
+    if (isLevelSubdistrict) {
+      availableAreas = availableSubdistricts;
+    } else if (isLevelDistrict) {
+      availableAreas = availableDistricts;
+    } else if (isLevelProvince || isLevelAll) {
+      availableAreas = availableProvinces;
+    }
+
+    // Calculate color data for OSM reports using hash-based colors (like in Donut Chart)
+    // OSM doesn't have container data like Mosquito reports, so we use hash-based colors
+    const colorsMap = new Map();
+
+    // Use hash to generate colors for each area (same as Donut Chart)
+    if (Array.isArray(availableAreas)) {
+      availableAreas.forEach((areaName) => {
+        const normalizedAreaName = level === "province"
+          ? normalizeAreaKeyWithThai(areaName, level)
+          : normalizeAreaKey(areaName, level);
+
+        // Use same color generation as Donut Chart (getProvinceColor)
+        const color = getProvinceColor(areaName);
+        colorsMap.set(normalizedAreaName, color);
+      });
+    }
+
+    const colorsData = Object.fromEntries(colorsMap);
+    console.log("[OSM Color Data] Level:", level, "| Areas:", Object.keys(colorsData).length, "| colorsData:", colorsData);
+    setColorsByAreaData(colorsData);
+
+    // Update map layer colors
+    setTimeout(() => {
+      updateLayerColors();
+    }, 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    weeklyDetails,
+    selectedProvince,
+    selectedDistrict,
+    selectedSubdistrict,
+    selectedHealthRegion,
+    availableSubdistricts,
+    availableDistricts,
+    availableProvincesInRegion,
+    availableProvinces,
+  ]);
 
   useEffect(() => {
     setDisplayData(buildDisplayDataFromReports());
@@ -1596,6 +1723,8 @@ const GisComp = () => {
                                 (sum, item) => sum + item.value,
                                 0
                               );
+                              // Skip rendering if total is 0 to avoid NaN
+                              if (total === 0) return null;
                               let offset = 25; // Start offset
                               return displayData.map((item) => {
                                 const percentage = (item.value / total) * 100;

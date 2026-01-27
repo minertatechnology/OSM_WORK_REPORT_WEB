@@ -43,7 +43,8 @@ import {
   parseThaiDate,
   isInMonth,
   isInWeekOfMonth,
-  generateWeekOptionsForMonth
+  generateWeekOptionsForMonth,
+  getDisplayYearForFiscalMonth,
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
@@ -1197,15 +1198,23 @@ const ReportMosquitoCompDataComp = () => {
 
   // View 3: แสดงหน้ารายละเอียดบ้าน
   if (householdId) {
+    // เลือกชุดเดือนตามประเภทปี
+    const monthSource = yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
     const monthLabel =
-      MONTHS.find((m) => m.value === month)?.label || "มิถุนายน";
+      monthSource.find((m) => m.value === month)?.label || "มิถุนายน";
+
+    // คำนวณปีที่แสดง (สำหรับปีงบประมาณ)
+    const displayYear = yearType === "fiscal" && year
+      ? getDisplayYearForFiscalMonth(parseInt(year), month)
+      : year;
+
     const weekLabel =
       WEEKS.find((w) => w.value === week)?.label || "สัปดาห์ที่ 1";
 
     return (
       <ReportMosquitoCompDetailComp
         reportData={{
-          year,
+          year: displayYear,
           month: monthLabel,
           week: weekLabel,
           name: "รายละเอียดการสำรวจลูกน้ำยุงลาย",

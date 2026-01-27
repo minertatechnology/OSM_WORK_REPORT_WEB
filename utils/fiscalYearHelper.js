@@ -80,8 +80,9 @@ export const getCalendarYearRange = (year) => {
 
 /**
  * ตรวจสอบว่าวันที่อยู่ในปีงบประมาณที่ระบุหรือไม่
+ * รองรับ timezone โดยการแปลงวันที่ให้้อยู่ใน timezone ท้องถิ่นก่อนเปรียบเทียบ
  *
- * @param {Date|string} date - วันที่ที่ต้องการตรวจสอบ
+ * @param {Date|string} date - วันที่ที่ต้องการตรวจสอบ (ISO string หรือ Date object)
  * @param {number} fiscalYear - ปีงบประมาณ (พ.ศ.)
  * @returns {boolean}
  */
@@ -89,11 +90,18 @@ export const isInFiscalYear = (date, fiscalYear) => {
   const d = date instanceof Date ? date : new Date(date);
   const { startDate, endDate } = getFiscalYearRange(fiscalYear);
 
-  return d >= startDate && d <= endDate;
+  // ปัดปัดปีเวลาออกเพื่อให้การเปรียบเทียบถูกต้อง
+  // (ขจะแปลง ISO string เป็น local time โดยอัตโนมัติ)
+  const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const startOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+  return dateOnly >= startOnly && dateOnly <= endOnly;
 };
 
 /**
  * ตรวจสอบว่าวันที่อยู่ในปีปฏิทินที่ระบุหรือไม่
+ * รองรับ timezone โดยการแปลงวันที่ให้้อยู่ใน timezone ท้องถิ่นก่อนเปรียบเทียบ
  *
  * @param {Date|string} date - วันที่ที่ต้องการตรวจสอบ
  * @param {number} year - ปี (พ.ศ.)
@@ -103,7 +111,12 @@ export const isInCalendarYear = (date, year) => {
   const d = date instanceof Date ? date : new Date(date);
   const { startDate, endDate } = getCalendarYearRange(year);
 
-  return d >= startDate && d <= endDate;
+  // ปัดปัดปีเวลาออกเพื่อให้การเปรียบเทียบถูกต้อง
+  const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const startOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+  return dateOnly >= startOnly && dateOnly <= endOnly;
 };
 
 /**
@@ -320,6 +333,32 @@ export const isInWeekOfMonth = (date, weekValue) => {
 };
 
 /**
+ * คำนวณปีที่แสดงสำหรับเดือนที่เลือก (ใช้สำหรับปีงบประมาณ)
+ * ถ้าเป็นเดือน ต.ค.-ธ.ค. จะเป็นปีก่อนหน้า 1 ปี
+ *
+ * @param {number} fiscalYear - ปีงบประมาณ (พ.ศ.)
+ * @param {string} monthValue - เดือน (01-12)
+ * @returns {number} - ปีที่ควรแสดง (พ.ศ.)
+ *
+ * @example
+ * getDisplayYearForFiscalMonth(2569, "10") // returns 2568 (ตุลาคม)
+ * getDisplayYearForFiscalMonth(2569, "01") // returns 2569 (มกราคม)
+ */
+export const getDisplayYearForFiscalMonth = (fiscalYear, monthValue) => {
+  if (!monthValue || monthValue === "0") return fiscalYear;
+
+  const monthNum = parseInt(String(monthValue));
+
+  // เดือน ต.ค. (10) - ธ.ค. (12) = ปีก่อนหน้า
+  if (monthNum >= 10) {
+    return fiscalYear - 1;
+  }
+
+  // เดือน ม.ค. (1) - ก.ย. (9) = ปีเดียวกัน
+  return fiscalYear;
+};
+
+/**
  * สร้างรายการสัปดาห์สำหรับเดือนที่เลือก
  *
  * @param {number} year - ปี (พ.ศ.)
@@ -371,4 +410,5 @@ export default {
   getWeekOfMonth,
   isInWeekOfMonth,
   generateWeekOptionsForMonth,
+  getDisplayYearForFiscalMonth,
 };
