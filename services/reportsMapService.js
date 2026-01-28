@@ -31,6 +31,15 @@ class ReportsMapService {
       if (filters.district_code) params.append("district_code", filters.district_code);
       if (filters.subdistrict_code) params.append("subdistrict_code", filters.subdistrict_code);
 
+      // ✅ เพิ่ม filters จาก location_data_resolved (รองรับทั้ง text และ id)
+      // รองรับทั้งชื่อ (text) และ id
+      if (filters.province) params.append("province", filters.province);
+      if (filters.district) params.append("district", filters.district);
+      if (filters.subdistrict) params.append("subdistrict", filters.subdistrict);
+      if (filters.province_id) params.append("province_id", filters.province_id);
+      if (filters.district_id) params.append("district_id", filters.district_id);
+      if (filters.subdistrict_id) params.append("subdistrict_id", filters.subdistrict_id);
+
       const token = getAccessToken();
       console.log("🔑 Token for map-data:", token ? `${token.substring(0, 20)}...` : "NO TOKEN");
 

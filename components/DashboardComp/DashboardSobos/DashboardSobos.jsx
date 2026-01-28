@@ -487,7 +487,7 @@ const DashboardSobos = () => {
 
       // ✅ User selection override: ถ้า user เลือกค่าใหม่ (ไม่เท่ากับ default) ให้ใช้ค่าที่ user เลือก
       // ✅ ถ้า user ไม่ได้เลือก (ค่าว่าง) ให้ใช้ค่า locked เฉพาะที่ user มีสิทธิ์เท่านั้น
-      // เช่น สิทธิ์เขต → ยิงแค่ health_region, ไม่ยิง province/district/subdistrict ที่มาจาก permission
+      // ✅ ส่งทั้ง code, name, และ id เพื่อให้ backend รองรับทั้ง text และ id
 
       // Zone filter
       if (zone && zone !== defaultZone) {
@@ -504,35 +504,62 @@ const DashboardSobos = () => {
 
       // Province filter - user เลือกเอง หรือ lockLevel เป็น province/district/subdistrict
       if (province && province !== defaultProvince) {
-        // User เลือก province เอง
-        filters.province_code = province;
-        console.log("✅ Using user-selected province:", province);
+        // User เลือก province เอง - ส่งเป็น text และ id (ไม่ส่ง province_code)
+        const provData = provinces.find(p => String(p.code || p.id) === province);
+        if (provData) {
+          filters.province = provData.name_th || provData.name;
+          filters.province_id = province;
+        }
+        console.log("✅ Using user-selected province:", province, "name:", filters.province, "id:", filters.province_id);
       } else if (defaultProvince && lockLevel !== 'none' && lockLevel !== 'zone') {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = province, district, subdistrict
-        filters.province_code = defaultProvince;
-        console.log("🔒 Using locked province:", defaultProvince);
+        // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง province_code)
+        const provData = provinces.find(p => String(p.code || p.id) === defaultProvince);
+        if (provData) {
+          filters.province = provData.name_th || provData.name;
+          filters.province_id = defaultProvince;
+        }
+        console.log("🔒 Using locked province:", defaultProvince, "name:", filters.province, "id:", filters.province_id);
       }
 
       // District filter - user เลือกเอง หรือ lockLevel เป็น district/subdistrict
       if (district && district !== defaultDistrict) {
-        // User เลือก district เอง
-        filters.district_code = district;
-        console.log("✅ Using user-selected district:", district);
+        // User เลือก district เอง - ส่งเป็น text และ id (ไม่ส่ง district_code)
+        const distData = districts.find(d => String(d.code || d.id) === district);
+        if (distData) {
+          filters.district = distData.name_th || distData.name;
+          filters.district_id = district;
+        }
+        console.log("✅ Using user-selected district:", district, "name:", filters.district, "id:", filters.district_id);
       } else if (defaultDistrict && (lockLevel === 'district' || lockLevel === 'subdistrict')) {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = district, subdistrict
-        filters.district_code = defaultDistrict;
-        console.log("🔒 Using locked district:", defaultDistrict);
+        // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง district_code)
+        const distData = districts.find(d => String(d.code || d.id) === defaultDistrict);
+        if (distData) {
+          filters.district = distData.name_th || distData.name;
+          filters.district_id = defaultDistrict;
+        }
+        console.log("🔒 Using locked district:", defaultDistrict, "name:", filters.district, "id:", filters.district_id);
       }
 
       // Subdistrict filter - user เลือกเอง หรือ lockLevel เป็น subdistrict
       if (subdistrict && subdistrict !== defaultSubdistrict) {
-        // User เลือก subdistrict เอง
-        filters.subdistrict_code = subdistrict;
-        console.log("✅ Using user-selected subdistrict:", subdistrict);
+        // User เลือก subdistrict เอง - ส่งเป็น text และ id (ไม่ส่ง subdistrict_code)
+        const subdistData = subdistricts.find(s => String(s.code || s.id) === subdistrict);
+        if (subdistData) {
+          filters.subdistrict = subdistData.name_th || subdistData.name;
+          filters.subdistrict_id = subdistrict;
+        }
+        console.log("✅ Using user-selected subdistrict:", subdistrict, "name:", filters.subdistrict, "id:", filters.subdistrict_id);
       } else if (defaultSubdistrict && lockLevel === 'subdistrict') {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = subdistrict เท่านั้น
-        filters.subdistrict_code = defaultSubdistrict;
-        console.log("🔒 Using locked subdistrict:", defaultSubdistrict);
+        // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง subdistrict_code)
+        const subdistData = subdistricts.find(s => String(s.code || s.id) === defaultSubdistrict);
+        if (subdistData) {
+          filters.subdistrict = subdistData.name_th || subdistData.name;
+          filters.subdistrict_id = defaultSubdistrict;
+        }
+        console.log("🔒 Using locked subdistrict:", defaultSubdistrict, "name:", filters.subdistrict, "id:", filters.subdistrict_id);
       }
 
       // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)

@@ -940,6 +940,7 @@ const UserListComp = () => {
 
         let allUsers = [];
         let allUserCount = 0;
+        let allExternalUserIds = []; // เก็บ IDs ทั้งหมดก่อน
         let batchUsersMap = {};
 
         if (shouldFetchAll) {
@@ -968,16 +969,11 @@ const UserListComp = () => {
             allUsers = [...allUsers, ...response.users];
             allUserCount = response.total;
 
-            // เตรียม external_user_ids สำหรับ batch API
-            const externalUserIds = response.users
+            // เก็บ external_user_ids ไว้ยิง batch API ทีเดียวทีหลัง
+            const pageExternalIds = response.users
               .map(user => user.external_user_id)
               .filter(id => id);
-
-            // ยิง batch API เพื่อดึงข้อมูล OAuth2
-            if (externalUserIds.length > 0) {
-              const batchMap = await getUsersBatch(externalUserIds);
-              batchUsersMap = { ...batchUsersMap, ...batchMap };
-            }
+            allExternalUserIds = [...allExternalUserIds, ...pageExternalIds];
 
             // เช็คว่ายังมีข้อมูลอีกไหม
             if (response.users.length < perPage || allUsers.length >= response.total) {
@@ -988,9 +984,12 @@ const UserListComp = () => {
           }
 
           setLoadingProgress(null); // เคลียร์ progress เมื่อโหลดเสร็จ
-        }
 
-        // 2-3. ยิง batch API เพื่อดึงข้อมูล OAuth2 ทั้งหมดในครั้งเดียว (ทำแล้วด้านบน)
+          // ยิง batch API ครั้งเดียวด้วย IDs ทั้งหมด
+          if (allExternalUserIds.length > 0) {
+            batchUsersMap = await getUsersBatch(allExternalUserIds);
+          }
+        }
 
         // 4. รวมข้อมูลจาก user list และ batch OAuth2
         const usersWithDetails = allUsers.map(user => {
