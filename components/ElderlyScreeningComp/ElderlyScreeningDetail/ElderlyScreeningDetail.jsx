@@ -2,8 +2,9 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Users, Download } from "lucide-react";
+import { ArrowLeft, Users, Download, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
+import XLSX from 'xlsx-js-style';
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 
@@ -12,6 +13,42 @@ const buildFullName = (record) =>
   [record?.prefix, record?.first_name, record?.last_name].filter(Boolean).join(" ") ||
   record?.citizen_id ||
   "ไม่ทราบชื่อ";
+
+const buildLocationText = (record) => {
+  const parts = [];
+
+  // จังหวัด
+  if (record?.province_name) {
+    parts.push(`จ.${record.province_name}`);
+  } else if (record?.location_data?.region) {
+    parts.push(`จ.${record.location_data.region}`);
+  }
+
+  // อำเภอ (ในกรุงเทพฯ คือ "เขต" - ลบคำว่า "เขต" ออกเพื่อไม่ให้ซ้ำซ้อน)
+  if (record?.district_name) {
+    parts.push(`อ.${record.district_name}`);
+  } else if (record?.location_data?.city) {
+    // ลบคำว่า "เขต" หรือ "อำเภอ" ออกจากชื่อ
+    let district = record.location_data.city.replace(/^(เขต|อำเภอ)\s*/, "");
+    parts.push(`อ.${district}`);
+  }
+
+  // ตำบล (ในกรุงเทพฯ คือ "แขวง" - ลบคำว่า "แขวง" ออกเพื่อไม่ให้ซ้ำซ้อน)
+  if (record?.subdistrict_name) {
+    parts.push(`ต.${record.subdistrict_name}`);
+  } else if (record?.location_data?.district) {
+    // ลบคำว่า "แขวง" หรือ "ตำบล" ออกจากชื่อ
+    let subdistrict = record.location_data.district.replace(/^(แขวง|ตำบล)\s*/, "");
+    parts.push(`ต.${subdistrict}`);
+  }
+
+  // หมู่ที่
+  if (record?.moo) {
+    parts.push(`ม.${record.moo}`);
+  }
+
+  return parts.length > 0 ? parts.join(" ") : null;
+};
 
 const ElderlyScreeningDetail = ({
   assessorName,
@@ -282,9 +319,20 @@ const ElderlyScreeningDetail = ({
 
         // ชื่อ-นามสกุล
         const fullName = buildFullName(elderly);
+        const citizenId = elderly?.citizen_id || "";
+        const nameWithId = citizenId ? `${fullName} (${citizenId})` : fullName;
+        const locationText = buildLocationText(elderly);
         doc.rect(currentX, currentY, nameWidth, rowHeight);
-        const nameLines = doc.splitTextToSize(fullName, nameWidth - 2);
-        doc.text(nameLines[0] || fullName, currentX + 1, currentY + 5.5);
+        // แสดงชื่อ, เลขบัตร และที่อยู่ในคอลัมน์เดียวกัน
+        if (locationText) {
+          doc.text(nameWithId, currentX + 1, currentY + 4);
+          doc.setFontSize(5.5);
+          doc.text(locationText, currentX + 1, currentY + 7.5);
+          doc.setFontSize(6.5);
+        } else {
+          const nameLines = doc.splitTextToSize(nameWithId, nameWidth - 2);
+          doc.text(nameLines[0] || nameWithId, currentX + 1, currentY + 5.5);
+        }
         currentX += nameWidth;
 
         // ข้อมูลครัวเรือน
@@ -389,6 +437,236 @@ const ElderlyScreeningDetail = ({
     return value;
   };
 
+  const handleExportExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      const subHeaders = [
+        "ผู้สูงอายุ\nอยู่ร่วม",
+        "เพศ",
+        "อายุ\n(ปี)",
+        "มีผู้ดูแล",
+        "บ้าน\nปลอดภัย",
+        "รายได้\nเพียงพอ",
+        "ความคิด/\nความจำ",
+        "การ\nเคลื่อน\nไหว",
+        "การกลืน\nอาหาร",
+        "การ\nมองเห็น",
+        "การ\nได้ยิน",
+        "ภาวะ\nซึมเศร้า",
+        "กลั้น\nปัสสาวะ",
+        "กิจวัตรประจำวัน",
+        "ช่องปาก"
+      ];
+
+      const wsData = [
+        // Row 1: Main headers (row index 0 in Excel)
+        [
+          "ลำดับ",                                // 0
+          "ชื่อ-นามสกุล",                         // 1
+          "ข้อมูลครัวเรือน",                      // 2
+          null,                                    // 3
+          null,                                    // 4
+          "แบบคัดกรองสุขภาพผู้สูงอายุ",        // 5
+          null, null, null, null, null, null,      // 6-11 (6 nulls)
+          null, null, null, null, null,            // 12-16 (5 nulls)
+          "ผลการ\nประเมิน"                       // 17
+        ],
+        // Row 2: Sub headers (row index 1 in Excel)
+        [
+          null,                                    // 0 - merged
+          null,                                    // 1 - merged
+          ...subHeaders,                           // 2-16 (15 elements)
+          null                                     // 17 - merged
+        ],
+        // Data rows
+        ...elderlyList.map((elderly, idx) => {
+          const fullName = buildFullName(elderly);
+          const citizenId = elderly?.citizen_id || "";
+          const nameWithId = citizenId ? `${fullName} (${citizenId})` : fullName;
+          const locationText = buildLocationText(elderly);
+          const nameWithLocation = locationText ? `${nameWithId}\n${locationText}` : nameWithId;
+
+          // ข้อมูลครัวเรือน
+          const livingValue = formatValue(elderly.living_arrangement, "living_arrangement");
+          const genderValue = elderly.gender === "male" ? "ชาย" : elderly.gender === "female" ? "หญิง" : elderly.gender || "-";
+          const ageValue = elderly.age || "-";
+
+          // แบบคัดกรอง
+          const assessmentValues = assessmentColumns.map(col => {
+            return col.domain
+              ? calculateRiskByDomain(elderly, col.domain)
+              : formatValue(elderly[col.key], col.key);
+          });
+
+          // ผลการประเมิน
+          const overallResult = getOverallResult(elderly);
+
+          return [
+            idx + 1,
+            nameWithLocation,
+            livingValue,
+            genderValue,
+            ageValue,
+            ...assessmentValues,
+            overallResult
+          ];
+        })
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // ตั้งค่า range ของ worksheet ให้ครบ 18 columns (A-R)
+      const totalRows = elderlyList.length + 2; // header rows + data rows
+      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalRows - 1, c: 17 } });
+
+      // สร้าง merged cells
+      ws['!merges'] = [
+        // Row 1 merges
+        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // ลำดับ
+        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // ชื่อ-นามสกุล
+        { s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }, // ข้อมูลครัวเรือน
+        { s: { r: 0, c: 5 }, e: { r: 0, c: 16 } }, // แบบคัดกรอง
+        { s: { r: 0, c: 17 }, e: { r: 1, c: 17 } }, // ผลการประเมิน
+      ];
+
+      // คำนวณความกว้างคอลัมน์
+      const colSettings = [
+        { min: 50, max: 70 },    // 0: ลำดับ
+        { min: 200, max: 300 },  // 1: ชื่อ-นามสกุล (เพิ่มความกว้างสำหรับแสดงที่อยู่)
+        { min: 80, max: 100 },   // 2: ผู้สูงอายุอยู่ร่วม
+        { min: 50, max: 70 },    // 3: เพศ
+        { min: 50, max: 70 },    // 4: อายุ
+        { min: 70, max: 90 },    // 5-16: แบบคัดกรอง (12 columns)
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 70, max: 90 },
+        { min: 80, max: 100 },   // 17: ผลการประเมิน
+      ];
+
+      const numCols = 18;
+      ws['!cols'] = [];
+      for (let i = 0; i < numCols; i++) {
+        const setting = colSettings[i] || { min: 70, max: 100 };
+        ws['!cols'].push({ wpx: setting.min });
+      }
+
+      // ตั้งค่าความสูงแถว (เพิ่มความสูงสำหรับ data rows เพื่อรองรับ 2 บรรทัด)
+      ws['!rows'] = [];
+      for (let i = 0; i < totalRows; i++) {
+        if (i === 0) {
+          ws['!rows'].push({ hpx: 30 });
+        } else if (i === 1) {
+          ws['!rows'].push({ hpx: 60 });
+        } else {
+          ws['!rows'].push({ hpx: 40 }); // เพิ่มจาก 25 เป็น 40 เพื่อรองรับ 2 บรรทัด
+        }
+      }
+
+      // เพิ่ม borders และ styles
+      const range = XLSX.utils.decode_range(ws['!ref']);
+
+      const getMergeInfo = (row, col) => {
+        if (!ws['!merges']) return null;
+        for (const merge of ws['!merges']) {
+          if (row >= merge.s.r && row <= merge.e.r && col >= merge.s.c && col <= merge.e.c) {
+            return merge;
+          }
+        }
+        return null;
+      };
+
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+
+          if (!ws[cellAddress]) {
+            ws[cellAddress] = { v: "" };
+          }
+
+          const merge = getMergeInfo(R, C);
+
+          const cellStyle = {
+            alignment: {
+              vertical: "center",
+              horizontal: "center",
+              wrapText: true
+            },
+            font: {
+              name: "Tahoma",
+              sz: 10
+            }
+          };
+
+          const borders = {
+            top: { style: "thin", color: { rgb: "FF000000" } },
+            left: { style: "thin", color: { rgb: "FF000000" } },
+            bottom: { style: "thin", color: { rgb: "FF000000" } },
+            right: { style: "thin", color: { rgb: "FF000000" } }
+          };
+
+          if (merge) {
+            if (R !== merge.s.r || C !== merge.s.c) {
+              borders.top = null;
+              borders.left = null;
+              borders.bottom = null;
+              borders.right = null;
+            }
+          }
+
+          const filteredBorders = {};
+          for (const [key, value] of Object.entries(borders)) {
+            if (value !== null) filteredBorders[key] = value;
+          }
+
+          cellStyle.border = filteredBorders;
+          ws[cellAddress].s = cellStyle;
+
+          // Header rows
+          if (R <= 1) {
+            ws[cellAddress].s.font.bold = true;
+            ws[cellAddress].s.font.sz = 9;
+            ws[cellAddress].s.fill = { fgColor: { rgb: "E8F4F8" } };
+          }
+
+          // Data rows - ชื่อ-นามสกุล จัดซ้าย
+          if (R >= 2 && C === 1) {
+            ws[cellAddress].s.alignment.horizontal = "left";
+          }
+
+          // สีสำหรับผลการประเมิน
+          if (R >= 2) {
+            const cellValue = ws[cellAddress].v;
+            if (cellValue === "เสี่ยง") {
+              ws[cellAddress].s.font.color = { rgb: "FF0000" };
+              ws[cellAddress].s.font.bold = true;
+            } else if (cellValue === "ปกติ") {
+              ws[cellAddress].s.font.color = { rgb: "008000" };
+              ws[cellAddress].s.font.bold = true;
+            }
+          }
+        }
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws, "รายงานคัดกรองผู้สูงอายุ");
+
+      const now = new Date();
+      const fileNameDate = now.toISOString().split('T')[0];
+      XLSX.writeFile(wb, `รายงานคัดกรองผู้สูงอายุ_${fileNameDate}.xlsx`);
+    } catch (error) {
+      console.error("Error generating Excel:", error);
+      alert("เกิดข้อผิดพลาดในการสร้าง Excel");
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#faf8ff] via-white to-[#f5f0ff] p-4 sm:p-6">
       {/* Header */}
@@ -418,13 +696,25 @@ const ElderlyScreeningDetail = ({
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleExportPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-[#7e32e2] font-semibold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition"
-            >
-              <Download size={18} />
-              ดาวน์โหลด PDF
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 px-4 py-2 !bg-green-500 hover:!bg-green-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition"
+                style={{ backgroundColor: '#10b981' }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+              >
+                <FileSpreadsheet size={18} />
+                Export Excel
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-[#7e32e2] font-semibold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition"
+              >
+                <Download size={18} />
+                ดาวน์โหลด PDF
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -485,6 +775,9 @@ const ElderlyScreeningDetail = ({
               ) : (
                 elderlyList.map((elderly, idx) => {
                   const fullName = buildFullName(elderly);
+                  const citizenId = elderly?.citizen_id || "";
+                  const nameWithId = citizenId ? `${fullName} (${citizenId})` : fullName;
+                  const locationText = buildLocationText(elderly);
 
                   return (
                     <tr
@@ -494,8 +787,9 @@ const ElderlyScreeningDetail = ({
                       <td className="border border-gray-200 py-2 px-2 text-center text-gray-700 font-medium">
                         {idx + 1}
                       </td>
-                      <td className="border border-gray-200 py-2 px-3 text-gray-800 font-medium">
-                        {fullName}
+                      <td className="border border-gray-200 py-2 px-3 text-gray-800">
+                        <div className="font-medium">{nameWithId}</div>
+                        {locationText && <div className="text-[10px] text-gray-500 mt-0.5">{locationText}</div>}
                       </td>
                       <td className="border border-gray-200 py-2 px-2 text-center text-gray-700 text-[11px]">
                         {formatValue(elderly.living_arrangement, "living_arrangement")}

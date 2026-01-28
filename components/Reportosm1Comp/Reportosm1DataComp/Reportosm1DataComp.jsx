@@ -35,7 +35,8 @@ import {
   isInFiscalYear,
   isInCalendarYear,
   parseThaiDate,
-  isInMonth
+  isInMonth,
+  getDisplayYearForFiscalMonth,
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
@@ -878,13 +879,20 @@ const Reportosm1DataComp = () => {
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
     const selectedRow = ALL_ROWS.find((row) => row.id === detailId);
+    // เลือกชุดเดือนตามประเภทปี
+    const monthSource = yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
     const monthLabel =
-      MONTHS.find((m) => m.value === month)?.label || "มิถุนายน";
+      monthSource.find((m) => m.value === month)?.label || "มิถุนายน";
+
+    // คำนวณปีที่แสดง (สำหรับปีงบประมาณ)
+    const displayYear = yearType === "fiscal" && year
+      ? getDisplayYearForFiscalMonth(parseInt(year), month)
+      : year;
 
     return (
       <Reportosm1CompDetailComp
         reportData={{
-          year,
+          year: displayYear,
           month: monthLabel,
           name: selectedRow?.name || "ไม่พบข้อมูล",
           date: selectedRow?.date || "",

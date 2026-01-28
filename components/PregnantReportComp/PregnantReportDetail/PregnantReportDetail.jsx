@@ -1,7 +1,8 @@
 import React, { useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileText, Download } from "lucide-react";
+import { ArrowLeft, FileText, Download, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
+import XLSX from 'xlsx-js-style';
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 
@@ -52,6 +53,232 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       E: "ไม่ได้ทาน",
     };
     return freqMap[freq] || "-";
+  };
+
+  const handleExportExcel = () => {
+    try {
+      // สร้าง workbook และ worksheet
+      const wb = XLSX.utils.book_new();
+
+      // Header Row 1 - Main headers (2 rows)
+      const wsData = [
+        // Row 1: Main headers
+        [
+          "ลำดับ",
+          "รายชื่อ",
+          "หญิงตั้งครรภ์",
+          null,
+          null,
+          "หญิงหลังคลอด",
+          null,
+          "รับยา",
+          "จำนวนวันใน 1 สัปดาห์ที่ทานยา",
+          "สาเหตุ"
+        ],
+        // Row 2: Sub headers
+        [
+          null,
+          null,
+          "อายุครรภ์\nไม่เกิน 12 สัปดาห์",
+          "อายุครรภ์\n13 - 24 สัปดาห์",
+          "อายุครรภ์\n25 สัปดาห์ขึ้นไป",
+          "หลังคลอด\nไม่เกิน 12 สัปดาห์",
+          "หลังคลอด\n13 - 24 สัปดาห์",
+          null,
+          null,
+          null
+        ],
+        // Data rows
+        ...tableData.map((row, idx) => [
+          idx + 1,
+          row.name,
+          row.pregnant_0_12 ? "✓" : "-",
+          row.pregnant_13_24 ? "✓" : "-",
+          row.pregnant_25_plus ? "✓" : "-",
+          row.postpartum_0_12 ? "✓" : "-",
+          row.postpartum_13_24 ? "✓" : "-",
+          getMedicineStatus(row.q1_received_medicine),
+          getFrequencyLabel(row.q2_frequency),
+          row.q3_reason || "-"
+        ])
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // สร้าง merged cells (เหมือน table rowspan/colspan)
+      ws['!merges'] = [
+        // Row 1 merges
+        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // ลำดับ (rowspan 2)
+        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // รายชื่อ (rowspan 2)
+        { s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }, // หญิงตั้งครรภ์ (colspan 3)
+        { s: { r: 0, c: 5 }, e: { r: 0, c: 6 } }, // หญิงหลังคลอด (colspan 2)
+        { s: { r: 0, c: 7 }, e: { r: 1, c: 7 } }, // รับยา (rowspan 2)
+        { s: { r: 0, c: 8 }, e: { r: 1, c: 8 } }, // จำนวนวัน (rowspan 2)
+        { s: { r: 0, c: 9 }, e: { r: 1, c: 9 } }, // สาเหตุ (rowspan 2)
+      ];
+
+      // คำนวณความกว้างคอลัมน์อัตโนมัติตามความยาวข้อความ
+      const calculateColumnWidth = (colIndex) => {
+        let maxWidth = 0;
+        const minPixels = 15; // ค่า minimum pixels per character
+
+        // ตรวจสอบทุกแถวในคอลัมน์นี้
+        for (let rowIndex = 0; rowIndex < wsData.length; rowIndex++) {
+          const cellValue = wsData[rowIndex][colIndex];
+          if (cellValue) {
+            // แปลงเป็น string และนับความยาว (ภาษาไทยคิดเป็น 1.5 เท่า)
+            const textStr = String(cellValue);
+            // นับตัวอักษรภาษาไทยและอังกฤษ
+            const thaiChars = (textStr.match(/[\u0E00-\u0E7F]/g) || []).length;
+            const otherChars = textStr.length - thaiChars;
+            const estimatedWidth = (thaiChars * 1.5) + otherChars;
+            maxWidth = Math.max(maxWidth, estimatedWidth);
+          }
+        }
+
+        // คำนวณ pixels จากความยาวตัวอักษร
+        let pixelWidth = maxWidth * minPixels;
+
+        // ตั้งค่า minimum และ maximum สำหรับแต่ละคอลัมน์
+        const colSettings = [
+          { min: 60, max: 80 },    // 0: ลำดับ
+          { min: 150, max: 300 },  // 1: รายชื่อ
+          { min: 80, max: 120 },   // 2: หญิงตั้งครรภ์ 0-12
+          { min: 80, max: 120 },   // 3: หญิงตั้งครรภ์ 13-24
+          { min: 90, max: 130 },   // 4: หญิงตั้งครรภ์ 25+
+          { min: 80, max: 120 },   // 5: หลังคลอด 0-12
+          { min: 80, max: 120 },   // 6: หลังคลอด 13-24
+          { min: 70, max: 100 },   // 7: รับยา
+          { min: 100, max: 150 },  // 8: จำนวนวัน
+          { min: 150, max: 350 },  // 9: สาเหตุ
+        ];
+
+        const setting = colSettings[colIndex] || { min: 80, max: 200 };
+        return Math.max(setting.min, Math.min(setting.max, pixelWidth));
+      };
+
+      // ตั้งค่าความกว้างคอลัมน์อัตโนมัติ
+      const numCols = wsData[0].length;
+      ws['!cols'] = [];
+      for (let i = 0; i < numCols; i++) {
+        ws['!cols'].push({ wpx: calculateColumnWidth(i) });
+      }
+
+      // ตั้งค่าความสูงแถว
+      const totalRows = tableData.length + 2; // +2 for headers
+      ws['!rows'] = [];
+      for (let i = 0; i < totalRows; i++) {
+        if (i === 0) {
+          ws['!rows'].push({ hpx: 25 });  // Header row 1
+        } else if (i === 1) {
+          ws['!rows'].push({ hpx: 50 });  // Header row 2
+        } else {
+          ws['!rows'].push({ hpx: 30 });  // Data rows
+        }
+      }
+
+      // เพิ่ม borders และ styles ให้ทุก cell
+      const range = XLSX.utils.decode_range(ws['!ref']);
+
+      // สร้าง function เพื่อเช็คว่า cell อยู่ใน merged range หรือไม่
+      const getMergeInfo = (row, col) => {
+        if (!ws['!merges']) return null;
+        for (const merge of ws['!merges']) {
+          if (row >= merge.s.r && row <= merge.e.r && col >= merge.s.c && col <= merge.e.c) {
+            return merge;
+          }
+        }
+        return null;
+      };
+
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+
+          // สร้าง cell ถ้าไม่มี
+          if (!ws[cellAddress]) {
+            ws[cellAddress] = { v: "" };
+          }
+
+          const merge = getMergeInfo(R, C);
+
+          // สร้าง style object
+          const cellStyle = {
+            alignment: {
+              vertical: "center",
+              horizontal: "center",
+              wrapText: true
+            },
+            font: {
+              name: "Tahoma",
+              sz: 11
+            }
+          };
+
+          // สร้าง borders - พิจารณา merged cells
+          const borders = {
+            top: { style: "thin", color: { rgb: "FF000000" } },
+            left: { style: "thin", color: { rgb: "FF000000" } },
+            bottom: { style: "thin", color: { rgb: "FF000000" } },
+            right: { style: "thin", color: { rgb: "FF000000" } }
+          };
+
+          // ถ้าเป็น merged cell - ลบ inner borders เฉพาะด้านที่ merge
+          if (merge) {
+            // Cell ที่อยู่ด้านในของ merged region (ไม่ใช่ top-left)
+            if (R !== merge.s.r || C !== merge.s.c) {
+              // ไม่ต้องใส่ border เลยสำหรับ cells ที่ถูก merge เข้าด้วยกัน
+              borders.top = null;
+              borders.left = null;
+              borders.bottom = null;
+              borders.right = null;
+            }
+          }
+
+          // Filter ออก null values
+          const filteredBorders = {};
+          for (const [key, value] of Object.entries(borders)) {
+            if (value !== null) filteredBorders[key] = value;
+          }
+
+          cellStyle.border = filteredBorders;
+          ws[cellAddress].s = cellStyle;
+
+          // Header rows: ทำให้ตัวหนาและเพิ่มสีพื้นหลัง
+          if (R <= 1) {
+            ws[cellAddress].s.font.bold = true;
+            ws[cellAddress].s.font.sz = 10;
+            ws[cellAddress].s.fill = { fgColor: { rgb: "E8F4F8" } };
+          }
+
+          // Data rows: จัดรูปแบบ
+          if (R >= 2) {
+            // คอลัมน์แรก (ลำดับ) - ตัวหนา
+            if (C === 0) {
+              ws[cellAddress].s.font.bold = true;
+            }
+            // คอลัมน์ 2 (รายชื่อ) - จัดซ้าย
+            if (C === 1) {
+              ws[cellAddress].s.alignment.horizontal = "left";
+            }
+            // คอลัมน์สุดท้าย (สาเหตุ) - จัดซ้าย
+            if (C === 9) {
+              ws[cellAddress].s.alignment.horizontal = "left";
+            }
+          }
+        }
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws, "รายงานการได้รับยาเสริมไอโอดีน");
+
+      // สร้างชื่อไฟล์
+      const now = new Date();
+      const fileNameDate = now.toISOString().split('T')[0];
+      XLSX.writeFile(wb, `การติดตามการได้รับยาเม็ดเสริมไอโอดีน_${fileNameDate}.xlsx`);
+    } catch (error) {
+      console.error("Error generating Excel:", error);
+      alert("เกิดข้อผิดพลาดในการสร้าง Excel");
+    }
   };
 
   const handleExportPDF = () => {
@@ -343,14 +570,26 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
             <p className="text-gray-600 text-sm mt-2">จำนวนทั้งหมด: {new Set(tableData.map(row => row.name)).size} คน</p>
           </div>
 
-          {/* Export Button - Right top - Hide in PDF */}
-          <button
-            onClick={handleExportPDF}
-            className="export-button flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-base"
-          >
-            <Download size={20} />
-            Export PDF
-          </button>
+          {/* Export Buttons - Right top - Hide in PDF */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-2 px-5 py-3 !bg-green-500 hover:!bg-green-600 text-white font-bold rounded-xl shadow-lg hover:shadow-green-500/30 hover:scale-[1.02] transition-all duration-200 text-base border-2 border-green-400"
+              style={{ backgroundColor: '#10b981', borderColor: '#34d399' }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+            >
+              <FileSpreadsheet size={20} />
+              Export Excel
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className="export-button flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-base"
+            >
+              <Download size={20} />
+              Export PDF
+            </button>
+          </div>
         </div>
 
         {tableData.length === 0 ? (

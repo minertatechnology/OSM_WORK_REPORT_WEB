@@ -12,7 +12,13 @@ import {
   getDistricts,
   getSubdistricts,
 } from "@services/lookupService";
-import { getCurrentFiscalYear } from "@utils/fiscalYearHelper";
+import {
+  getCurrentFiscalYear,
+  isInFiscalYear,
+  isInCalendarYear,
+  isInMonth,
+  isInWeekOfMonth,
+} from "@utils/fiscalYearHelper";
 import styles from "../../Reportosm1Comp/GisComp/GisComp.module.css";
 
 const normalizeLookupValue = (value) => {
@@ -131,6 +137,22 @@ const getReportsFromWeeklyDetails = (data) => {
   return [];
 };
 
+// ฟังก์ชันสร้างสีจากค่า CI
+// CI = 0: ปลอดภัย (สีเขียว)
+// 0 < CI <= 10: มีแหล่งเพาะพันธุ์ (สีเหลือง/ส้ม)
+// CI > 10: มีแหล่งเพาะพันธุ์เยอะ (สีแดง)
+const getCIColor = (ci) => {
+  if (ci <= 0) {
+    return { color: "#28a745", fillColor: "#28a745", fillOpacity: 0.3 }; // เขียว - ปลอดภัย
+  } else if (ci <= 5) {
+    return { color: "#ffc107", fillColor: "#ffc107", fillOpacity: 0.4 }; // เหลือง - เริ่มมี
+  } else if (ci <= 10) {
+    return { color: "#fd7e14", fillColor: "#fd7e14", fillOpacity: 0.5 }; // ส้ม - มีแหล่งเพาะพันธุ์
+  } else {
+    return { color: "#dc3545", fillColor: "#dc3545", fillOpacity: 0.6 }; // แดง - เยอะ
+  }
+};
+
 // คำนวณค่า HI (House Index) และ CI (Container Index) พร้อม S² (Variance)
 // HI = (จำนวนบ้านที่สำรวจพบลูกน้ำยุงลาย / จำนวนบ้านที่สำรวจทั้งหมด) × 100
 // CI = (จำนวนภาชนะขังน้ำที่พบลูกน้ำยุงลาย / จำนวนภาชนะขังน้ำที่สำรวจทั้งหมด) × 100
@@ -140,6 +162,66 @@ const getReportsFromWeeklyDetails = (data) => {
 // HI > 10%: มีความเสี่ยงสูงที่จะเกิดการแพร่ระบาด
 // HI < 1%: มีความเสี่ยงต่ำ
 // CI = 0: ถือว่าปลอดภัย, CI สูง = มีแหล่งเพาะพันธุ์เยอะ
+// คำนวณ CI แยกตามพื้นที่ (จังหวัด/อำเภอ/ตำบล)
+const calculateCIByArea = (data, getAreaName, availableAreas = [], level = "province") => {
+  const reports = getReportsFromWeeklyDetails(data);
+  const ciMap = new Map();
+
+  reports.forEach((report) => {
+    const name = getAreaName(report);
+
+    if (!name) return;
+
+    // Normalize area name to match map feature names (remove prefixes like "เขต", "อำเภอ", etc.)
+    const normalizedName = normalizeAreaKey(name, level);
+
+    // รองรับทั้ง containers และ notes (โครงสร้างเดิม)
+    const containerData = report?.containers || report?.notes || { inside: [], outside: [] };
+    const insideContainers = Array.isArray(containerData.inside) ? containerData.inside : [];
+    const outsideContainers = Array.isArray(containerData.outside) ? containerData.outside : [];
+
+    let areaContainersSurveyed = 0;
+    let areaContainersWithLarvae = 0;
+
+    // นับภาชนะในบ้าน
+    insideContainers.forEach((container) => {
+      const total = Number(container?.total) || 0;
+      const found = Number(container?.found) || 0;
+      const validFound = Math.min(found, total);
+      areaContainersSurveyed += total;
+      areaContainersWithLarvae += validFound;
+    });
+
+    // นับภาชนะนอกบ้าน
+    outsideContainers.forEach((container) => {
+      const total = Number(container?.total) || 0;
+      const found = Number(container?.found) || 0;
+      const validFound = Math.min(found, total);
+      areaContainersSurveyed += total;
+      areaContainersWithLarvae += validFound;
+    });
+
+    // คำนวณ CI สำหรับพื้นที่นี้
+    const ci = areaContainersSurveyed > 0 ? (areaContainersWithLarvae / areaContainersSurveyed) * 100 : 0;
+    const finalCi = Math.min(ci, 100); // จำกัดไม่ให้เกิน 100%
+
+    // ใช้ชื่อ normalized เป็น key (เพื่อให้ตรงกับชื่อใน feature.properties ของแผนที่)
+    ciMap.set(normalizedName, finalCi);
+  });
+
+  // เติมค่า CI = 0 สำหรับพื้นที่ที่ไม่มีข้อมูล (ปลอดภัย - สีเขียว)
+  if (Array.isArray(availableAreas)) {
+    availableAreas.forEach((areaName) => {
+      const normalizedAreaName = normalizeAreaKey(areaName, level);
+      if (!ciMap.has(normalizedAreaName)) {
+        ciMap.set(normalizedAreaName, 0);
+      }
+    });
+  }
+
+  return Object.fromEntries(ciMap);
+};
+
 const calculateHICI = (data) => {
   const reports = getReportsFromWeeklyDetails(data);
   const summary = data?.summary || {};
@@ -165,6 +247,11 @@ const calculateHICI = (data) => {
   let containersWithLarvae = 0;
 
   reports.forEach((report) => {
+    // ข้ามรายงานที่ไม่มีข้อมูล containers
+    if (!report?.containers && !report?.notes) {
+      return;
+    }
+
     // รองรับทั้ง containers และ notes (โครงสร้างเดิม)
     const containerData = report?.containers || report?.notes || { inside: [], outside: [] };
     const insideContainers = Array.isArray(containerData.inside) ? containerData.inside : [];
@@ -178,11 +265,13 @@ const calculateHICI = (data) => {
     insideContainers.forEach((container) => {
       const total = Number(container?.total) || 0;
       const found = Number(container?.found) || 0;
+      // ตรวจสอบความถูกต้องของข้อมูล (found ไม่ควรเกิน total)
+      const validFound = Math.min(found, total);
       containersSurveyed += total;
-      containersWithLarvae += found;
+      containersWithLarvae += validFound;
       houseContainersSurveyed += total;
-      houseContainersWithLarvae += found;
-      if (found > 0) {
+      houseContainersWithLarvae += validFound;
+      if (validFound > 0) {
         houseHasLarvae = true;
       }
     });
@@ -191,11 +280,13 @@ const calculateHICI = (data) => {
     outsideContainers.forEach((container) => {
       const total = Number(container?.total) || 0;
       const found = Number(container?.found) || 0;
+      // ตรวจสอบความถูกต้องของข้อมูล (found ไม่ควรเกิน total)
+      const validFound = Math.min(found, total);
       containersSurveyed += total;
-      containersWithLarvae += found;
+      containersWithLarvae += validFound;
       houseContainersSurveyed += total;
-      houseContainersWithLarvae += found;
-      if (found > 0) {
+      houseContainersWithLarvae += validFound;
+      if (validFound > 0) {
         houseHasLarvae = true;
       }
     });
@@ -215,7 +306,18 @@ const calculateHICI = (data) => {
 
   // คำนวณ CI = (จำนวนภาชนะที่พบลูกน้ำ / จำนวนภาชนะที่สำรวจ) × 100
   // ตัวอย่าง: สำรวจ 200 ภาชนะ พบว่ามี 20 ภาชนะที่มีลูกน้ำ จะได้ CI = (20/200) × 100 = 10%
-  const ci = containersSurveyed > 0 ? (containersWithLarvae / containersSurveyed) * 100 : 0;
+
+  // ตรวจสอบไม่ให้ CI เกิน 100% (เพื่อป้องกันข้อมูลผิดปกติ)
+  let ci = containersSurveyed > 0 ? (containersWithLarvae / containersSurveyed) * 100 : 0;
+  if (ci > 100) {
+    console.warn('CI เกิน 100% อาจมีข้อมูลผิดปกติ:', {
+      containersSurveyed,
+      containersWithLarvae,
+      ci,
+      reports: reports.length
+    });
+    ci = Math.min(ci, 100); // จำกัดไม่ให้เกิน 100%
+  }
 
   return {
     hi: Math.round(hi * 100) / 100, // ปัดเศษ 2 ตำแหน่ง
@@ -300,6 +402,7 @@ const GisMosquitoComp = () => {
   );
 
   // States for year, month and week selection
+  const [selectedYearType, setSelectedYearType] = useState("fiscal"); // fiscal = ปีงบประมาณ, calendar = รายปี
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -319,32 +422,40 @@ const GisMosquitoComp = () => {
     containersWithLarvae: 0,
   });
 
-  // ฟังก์ชัน hash string - ใช้ djb2 algorithm
-  const hashString = (str) => {
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) + hash) ^ char;
-    }
-    return Math.abs(hash);
-  };
-
   const mosquitoReportData = monthlyReportData;
+
+  // State for storing CI values by area
+  const [ciByArea, setCiByArea] = useState({});
 
   const mapContainer = useRef(null);
 
-  // สร้างสีจาก HSL โดยใช้ hash โดยตรง
-  const generateColor = (hash) => {
-    const hue = hash % 360;
-    const saturation = 55 + ((hash >> 8) % 30);
-    const lightness = 40 + ((hash >> 16) % 20);
-    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-  };
+  // ฟังก์ชันกำหนดสีจากค่า CI สำหรับแสดงใน Donut Chart และ Area List
+  const getCIColorForDisplay = (areaName) => {
+    // Determine current level based on selection state
+    const isLevelSubdistrict = selectedDistrict && availableSubdistricts.length > 0;
+    const isLevelDistrict = !isLevelSubdistrict && selectedProvince && availableDistricts.length > 0;
+    const level = isLevelSubdistrict
+      ? "subdistrict"
+      : isLevelDistrict
+      ? "district"
+      : "province";
 
-  // ฟังก์ชันหาสีจากชื่อพื้นที่
-  const getProvinceColor = (name) => {
-    const hash = hashString(name);
-    return generateColor(hash);
+    // Normalize area name to match the keys in ciByArea
+    const normalizedKey = level === "province"
+      ? normalizeAreaKeyWithThai(areaName, level)
+      : normalizeAreaKey(areaName, level);
+
+    const ci = ciByArea?.[normalizedKey];
+    if (ci === undefined) {
+      return "transparent"; // โปร่งใส - ไม่มีข้อมูล
+    }
+    if (ci <= 0) {
+      return "#198754"; // 🟢 เขียวเข้ม - ปลอดภัย (CI ≤ 0)
+    } else if (ci <= 10) {
+      return "#f59e0b"; // 🟡 เหลืองเข้ม - เริ่มมี (0 < CI ≤ 10)
+    } else {
+      return "#dc2626"; // 🔴 แดงเข้ม - เสี่ยงสูง (CI > 10)
+    }
   };
 
   // Composables
@@ -369,21 +480,34 @@ const GisMosquitoComp = () => {
     clearAllLayers,
     fitToData,
     cleanup,
+    updateResponsiveZoom,
+    setCiByAreaData,
+    updateLayerColors,
   } = useMapManager();
 
   const { getHealthRegionsList, getProvincesInRegion } = useHealthRegions();
 
   // Options data for CustomSelect components
+  const yearTypeOptions = [
+    { value: "fiscal", label: "ปีงบประมาณ" },
+    { value: "calendar", label: "รายปี" },
+  ];
+
   const currentBuddhistYear = new Date().getFullYear() + 543;
   const yearOptions = [
     { value: "0", label: "ทุกปี" },
     ...Array.from({ length: 15 }, (_, index) => {
       const year = currentBuddhistYear - index;
-      return { value: String(year), label: String(year) };
+      // แสดงผลเป็น ปีงบประมาณ (เช่น 2568) หรือ รายปี (เช่น 2568)
+      const label = selectedYearType === "fiscal"
+        ? ` ${year}`
+        : ` ${year}`;
+      return { value: String(year), label };
     })
   ];
 
-  const monthOptions = [
+  // เดือน options สำหรับปีปฏิทิน (เริ่มต้นที่มกราคม)
+  const calendarMonths = [
     { value: "0", label: "ทุกเดือน" },
     { value: "01", label: "มกราคม" },
     { value: "02", label: "กุมภาพันธ์" },
@@ -398,6 +522,26 @@ const GisMosquitoComp = () => {
     { value: "11", label: "พฤศจิกายน" },
     { value: "12", label: "ธันวาคม" },
   ];
+
+  // เดือน options สำหรับปีงบประมาณ (เริ่มต้นที่ตุลาคม)
+  const fiscalMonths = [
+    { value: "0", label: "ทุกเดือน" },
+    { value: "10", label: "ตุลาคม" },
+    { value: "11", label: "พฤศจิกายน" },
+    { value: "12", label: "ธันวาคม" },
+    { value: "01", label: "มกราคม" },
+    { value: "02", label: "กุมภาพันธ์" },
+    { value: "03", label: "มีนาคม" },
+    { value: "04", label: "เมษายน" },
+    { value: "05", label: "พฤษภาคม" },
+    { value: "06", label: "มิถุนายน" },
+    { value: "07", label: "กรกฎาคม" },
+    { value: "08", label: "สิงหาคม" },
+    { value: "09", label: "กันยายน" },
+  ];
+
+  // เลือกรายการเดือนตามประเภทปี
+  const monthOptions = selectedYearType === "fiscal" ? fiscalMonths : calendarMonths;
 
   const weekOptions = [
     { value: "0", label: "ทุกสัปดาห์" },
@@ -431,11 +575,9 @@ const GisMosquitoComp = () => {
 
   const buildDisplayDataFromReports = useCallback(() => {
     const reports = getReportsFromWeeklyDetails(weeklyDetails);
-    if (!Array.isArray(reports) || reports.length === 0) {
-      return [];
-    }
+    // Don't return early - we want to show all areas with 0 values even if no reports
 
-    const filteredReports = reports.filter((report) => {
+    const filteredReports = (reports || []).filter((report) => {
       const provinceKey = normalizeAreaKeyWithThai(
         getReportProvinceName(report),
         "province"
@@ -480,13 +622,14 @@ const GisMosquitoComp = () => {
       selectedHealthRegion &&
       availableProvincesInRegion.length > 0;
 
+    // Use availableProvinces when no area filters are applied (show all provinces)
     const areaList = isLevelSubdistrict
       ? availableSubdistricts
       : isLevelDistrict
       ? availableDistricts
       : isLevelProvince
       ? availableProvincesInRegion
-      : [];
+      : availableProvinces;
 
     const getAreaName = isLevelSubdistrict
       ? getReportSubdistrictName
@@ -494,13 +637,15 @@ const GisMosquitoComp = () => {
       ? getReportDistrictName
       : getReportProvinceName;
 
+    const level = isLevelSubdistrict
+      ? "subdistrict"
+      : isLevelDistrict
+      ? "district"
+      : "province";
+
+    // Build a map of normalized key to display name
     const areaKeyByName = new Map(
       areaList.map((name) => {
-        const level = isLevelSubdistrict
-          ? "subdistrict"
-          : isLevelDistrict
-          ? "district"
-          : "province";
         const key =
           level === "province"
             ? normalizeAreaKeyWithThai(name, level)
@@ -509,14 +654,10 @@ const GisMosquitoComp = () => {
       })
     );
 
+    // Count reports by area
     const counts = new Map();
     filteredReports.forEach((report) => {
       const name = getAreaName(report);
-      const level = isLevelSubdistrict
-        ? "subdistrict"
-        : isLevelDistrict
-        ? "district"
-        : "province";
       const key =
         level === "province"
           ? normalizeAreaKeyWithThai(name, level)
@@ -524,21 +665,24 @@ const GisMosquitoComp = () => {
       if (!key) {
         return;
       }
-      const displayName = areaKeyByName.get(key) || name;
+      // Find matching display name from areaList (case-insensitive match via normalized key)
+      let displayName = name;
+      for (const [areaKey, areaName] of areaKeyByName) {
+        if (key === areaKey) {
+          displayName = areaName;
+          break;
+        }
+      }
       counts.set(displayName, (counts.get(displayName) || 0) + 1);
     });
 
-    const data = areaList.length
-      ? areaList.map((name) => ({
-          name,
-          value: counts.get(name) || 0,
-        }))
-      : Array.from(counts.entries()).map(([name, value]) => ({
-          name,
-          value,
-        }));
+    // Map all areas in areaList to display data (show 0 for areas with no reports)
+    const data = areaList.map((name) => ({
+      name,
+      value: counts.get(name) || 0,
+    }));
 
-    return data.filter((item) => item.value > 0);
+    return data; // Don't filter - show all areas including those with 0 value
   }, [
     weeklyDetails,
     selectedProvince,
@@ -548,6 +692,7 @@ const GisMosquitoComp = () => {
     availableSubdistricts,
     availableDistricts,
     availableProvincesInRegion,
+    availableProvinces,
     normalizeAreaKeyWithThai,
   ]);
 
@@ -960,6 +1105,7 @@ const GisMosquitoComp = () => {
   ]);
 
   const clearFilter = useCallback(() => {
+    setSelectedYearType("fiscal");
     setSelectedYear("");
     setSelectedMonth("");
     setSelectedWeek("");
@@ -984,9 +1130,6 @@ const GisMosquitoComp = () => {
   const onHealthRegionSelection = useCallback(async () => {
     if (selectedHealthRegion) {
       try {
-        setIsLoading(true);
-        updateStatus(`กำลังโหลดข้อมูล ${selectedHealthRegion}...`, "info");
-
         const provincesInRegion = getProvincesInRegion(selectedHealthRegion);
         setAvailableProvincesInRegion(provincesInRegion);
 
@@ -1001,59 +1144,11 @@ const GisMosquitoComp = () => {
           setDistrictCodeByName({});
         }
 
+        // Clear old layers when health region changes
         clearAllLayers();
 
-        const loadPromises = provincesInRegion.map(async (provinceName) => {
-          try {
-            const filePath = `/split-provinces/${provinceName}.kml`;
-            const response = await fetch(filePath);
-            if (!response.ok) {
-              console.warn(`ไม่พบไฟล์: ${filePath}`);
-              return null;
-            }
-
-            const kmlText = await response.text();
-            const parser = new DOMParser();
-            const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-            const toGeoJSON = await import("@mapbox/togeojson");
-            const geoJsonData = toGeoJSON.kml(kmlDoc);
-
-            if (geoJsonData && geoJsonData.features) {
-              return { provinceName, geoJsonData };
-            }
-            return null;
-          } catch (error) {
-            console.error(`Error loading ${provinceName}:`, error);
-            return null;
-          }
-        });
-
-        const results = await Promise.all(loadPromises);
-        const validResults = results.filter((result) => result !== null);
-
-        if (validResults.length > 0) {
-          const allFeatures = validResults.flatMap(
-            (result) => result.geoJsonData.features
-          );
-          const combinedGeoJSON = {
-            type: "FeatureCollection",
-            features: allFeatures,
-          };
-
-          const result = await loadAndDisplayKML(
-            combinedGeoJSON,
-            "healthRegion"
-          );
-
-          if (result) {
-            updateStatus(
-              `โหลด ${selectedHealthRegion} สำเร็จ: ${validResults.length} จังหวัด, ${result.featureCount} features (${result.loadTime}s)`,
-              "success"
-            );
-          }
-        } else {
-          updateStatus(`ไม่พบข้อมูลสำหรับ ${selectedHealthRegion}`, "warning");
-        }
+        // Note: Actual map loading is handled by the useEffect at line 1510
+        // which loads provinces when availableProvincesInRegion changes
 
         if (
           selectedHealthRegion === "เขตสุขภาพที่ 13" &&
@@ -1067,8 +1162,6 @@ const GisMosquitoComp = () => {
           `ข้อผิดพลาดในการโหลด ${selectedHealthRegion}: ${error}`,
           "error"
         );
-      } finally {
-        setIsLoading(false);
       }
     } else {
       setAvailableProvincesInRegion([]);
@@ -1086,7 +1179,6 @@ const GisMosquitoComp = () => {
     getProvincesInRegion,
     clearAllLayers,
     updateStatus,
-    loadAndDisplayKML,
   ]);
 
   useEffect(() => {
@@ -1144,6 +1236,30 @@ const GisMosquitoComp = () => {
       cleanup();
     };
   }, [initializeMap, cleanup, updateStatus]);
+
+  // Handle window resize - update responsive zoom levels
+  useEffect(() => {
+    if (!map) return;
+
+    // Initial update
+    updateResponsiveZoom();
+
+    // Add resize listener with debounce
+    let resizeTimeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        updateResponsiveZoom();
+      }, 200);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [map, updateResponsiveZoom]);
 
   // Permission initialization - auto-fill filters based on user's permission scope
   useEffect(() => {
@@ -1257,6 +1373,203 @@ const GisMosquitoComp = () => {
     onHealthRegionSelection();
   }, [selectedHealthRegion]);
 
+  // Load all provinces of Thailand when no area filters are selected
+  useEffect(() => {
+    // Only load when provinces are available and no area filters are active
+    if (availableProvinces.length === 0) return;
+    if (selectedHealthRegion || selectedProvince || selectedDistrict || selectedSubdistrict) return;
+
+    let mounted = true;
+    const BATCH_SIZE = 20; // Load 20 provinces at a time
+
+    const loadAllProvinces = async () => {
+      try {
+        setIsLoading(true);
+        clearAllLayers();
+
+        updateStatus(`กำลังโหลดแผนที่ประเทศไทย (${availableProvinces.length} จังหวัด)...`, "info");
+
+        const allFeatures = [];
+        let loadedCount = 0;
+
+        // Load provinces in batches
+        for (let i = 0; i < availableProvinces.length; i += BATCH_SIZE) {
+          if (!mounted) break;
+
+          const batch = availableProvinces.slice(i, i + BATCH_SIZE);
+
+          const loadPromises = batch.map(async (provinceName) => {
+            try {
+              const filePath = `/split-provinces/${provinceName}.kml`;
+              const response = await fetch(filePath);
+              if (!response.ok) {
+                console.warn(`ไม่พบไฟล์: ${filePath}`);
+                return null;
+              }
+
+              const kmlText = await response.text();
+              const parser = new DOMParser();
+              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
+              const toGeoJSON = await import("@mapbox/togeojson");
+              const geoJsonData = toGeoJSON.kml(kmlDoc);
+
+              if (geoJsonData && geoJsonData.features) {
+                return geoJsonData.features;
+              }
+              return null;
+            } catch (error) {
+              console.error(`Error loading ${provinceName}:`, error);
+              return null;
+            }
+          });
+
+          const results = await Promise.all(loadPromises);
+          const batchFeatures = results.filter((f) => f !== null).flat();
+
+          allFeatures.push(...batchFeatures);
+          loadedCount += batch.length;
+
+          // Update progress
+          updateStatus(
+            `กำลังโหลดแผนที่: ${loadedCount}/${availableProvinces.length} จังหวัด...`,
+            "info"
+          );
+        }
+
+        // Load all features ONCE after all batches are complete (no overlapping)
+        if (mounted && allFeatures.length > 0) {
+          const combinedGeoJSON = {
+            type: "FeatureCollection",
+            features: allFeatures,
+          };
+          await loadAndDisplayKML(combinedGeoJSON, "province");
+
+          updateStatus(
+            `โหลดแผนที่ประเทศไทยสำเร็จ: ${availableProvinces.length} จังหวัด, ${allFeatures.length} features`,
+            "success"
+          );
+        }
+      } catch (error) {
+        console.error("Error loading all provinces:", error);
+        if (mounted) {
+          updateStatus(`ข้อผิดพลาดในการโหลดแผนที่: ${error}`, "error");
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadAllProvinces();
+
+    return () => {
+      mounted = false;
+    };
+  }, [availableProvinces, selectedHealthRegion, selectedProvince, selectedDistrict, selectedSubdistrict]);
+
+  // Load only provinces in the selected health region
+  useEffect(() => {
+    // Only load when health region is selected and provinces in region are available
+    if (!selectedHealthRegion || availableProvincesInRegion.length === 0) return;
+
+    // Don't load if deeper filters are active (province/district/subdistrict)
+    if (selectedProvince || selectedDistrict || selectedSubdistrict) return;
+
+    let mounted = true;
+    const BATCH_SIZE = 20;
+
+    const loadProvincesInRegion = async () => {
+      try {
+        setIsLoading(true);
+        clearAllLayers();
+
+        updateStatus(`กำลังโหลดแผนที่${selectedHealthRegion} (${availableProvincesInRegion.length} จังหวัด)...`, "info");
+
+        const allFeatures = [];
+        let loadedCount = 0;
+
+        // Load provinces in batches
+        for (let i = 0; i < availableProvincesInRegion.length; i += BATCH_SIZE) {
+          if (!mounted) break;
+
+          const batch = availableProvincesInRegion.slice(i, i + BATCH_SIZE);
+
+          const loadPromises = batch.map(async (provinceName) => {
+            try {
+              const filePath = `/split-provinces/${provinceName}.kml`;
+              const response = await fetch(filePath);
+              if (!response.ok) {
+                console.warn(`ไม่พบไฟล์: ${filePath}`);
+                return null;
+              }
+
+              const kmlText = await response.text();
+              const parser = new DOMParser();
+              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
+              const toGeoJSON = await import("@mapbox/togeojson");
+              const geoJsonData = toGeoJSON.kml(kmlDoc);
+
+              if (geoJsonData && geoJsonData.features) {
+                return geoJsonData.features;
+              }
+              return null;
+            } catch (error) {
+              console.error(`Error loading ${provinceName}:`, error);
+              return null;
+            }
+          });
+
+          const results = await Promise.all(loadPromises);
+          const batchFeatures = results.filter((f) => f !== null).flat();
+
+          allFeatures.push(...batchFeatures);
+          loadedCount += batch.length;
+
+          // Update progress
+          updateStatus(
+            `กำลังโหลดแผนที่: ${loadedCount}/${availableProvincesInRegion.length} จังหวัด...`,
+            "info"
+          );
+        }
+
+        // Load all features ONCE after all batches are complete (no overlapping)
+        if (mounted && allFeatures.length > 0) {
+          const combinedGeoJSON = {
+            type: "FeatureCollection",
+            features: allFeatures,
+          };
+          await loadAndDisplayKML(combinedGeoJSON, "province");
+
+          updateStatus(
+            `โหลดแผนที่${selectedHealthRegion}สำเร็จ: ${availableProvincesInRegion.length} จังหวัด, ${allFeatures.length} features`,
+            "success"
+          );
+
+          // Fit map to the loaded region's provinces
+          setTimeout(() => {
+            fitToData();
+          }, 500);
+        }
+      } catch (error) {
+        console.error("Error loading provinces in region:", error);
+        if (mounted) {
+          updateStatus(`ข้อผิดพลาดในการโหลดแผนที่: ${error}`, "error");
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadProvincesInRegion();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedHealthRegion, availableProvincesInRegion, selectedProvince, selectedDistrict, selectedSubdistrict]);
+
   useEffect(() => {
     // อนุญาตให้ fetch ข้อมูลได้เมื่อเลือกอย่างน้อย 1 ตัวเลือก (ปี, เดือน, หรือสัปดาห์)
     if (!selectedYear && !selectedMonth && !selectedWeek) {
@@ -1294,16 +1607,52 @@ const GisMosquitoComp = () => {
 
     const fetchWeeklyDetails = async () => {
       try {
+        // ดึงข้อมูลทั้งหมด (ส่ง 0 เพื่อไม่ให้ server filter)
         const { data } = await reportsAnalyticsService.getWeeklyMosquitoDetails({
-          year: selectedYear || "0",
-          month: selectedMonth || "0",
-          week: selectedWeek || "0",
+          year: "0",
+          month: "0",
+          week: "0",
           signal: controller.signal,
         });
-        setWeeklyDetails(data);
-        setMonthlyReportData(normalizeMonthlyReportDataFromAnalytics(data));
-        // คำนวณ HI/CI จากข้อมูลที่ได้
-        setHiciData(calculateHICI(data));
+
+        // กรองข้อมูล client-side เหมือน ReportMosquitoCompDataComp.jsx
+        const reports = getReportsFromWeeklyDetails(data);
+        const filteredReports = reports.filter((report) => {
+          const reportDate = new Date(report.created_at);
+
+          // กรองตามปี (ปีงบประมาณ หรือ รายปี)
+          if (selectedYear && selectedYear !== "0") {
+            const yearNum = parseInt(selectedYear);
+            const matchesYear = selectedYearType === "fiscal"
+              ? isInFiscalYear(reportDate, yearNum)
+              : isInCalendarYear(reportDate, yearNum);
+
+            if (!matchesYear) return false;
+          }
+
+          // กรองตามเดือน
+          if (selectedMonth && selectedMonth !== "0") {
+            if (!isInMonth(reportDate, selectedMonth)) return false;
+          }
+
+          // กรองตามสัปดาห์ (ต้องมีการเลือกเดือนก่อน)
+          if (selectedWeek && selectedWeek !== "0" && selectedMonth && selectedMonth !== "0") {
+            if (!isInWeekOfMonth(reportDate, selectedWeek)) return false;
+          }
+
+          return true;
+        });
+
+        // สร้าง data object ใหม่จาก reports ที่กรองแล้ว
+        const filteredData = {
+          ...data,
+          mosquito_larvae_reports: filteredReports
+        };
+
+        setWeeklyDetails(filteredData);
+        setMonthlyReportData(normalizeMonthlyReportDataFromAnalytics(filteredData));
+        // คำนวณ HI/CI จากข้อมูลที่กรองแล้ว
+        setHiciData(calculateHICI(filteredData));
       } catch (error) {
         if (error?.name === "AbortError") {
           return;
@@ -1314,7 +1663,7 @@ const GisMosquitoComp = () => {
     fetchWeeklyDetails();
 
     return () => controller.abort();
-  }, [selectedYear, selectedMonth, selectedWeek]);
+  }, [selectedYear, selectedMonth, selectedWeek, selectedYearType]);
 
   useEffect(() => {
     setDisplayData(buildDisplayDataFromReports());
@@ -1357,6 +1706,70 @@ const GisMosquitoComp = () => {
     };
   }, [map]);
 
+  // Calculate CI by area and pass to useMapManager
+  useEffect(() => {
+    if (!weeklyDetails) {
+      return;
+    }
+
+    // Determine current level
+    const isLevelSubdistrict = selectedDistrict && availableSubdistricts.length > 0;
+    const isLevelDistrict = !isLevelSubdistrict && selectedProvince && availableDistricts.length > 0;
+    const isLevelProvince = !isLevelSubdistrict && !isLevelDistrict && selectedHealthRegion && availableProvincesInRegion.length > 0;
+    const isLevelAll = !isLevelSubdistrict && !isLevelDistrict && !isLevelProvince;
+
+    const level = isLevelSubdistrict
+      ? "subdistrict"
+      : isLevelDistrict
+      ? "district"
+      : "province";
+
+    let getAreaName = getReportProvinceName;
+
+    if (isLevelSubdistrict) {
+      getAreaName = getReportSubdistrictName;
+    } else if (isLevelDistrict) {
+      getAreaName = getReportDistrictName;
+    } else if (isLevelProvince || isLevelAll) {
+      getAreaName = getReportProvinceName;
+    }
+
+    // Calculate CI by area - ส่ง availableAreas ด้วยเพื่อเติมค่า CI = 0 สำหรับที่ไม่มีข้อมูล
+    let availableAreas = [];
+    if (isLevelSubdistrict) {
+      availableAreas = availableSubdistricts;
+    } else if (isLevelDistrict) {
+      availableAreas = availableDistricts;
+    } else if (isLevelProvince) {
+      // เลือก health region - ใช้จังหวัดในเขตนั้นๆ
+      availableAreas = availableProvincesInRegion;
+    } else if (isLevelAll) {
+      // ไม่ได้เลือก health region - ใช้ทุกจังหวัด
+      availableAreas = availableProvinces;
+    }
+
+    const ciData = calculateCIByArea(weeklyDetails, getAreaName, availableAreas, level);
+    console.log("[CI Data] Level:", level, "| Areas with CI:", Object.keys(ciData).filter(k => ciData[k] > 0), "| ciData:", ciData);
+    setCiByArea(ciData); // Update local state for Donut Chart and Area List
+    setCiByAreaData(ciData); // Update useMapManager state for map colors
+
+    // อัปเดตสีของ layers บนแผนที่
+    setTimeout(() => {
+      updateLayerColors();
+    }, 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    weeklyDetails,
+    selectedProvince,
+    selectedDistrict,
+    selectedSubdistrict,
+    selectedHealthRegion,
+    availableSubdistricts,
+    availableDistricts,
+    availableProvincesInRegion,
+    availableProvinces,
+  ]);
+
   const shouldPromptForPeriod =
     !selectedYear && !selectedMonth && !selectedWeek;
 
@@ -1383,6 +1796,15 @@ const GisMosquitoComp = () => {
                 <div className={styles.dateSelector}>
                   <div className={styles.formGroup}>
                     <CustomSelect
+                      id="yearTypeSelect"
+                      label="ประเภทปี"
+                      options={yearTypeOptions}
+                      value={selectedYearType}
+                      onChange={(e) => setSelectedYearType(e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <CustomSelect
                       id="yearSelect"
                       label="ปี"
                       options={yearOptions}
@@ -1391,6 +1813,8 @@ const GisMosquitoComp = () => {
                       placeholder="-- เลือกปี --"
                     />
                   </div>
+                </div>
+                <div className={styles.dateSelector}>
                   <div className={styles.formGroup}>
                     <CustomSelect
                       id="monthSelect"
@@ -1401,16 +1825,16 @@ const GisMosquitoComp = () => {
                       placeholder="-- เลือกเดือน --"
                     />
                   </div>
-                </div>
-                <div className={styles.formGroup}>
-                  <CustomSelect
-                    id="weekSelect"
-                    label="สัปดาห์"
-                    options={weekOptions}
-                    value={selectedWeek}
-                    onChange={(e) => setSelectedWeek(e.target.value)}
-                    placeholder="-- เลือกสัปดาห์ --"
-                  />
+                  <div className={styles.formGroup}>
+                    <CustomSelect
+                      id="weekSelect"
+                      label="สัปดาห์"
+                      options={weekOptions}
+                      value={selectedWeek}
+                      onChange={(e) => setSelectedWeek(e.target.value)}
+                      placeholder="-- เลือกสัปดาห์ --"
+                    />
+                  </div>
                 </div>
                 <div className={styles.formGroup}>
                   <CustomSelect
@@ -1534,13 +1958,16 @@ const GisMosquitoComp = () => {
                                 (sum, item) => sum + item.value,
                                 0
                               );
+                              // Skip rendering if total is 0 to avoid NaN
+                              if (total === 0) return null;
+
                               let offset = 25;
                               return displayData.map((item) => {
                                 const percentage = (item.value / total) * 100;
                                 const strokeDasharray = `${percentage} ${
                                   100 - percentage
                                 }`;
-                                const color = getProvinceColor(item.name);
+                                const color = getCIColorForDisplay(item.name);
                                 const currentOffset = offset;
                                 offset = (offset - percentage) % 100;
 
@@ -1581,7 +2008,7 @@ const GisMosquitoComp = () => {
                               <div
                                 className={styles.colorDot}
                                 style={{
-                                  backgroundColor: getProvinceColor(item.name),
+                                  backgroundColor: getCIColorForDisplay(item.name),
                                 }}
                               ></div>
                               {item.name}
@@ -1651,7 +2078,7 @@ const GisMosquitoComp = () => {
                         HI (House Index)
                       </div>
                       <div style={{ fontSize: "10px", color: "#adb5bd", marginTop: "4px" }}>
-                        บ้านพบลูกน้ำ {hiciData.housesWithLarvae} / สำรวจ {hiciData.housesSurveyed}
+                        พบลูกน้ำ {hiciData.housesWithLarvae} หลัง / สำรวจ {hiciData.housesSurveyed} หลัง
                       </div>
                     </div>
 
@@ -1674,7 +2101,7 @@ const GisMosquitoComp = () => {
                         CI (Container Index)
                       </div>
                       <div style={{ fontSize: "10px", color: "#adb5bd", marginTop: "4px" }}>
-                        ภาชนะพบลูกน้ำ {hiciData.containersWithLarvae} / สำรวจ {hiciData.containersSurveyed}
+                        พบลูกน้ำ {hiciData.containersWithLarvae} ภาชนะ / สำรวจ {hiciData.containersSurveyed} ภาชนะ
                       </div>
                     </div>
                   </div>

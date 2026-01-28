@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Eye,
+  EyeOff,
   Download,
   ChevronsLeft,
   ChevronsRight,
@@ -28,7 +29,6 @@ import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
 import { getUserByExternalId } from "@services/oauth2Service";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
-import { getAddressFromCoordinates } from "@utils/geocoding";
 import { getOsmByHealthService } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
@@ -156,7 +156,7 @@ function exportSummaryPDF(data, userDataMap) {
   // Title
   doc.setFontSize(16);
   doc.setFont("Sarabun", "bold");
-  doc.text("สรุปจำนวนการส่งรายงานประเมินหญิงตั้งครรภ์", 105, 15, {
+  doc.text("การติดตามการได้รับยาเม็ดเสริมไอโอดีน", 105, 15, {
     align: "center",
   });
 
@@ -868,6 +868,7 @@ const PregnantReportComp = () => {
   const [searchType, setSearchType] = useState("year");
   const [week, setWeek] = useState("สัปดาห์ 4 (22/6/68-30/6/68)");
   const [keyword, setKeyword] = useState("");
+  const [citizenIdKeyword, setCitizenIdKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
   // Tab state
@@ -886,6 +887,9 @@ const PregnantReportComp = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [availableYears, setAvailableYears] = useState([]); // เก็บรายการปีจากข้อมูล
 
+  // State สำหรับเปิด/ปิดการแสดงเลขบัตรประชาชน
+  const [visibleCitizenIds, setVisibleCitizenIds] = useState(new Set());
+
   // Set ปีเริ่มต้นหลัง currentBuddhistYear โหลดเสร็จ
   useEffect(() => {
     if (currentBuddhistYear && !year) {
@@ -897,10 +901,6 @@ const PregnantReportComp = () => {
   }, [currentBuddhistYear, year, availableYears.length]);
 
   // Note: Location data loading is handled by usePermissionFilters hook
-
-  // State สำหรับเก็บข้อมูลพื้นที่จากพิกัด
-  const [locationDataMap, setLocationDataMap] = useState(new Map()); // Map<external_user_id, {province, district, subdistrict}>
-  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
   // State สำหรับเก็บ OSM data ตามหน่วยบริการ
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
@@ -987,68 +987,6 @@ const PregnantReportComp = () => {
         );
 
         setUserDataMap(newUserDataMap);
-
-        // 5. แปลงพิกัดเป็นข้อมูลพื้นที่ (Reverse Geocoding)
-        // NOTE: Using free Nominatim service which has strict rate limits (1 req/sec)
-        // and may return 403 errors. Geocoding failures are handled gracefully.
-        // For production, consider using a commercial geocoding service.
-        setIsLoadingLocations(true);
-        const newLocationDataMap = new Map();
-
-        // รวมพิกัดจาก evaluations ทั้งหมดที่มี latitude และ longitude
-        const coordinatesMap = new Map(); // Map<external_user_id, {lat, lng}>
-
-        let foundCoordinatesCount = 0;
-        let invalidCoordinatesCount = 0;
-
-        evaluations.forEach((evaluation) => {
-          if (evaluation.latitude && evaluation.longitude && evaluation.external_user_id) {
-            const lat = parseFloat(evaluation.latitude);
-            const lng = parseFloat(evaluation.longitude);
-
-            // ตรวจสอบว่าเป็นพิกัดที่ถูกต้อง
-            if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-              // ใช้พิกัดของ evaluation แรกสุดของแต่ละ user (หรืออาจจะเป็นล่าสุด)
-              if (!coordinatesMap.has(evaluation.external_user_id)) {
-                coordinatesMap.set(evaluation.external_user_id, { lat, lng });
-                foundCoordinatesCount++;
-              }
-            } else {
-              invalidCoordinatesCount++;
-            }
-          }
-        });
-
-        // แปลงพิกัดเป็นพื้นที่ (ทำทีละ user เพื่อไม่ให้โดน rate limit)
-        const userIds = Array.from(coordinatesMap.keys());
-
-        for (let i = 0; i < userIds.length; i++) {
-          const userId = userIds[i];
-          const coords = coordinatesMap.get(userId);
-
-          try {
-            const locationData = await getAddressFromCoordinates(coords.lat, coords.lng);
-
-            if (locationData.success) {
-              newLocationDataMap.set(userId, {
-                province: locationData.province,
-                district: locationData.district,
-                subdistrict: locationData.subdistrict,
-                fullAddress: locationData.fullAddress,
-              });
-            }
-
-            // เพิ่ม delay เล็กน้อยเพื่อไม่ให้โดน rate limit (1 request/second)
-            if (i < userIds.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1100));
-            }
-          } catch (error) {
-            console.error(`Error converting coordinates for user ${userId}:`, error);
-          }
-        }
-
-        setLocationDataMap(newLocationDataMap);
-        setIsLoadingLocations(false);
       } catch (error) {
         console.error("Failed to fetch pregnant women data:", error);
         // ถ้า error ใช้ mock data แทน
@@ -1144,15 +1082,19 @@ const PregnantReportComp = () => {
       const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
       const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
 
-      // กรองตาม keyword
-      const keywordMatch = !keyword || (
+      // กรองตาม keyword (ชื่อ-นามสกุล)
+      const nameKeywordMatch = !keyword || (
         userName.includes(keyword) ||
         row.date.includes(keyword) ||
         String(row.index).includes(keyword) ||
-        row.citizen_id?.includes(keyword) ||
         locationData.region?.includes(keyword) ||
         locationData.city?.includes(keyword) ||
         locationData.district?.includes(keyword)
+      );
+
+      // กรองตามเลขบัตรประชาชน
+      const citizenIdMatch = !citizenIdKeyword || (
+        row.citizen_id?.includes(citizenIdKeyword)
       );
 
       // Year filtering
@@ -1183,10 +1125,11 @@ const PregnantReportComp = () => {
         provinceMatch &&
         districtMatch &&
         subdistrictMatch &&
-        keywordMatch
+        nameKeywordMatch &&
+        citizenIdMatch
       );
     });
-  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, service, keyword, healthAreas, provinces, districts, subdistricts, userDataMap, osmDataByService]);
+  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, service, keyword, citizenIdKeyword, healthAreas, provinces, districts, subdistricts, userDataMap, osmDataByService]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = filteredRows.slice(
     (page - 1) * itemsPerPage,
@@ -1209,6 +1152,7 @@ const PregnantReportComp = () => {
     handleReset(String(currentFiscalYear), "fiscal");
     setWeek("สัปดาห์ 4 (22/6/68-30/6/68)");
     setKeyword("");
+    setCitizenIdKeyword("");
   };
 
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
@@ -1270,10 +1214,10 @@ const PregnantReportComp = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold">
-                    รายงานประเมินหญิงตั้งครรภ์
+                    การติดตามการได้รับยาเม็ดเสริมไอโอดีน
                   </h1>
                   <p className="text-white/80 text-sm mt-1">
-                    แดชบอร์ดรายงานและดาวน์โหลดสำหรับหญิงตั้งครรภ์
+                    แดชบอร์ดรายงานและดาวน์โหลดสำหรับการติดตามการได้รับยาเม็ดเสริมไอโอดีน
                   </p>
                 </div>
               </div>
@@ -1491,34 +1435,58 @@ const PregnantReportComp = () => {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-          <div className="relative flex-1 w-full">
-            <Search
-              size={20}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => {
-                setKeyword(e.target.value);
-                setPage(1);
-              }}
-              placeholder="ค้นหาชื่อและนามสกุล..."
-              className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 focus:outline-none focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 transition-all duration-200"
-            />
-            {keyword && (
-              <button
-                onClick={() => setKeyword("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X size={18} />
-              </button>
-            )}
+          <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ช่องค้นหาชื่อ-นามสกุล */}
+            <div className="relative">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="ค้นหาชื่อ-นามสกุล"
+                className="w-full h-11 pl-10 pr-8 rounded-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 focus:outline-none focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 transition-all duration-200 text-sm"
+              />
+              {keyword && (
+                <button
+                  onClick={() => setKeyword("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {/* ช่องค้นหาเลขบัตรประชาชน */}
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">
+                ID
+              </div>
+              <input
+                type="text"
+                value={citizenIdKeyword}
+                onChange={(e) => {
+                  setCitizenIdKeyword(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="ค้นหาเลขบัตรประชาชน"
+                className="w-full h-11 pl-10 pr-8 rounded-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 focus:outline-none focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 transition-all duration-200 text-sm font-mono"
+              />
+              {citizenIdKeyword && (
+                <button
+                  onClick={() => setCitizenIdKeyword("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200">
-            <Search size={18} />
-            <span>ค้นหา</span>
-          </button>
         </div>
 
         {/* Table */}
@@ -1533,13 +1501,13 @@ const PregnantReportComp = () => {
                   ชื่อ-นามสกุล
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
-                  พื้นที่
+                  เลขบัตรประชาชน
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
-                  ส่งวันที่
+                  วันที่คัดกรอง
                 </th>
                 <th className="py-4 px-4 font-semibold text-center">
-                  จำนวนหญิงตั้งครรภ์
+                  จำนวนการติดตาม
                 </th>
                 {activeTab === "submitted" && (
                   <th className="py-4 px-4 font-semibold text-center rounded-tr-xl">
@@ -1576,7 +1544,6 @@ const PregnantReportComp = () => {
               ) : (
                 paginatedRows.map((row, idx) => {
                   const displayName = getUserName(row.external_user_id, row.name);
-                  const locationData = locationDataMap.get(row.external_user_id);
 
                   return (
                     <tr
@@ -1596,27 +1563,40 @@ const PregnantReportComp = () => {
                         )}
                       </td>
                       <td className="py-4 px-4 text-center text-sm text-gray-600">
-                        {isLoadingLocations ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-                            <span className="text-xs text-gray-400">กำลังดึงพื้นที่...</span>
-                          </div>
-                        ) : locationData ? (
-                          <div className="flex flex-col items-center">
-                            <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">
-                              <MapPin size={12} />
-                              <span>{locationData.province || "ไม่ระบุจังหวัด"}</span>
-                            </div>
-                            {locationData.district && (
-                              <span className="text-xs text-gray-500 mt-1">
-                                {locationData.district}
-                                {locationData.subdistrict ? `, ${locationData.subdistrict}` : ""}
-                              </span>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="font-mono">
+                            {row.citizen_id ? (
+                              visibleCitizenIds.has(row.index) ? (
+                                row.citizen_id
+                              ) : (
+                                row.citizen_id.slice(0, -4) + "XXXX"
+                              )
+                            ) : (
+                              <span className="text-gray-400">ไม่ระบุ</span>
                             )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400">ไม่มีข้อมูลพิกัด</span>
-                        )}
+                          </span>
+                          {row.citizen_id && (
+                            <button
+                              onClick={() => {
+                                const newVisible = new Set(visibleCitizenIds);
+                                if (newVisible.has(row.index)) {
+                                  newVisible.delete(row.index);
+                                } else {
+                                  newVisible.add(row.index);
+                                }
+                                setVisibleCitizenIds(newVisible);
+                              }}
+                              className="p-1 rounded hover:bg-gray-100 transition-colors"
+                              title={visibleCitizenIds.has(row.index) ? "ซ่อนเลขบัตร" : "แสดงเลขบัตร"}
+                            >
+                              {visibleCitizenIds.has(row.index) ? (
+                                <EyeOff size={16} className="text-gray-500" />
+                              ) : (
+                                <Eye size={16} className="text-gray-500" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-4 text-center text-gray-600">
                         {row.date}
