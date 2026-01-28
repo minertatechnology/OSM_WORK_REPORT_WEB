@@ -15,6 +15,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
   const date = reportData?.date || "";
   const rawData = reportData?.rawData || {};
 
+  // ใช้ count_by_citizen_id จากข้อมูลที่ได้จาก backend
+  const countByCitizenId = rawData?.count_by_citizen_id || 1;
+
   // ฟังก์ชันแปลง JSON string เป็น object
   const parseResult = (resultString) => {
     if (!resultString) return {};
@@ -86,12 +89,13 @@ const NcdsScreeningDetail = ({ reportData }) => {
       const headerHeight = 18;
       const ROWS_PER_PAGE = 9;
 
-      // Column widths - 17 columns total (ปรับให้พอดีกับกระดาษ A4 แนวนอน 297mm)
+      // Column widths - 18 columns total (เพิ่มคอลัมน์ จำนวนครั้งที่)
       // รวมทั้งหมด = 273mm (เหลือ margin ซ้ายขวา 12mm ต้นท้าย)
-      const colWidths = [10, 35, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15];
+      const colWidths = [10, 15, 30, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15];
 
       const headers = [
         "ลำดับ",
+        "จำนวน\nครั้งที่",
         "รายชื่อ",
         "พฤติกรรม\nเสี่ยงโรค\nไม่ติดต่อ\nเรื้อรัง",
         "BMI",
@@ -165,7 +169,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
       };
 
       // ฟังก์ชันวาดแถวข้อมูล
-      const drawDataRow = (currentY, rowIndex, rowData, rowName) => {
+      const drawDataRow = (currentY, rowIndex, rowData, rowName, count) => {
         doc.setFont("Sarabun", "normal");
         doc.setFontSize(7);
         doc.setDrawColor(0, 0, 0);
@@ -179,8 +183,14 @@ const NcdsScreeningDetail = ({ reportData }) => {
         doc.text(String(rowIndex), currentX + colWidths[0] / 2, currentY + 5.5, { align: "center" });
         currentX += colWidths[0];
 
-        // รายชื่อ - แบ่งชื่อยาวเป็นหลายบรรทัด
+        // จำนวนครั้งที่
         doc.rect(currentX, currentY, colWidths[1], rowHeight);
+        doc.setFont("Sarabun", "normal");
+        doc.text(String(count), currentX + colWidths[1] / 2, currentY + 5.5, { align: "center" });
+        currentX += colWidths[1];
+
+        // รายชื่อ - แบ่งชื่อยาวเป็นหลายบรรทัด
+        doc.rect(currentX, currentY, colWidths[2], rowHeight);
         doc.setFont("Sarabun", "bold");
 
         // แบ่งชื่อถ้ายาวเกิน
@@ -200,26 +210,26 @@ const NcdsScreeningDetail = ({ reportData }) => {
         const nameStartY = currentY + (rowHeight - nameTotalHeight) / 2 + nameLineHeight / 2 + 1;
 
         nameLines.forEach((line, idx) => {
-          doc.text(line, currentX + colWidths[1] / 2, nameStartY + idx * nameLineHeight, { align: "center" });
+          doc.text(line, currentX + colWidths[2] / 2, nameStartY + idx * nameLineHeight, { align: "center" });
         });
 
-        currentX += colWidths[1];
+        currentX += colWidths[2];
 
         // Data columns - 15 columns
         for (let i = 0; i < 15; i++) {
-          doc.rect(currentX, currentY, colWidths[i + 2], rowHeight);
+          doc.rect(currentX, currentY, colWidths[i + 3], rowHeight);
 
           // แบ่งข้อความเป็นหลายบรรทัดถ้ายาวเกิน
-          const textLines = splitThaiText(rowData[i], colWidths[i + 2] - 1);
+          const textLines = splitThaiText(rowData[i], colWidths[i + 3] - 1);
           const lineHeight = 2.5;
           const totalHeight = textLines.length * lineHeight;
           const textStartY = currentY + (rowHeight - totalHeight) / 2 + lineHeight / 2 + 1;
 
           textLines.forEach((line, lineIdx) => {
-            doc.text(line, currentX + colWidths[i + 2] / 2, textStartY + lineIdx * lineHeight, { align: "center" });
+            doc.text(line, currentX + colWidths[i + 3] / 2, textStartY + lineIdx * lineHeight, { align: "center" });
           });
 
-          currentX += colWidths[i + 2];
+          currentX += colWidths[i + 3];
         }
 
         return currentY + rowHeight;
@@ -325,7 +335,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
             itemDietSodiumResult.level_th || "-"
           ];
 
-          currentY = drawDataRow(currentY, globalIndex, rowData, item.name || name);
+          currentY = drawDataRow(currentY, globalIndex, rowData, item.name || name, countByCitizenId);
         });
       }
 
@@ -347,6 +357,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
       // Header
       const headers = [
         "ลำดับ",
+        "จำนวนครั้งที่",
         "รายชื่อ",
         "พฤติกรรมเสี่ยงโรคไม่ติดต่อเรื้อรัง",
         "BMI",
@@ -386,7 +397,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
 
       const wsData = [
         headers,
-        [1, name, ...rowData]
+        [1, countByCitizenId, name, ...rowData]
       ];
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -565,6 +576,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
                 <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ width: "30px", fontSize: "11px" }}>
                   ลำดับ
                 </th>
+                <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ width: "50px", fontSize: "11px" }}>
+                  จำนวนครั้งที่
+                </th>
                 <th className="border border-black py-2 px-1 font-bold text-center text-[#231d37]" style={{ width: "100px", fontSize: "11px" }}>
                   รายชื่อ
                 </th>
@@ -619,6 +633,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
               <tr className="bg-white hover:bg-[#faf8ff] transition-colors">
                 <td className="border border-black py-2 px-1 text-center font-semibold text-[#231d37]" style={{ fontSize: "11px" }}>
                   1
+                </td>
+                <td className="border border-black py-2 px-1 text-center text-[#231d37]" style={{ fontSize: "11px" }}>
+                  {countByCitizenId}
                 </td>
                 <td className="border border-black py-2 px-1 text-center text-[#231d37] font-medium" style={{ fontSize: "11px" }}>
                   {name}

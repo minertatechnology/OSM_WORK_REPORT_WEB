@@ -171,12 +171,13 @@ const ElderlyScreeningDetail = ({
       const livingWidth = 20; // อยู่ร่วม (เพิ่มจาก 17 เป็น 20)
       const genderWidth = 10; // เพศ (เพิ่มจาก 8 เป็น 10)
       const ageWidth = 10; // อายุ (เพิ่มจาก 8 เป็น 10)
-      const assessWidth = 14; // แต่ละคอลัมน์แบบคัดกรอง (ลดจาก 15 เป็น 14 เพื่อให้พอที่จะเพิ่มคอลัมน์ผลการประเมิน)
-      const resultWidth = 18; // คอลัมน์ผลการประเมิน
+      const assessWidth = 13; // แต่ละคอลัมน์แบบคัดกรอง (ลดจาก 14 เป็น 13 เพื่อให้พอดีกับหน้ากระดาษ)
+      const sumbynumWidth = 15; // คอลัมน์จำนวนครั้งที่
+      const resultWidth = 16; // คอลัมน์ผลการประเมิน (ลดจาก 18 เป็น 16)
 
-      // คำนวณความกว้างรวมของตาราง
-      const totalTableWidth = colWidth + nameWidth + livingWidth + genderWidth + ageWidth + (assessWidth * 12) + resultWidth;
-      // Total = 10 + 50 + 20 + 10 + 10 + (14 * 12) + 18 = 100 + 168 + 18 = 286mm
+      // คำนวณความกว้างรวมของตาราง (เป้าหมาย 287mm เพื่อ margin 5mm ทั้งสองข้าง)
+      const totalTableWidth = colWidth + nameWidth + livingWidth + genderWidth + ageWidth + (assessWidth * 12) + sumbynumWidth + resultWidth;
+      // Total = 10 + 50 + 20 + 10 + 10 + (13 * 12) + 15 + 16 = 100 + 156 + 15 + 16 = 287mm
 
       const householdColumns = [
         { key: "living_arrangement", label: "ผู้สูงอายุ\nอยู่ร่วม", width: livingWidth },
@@ -223,10 +224,10 @@ const ElderlyScreeningDetail = ({
         doc.text("ชื่อ-นามสกุล", currentX + nameWidth / 2, yPos + 9, { align: "center" });
         currentX += nameWidth;
 
-        // ข้อมูลครัวเรือน (colSpan=3)
+        // ข้อมูลเชิงสังคม (colSpan=3)
         const householdHeaderWidth = livingWidth + genderWidth + ageWidth;
         doc.rect(currentX, yPos, householdHeaderWidth, headerHeight);
-        doc.text("ข้อมูลครัวเรือน", currentX + householdHeaderWidth / 2, yPos + 9, { align: "center" });
+        doc.text("ข้อมูลเชิงสังคม", currentX + householdHeaderWidth / 2, yPos + 9, { align: "center" });
         currentX += householdHeaderWidth;
 
         // แบบคัดกรองสุขภาพผู้สูงอายุ (colSpan=12)
@@ -234,6 +235,11 @@ const ElderlyScreeningDetail = ({
         doc.rect(currentX, yPos, assessHeaderWidth, headerHeight);
         doc.text("แบบคัดกรองสุขภาพผู้สูงอายุ", currentX + assessHeaderWidth / 2, yPos + 9, { align: "center" });
         currentX += assessHeaderWidth;
+
+        // จำนวนครั้งที่ (rowSpan=2)
+        doc.rect(currentX, yPos, sumbynumWidth, headerHeight * 2);
+        doc.text("จำนวน\nครั้งที่", currentX + sumbynumWidth / 2, yPos + 9, { align: "center" });
+        currentX += sumbynumWidth;
 
         // ผลการประเมิน (rowSpan=2)
         doc.rect(currentX, yPos, resultWidth, headerHeight * 2);
@@ -244,7 +250,7 @@ const ElderlyScreeningDetail = ({
         let row2Y = yPos + headerHeight;
         currentX = startX + colWidth + nameWidth; // เริ่มหลังจาก ลำดับและชื่อ
 
-        // ข้อมูลครัวเรือน sub headers
+        // ข้อมูลเชิงสังคม sub headers
         householdColumns.forEach(col => {
           doc.rect(currentX, row2Y, col.width, headerHeight);
           const lines = col.label.split('\n');
@@ -335,7 +341,7 @@ const ElderlyScreeningDetail = ({
         }
         currentX += nameWidth;
 
-        // ข้อมูลครัวเรือน
+        // ข้อมูลเชิงสังคม
         householdColumns.forEach(col => {
           doc.rect(currentX, currentY, col.width, rowHeight);
           let displayValue = "-";
@@ -372,6 +378,12 @@ const ElderlyScreeningDetail = ({
           doc.text(lines[0] || value, currentX + col.width / 2, currentY + 5.5, { align: "center" });
           currentX += col.width;
         });
+
+        // จำนวนครั้งที่
+        doc.rect(currentX, currentY, sumbynumWidth, rowHeight);
+        const sumbynum = elderly.sumbynum || elderly.sum_by_num || 1;
+        doc.text(String(sumbynum), currentX + sumbynumWidth / 2, currentY + 5.5, { align: "center" });
+        currentX += sumbynumWidth;
 
         // ผลการประเมิน
         doc.rect(currentX, currentY, resultWidth, rowHeight);
@@ -456,7 +468,9 @@ const ElderlyScreeningDetail = ({
         "ภาวะ\nซึมเศร้า",
         "กลั้น\nปัสสาวะ",
         "กิจวัตรประจำวัน",
-        "ช่องปาก"
+        "ช่องปาก",
+        "จำนวนครั้งที่",
+        "ผลการประเมิน"
       ];
 
       const wsData = [
@@ -464,20 +478,21 @@ const ElderlyScreeningDetail = ({
         [
           "ลำดับ",                                // 0
           "ชื่อ-นามสกุล",                         // 1
-          "ข้อมูลครัวเรือน",                      // 2
+          "ข้อมูลเชิงสังคม",                      // 2
           null,                                    // 3
           null,                                    // 4
           "แบบคัดกรองสุขภาพผู้สูงอายุ",        // 5
           null, null, null, null, null, null,      // 6-11 (6 nulls)
           null, null, null, null, null,            // 12-16 (5 nulls)
-          "ผลการ\nประเมิน"                       // 17
+          "จำนวนครั้งที่",                        // 17
+          "ผลการ\nประเมิน"                       // 18
         ],
         // Row 2: Sub headers (row index 1 in Excel)
         [
           null,                                    // 0 - merged
           null,                                    // 1 - merged
-          ...subHeaders,                           // 2-16 (15 elements)
-          null                                     // 17 - merged
+          ...subHeaders,                           // 2-17 (16 elements)
+          null                                     // 18 - merged
         ],
         // Data rows
         ...elderlyList.map((elderly, idx) => {
@@ -487,7 +502,7 @@ const ElderlyScreeningDetail = ({
           const locationText = buildLocationText(elderly);
           const nameWithLocation = locationText ? `${nameWithId}\n${locationText}` : nameWithId;
 
-          // ข้อมูลครัวเรือน
+          // ข้อมูลเชิงสังคม
           const livingValue = formatValue(elderly.living_arrangement, "living_arrangement");
           const genderValue = elderly.gender === "male" ? "ชาย" : elderly.gender === "female" ? "หญิง" : elderly.gender || "-";
           const ageValue = elderly.age || "-";
@@ -499,6 +514,9 @@ const ElderlyScreeningDetail = ({
               : formatValue(elderly[col.key], col.key);
           });
 
+          // จำนวนครั้งที่
+          const sumbynum = elderly.sumbynum || elderly.sum_by_num || 1;
+
           // ผลการประเมิน
           const overallResult = getOverallResult(elderly);
 
@@ -509,6 +527,7 @@ const ElderlyScreeningDetail = ({
             genderValue,
             ageValue,
             ...assessmentValues,
+            sumbynum,
             overallResult
           ];
         })
@@ -516,18 +535,19 @@ const ElderlyScreeningDetail = ({
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-      // ตั้งค่า range ของ worksheet ให้ครบ 18 columns (A-R)
+      // ตั้งค่า range ของ worksheet ให้ครบ 19 columns (A-S)
       const totalRows = elderlyList.length + 2; // header rows + data rows
-      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalRows - 1, c: 17 } });
+      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalRows - 1, c: 18 } });
 
       // สร้าง merged cells
       ws['!merges'] = [
         // Row 1 merges
         { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // ลำดับ
         { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // ชื่อ-นามสกุล
-        { s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }, // ข้อมูลครัวเรือน
+        { s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }, // ข้อมูลเชิงสังคม
         { s: { r: 0, c: 5 }, e: { r: 0, c: 16 } }, // แบบคัดกรอง
-        { s: { r: 0, c: 17 }, e: { r: 1, c: 17 } }, // ผลการประเมิน
+        { s: { r: 0, c: 17 }, e: { r: 1, c: 17 } }, // จำนวนครั้งที่
+        { s: { r: 0, c: 18 }, e: { r: 1, c: 18 } }, // ผลการประเมิน
       ];
 
       // คำนวณความกว้างคอลัมน์
@@ -549,10 +569,11 @@ const ElderlyScreeningDetail = ({
         { min: 70, max: 90 },
         { min: 70, max: 90 },
         { min: 70, max: 90 },
-        { min: 80, max: 100 },   // 17: ผลการประเมิน
+        { min: 60, max: 80 },    // 17: จำนวนครั้งที่
+        { min: 80, max: 100 },   // 18: ผลการประเมิน
       ];
 
-      const numCols = 18;
+      const numCols = 19;
       ws['!cols'] = [];
       for (let i = 0; i < numCols; i++) {
         const setting = colSettings[i] || { min: 70, max: 100 };
@@ -733,10 +754,13 @@ const ElderlyScreeningDetail = ({
                   ชื่อ-นามสกุล
                 </th>
                 <th colSpan={3} className="border border-white/30 py-2 px-3 text-white font-semibold text-center">
-                  ข้อมูลครัวเรือน
+                  ข้อมูลเชิงสังคม
                 </th>
                 <th colSpan={12} className="border border-white/30 py-2 px-3 text-white font-semibold text-center">
                   แบบคัดกรองสุขภาพผู้สูงอายุ
+                </th>
+                <th rowSpan={2} className="border border-white/30 py-3 px-2 text-white font-semibold text-center min-w-[70px]">
+                  จำนวนครั้งที่
                 </th>
                 <th rowSpan={2} className="border border-white/30 py-3 px-2 text-white font-semibold text-center min-w-[80px]">
                   ผลการประเมิน
@@ -768,7 +792,7 @@ const ElderlyScreeningDetail = ({
             <tbody>
               {elderlyList.length === 0 ? (
                 <tr>
-                  <td colSpan={18} className="py-12 text-center text-gray-500">
+                  <td colSpan={19} className="py-12 text-center text-gray-500">
                     ไม่พบข้อมูลผู้สูงอายุ
                   </td>
                 </tr>
@@ -816,6 +840,10 @@ const ElderlyScreeningDetail = ({
                           </td>
                         );
                       })}
+                      {/* คอลัมน์จำนวนครั้งที่ */}
+                      <td className="border border-gray-200 py-2 px-2 text-center text-gray-700 text-[11px]">
+                        {elderly.sumbynum || elderly.sum_by_num || 1}
+                      </td>
                       {/* คอลัมน์ผลการประเมิน */}
                       {(() => {
                         const overallResult = getOverallResult(elderly);

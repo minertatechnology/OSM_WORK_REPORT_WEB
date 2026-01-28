@@ -22,12 +22,49 @@ const BUTTON_BG = "#f9f6ff";
 function getRoleOptions(positions) {
   if (!positions || positions.length === 0) return [];
 
-  return positions
-    .filter(pos => pos.code !== 'DIR' && pos.code !== 'VIL') // กรอง Director และ Village ออก
-    .map(pos => ({
-      value: pos.code || pos.id,
-      label: pos.name_th || pos.label || pos.position_name || pos.name || pos.id || ""
-    }));
+  // กำหนดลำดับการจัดเรียงและชื่อที่ต้องการแสดง
+  const orderConfig = [
+    { key: 'zone', contains: ['เขตสุขภาพ'], newName: 'เขตสนับสนุนบริการสุขภาพ' },
+    { key: 'province', contains: ['จังหวัด'], newName: 'สำนักงานสาธารณสุขจังหวัด' },
+    { key: 'district', contains: ['อำเภอ'], newName: 'สำนักงานสาธารณสุขอำเภอ' },
+    { key: 'hospital', contains: ['รพ.สต.', 'โรงพยาบาลส่งเสริมสุขภาพตำบล'], newName: 'โรงพยาบาลส่งเสริมสุขภาพระดับตำบล' },
+  ];
+
+  // กรองและแปลงข้อมูล
+  const mapped = positions
+    .filter(pos => {
+      const name = (pos.name_th || pos.label || pos.position_name || pos.name || "").toLowerCase();
+      // กรอง Director, Village และ กรมสนับสนุนบริการสุขภาพ ออก
+      return pos.code !== 'DIR' &&
+             pos.code !== 'VIL' &&
+             !name.includes('กรม') &&
+             !name.includes('department');
+    })
+    .map(pos => {
+      // ดึง label และตัดคำว่า "เจ้าหน้าที่" ออก
+      let label = pos.name_th || pos.label || pos.position_name || pos.name || pos.id || "";
+      label = label.replace(/^เจ้าหน้าที่\s*/, '');
+
+      // หาว่าตรงกับ category ไหนและเปลี่ยนชื่อ
+      for (const config of orderConfig) {
+        if (config.contains.some(keyword => label.includes(keyword))) {
+          label = config.newName;
+          return { value: pos.code || pos.id, label, orderKey: config.key };
+        }
+      }
+
+      return { value: pos.code || pos.id, label, orderKey: 'other' };
+    });
+
+  // เรียงลำดับตาม orderConfig
+  const ordered = mapped.sort((a, b) => {
+    const order = ['zone', 'province', 'district', 'hospital'];
+    const aIndex = order.indexOf(a.orderKey);
+    const bIndex = order.indexOf(b.orderKey);
+    return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+  });
+
+  return ordered;
 }
 
 // แปลงเมนูจาก API เป็นรูปแบบที่ใช้งานได้
@@ -211,6 +248,7 @@ export default function ManageAccess() {
   }
 
   async function handleSave() {
+    setShowSuccess(true);
     setSaving(true);
     try {
       // บันทึก permissions สำหรับ role
@@ -240,9 +278,9 @@ export default function ManageAccess() {
 
       savedAccess.current = JSON.parse(JSON.stringify(menuAccess));
       savedRole.current = role;
-      setShowSuccess(true);
     } catch (error) {
       console.error("Failed to save:", error);
+      setShowSuccess(false);
       alert("บันทึกไม่สำเร็จ กรุณาลองใหม่");
     } finally {
       setSaving(false);
@@ -387,35 +425,71 @@ export default function ManageAccess() {
           </ButtonService>
         </div>
 
-        {/* Success Popup */}
+        {/* Success Popup - Windows Style (THAI_PHC) */}
         {showSuccess && (
           <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-[rgba(48,16,81,0.12)]"
-            onClick={() => setShowSuccess(false)}
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-50"
+            onClick={!saving ? () => setShowSuccess(false) : undefined}
           >
             <div
-              className="bg-white rounded-2xl shadow-lg px-8 py-10 flex flex-col items-center"
+              className="relative bg-white rounded-lg shadow-xl flex flex-col items-center overflow-hidden"
               style={{
                 minWidth: 340,
                 maxWidth: "90vw",
-                border: "2px solid #ede7fa",
-                boxShadow: "0 8px 32px #c9b7f7",
               }}
               onClick={e => e.stopPropagation()}
             >
-              <CheckCircle size={60} color="#05FB26" className="mb-3" />
-              <div className="text-[20px] font-extrabold text-[#05FB26] mb-1">บันทึกสำเร็จ!</div>
-              <div className="text-[16px] text-[#231d37] mb-4 text-center">
-                ข้อมูลสิทธิ์การเข้าถึงถูกบันทึกเรียบร้อยแล้ว
-              </div>
-              <ButtonService
-                variant="primary"
-                size="md"
-                onClick={() => setShowSuccess(false)}
-                style={{ marginTop: 10 }}
-              >
-                ปิด
-              </ButtonService>
+              {saving ? (
+                <>
+                  {/* Loading State */}
+                  <div className="flex justify-center my-6">
+                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                      <Loader2 size={32} className="text-purple-600 animate-spin" />
+                    </div>
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 text-center mb-2 px-6">
+                    กำลังบันทึก...
+                  </div>
+                  <div className="text-gray-600 text-center mb-6 px-6">
+                    กรุณารอสักครู่
+                  </div>
+                  <div className="w-full px-6 pb-6">
+                    <div className="bg-gray-100 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          กำลังบันทึกข้อมูล...
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-purple-600 h-2.5 rounded-full animate-pulse" style={{ width: "60%" }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Success State */}
+                  <div className="flex justify-center my-6">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle size={32} className="text-green-600" strokeWidth={3} />
+                    </div>
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 text-center mb-2 px-6">
+                    บันทึกสำเร็จ!
+                  </div>
+                  <div className="text-gray-600 text-center mb-6 px-6">
+                    ข้อมูลสิทธิ์การเข้าถึงถูกบันทึกเรียบร้อยแล้ว
+                  </div>
+                  <div className="w-full px-6 pb-6">
+                    <button
+                      onClick={() => setShowSuccess(false)}
+                      className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                    >
+                      ปิด
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
