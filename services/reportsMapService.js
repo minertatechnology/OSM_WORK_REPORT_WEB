@@ -39,6 +39,7 @@ class ReportsMapService {
       if (filters.province_id) params.append("province_id", filters.province_id);
       if (filters.district_id) params.append("district_id", filters.district_id);
       if (filters.subdistrict_id) params.append("subdistrict_id", filters.subdistrict_id);
+      if (filters.health_service_id) params.append("health_service_id", filters.health_service_id);
 
       const token = getAccessToken();
       console.log("🔑 Token for map-data:", token ? `${token.substring(0, 20)}...` : "NO TOKEN");

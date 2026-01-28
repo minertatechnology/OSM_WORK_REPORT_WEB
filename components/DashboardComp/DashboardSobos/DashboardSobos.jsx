@@ -562,6 +562,12 @@ const DashboardSobos = () => {
         console.log("🔒 Using locked subdistrict:", defaultSubdistrict, "name:", filters.subdistrict, "id:", filters.subdistrict_id);
       }
 
+      // ✅ Health Service filter (หน่วยบริการ)
+      if (service) {
+        filters.health_service_id = service;
+        console.log("✅ Using health_service_id:", service);
+      }
+
       // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
       let osmData = [];
       if (service) {
