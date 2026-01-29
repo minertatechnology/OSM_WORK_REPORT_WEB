@@ -27,7 +27,7 @@ import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import ElderlyScreeningDetail from "./ElderlyScreeningDetail/ElderlyScreeningDetail";
 import elderlyScreeningService from "@services/elderlyScreeningService";
-import oauth2Service from "@services/oauth2Service";
+import { getOsmById } from "@services/lookupService";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 import { getOsmByHealthService } from "@services/lookupService";
@@ -782,12 +782,15 @@ const ElderlyScreeningComp = () => {
         setOsmDataByService([]);
       }
 
-      // ล้าง cache ข้อมูล OAuth2 ก่อน
-      oauth2Service.clearCache();
-
-      // ดึงข้อมูลผู้สูงอายุทั้งหมด - ส่ง filter parameters (health_region, province, province_id, district, district_id, subdistrict, subdistrict_id, etc.)
-      // Backend รองรับทั้ง text (ชื่อภาษาไทย) และ id
-      const data = await elderlyScreeningService.getAll({ skip: 0, limit: 1000, ...apiParams });
+      // ดึงข้อมูลผู้สูงอายุทั้งหมด - ส่งเฉพาะ date filters (ไม่ส่ง location filters)
+      // Smart OSM API ไม่รองรับ location filters, จะกรองตามพื้นที่ใน frontend ด้วย OSM data
+      const dateFilters = {
+        skip: 0,
+        limit: 1000,
+        start_date: apiParams.start_date,
+        end_date: apiParams.end_date,
+      };
+      const data = await elderlyScreeningService.getAll(dateFilters);
 
       if (data.length === 0) {
         console.warn("Empty data received from API");
@@ -816,9 +819,32 @@ const ElderlyScreeningComp = () => {
       const yearsList = Array.from(yearsSet).sort((a, b) => b - a);
       setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear?.toString() || "2568"]);
 
-      // ดึงข้อมูลผู้ใช้จาก OAuth2
+      // ดึงข้อมูลผู้ใช้จาก OSM API (แทน OAuth2)
       const externalUserIds = aggregated.map((item) => item.external_user_id);
-      const users = await oauth2Service.getBatch(externalUserIds);
+      const osmDataPromises = externalUserIds.map((id) => getOsmById(id));
+      const osmResults = await Promise.allSettled(osmDataPromises);
+
+      // สร้าง map ข้อมูลผู้ใช้จาก OSM API response
+      const users = {};
+      osmResults.forEach((result, index) => {
+        if (result.status === "fulfilled" && result.value) {
+          const osmData = result.value;
+          const userId = externalUserIds[index];
+          users[userId] = {
+            id: osmData.id,
+            name: `${osmData.prefix_name_th || ""}${osmData.first_name || ""} ${osmData.last_name || ""}`.trim(),
+            citizen_id: osmData.citizen_id || "",
+            province_id: osmData.province_id || "",
+            province_name_th: osmData.province_name_th || "",
+            district_id: osmData.district_id || "",
+            district_name_th: osmData.district_name_th || "",
+            subdistrict_id: osmData.subdistrict_id || "",
+            subdistrict_name_th: osmData.subdistrict_name_th || "",
+            health_service_id: osmData.health_service_id || "",
+            health_service_name_th: osmData.health_service_name_th || "",
+          };
+        }
+      });
 
       setUserDataMap(users);
     } catch (err) {
@@ -865,17 +891,26 @@ const ElderlyScreeningComp = () => {
 
     // ใช้ aggregatedData แทน records
     const result = (aggregatedData || []).map((assessorData) => {
-      // ดึงข้อมูลผู้ใช้จาก OAuth2
+      // ดึงข้อมูลผู้ใช้จาก OSM API
       const userData = userDataMap[assessorData.external_user_id];
 
-      // ใช้ชื่อที่ service สร้างไว้แล้ว (มีชื่อเต็มอยู่แล้ว)
+      // ใช้ชื่อจาก OSM API
       const assessorName = userData?.name || "ไม่ระบุชื่อ";
 
       // แปลงวันที่เป็นรูปแบบไทย: "25 มิถุนายน 2568"
       const thaiDate = formatThaiDate(assessorData.latest_date);
 
-      // ดึง location_data จาก screening แรก (ถ้ามี)
-      const location_data = assessorData.screenings?.[0]?.location_data || {};
+      // ใช้ location data จาก OSM API (มี province_id, district_id, subdistrict_id, health_service_id)
+      const locationData = {
+        province_id: userData?.province_id || "",
+        province_name_th: userData?.province_name_th || "",
+        district_id: userData?.district_id || "",
+        district_name_th: userData?.district_name_th || "",
+        subdistrict_id: userData?.subdistrict_id || "",
+        subdistrict_name_th: userData?.subdistrict_name_th || "",
+        health_service_id: userData?.health_service_id || "",
+        health_service_name_th: userData?.health_service_name_th || "",
+      };
 
       return {
         id: assessorData.external_user_id,
@@ -884,7 +919,7 @@ const ElderlyScreeningComp = () => {
         _thaiDate: thaiDate,
         _elderlyCount: assessorData.count,
         screenings: assessorData.screenings,
-        location_data: location_data,
+        location_data: locationData,
       };
     }).filter((row) => {
       // Year filtering
@@ -934,7 +969,7 @@ const ElderlyScreeningComp = () => {
       }
 
       // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
-      // กรองตาม location_data
+      // กรองตาม OSM API data
       const locationData = row.location_data || {};
 
       // กรองตามเขตสุขภาพ
@@ -942,7 +977,7 @@ const ElderlyScreeningComp = () => {
         const selectedHealthArea = healthAreas.find(h => h.code === zone);
         if (selectedHealthArea && selectedHealthArea.provinces) {
           const provinceInHealthArea = selectedHealthArea.provinces.find(
-            p => p.name_th === locationData.region
+            p => p.name_th === locationData.province_name_th
           );
           if (!provinceInHealthArea) {
             return false;
@@ -951,21 +986,21 @@ const ElderlyScreeningComp = () => {
       }
 
       const selectedProvince = provinces.find(p => p.code === province);
-      const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
+      const provinceMatch = !province || locationData.province_name_th === selectedProvince?.name_th;
 
       const selectedDistrict = districts.find(d => d.code === district);
-      const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
+      const districtMatch = !district || locationData.district_name_th === selectedDistrict?.name_th;
 
       const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
-      const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
+      const subdistrictMatch = !subdistrict || locationData.subdistrict_name_th === selectedSubdistrict?.name_th;
 
       // กรองตาม keyword
       const keywordMatch = !keywordLower || (
         row._assessorName.toLowerCase().includes(keywordLower) ||
         (row.external_user_id || "").toLowerCase().includes(keywordLower) ||
-        locationData.region?.toLowerCase().includes(keywordLower) ||
-        locationData.city?.toLowerCase().includes(keywordLower) ||
-        locationData.district?.toLowerCase().includes(keywordLower)
+        locationData.province_name_th?.toLowerCase().includes(keywordLower) ||
+        locationData.district_name_th?.toLowerCase().includes(keywordLower) ||
+        locationData.subdistrict_name_th?.toLowerCase().includes(keywordLower)
       );
 
       return provinceMatch && districtMatch && subdistrictMatch && keywordMatch;

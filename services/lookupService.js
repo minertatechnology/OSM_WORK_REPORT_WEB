@@ -1,4 +1,29 @@
 import axiosInstance from "./axiosInstance";
+import axios from "axios";
+import { getAuthToken } from "../utils/tokenHelper";
+
+// สร้าง axios instance สำหรับ OSM API (เหมือนกับ oauth2Service.js)
+const osmApi = axios.create({
+  baseURL: "https://thaiphc2dev.minertatech.com/api/v1",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  timeout: 30000,
+});
+
+// เพิ่ม interceptor สำหรับ token authentication
+osmApi.interceptors.request.use(
+  (config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 /**
  * Lookup Service
@@ -325,6 +350,40 @@ export const getOsmByHealthService = async (healthServiceId) => {
 };
 
 /**
+ * ดึงข้อมูล OSM ตาม ID
+ * @param {string} osmId - รหัส OSM (id หรือ external_user_id)
+ * @returns {Promise} - Promise containing OSM data object with fields:
+ * - id, citizen_id, prefix_name_th, first_name, last_name, phone, email
+ * - province_id, province_name_th, district_id, district_name_th
+ * - subdistrict_id, subdistrict_name_th, health_service_id, health_service_name_th
+ * - address_number, alley, street, village_no, village_name, postal_code
+ * - และข้อมูลส่วนตัวอื่นๆ
+ */
+export const getOsmById = async (osmId) => {
+  if (!osmId) return null;
+
+  try {
+    // ใช้ osmApi แทน axiosInstance เพื่อให้สอดคล้องกับ oauth2Service.js
+    const response = await osmApi.get(`/osm/${osmId}`);
+
+    // Parse response data - รองรับหลายรูปแบบ
+    // ตรวจสอบว่า response มีข้อมูลหรือไม่
+    if (!response.data || !response.data.data) {
+      throw new Error("No data in response");
+    }
+
+    // ข้อมูลจริงอยู่ใน response.data.data (เหมือนกับ oauth2Service.js)
+    return response.data.data;
+  } catch (error) {
+    // ไม่ log error 404
+    if (error?.response?.status !== 404) {
+      console.error(`Error fetching OSM by ID ${osmId}:`, error.response?.status, error.response?.data);
+    }
+    return null;
+  }
+};
+
+/**
  * ดึงรายการตำแหน่ง/บทบาทเจ้าหน้าที่
  * @param {Object} params - Query parameters
  * @returns {Promise} - Promise containing positions data
@@ -378,6 +437,7 @@ export default {
   getHealthAreas,
   getHealthServices,
   getOsmByHealthService,
+  getOsmById,
   getPositions,
   clearLookupCache,
 };
