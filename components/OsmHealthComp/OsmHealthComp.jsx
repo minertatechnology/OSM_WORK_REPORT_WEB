@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   Download,
@@ -18,8 +18,7 @@ import {
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getHealthRecords } from "@services/healthRecordService";
 import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
-import { getUserByExternalId } from "@services/oauth2Service";
-import { getOsmByHealthService } from "@services/lookupService";
+import { getOsmById, getOsmByHealthService } from "@services/lookupService";
 import * as XLSX from "xlsx";
 import {
   getCurrentFiscalYear,
@@ -31,6 +30,7 @@ import {
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
+import { buildFilterParams, addDateFilters } from "@utils/filterParamsHelper";
 
 // Thai month names
 const THAI_MONTHS = [
@@ -94,6 +94,65 @@ const formatThaiDate = (dateString) => {
 
   return `${day} ${month} ${year}`;
 };
+
+// Health zone mapping - maps province_id to health_region (เขตสุขภาพ)
+// ใช้ province_id (code) เพื่อหาว่าจังหวัดนั้นอยู่ในเขตสุขภาพไหน
+// อ้างอิงจาก /lookups/health-areas API
+const HEALTH_ZONE_MAP = {
+  // เขตสุขภาพ 1: เชียงราย, เชียงใหม่, น่าน, พะเยา, แพร่, แม่ฮ่องสอน, ลำปาง, ลำพูน
+  "57": 1, "50": 1, "55": 1, "56": 1, "54": 1, "58": 1, "52": 1, "51": 1,
+  // เขตสุขภาพ 2: ตาก, พิษณุโลก, เพชรบูรณ์, สุโขทัย, อุตรดิตถ์
+  "63": 2, "65": 2, "67": 2, "64": 2, "53": 2,
+  // เขตสุขภาพ 3: กำแพงเพชร, ชัยนาท, นครสวรรค์, พิจิตร, อุทัยธานี
+  "62": 3, "18": 3, "60": 3, "66": 3, "61": 3,
+  // เขตสุขภาพ 4: นครนายก, นนทบุรี, ปทุมธานี, พระนครศรีอยุธยา, ลพบุรี, สระบุรี, สิงห์บุรี, อ่างทอง
+  "26": 4, "12": 4, "13": 4, "14": 4, "16": 4, "19": 4, "17": 4, "15": 4,
+  // เขตสุขภาพ 5: กาญจนบุรี, นครปฐม, ประจวบคีรีขันธ์, เพชรบุรี, ราชบุรี, สมุทรสงคราม, สมุทรสาคร, สุพรรณบุรี
+  "71": 5, "73": 5, "77": 5, "76": 5, "70": 5, "75": 5, "74": 5, "72": 5,
+  // เขตสุขภาพ 6: จันทบุรี, ฉะเชิงเทรา, ชลบุรี, ตราด, ปราจีนบุรี, ระยอง, สมุทรปราการ, สระแก้ว
+  "22": 6, "24": 6, "20": 6, "23": 6, "25": 6, "21": 6, "11": 6, "27": 6,
+  // เขตสุขภาพ 7: กาฬสินธุ์, ขอนแก่น, มหาสารคาม, ร้อยเอ็ด
+  "46": 7, "40": 7, "44": 7, "45": 7,
+  // เขตสุขภาพ 8: นครพนม, บึงกาฬ, เลย, สกลนคร, หนองคาย, หนองบัวลำภู, อุดรธานี
+  "48": 8, "38": 8, "42": 8, "47": 8, "43": 8, "39": 8, "41": 8,
+  // เขตสุขภาพ 9: ชัยภูมิ, นครราชสีมา, บุรีรัมย์, สุรินทร์
+  "36": 9, "30": 9, "31": 9, "32": 9,
+  // เขตสุขภาพ 10: มุกดาหาร, ยโสธร, ศรีสะเกษ, อำนาจเจริญ, อุบลราชธานี
+  "49": 10, "35": 10, "33": 10, "37": 10, "34": 10,
+  // เขตสุขภาพ 11: กระบี่, ชุมพร, นครศรีธรรมราช, พังงา, ภูเก็ต, ระนอง, สุราษฎร์ธานี
+  "81": 11, "86": 11, "80": 11, "82": 11, "83": 11, "85": 11, "84": 11,
+  // เขตสุขภาพ 12: ตรัง, นราธิวาส, ปัตตานี, พัทลุง, ยะลา, สงขลา, สตูล
+  "92": 12, "96": 12, "94": 12, "93": 12, "95": 12, "90": 12, "91": 12,
+  // เขตสุขภาพ 13: กรุงเทพมหานคร
+  "10": 13,
+};
+
+/**
+ * ตรวจสอบว่า province_id อยู่ใน health_zone ที่ระบุหรือไม่
+ */
+function isInHealthZone(provinceId, healthZone) {
+  if (!provinceId || !healthZone) return true;
+  const zone = HEALTH_ZONE_MAP[String(provinceId)];
+  return zone === healthZone;
+}
+
+/**
+ * ค้นหา district_id จากชื่ออำเภอภาษาไทย
+ */
+function findDistrictIdByName(thaiName, districts) {
+  if (!thaiName || !districts.length) return null;
+  const found = districts.find(d => d.name_th === thaiName);
+  return found ? found.code : null;
+}
+
+/**
+ * ค้นหา subdistrict_id จากชื่อตำบลภาษาไทย
+ */
+function findSubdistrictIdByName(thaiName, subdistricts) {
+  if (!thaiName || !subdistricts.length) return null;
+  const found = subdistricts.find(sd => sd.name_th === thaiName);
+  return found ? found.code : null;
+}
 
 // Pagination helpers
 const PER_PAGE_OPTIONS = [
@@ -242,7 +301,7 @@ const OsmHealthComp = () => {
   const dropdownRef = useRef(null);
 
   // Use permission-based filters
-  const { isLocked } = useUserPermission();
+  const { lockLevel, getInitialFilters } = useUserPermission();
   const {
     yearType,
     year,
@@ -271,6 +330,27 @@ const OsmHealthComp = () => {
     isServiceDisabled,
   } = usePermissionFilters({ currentFiscalYear });
 
+  // Build filter params for backend API (supports both text and ID)
+  const filterParams = useMemo(() => {
+    return buildFilterParams({
+      zone,
+      province,
+      district,
+      subdistrict,
+      health_service_id: service,
+      provinces,
+      districts,
+      subdistricts,
+      lockLevel,
+      getInitialFilters,
+    });
+  }, [zone, province, district, subdistrict, service, provinces, districts, subdistricts, lockLevel, getInitialFilters]);
+
+  // Add date filters to params
+  const apiParams = useMemo(() => {
+    return addDateFilters(filterParams, year, month, yearType);
+  }, [filterParams, year, month, yearType]);
+
   // Data state
   const [healthRecords, setHealthRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -297,9 +377,8 @@ const OsmHealthComp = () => {
     return citizenId.slice(0, -4) + "****";
   };
 
-  // State for OSM data
+  // State for OSM data (for service filtering)
   const [osmDataByService, setOsmDataByService] = useState([]);
-  const [osmDataMap, setOsmDataMap] = useState(new Map());
 
   // แปลงข้อมูล location เป็น options สำหรับ CustomSelect (ใช้เฉพาะชื่อภาษาไทย)
   const healthAreaOptions = healthAreas.map(ha => ({
@@ -327,40 +406,14 @@ const OsmHealthComp = () => {
     value: hs.id
   }));
 
-  // Fetch health records and OSM data on mount
+  // Fetch health records on mount
   useEffect(() => {
     const fetchHealthRecords = async () => {
       try {
         setIsLoading(true);
-        const data = await getHealthRecords({ limit: 1000 });
+        // ส่ง filterParams ไป backend (รองรับทั้ง text และ ID)
+        const data = await getHealthRecords({ limit: 1000, ...apiParams });
         setHealthRecords(data || []);
-
-        // ดึง external_user_ids ทั้งหมด
-        const externalUserIds = data
-          .map(item => item.external_user_id)
-          .filter(Boolean);
-
-        // ดึงข้อมูล OSM ของผู้ใช้ทั้งหมดแบบ batch
-        const osmUsers = await Promise.all(
-          externalUserIds.map(async (id) => {
-            try {
-              return await getUserByExternalId(id);
-            } catch (error) {
-              console.error(`Failed to fetch OSM data for ${id}:`, error);
-              return null;
-            }
-          })
-        );
-
-        // สร้าง Map ของ OSM data ตาม external_user_id
-        const osmMap = new Map();
-        osmUsers.forEach(osm => {
-          if (osm && osm.external_user_id) {
-            osmMap.set(osm.external_user_id, osm);
-          }
-        });
-
-        setOsmDataMap(osmMap);
       } catch (error) {
         console.error("Failed to fetch health records:", error);
         setHealthRecords([]);
@@ -369,7 +422,7 @@ const OsmHealthComp = () => {
       }
     };
     fetchHealthRecords();
-  }, []);
+  }, [apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
 
   // Fetch OSM data when service is selected
   useEffect(() => {
@@ -422,9 +475,6 @@ const OsmHealthComp = () => {
         }
       }
 
-      // Get OSM data for this record
-      const osmUser = osmDataMap.get(record.external_user_id);
-
       // Service filtering (เฉพาะบริการสุขภาพอสม.)
       // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
       // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
@@ -433,25 +483,92 @@ const OsmHealthComp = () => {
         if (!record.external_user_id || !osmIdSet.has(record.external_user_id)) {
           return false;
         }
-      } else if (!service) {
-        // ถ้าไม่ได้เลือกหน่วยบริการ ให้กรองตามตำแหน่ง
-        // Province filtering
-        if (province && osmUser) {
-          if (osmUser.province_name_th !== province) {
+      } else {
+        // ใช้ location_data_resolved จาก health record เท่านั้น
+        const resolvedData = record.location_data_resolved;
+
+        // ถ้าไม่มี location_data_resolved ให้ return false (ไม่มีข้อมูลตำแหน่ง ไม่สามารถกรองได้)
+        if (!resolvedData) {
+          return false;
+        }
+
+        // Debug: แสดงข้อมูลเมื่อกรอง
+        if (zone || province || district || subdistrict) {
+          console.log("🔍 Filtering record:", {
+            external_user_id: record.external_user_id,
+            locationData: {
+              district: resolvedData.district,
+              subdistrict: resolvedData.subdistrict,
+              province: resolvedData.province,
+              district_id: resolvedData.district_id,
+              subdistrict_id: resolvedData.subdistrict_id,
+              province_id: resolvedData.province_id,
+              health_area: resolvedData.health_area,
+              health_area_id: resolvedData.health_area_id,
+            },
+            filter: { zone, province, district, subdistrict },
+          });
+        }
+
+        // ใช้ข้อมูลจาก location_data_resolved เท่านั้น
+        const provinceName = resolvedData.province;
+        const districtName = resolvedData.district;
+        const subdistrictName = resolvedData.subdistrict;
+        const provinceId = resolvedData.province_id;
+        const districtId = resolvedData.district_id;
+        const subdistrictId = resolvedData.subdistrict_id;
+
+        // Debug: แสดงผลลัพธ์การดึงชื่อ
+        if (zone || province || district || subdistrict) {
+          console.log("📍 Extracted Names:", {
+            from: "location_data_resolved",
+            provinceName,
+            districtName,
+            subdistrictName,
+            ids: { provinceId, districtId, subdistrictId },
+            filter: { zone, province, district, subdistrict },
+            selectedItems: {
+              province: provinces.find(p => p.code === province),
+              district: districts.find(d => d.code === district),
+              subdistrict: subdistricts.find(s => s.code === subdistrict),
+            },
+          });
+        }
+
+        // Zone filtering - ใช้ provinceId ที่แปลงได้จากชื่อจังหวัด
+        if (zone) {
+          const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+          if (provinceId) {
+            const provinceInZone = isInHealthZone(provinceId, zoneNumber);
+            if (!provinceInZone) {
+              return false;
+            }
+          } else {
+            // ถ้าไม่สามารถแปลงชื่อจังหวัดเป็น ID ได้ ให้ return false
             return false;
           }
         }
 
-        // District filtering
-        if (district && osmUser) {
-          if (osmUser.district_name_th !== district) {
+        // Province filtering - เปรียบเทียบชื่อโดยตรง
+        if (province) {
+          const selectedProvince = provinces.find(p => p.code === province);
+          if (!selectedProvince || provinceName !== selectedProvince.name_th) {
             return false;
           }
         }
 
-        // Subdistrict filtering
-        if (subdistrict && osmUser) {
-          if (osmUser.subdistrict_name_th !== subdistrict) {
+        // District filtering - เปรียบเทียบชื่อโดยตรง (ใช้ resolvedData.district)
+        if (district) {
+          const selectedDistrict = districts.find(d => d.code === district);
+          if (!selectedDistrict || districtName !== selectedDistrict.name_th) {
+            return false;
+          }
+        }
+
+        // Subdistrict filtering - เปรียบเทียบชื่อโดยตรง (ใช้ resolvedData.subdistrict)
+        if (subdistrict) {
+          const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
+          if (!selectedSubdistrict || subdistrictName !== selectedSubdistrict.name_th) {
             return false;
           }
         }
@@ -459,7 +576,7 @@ const OsmHealthComp = () => {
 
       return true;
     });
-  }, [healthRecords, year, month, yearType, service, osmDataByService, osmDataMap, province, district, subdistrict]);
+  }, [healthRecords, year, month, yearType, service, osmDataByService, zone, province, district, subdistrict, provinces, districts, subdistricts]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
@@ -544,11 +661,11 @@ const OsmHealthComp = () => {
       // ดึงข้อมูลจาก OSM API สำหรับทุก record
       const excelData = await Promise.all(
         filteredRecords.map(async (record, index) => {
-          // ดึงข้อมูล OSM ถ้ามี external_user_id
+          // ดึงข้อมูล OSM ถ้ามี external_user_id (ใช้ getOsmById แทน getUserByExternalId)
           let osmData = null;
           if (record.external_user_id) {
             try {
-              osmData = await getUserByExternalId(record.external_user_id);
+              osmData = await getOsmById(record.external_user_id);
             } catch (error) {
               console.error(`Failed to fetch OSM data for ${record.external_user_id}:`, error);
             }
