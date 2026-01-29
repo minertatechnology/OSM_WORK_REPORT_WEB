@@ -96,8 +96,11 @@ export default function UserPermissionProvider({ children }) {
           const userScope = {
             zone: codes.health_area_id || '',
             province: codes.province_id || '',
+            province_name_th: codes.province_name_th || '',
             district: codes.district_id || '',
+            district_name_th: codes.district_name_th || '',
             subdistrict: codes.subdistrict_id || '',
+            subdistrict_name_th: codes.subdistrict_name_th || '',
             unit: data.service_unit?.code || '',
           };
 
@@ -142,14 +145,17 @@ export default function UserPermissionProvider({ children }) {
 
   /**
    * Get initial filter values based on user scope
-   * @returns {Object} - { zone, province, district, subdistrict, service }
+   * @returns {Object} - { zone, province, province_name_th, district, district_name_th, subdistrict, subdistrict_name_th, service }
    */
   const getInitialFilters = () => {
     return {
       zone: scope.zone || '',
       province: scope.province || '',
+      province_name_th: scope.province_name_th || '',
       district: scope.district || '',
+      district_name_th: scope.district_name_th || '',
       subdistrict: scope.subdistrict || '',
+      subdistrict_name_th: scope.subdistrict_name_th || '',
       service: scope.unit || '',
     };
   };

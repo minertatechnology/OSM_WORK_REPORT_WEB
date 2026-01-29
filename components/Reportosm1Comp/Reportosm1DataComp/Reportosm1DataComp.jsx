@@ -706,10 +706,22 @@ const Reportosm1DataComp = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // Build query string - ไม่ส่ง location filters ไป backend เพื่อให้ frontend กรองเอง
+        const queryString = new URLSearchParams({
+          skip: 0,
+          limit: 1000,
+          // ไม่ส่ง location filters (zone, province, district, subdistrict) ไป backend
+          // ให้ frontend กรองเองจาก user_location
+        }).toString();
+
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?skip=0&limit=1000`
+          `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`
         );
         const data = await response.json();
+
+        console.log("📥 [OSM1] Reports from backend:", {
+          totalReports: data.length,
+        });
 
         // ดึงรายการ external_user_id ทั้งหมด
         const externalUserIds = data.map(item => item.external_user_id).filter(Boolean);
@@ -717,17 +729,43 @@ const Reportosm1DataComp = () => {
         // ดึงข้อมูลผู้ใช้จาก OAuth2 API
         const usersMap = await getUsersBatch(externalUserIds);
 
-        // ผสานข้อมูลชื่อและที่อยู่เข้ากับข้อมูล submission
+        // Debug: แสดงข้อมูล OSM แรก
+        if (externalUserIds.length > 0) {
+          console.log("📥 [OSM1] OSM Data from API:", {
+            totalUserIds: externalUserIds.length,
+            firstUserId: externalUserIds[0],
+            sampleUserData: usersMap[externalUserIds[0]],
+          });
+        }
+
+        // ผสานข้อมูลชื่อและที่อยู่เข้ากับข้อมูล submission (ใช้ข้อมูลจาก OSM ใหม่)
         const enrichedData = data.map(item => {
           const userData = usersMap[item.external_user_id];
+          const userLocation = {
+            province_id: userData?.province_id,
+            province_name_th: userData?.province_name_th,
+            district_id: userData?.district_id,
+            district_name_th: userData?.district_name_th,
+            subdistrict_id: userData?.subdistrict_id,
+            subdistrict_name_th: userData?.subdistrict_name_th,
+            village_no: userData?.village_no,
+            health_service_id: userData?.health_service_id,
+            health_service_name_th: userData?.health_service_name_th,
+          };
+
+          // Debug: แสดงข้อมูล user แรก
+          if (item === data[0]) {
+            console.log("👤 [OSM1] Sample user data:", {
+              userId: item.external_user_id,
+              userData: userData,
+              userLocation: userLocation,
+            });
+          }
+
           return {
             ...item,
             userName: userData?.name || item.external_user_id || "ไม่ระบุชื่อ",
-            user_location: {
-              province_name_th: userData?.province_name_th,
-              district_name_th: userData?.district_name_th,
-              subdistrict_name_th: userData?.subdistrict_name_th,
-            }
+            user_location: userLocation,
           };
         });
 
@@ -741,7 +779,7 @@ const Reportosm1DataComp = () => {
     };
 
     fetchData();
-  }, []);
+  }, []); // ไม่ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน - ให้ frontend กรองเอง
 
   // Transform API data to table format
   const ALL_ROWS = useMemo(() => {

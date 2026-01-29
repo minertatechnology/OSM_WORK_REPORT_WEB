@@ -27,9 +27,8 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
-import { getUserByExternalId } from "@services/oauth2Service";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
-import { getOsmByHealthService } from "@services/lookupService";
+import { getOsmByHealthService, getOsmById } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -126,38 +125,34 @@ const PER_PAGE_OPTIONS = [
 
 // Health zone mapping - maps province_id to health_region (เขตสุขภาพ)
 // ใช้ province_id (code) เพื่อหาว่าจังหวัดนั้นอยู่ในเขตสุขภาพไหน
+// อ้างอิงจาก /lookups/health-areas API
 const HEALTH_ZONE_MAP = {
-  // เขตสุขภาพ 1
-  "1": 1, "10": 1, "11": 1, "12": 1, "13": 1, "15": 1, "16": 1, "17": 1, "18": 1, "19": 1,
-  "20": 1, "21": 1, "22": 1, "24": 1, "25": 1, "26": 1, "27": 1, "30": 1, "31": 1, "72": 1,
-  // เขตสุขภาพ 2
-  "2": 2, "40": 2, "41": 2, "42": 2, "43": 2, "44": 2, "45": 2, "46": 2, "47": 2, "48": 2,
-  "49": 2, "50": 2, "51": 2, "52": 2, "53": 2, "60": 2, "81": 2, "82": 2, "83": 2,
-  // เขตสุขภาพ 3
-  "54": 3, "55": 3, "56": 3, "57": 3, "58": 3, "70": 3, "71": 3, "73": 3, "74": 3, "75": 3,
-  "76": 3, "77": 3,
-  // เขตสุขภาพ 4
-  "80": 4, "84": 4, "85": 4, "86": 4,
-  // เขตสุขภาพ 5
-  "32": 5, "33": 5, "34": 5, "35": 5, "36": 5, "37": 5, "38": 5, "39": 5,
-  // เขตสุขภาพ 6
-  "62": 6, "63": 6, "64": 6, "65": 6, "66": 6, "67": 6,
-  // เขตสุขภาพ 7
-  "59": 7, "61": 7, "87": 7, "88": 7, "89": 7, "90": 7, "91": 7, "92": 7, "93": 7, "94": 7,
-  "95": 7, "96": 7,
-  // เขตสุขภาพ 8
-  "14": 8, "23": 8, "28": 8, "29": 8,
-  // เขตสุขภาพ 9
-  "97": 9,
-  // เขตสุขภาพ 10
-  "98": 10, "99": 10,
-  // เขตสุขภาพ 11
-  "100": 11, "101": 11, "102": 11,
-  // เขตสุขภาพ 12
-  "103": 12, "104": 12,
-  // เขตสุขภาพ 13
-  "13": 13, // ปทุมธานี
-  // เพิ่มจังหวัดอื่นๆ ในเขตสุขภาพ 13 ตามจริง
+  // เขตสุขภาพ 1: เชียงราย, เชียงใหม่, น่าน, พะเยา, แพร่, แม่ฮ่องสอน, ลำปาง, ลำพูน
+  "57": 1, "50": 1, "55": 1, "56": 1, "54": 1, "58": 1, "52": 1, "51": 1,
+  // เขตสุขภาพ 2: ตาก, พิษณุโลก, เพชรบูรณ์, สุโขทัย, อุตรดิตถ์
+  "63": 2, "65": 2, "67": 2, "64": 2, "53": 2,
+  // เขตสุขภาพ 3: กำแพงเพชร, ชัยนาท, นครสวรรค์, พิจิตร, อุทัยธานี
+  "62": 3, "18": 3, "60": 3, "66": 3, "61": 3,
+  // เขตสุขภาพ 4: นครนายก, นนทบุรี, ปทุมธานี, พระนครศรีอยุธยา, ลพบุรี, สระบุรี, สิงห์บุรี, อ่างทอง
+  "26": 4, "12": 4, "13": 4, "14": 4, "16": 4, "19": 4, "17": 4, "15": 4,
+  // เขตสุขภาพ 5: กาญจนบุรี, นครปฐม, ประจวบคีรีขันธ์, เพชรบุรี, ราชบุรี, สมุทรสงคราม, สมุทรสาคร, สุพรรณบุรี
+  "71": 5, "73": 5, "77": 5, "76": 5, "70": 5, "75": 5, "74": 5, "72": 5,
+  // เขตสุขภาพ 6: จันทบุรี, ฉะเชิงเทรา, ชลบุรี, ตราด, ปราจีนบุรี, ระยอง, สมุทรปราการ, สระแก้ว
+  "22": 6, "24": 6, "20": 6, "23": 6, "25": 6, "21": 6, "11": 6, "27": 6,
+  // เขตสุขภาพ 7: กาฬสินธุ์, ขอนแก่น, มหาสารคาม, ร้อยเอ็ด
+  "46": 7, "40": 7, "44": 7, "45": 7,
+  // เขตสุขภาพ 8: นครพนม, บึงกาฬ, เลย, สกลนคร, หนองคาย, หนองบัวลำภู, อุดรธานี
+  "48": 8, "38": 8, "42": 8, "47": 8, "43": 8, "39": 8, "41": 8,
+  // เขตสุขภาพ 9: ชัยภูมิ, นครราชสีมา, บุรีรัมย์, สุรินทร์
+  "36": 9, "30": 9, "31": 9, "32": 9,
+  // เขตสุขภาพ 10: มุกดาหาร, ยโสธร, ศรีสะเกษ, อำนาจเจริญ, อุบลราชธานี
+  "49": 10, "35": 10, "33": 10, "37": 10, "34": 10,
+  // เขตสุขภาพ 11: กระบี่, ชุมพร, นครศรีธรรมราช, พังงา, ภูเก็ต, ระนอง, สุราษฎร์ธานี
+  "81": 11, "86": 11, "80": 11, "82": 11, "83": 11, "85": 11, "84": 11,
+  // เขตสุขภาพ 12: ตรัง, นราธิวาส, ปัตตานี, พัทลุง, ยะลา, สงขลา, สตูล
+  "92": 12, "96": 12, "94": 12, "93": 12, "95": 12, "90": 12, "91": 12,
+  // เขตสุขภาพ 13: กรุงเทพมหานคร
+  "10": 13,
 };
 
 /**
@@ -982,9 +977,17 @@ const PregnantReportComp = () => {
       setIsLoadingUsers(true);
 
       try {
-        // 1. ดึงข้อมูลการประเมินทั้งหมด - ส่ง filter parameters (health_region, province, province_id, district, district_id, subdistrict, subdistrict_id, etc.)
-        // Backend รองรับทั้ง text (ชื่อภาษาไทย) และ id
-        const evaluations = await getAllPregnantWomenEvaluations({ skip: 0, limit: 1000, ...apiParams });
+        // 1. ดึงข้อมูลการประเมินทั้งหมด - ส่งเฉพาะ date filters
+        // Smart OSM API (pregnant-women-evaluations) ไม่รองรับ location filters
+        // เพราะข้อมูล location อยู่ใน OSM API, ไม่ใช่ใน evaluation data
+        // ดังนั้นจึงต้องดึงข้อมูลทั้งหมดมา แล้ว filter ด้วยข้อมูล OSM ใน frontend
+        const dateFilters = {
+          skip: 0,
+          limit: 1000,
+          start_date: apiParams.start_date,
+          end_date: apiParams.end_date,
+        };
+        const evaluations = await getAllPregnantWomenEvaluations(dateFilters);
         setAllEvaluations(evaluations); // เก็บข้อมูล evaluations ทั้งหมด
 
         // 1.1 สร้างรายการปีจาก created_at
@@ -1033,19 +1036,62 @@ const PregnantReportComp = () => {
 
         setPregnantData(formattedData);
 
-        // 4. ดึงข้อมูลผู้ใช้จาก OAuth2 API
+        // 4. ดึงข้อมูล OSM จาก OSM API (ใช้ getOsmById แทน OAuth2)
+        // เพราะ OSM API มีข้อมูลตำแหน่งที่ถูกต้อง (province_id, district_id, subdistrict_id, health_service_id)
         const newUserDataMap = new Map();
         const uniqueUserIds = [...new Set(aggregated.map(item => item.external_user_id))];
 
         await Promise.allSettled(
           uniqueUserIds.map(async (userId) => {
             try {
-              const userData = await getUserByExternalId(userId);
-              newUserDataMap.set(userId, userData);
+              const osmData = await getOsmById(userId);
+              if (osmData) {
+                // สร้างชื่อเต็มจากข้อมูล OSM
+                const fullName = `${osmData.prefix_name_th || ""}${osmData.first_name || ""} ${osmData.last_name || ""}`.trim();
+
+                newUserDataMap.set(userId, {
+                  id: osmData.id,
+                  name: fullName || "ไม่ระบุชื่อ",
+                  external_user_id: userId,
+                  citizen_id: osmData.citizen_id,
+                  phone: osmData.phone,
+                  email: osmData.email,
+                  // ข้อมูลตำแหน่ง - สำคัญสำหรับการ filter
+                  province_id: osmData.province_id,
+                  province_name_th: osmData.province_name_th,
+                  district_id: osmData.district_id,
+                  district_name_th: osmData.district_name_th,
+                  subdistrict_id: osmData.subdistrict_id,
+                  subdistrict_name_th: osmData.subdistrict_name_th,
+                  health_service_id: osmData.health_service_id,
+                  health_service_name_th: osmData.health_service_name_th,
+                  // ข้อมูลที่อยู่
+                  address_number: osmData.address_number,
+                  alley: osmData.alley,
+                  street: osmData.street,
+                  village_no: osmData.village_no,
+                  village_name: osmData.village_name,
+                  postal_code: osmData.postal_code,
+                  // ข้อมูลอื่นๆ
+                  birth_date: osmData.birth_date,
+                  gender: osmData.gender,
+                  marital_status: osmData.marital_status,
+                  occupation_name_th: osmData.occupation_name_th,
+                  education_name_th: osmData.education_name_th,
+                  blood_type: osmData.blood_type,
+                });
+              } else {
+                // Fallback ถ้าไม่พบข้อมูล OSM
+                newUserDataMap.set(userId, {
+                  id: userId,
+                  name: "ไม่ระบุชื่อ",
+                  external_user_id: userId,
+                });
+              }
             } catch (error) {
               // ไม่ log error 404
               if (error?.response?.status !== 404) {
-                console.error(`Failed to fetch user ${userId}:`, error);
+                console.error(`Failed to fetch OSM ${userId}:`, error);
               }
               // ใช้ข้อมูล fallback
               newUserDataMap.set(userId, {

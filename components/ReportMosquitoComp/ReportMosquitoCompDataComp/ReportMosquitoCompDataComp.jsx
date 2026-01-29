@@ -48,6 +48,7 @@ import {
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
+import { buildFilterParams, addDateFilters } from "@utils/filterParamsHelper";
 
 // Generate dynamic year options (last 5 years)
 const currentFiscalYear = getCurrentFiscalYear();
@@ -767,7 +768,7 @@ const ReportMosquitoCompDataComp = () => {
   const searchParams = useSearchParams();
 
   // Use permission-based filters
-  const { isLocked } = useUserPermission();
+  const { isLocked, lockLevel, getInitialFilters } = useUserPermission();
   const {
     yearType,
     year,
@@ -803,6 +804,27 @@ const ReportMosquitoCompDataComp = () => {
     defaultYearType: "fiscal",
     includeWeek: true, // Enable week filtering for this component
   });
+
+  // Build filter params for backend API (supports both text and ID)
+  const filterParams = useMemo(() => {
+    return buildFilterParams({
+      zone,
+      province,
+      district,
+      subdistrict,
+      health_service_id: service,
+      provinces,
+      districts,
+      subdistricts,
+      lockLevel,
+      getInitialFilters,
+    });
+  }, [zone, province, district, subdistrict, service, provinces, districts, subdistricts, lockLevel, getInitialFilters]);
+
+  // Add date filters to params
+  const apiParams = useMemo(() => {
+    return addDateFilters(filterParams, year, month, yearType);
+  }, [filterParams, year, month, yearType]);
 
   // Generate dynamic week options based on selected year and month
   const WEEKS = useMemo(() => {
@@ -862,10 +884,18 @@ const ReportMosquitoCompDataComp = () => {
           setOsmDataByService([]);
         }
 
-        // Fetch all reports
+        // Fetch all reports - ไม่ส่ง location filters ไป backend เพื่อให้ frontend กรองเอง
+        // Backend กรองตามพื้นที่อาจจะมีปัญหา ให้ fetch ทั้งหมดแล้วมากรองบน frontend
         const data = await fetchMosquitoLarvaeReports({
           skip: 0,
           limit: 1000,
+          // ไม่ส่ง location filters (zone, province, district, subdistrict) ไป backend
+          // ให้ frontend กรองเองจาก user_location
+        });
+
+        console.log("📥 [Mosquito] Reports from backend:", {
+          totalReports: data.length,
+          sampleReport: data[0],
         });
 
         // View 2: Household list for specific user
@@ -900,13 +930,17 @@ const ReportMosquitoCompDataComp = () => {
                 residentCount: report.household.number_of_residents || 0,
                 location_data: report.location_data || report.household.location_data,
                 household: report.household,
-                // เพิ่มข้อมูลที่อยู่ของ อสม. เพื่อใช้กรอง
+                // เพิ่มข้อมูลที่อยู่ของ อสม. เพื่อใช้กรอง (ใช้ข้อมูลจาก OSM ใหม่)
                 user_location: {
+                  province_id: userData?.province_id,
                   province_name_th: userData?.province_name_th,
+                  district_id: userData?.district_id,
                   district_name_th: userData?.district_name_th,
+                  subdistrict_id: userData?.subdistrict_id,
                   subdistrict_name_th: userData?.subdistrict_name_th,
                   village_no: userData?.village_no,
                   health_service_id: userData?.health_service_id,
+                  health_service_name_th: userData?.health_service_name_th,
                 },
               };
               householdsMap.set(householdId, householdData);
@@ -953,11 +987,35 @@ const ReportMosquitoCompDataComp = () => {
 
           if (externalUserIds.length > 0) {
             users = await oauth2Service.getBatch(externalUserIds);
+            // Debug: แสดงข้อมูล OSM ที่ได้จาก API
+            console.log("📥 [Mosquito] OSM Data from API:", {
+              totalUserIds: externalUserIds.length,
+              firstUserId: externalUserIds[0],
+              sampleUserData: users[externalUserIds[0]],
+            });
           }
 
           // แปลงข้อมูลพร้อมชื่อผู้ใช้และที่อยู่
           const transformedData = Object.values(groupedByUser).map((userGroup, idx) => {
             const userData = users[userGroup.userId];
+
+            // Debug: แสดงข้อมูล user แรก
+            if (idx === 0) {
+              console.log("👤 [Mosquito] Sample user data:", {
+                userId: userGroup.userId,
+                userData: userData,
+                userLocation: {
+                  province_id: userData?.province_id,
+                  province_name_th: userData?.province_name_th,
+                  district_id: userData?.district_id,
+                  district_name_th: userData?.district_name_th,
+                  subdistrict_id: userData?.subdistrict_id,
+                  subdistrict_name_th: userData?.subdistrict_name_th,
+                  health_service_id: userData?.health_service_id,
+                  health_service_name_th: userData?.health_service_name_th,
+                },
+              });
+            }
 
             return {
               id: userGroup.userId,
@@ -967,13 +1025,17 @@ const ReportMosquitoCompDataComp = () => {
               lastReportDate: userGroup.lastReportDate,
               date: userGroup.lastReportDate ? formatThaiDate(userGroup.lastReportDate) : "-",
               amount: userGroup.households.size,
-              // เพิ่มข้อมูลที่อยู่ของ อสม. เพื่อใช้กรอง
+              // เพิ่มข้อมูลที่อยู่ของ อสม. เพื่อใช้กรอง (ใช้ข้อมูลจาก OSM ใหม่)
               user_location: {
+                province_id: userData?.province_id,
                 province_name_th: userData?.province_name_th,
+                district_id: userData?.district_id,
                 district_name_th: userData?.district_name_th,
+                subdistrict_id: userData?.subdistrict_id,
                 subdistrict_name_th: userData?.subdistrict_name_th,
                 village_no: userData?.village_no,
                 health_service_id: userData?.health_service_id,
+                health_service_name_th: userData?.health_service_name_th,
               },
             };
           });
@@ -989,7 +1051,7 @@ const ReportMosquitoCompDataComp = () => {
     };
 
     loadData();
-  }, [userId, householdId, service]); // เพิ่ม service เพื่อให้ดึงข้อมูลใหม่เมื่อเลือกหน่วยบริการ
+  }, [userId, householdId, service, apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
 
 
   // Filter and search
@@ -1078,8 +1140,35 @@ const ReportMosquitoCompDataComp = () => {
       // ใช้ข้อมูลที่อยู่ของ อสม. ในการกรอง (user_location)
       const userLocation = row.user_location;
 
+      // Debug: แสดงข้อมูลเมื่อกรอง
+      if (zone || province || district || subdistrict || service) {
+        console.log("🔍 [Mosquito] Filtering row:", {
+          rowName: row.name,
+          rowId: row.id,
+          hasUserLocation: !!userLocation,
+          userLocation: userLocation ? {
+            province_id: userLocation.province_id,
+            province_name_th: userLocation.province_name_th,
+            district_id: userLocation.district_id,
+            district_name_th: userLocation.district_name_th,
+            subdistrict_id: userLocation.subdistrict_id,
+            subdistrict_name_th: userLocation.subdistrict_name_th,
+            health_service_id: userLocation.health_service_id,
+            health_service_name_th: userLocation.health_service_name_th,
+          } : null,
+          filter: { zone, province, district, subdistrict, service },
+          selectedItems: {
+            province: provinces.find(p => p.code === province),
+            district: districts.find(d => d.code === district),
+            subdistrict: subdistricts.find(s => s.code === subdistrict),
+            service: healthServices.find(h => h.code === service),
+          },
+        });
+      }
+
       // ถ้าไม่มี user_location แต่มีการเลือก filter location ให้ skip row นี้
       if (!userLocation && (zone || province || district || subdistrict)) {
+        console.log("❌ [Mosquito] No user_location, filtering out");
         return false;
       }
 
@@ -1101,6 +1190,10 @@ const ReportMosquitoCompDataComp = () => {
         if (province) {
           const selectedProvince = provinces.find(p => p.code === province);
           if (selectedProvince && userLocation.province_name_th !== selectedProvince.name_th) {
+            console.log("❌ [Mosquito] Province mismatch:", {
+              user: userLocation.province_name_th,
+              selected: selectedProvince.name_th,
+            });
             return false;
           }
         }
@@ -1109,6 +1202,10 @@ const ReportMosquitoCompDataComp = () => {
         if (district) {
           const selectedDistrict = districts.find(d => d.code === district);
           if (selectedDistrict && userLocation.district_name_th !== selectedDistrict.name_th) {
+            console.log("❌ [Mosquito] District mismatch:", {
+              user: userLocation.district_name_th,
+              selected: selectedDistrict.name_th,
+            });
             return false;
           }
         }
@@ -1117,6 +1214,10 @@ const ReportMosquitoCompDataComp = () => {
         if (subdistrict) {
           const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
           if (selectedSubdistrict && userLocation.subdistrict_name_th !== selectedSubdistrict.name_th) {
+            console.log("❌ [Mosquito] Subdistrict mismatch:", {
+              user: userLocation.subdistrict_name_th,
+              selected: selectedSubdistrict.name_th,
+            });
             return false;
           }
         }
@@ -1166,13 +1267,20 @@ const ReportMosquitoCompDataComp = () => {
         // Filter by health service - เทียบ health_service_id ของ user กับ service ที่เลือก
         if (service) {
           const userHealthServiceId = userLocation.health_service_id;
+          console.log("🔍 [Mosquito] Health Service Filter:", {
+            userHealthServiceId,
+            selectedService: service,
+            match: String(userHealthServiceId) === String(service),
+          });
           // เทียบ health_service_id โดยตรง
           if (userHealthServiceId) {
             if (String(userHealthServiceId) !== String(service)) {
+              console.log("❌ [Mosquito] Health Service mismatch");
               return false;
             }
           } else {
             // ถ้าไม่มี health_service_id ให้ไม่ผ่าน filter
+            console.log("❌ [Mosquito] No health_service_id");
             return false;
           }
         }
@@ -1180,6 +1288,15 @@ const ReportMosquitoCompDataComp = () => {
 
       return true;
     });
+
+    // Debug: แสดงสรุปผลการกรอง
+    if (zone || province || district || subdistrict || service) {
+      console.log("📊 [Mosquito] Filter Summary:", {
+        totalRows: apiData.length,
+        filteredRows: result.length,
+        filters: { zone, province, district, subdistrict, service },
+      });
+    }
 
     return result;
   }, [userId, householdId, keyword, searchHouseNumber, searchVillageNumber, year, yearType, month, week, apiData, zone, province, district, subdistrict, village, service, osmDataByService, healthAreas, provinces, districts, subdistricts, villages, healthServices]); // เพิ่ม searchHouseNumber, searchVillageNumber

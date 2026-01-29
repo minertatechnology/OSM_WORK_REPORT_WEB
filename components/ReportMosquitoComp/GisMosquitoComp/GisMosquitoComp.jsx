@@ -1105,17 +1105,59 @@ const GisMosquitoComp = () => {
   ]);
 
   const clearFilter = useCallback(() => {
+    const initialFilters = getInitialFilters();
+
+    // ล้างการเลือกทั้งหมด แต่ preserve locked values
     setSelectedYearType("fiscal");
     setSelectedYear("");
     setSelectedMonth("");
     setSelectedWeek("");
-    setSelectedHealthRegion("");
-    setSelectedProvince("");
-    setSelectedDistrict("");
-    setSelectedSubdistrict("");
-    setAvailableProvincesInRegion([]);
-    setAvailableDistricts([]);
-    setAvailableSubdistricts([]);
+
+    // ✅ Restore locked values after clearing
+    // Zone (เขตสุขภาพ)
+    if (isLocked('zone') && initialFilters.zone) {
+      const zoneNumber = parseInt(String(initialFilters.zone).replace(/\D/g, ''));
+      if (zoneNumber) {
+        setSelectedHealthRegion(`เขตสุขภาพที่ ${zoneNumber}`);
+      } else {
+        setSelectedHealthRegion("");
+      }
+    } else {
+      setSelectedHealthRegion("");
+    }
+
+    // Province (จังหวัด)
+    if (isLocked('province') && initialFilters.province_name_th) {
+      setSelectedProvince(initialFilters.province_name_th);
+    } else {
+      setSelectedProvince("");
+    }
+
+    // District (อำเภอ)
+    if (isLocked('district') && initialFilters.district_name_th) {
+      setSelectedDistrict(initialFilters.district_name_th);
+    } else {
+      setSelectedDistrict("");
+    }
+
+    // Subdistrict (ตำบล)
+    if (isLocked('subdistrict') && initialFilters.subdistrict_name_th) {
+      setSelectedSubdistrict(initialFilters.subdistrict_name_th);
+    } else {
+      setSelectedSubdistrict("");
+    }
+
+    // Clear available lists for unlocked values
+    if (!isLocked('province')) {
+      setAvailableProvincesInRegion([]);
+    }
+    if (!isLocked('district')) {
+      setAvailableDistricts([]);
+    }
+    if (!isLocked('subdistrict')) {
+      setAvailableSubdistricts([]);
+    }
+
     setDistrictCodeByName({});
 
     clearAllLayers();
@@ -1125,7 +1167,7 @@ const GisMosquitoComp = () => {
     }
 
     updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
-  }, [clearAllLayers, updateStatus, map]);
+  }, [clearAllLayers, updateStatus, map, isLocked, getInitialFilters]);
 
   const onHealthRegionSelection = useCallback(async () => {
     if (selectedHealthRegion) {
@@ -1263,7 +1305,7 @@ const GisMosquitoComp = () => {
 
   // Permission initialization - auto-fill filters based on user's permission scope
   useEffect(() => {
-    if (permissionLoading || !scope || !permissionUser) return;
+    if (permissionLoading || !scope) return;
     if (permissionInitializedRef.current) return;
     // Wait for provinces to be loaded
     if (Object.keys(provinceCodeByName).length === 0) return;
@@ -1288,16 +1330,16 @@ const GisMosquitoComp = () => {
       }
     }
 
-    // Set province if locked
-    if (isLocked('province') && permissionUser?.province_name) {
-      setSelectedProvince(permissionUser.province_name);
+    // Set province if locked - use initialFilters.province_name_th
+    if (isLocked('province') && initialFilters.province_name_th) {
+      setSelectedProvince(initialFilters.province_name_th);
     }
 
     // Set year to current fiscal year
     if (!selectedYear) {
       setSelectedYear(String(getCurrentFiscalYear()));
     }
-  }, [permissionLoading, scope, getInitialFilters, permissionUser, isLocked, provinceCodeByName, selectedYear]);
+  }, [permissionLoading, scope, getInitialFilters, isLocked, provinceCodeByName, selectedYear]);
 
   // District initialization - wait for districts to load then set from permission
   useEffect(() => {
