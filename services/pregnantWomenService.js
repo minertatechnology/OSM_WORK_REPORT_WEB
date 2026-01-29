@@ -10,12 +10,51 @@ import apiSmartOsm from "./apiSmartOsm";
  * @param {Object} params - Query parameters
  * @param {number} params.skip - จำนวนที่ข้าม (สำหรับ pagination)
  * @param {number} params.limit - จำนวนที่ต้องการดึง
+ * @param {string} params.start_date - วันที่เริ่มต้น (ISO string)
+ * @param {string} params.end_date - วันที่สิ้นสุด (ISO string)
+ * @param {number} params.health_region - เขตสุขภาพ (ID)
+ * @param {string} params.province - จังหวัด (ชื่อภาษาไทย)
+ * @param {string} params.province_id - จังหวัด (ID)
+ * @param {string} params.district - อำเภอ (ชื่อภาษาไทย)
+ * @param {string} params.district_id - อำเภอ (ID)
+ * @param {string} params.subdistrict - ตำบล (ชื่อภาษาไทย)
+ * @param {string} params.subdistrict_id - ตำบล (ID)
+ * @param {string} params.health_service_id - หน่วยบริการ (ID)
  * @returns {Promise<Array>} รายการหญิงตั้งครรภ์
  */
-export const getAllPregnantWomenEvaluations = async ({ skip = 0, limit = 100 } = {}) => {
+export const getAllPregnantWomenEvaluations = async ({
+  skip = 0,
+  limit = 100,
+  start_date,
+  end_date,
+  health_region,
+  province,
+  province_id,
+  district,
+  district_id,
+  subdistrict,
+  subdistrict_id,
+  health_service_id
+} = {}) => {
   try {
+    const params = { skip, limit };
+
+    // Add date filters if provided
+    if (start_date) params.start_date = start_date;
+    if (end_date) params.end_date = end_date;
+
+    // Add location filters (both text and ID supported)
+    if (health_region) params.health_region = health_region;
+    if (province) params.province = province;
+    if (province_id) params.province_id = province_id;
+    if (district) params.district = district;
+    if (district_id) params.district_id = district_id;
+    if (subdistrict) params.subdistrict = subdistrict;
+    if (subdistrict_id) params.subdistrict_id = subdistrict_id;
+    if (health_service_id) params.health_service_id = health_service_id;
+
     const response = await apiSmartOsm.get("/pregnant-women-evaluationsall", {
-      params: { skip, limit },
+      params,
     });
 
     // Parse ข้อมูลจากหลายรูปแบบที่เป็นไปได้

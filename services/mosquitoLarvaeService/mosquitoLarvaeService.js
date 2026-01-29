@@ -39,9 +39,32 @@ export const fetchMosquitoLarvaeHouseholds = async ({ skip = 0, limit = 1000 } =
  * @param {Object} params - Query parameters
  * @param {number} params.skip - Number of records to skip
  * @param {number} params.limit - Maximum number of records to return
+ * @param {string} params.start_date - Start date (ISO string)
+ * @param {string} params.end_date - End date (ISO string)
+ * @param {number} params.health_region - Health region ID
+ * @param {string} params.province - Province name (Thai)
+ * @param {string} params.province_id - Province ID
+ * @param {string} params.district - District name (Thai)
+ * @param {string} params.district_id - District ID
+ * @param {string} params.subdistrict - Subdistrict name (Thai)
+ * @param {string} params.subdistrict_id - Subdistrict ID
+ * @param {string} params.health_service_id - Health service ID
  * @returns {Promise<Array>} Array of report data
  */
-export const fetchMosquitoLarvaeReports = async ({ skip = 0, limit = 1000 } = {}) => {
+export const fetchMosquitoLarvaeReports = async ({
+  skip = 0,
+  limit = 1000,
+  start_date,
+  end_date,
+  health_region,
+  province,
+  province_id,
+  district,
+  district_id,
+  subdistrict,
+  subdistrict_id,
+  health_service_id
+} = {}) => {
   try {
     const token = getAccessToken();
     const headers = {};
@@ -50,11 +73,24 @@ export const fetchMosquitoLarvaeReports = async ({ skip = 0, limit = 1000 } = {}
       headers.Authorization = `Bearer ${token}`;
     }
 
+    const params = { skip, limit };
+
+    // Add date filters if provided
+    if (start_date) params.start_date = start_date;
+    if (end_date) params.end_date = end_date;
+
+    // Add location filters (both text and ID supported)
+    if (health_region) params.health_region = health_region;
+    if (province) params.province = province;
+    if (province_id) params.province_id = province_id;
+    if (district) params.district = district;
+    if (district_id) params.district_id = district_id;
+    if (subdistrict) params.subdistrict = subdistrict;
+    if (subdistrict_id) params.subdistrict_id = subdistrict_id;
+    if (health_service_id) params.health_service_id = health_service_id;
+
     const response = await axios.get(`${MOSQUITO_API_BASE_URL}/mosquito-larvae/reportsall`, {
-      params: {
-        skip,
-        limit,
-      },
+      params,
       headers,
     });
     return response.data;

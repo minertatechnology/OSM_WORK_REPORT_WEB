@@ -42,6 +42,7 @@ import {
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
+import { buildFilterParams, addDateFilters } from "@utils/filterParamsHelper";
 
 // Mock Data
 const currentFiscalYear = getCurrentFiscalYear();
@@ -122,6 +123,54 @@ const PER_PAGE_OPTIONS = [
   { label: "50", value: 50 },
   { label: "100", value: 100 },
 ];
+
+// Health zone mapping - maps province_id to health_region (เขตสุขภาพ)
+// ใช้ province_id (code) เพื่อหาว่าจังหวัดนั้นอยู่ในเขตสุขภาพไหน
+const HEALTH_ZONE_MAP = {
+  // เขตสุขภาพ 1
+  "1": 1, "10": 1, "11": 1, "12": 1, "13": 1, "15": 1, "16": 1, "17": 1, "18": 1, "19": 1,
+  "20": 1, "21": 1, "22": 1, "24": 1, "25": 1, "26": 1, "27": 1, "30": 1, "31": 1, "72": 1,
+  // เขตสุขภาพ 2
+  "2": 2, "40": 2, "41": 2, "42": 2, "43": 2, "44": 2, "45": 2, "46": 2, "47": 2, "48": 2,
+  "49": 2, "50": 2, "51": 2, "52": 2, "53": 2, "60": 2, "81": 2, "82": 2, "83": 2,
+  // เขตสุขภาพ 3
+  "54": 3, "55": 3, "56": 3, "57": 3, "58": 3, "70": 3, "71": 3, "73": 3, "74": 3, "75": 3,
+  "76": 3, "77": 3,
+  // เขตสุขภาพ 4
+  "80": 4, "84": 4, "85": 4, "86": 4,
+  // เขตสุขภาพ 5
+  "32": 5, "33": 5, "34": 5, "35": 5, "36": 5, "37": 5, "38": 5, "39": 5,
+  // เขตสุขภาพ 6
+  "62": 6, "63": 6, "64": 6, "65": 6, "66": 6, "67": 6,
+  // เขตสุขภาพ 7
+  "59": 7, "61": 7, "87": 7, "88": 7, "89": 7, "90": 7, "91": 7, "92": 7, "93": 7, "94": 7,
+  "95": 7, "96": 7,
+  // เขตสุขภาพ 8
+  "14": 8, "23": 8, "28": 8, "29": 8,
+  // เขตสุขภาพ 9
+  "97": 9,
+  // เขตสุขภาพ 10
+  "98": 10, "99": 10,
+  // เขตสุขภาพ 11
+  "100": 11, "101": 11, "102": 11,
+  // เขตสุขภาพ 12
+  "103": 12, "104": 12,
+  // เขตสุขภาพ 13
+  "13": 13, // ปทุมธานี
+  // เพิ่มจังหวัดอื่นๆ ในเขตสุขภาพ 13 ตามจริง
+};
+
+/**
+ * ตรวจสอบว่า province_id อยู่ใน health_zone ที่ระบุหรือไม่
+ * @param {string|number} provinceId - province_id (code) ของจังหวัด
+ * @param {number} healthZone - เลขเขตสุขภาพที่ต้องการตรวจสอบ
+ * @returns {boolean} true ถ้าจังหวัดอยู่ในเขตสุขภาพที่ระบุ
+ */
+function isInHealthZone(provinceId, healthZone) {
+  if (!provinceId || !healthZone) return true; // ถ้าไม่มี filter ให้ผ่านทั้งหมด
+  const zone = HEALTH_ZONE_MAP[String(provinceId)];
+  return zone === healthZone;
+}
 
 // Utility function for pagination numbers with ellipsis
 function getPageNumbers(currentPage, totalPages) {
@@ -832,7 +881,7 @@ const PregnantReportComp = () => {
   }, [searchParams]);
 
   // Use permission-based filters
-  const { isLocked } = useUserPermission();
+  const { isLocked, lockLevel, getInitialFilters } = useUserPermission();
   const {
     yearType,
     year,
@@ -863,6 +912,27 @@ const PregnantReportComp = () => {
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
   });
+
+  // Build filter params for backend API (supports both text and ID)
+  const filterParams = useMemo(() => {
+    return buildFilterParams({
+      zone,
+      province,
+      district,
+      subdistrict,
+      health_service_id: service,
+      provinces,
+      districts,
+      subdistricts,
+      lockLevel,
+      getInitialFilters,
+    });
+  }, [zone, province, district, subdistrict, service, provinces, districts, subdistricts, lockLevel, getInitialFilters]);
+
+  // Add date filters to params
+  const apiParams = useMemo(() => {
+    return addDateFilters(filterParams, year, month, yearType);
+  }, [filterParams, year, month, yearType]);
 
   // State
   const [searchType, setSearchType] = useState("year");
@@ -912,8 +982,9 @@ const PregnantReportComp = () => {
       setIsLoadingUsers(true);
 
       try {
-        // 1. ดึงข้อมูลการประเมินทั้งหมด
-        const evaluations = await getAllPregnantWomenEvaluations({ skip: 0, limit: 1000 });
+        // 1. ดึงข้อมูลการประเมินทั้งหมด - ส่ง filter parameters (health_region, province, province_id, district, district_id, subdistrict, subdistrict_id, etc.)
+        // Backend รองรับทั้ง text (ชื่อภาษาไทย) และ id
+        const evaluations = await getAllPregnantWomenEvaluations({ skip: 0, limit: 1000, ...apiParams });
         setAllEvaluations(evaluations); // เก็บข้อมูล evaluations ทั้งหมด
 
         // 1.1 สร้างรายการปีจาก created_at
@@ -998,7 +1069,7 @@ const PregnantReportComp = () => {
     };
 
     fetchData();
-  }, []); // ดึงข้อมูลครั้งเดียวตอน mount
+  }, [apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
 
   // ดึงข้อมูล OSM ตามหน่วยบริการ
   useEffect(() => {
@@ -1037,13 +1108,14 @@ const PregnantReportComp = () => {
 
   // Filter rows by tab, year, location, and keyword
   const filteredRows = useMemo(() => {
+    console.log("🔍 Filtering - dataSource length:", dataSource.length, "activeTab:", activeTab, "year:", year, "month:", month, "service:", service, "keyword:", keyword);
+    console.log("🔍 userDataMap:", userDataMap);
+
     return dataSource.filter((row) => {
       const userName = getUserName(row.external_user_id, row.name);
+      const userData = userDataMap.get(row.external_user_id);
 
-      // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
-      const locationData = row.location_data || {};
-
-      // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
+      // กรองตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
       // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
       // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
       if (service && osmDataByService.length > 0) {
@@ -1056,40 +1128,48 @@ const PregnantReportComp = () => {
       }
 
       // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
+      // กรองตามข้อมูล OSM user (จาก userDataMap) แทน location_data เพราะถูกต้อง
+      // userData มี province_id, district_id, subdistrict_id, health_service_id
 
-      // กรองตามเขตสุขภาพ
+      // กรองตามเขตสุขภาพ (ใช้ userData.health_region หรือคำนวณจาก userData.province_id)
       if (zone) {
-        const selectedHealthArea = healthAreas.find(h => h.code === zone);
-        if (selectedHealthArea && selectedHealthArea.provinces) {
-          const provinceInHealthArea = selectedHealthArea.provinces.find(
-            p => p.name_th === locationData.region
-          );
-          if (!provinceInHealthArea) {
+        const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+        // ลองใช้ userData.health_region ก่อน (ถ้ามี) - ถูกต้องที่สุด
+        const userHealthRegion = userData?.health_region;
+        if (userHealthRegion) {
+          // ถ้า OSM user data มี health_region ให้ใช้ค่านั้นเลย
+          if (userHealthRegion !== zoneNumber) {
             return false;
+          }
+        } else {
+          // ถ้าไม่มี health_region ให้คำนวณจาก province_id แทน
+          const userProvinceId = String(userData?.province_id || "");
+          if (userProvinceId) {
+            const provinceInZone = isInHealthZone(userProvinceId, zoneNumber);
+            if (!provinceInZone) {
+              return false;
+            }
           }
         }
       }
 
-      // หาชื่อจังหวัดจาก code ที่เลือก (ใช้ name_th)
-      const selectedProvince = provinces.find(p => p.code === province);
-      const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
+      // กรองตามจังหวัด
+      const provinceMatch = !province || userData?.province_id === province;
 
-      // หาชื่ออำเภอจาก code ที่เลือก (ใช้ name_th)
-      const selectedDistrict = districts.find(d => d.code === district);
-      const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
+      // กรองตามอำเภอ
+      const districtMatch = !district || userData?.district_id === district;
 
-      // หาชื่อตำบลจาก code ที่เลือก (ใช้ name_th)
-      const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
-      const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
+      // กรองตามตำบล
+      const subdistrictMatch = !subdistrict || userData?.subdistrict_id === subdistrict;
 
       // กรองตาม keyword (ชื่อ-นามสกุล)
       const nameKeywordMatch = !keyword || (
         userName.includes(keyword) ||
         row.date.includes(keyword) ||
         String(row.index).includes(keyword) ||
-        locationData.region?.includes(keyword) ||
-        locationData.city?.includes(keyword) ||
-        locationData.district?.includes(keyword)
+        userData?.province_name_th?.includes(keyword) ||
+        userData?.district_name_th?.includes(keyword) ||
+        userData?.subdistrict_name_th?.includes(keyword)
       );
 
       // กรองตามเลขบัตรประชาชน
@@ -1129,7 +1209,7 @@ const PregnantReportComp = () => {
         citizenIdMatch
       );
     });
-  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, service, keyword, citizenIdKeyword, healthAreas, provinces, districts, subdistricts, userDataMap, osmDataByService]);
+  }, [dataSource, activeTab, year, yearType, month, zone, province, district, subdistrict, service, keyword, citizenIdKeyword, userDataMap, osmDataByService]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = filteredRows.slice(
     (page - 1) * itemsPerPage,

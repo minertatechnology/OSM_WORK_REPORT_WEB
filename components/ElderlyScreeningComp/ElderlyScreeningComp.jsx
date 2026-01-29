@@ -43,6 +43,7 @@ import {
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
+import { buildFilterParams, addDateFilters } from "@utils/filterParamsHelper";
 
 // Mock Data
 const MONTHS = [
@@ -683,7 +684,7 @@ const ElderlyScreeningComp = () => {
   ];
 
   // Use permission-based filters
-  const { isLocked } = useUserPermission();
+  const { isLocked, lockLevel, getInitialFilters } = useUserPermission();
   const {
     yearType,
     year,
@@ -713,6 +714,27 @@ const ElderlyScreeningComp = () => {
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
   });
+
+  // Build filter params for backend API (supports both text and ID)
+  const filterParams = useMemo(() => {
+    return buildFilterParams({
+      zone,
+      province,
+      district,
+      subdistrict,
+      health_service_id: service,
+      provinces,
+      districts,
+      subdistricts,
+      lockLevel,
+      getInitialFilters,
+    });
+  }, [zone, province, district, subdistrict, service, provinces, districts, subdistricts, lockLevel, getInitialFilters]);
+
+  // Add date filters to params
+  const apiParams = useMemo(() => {
+    return addDateFilters(filterParams, year, month, yearType);
+  }, [filterParams, year, month, yearType]);
 
   const [week, setWeek] = useState("สัปดาห์ 4 (23/6/68-27/6/68)");
   const [keyword, setKeyword] = useState("");
@@ -763,8 +785,9 @@ const ElderlyScreeningComp = () => {
       // ล้าง cache ข้อมูล OAuth2 ก่อน
       oauth2Service.clearCache();
 
-      // ดึงข้อมูลผู้สูงอายุทั้งหมด
-      const data = await elderlyScreeningService.getAll({ skip: 0, limit: 1000 });
+      // ดึงข้อมูลผู้สูงอายุทั้งหมด - ส่ง filter parameters (health_region, province, province_id, district, district_id, subdistrict, subdistrict_id, etc.)
+      // Backend รองรับทั้ง text (ชื่อภาษาไทย) และ id
+      const data = await elderlyScreeningService.getAll({ skip: 0, limit: 1000, ...apiParams });
 
       if (data.length === 0) {
         console.warn("Empty data received from API");
@@ -811,7 +834,7 @@ const ElderlyScreeningComp = () => {
     } finally {
       setLoading(false);
     }
-  }, [service]); // ใช้เฉพาะ service เพราะ currentBuddhistYear ทำให้ fetch ซ้ำโดยไม่จำเป็น
+  }, [apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
 
   useEffect(() => {
     fetchElderly();
