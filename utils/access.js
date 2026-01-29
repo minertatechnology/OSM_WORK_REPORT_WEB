@@ -76,8 +76,11 @@ export const readInfoFromCookie = () => {
     const scope = {
       zone: parsed.zone || "",
       province: parsed.province || "",
+      province_name_th: parsed.province_name_th || "",
       district: parsed.district || "",
+      district_name_th: parsed.district_name_th || "",
       subdistrict: parsed.subdistrict || "",
+      subdistrict_name_th: parsed.subdistrict_name_th || "",
       unit: parsed.unit || "",
     };
     return { roles, scope, user: parsed.user || null };
@@ -93,8 +96,11 @@ export const setInfoCookie = (auth, user = {}, maxAgeSeconds = 60 * 60 * 8) => {
     roles: auth?.roles || [],
     zone: auth?.zone || "",
     province: auth?.province || "",
+    province_name_th: auth?.province_name_th || "",
     district: auth?.district || "",
+    district_name_th: auth?.district_name_th || "",
     subdistrict: auth?.subdistrict || "",
+    subdistrict_name_th: auth?.subdistrict_name_th || "",
     unit: auth?.unit || "",
     user,
     issuedAt: new Date().toISOString(),

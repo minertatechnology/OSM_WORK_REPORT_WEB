@@ -256,13 +256,38 @@ axiosInstance.interceptors.request.use(
             );
           }
         } catch (refreshError) {
+          // Refresh token is invalid/expired
           if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
             console.error(
               "[Token Refresh] Pre-flight refresh failed",
               refreshError
             );
           }
-          activeToken = token;
+
+          // If it's a standard refresh (token is expiring/expired), redirect to login
+          // If it's a proactive refresh (token still valid), continue with the old token
+          if (needsStandardRefresh) {
+            // Token is expiring/expired and refresh failed - redirect to login
+            clearTokens();
+
+            if (
+              typeof window !== "undefined" &&
+              window.location.pathname !== "/"
+            ) {
+              window.location.href = "/";
+            }
+
+            return Promise.reject(refreshError);
+          } else {
+            // Proactive refresh failed but token is still valid - continue with old token
+            // The token will eventually expire and the response interceptor will handle it
+            if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+              console.warn(
+                "[Token Refresh] Proactive refresh failed, continuing with existing token"
+              );
+            }
+            activeToken = token;
+          }
         }
       }
 
