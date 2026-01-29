@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, useTransition } from "react";
+import React, { useState, useMemo, useEffect, useTransition } from "react";
 import {
   Plus,
   Calendar,
@@ -15,6 +15,7 @@ import {
 import NewsCompService from "@services/Table/NewsCompService";
 import NewsAddPopup from "@components/NewsComp/NewsAddPopup";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import ToastManager, { showToast } from "@components/Toast/ToastManager";
 import {
   fetchNotifications,
   createNotification,
@@ -331,8 +332,7 @@ const NewsCompContent = () => {
       setFilteredNews(notifications);
     } catch (error) {
       console.error("Failed to load notifications:", error);
-      // แสดง error ให้ user (อาจใช้ toast/alert)
-      alert("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+      showToast("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง", "error");
     } finally {
       setLoading(false);
     }
@@ -441,10 +441,10 @@ const NewsCompContent = () => {
       await loadNotifications();
 
       setShowAddPopup(false);
-      alert("เพิ่มข่าวสารสำเร็จ!");
+      showToast("เพิ่มข่าวสารสำเร็จ!", "success");
     } catch (error) {
       console.error("Failed to create notification:", error);
-      alert("ไม่สามารถเพิ่มข่าวสารได้ กรุณาลองใหม่อีกครั้ง");
+      showToast("ไม่สามารถเพิ่มข่าวสารได้ กรุณาลองใหม่อีกครั้ง", "error");
     }
   };
 
@@ -466,10 +466,10 @@ const NewsCompContent = () => {
 
       setShowDetailPopup(false);
       setDetailData(null);
-      alert("ลบข่าวสารสำเร็จ!");
+      showToast("ลบข่าวสารสำเร็จ!", "success");
     } catch (error) {
       console.error("Failed to delete notification:", error);
-      alert("ไม่สามารถลบข่าวสารได้ กรุณาลองใหม่อีกครั้ง");
+      showToast("ไม่สามารถลบข่าวสารได้ กรุณาลองใหม่อีกครั้ง", "error");
     }
   };
 
@@ -815,6 +815,7 @@ const NewsCompContent = () => {
         onDelete={handleDeleteDetail}
         auth={dummyAuth}
       />
+      <ToastManager />
     </div>
   );
 };

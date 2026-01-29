@@ -144,10 +144,17 @@ const InputService = ({
           style={{
             ...disabledStyle,
             ...style,
+            textOverflow: style?.textOverflow || "ellipsis",
+            overflow: style?.overflow || "hidden",
+            whiteSpace: style?.whiteSpace || "nowrap",
           }}
         >
           {/* Content row: [label, icon, x, arrow] */}
-          <span className="flex-1 truncate text-left">
+          <span className="flex-1 truncate text-left" style={{
+            textOverflow: style?.textOverflow || "ellipsis",
+            overflow: style?.overflow || "hidden",
+            whiteSpace: style?.whiteSpace || "nowrap",
+          }}>
             {selected.label ||
               (typeof selected === "string" ? selected : placeholder)}
           </span>

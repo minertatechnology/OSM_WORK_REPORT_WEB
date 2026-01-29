@@ -771,7 +771,10 @@ export default function NewsAddPopup({
                 fontWeight: 500,
                 color: (!serviceUnit || serviceUnit === "") ? gray_placeholder : text_gray,
                 background: "#f6f2ff",
-                transition: "border-color .2s"
+                transition: "border-color .2s",
+                textOverflow: "ellipsis",
+                overflow: "hidden",
+                whiteSpace: "nowrap"
               }}
             />
           </div>
