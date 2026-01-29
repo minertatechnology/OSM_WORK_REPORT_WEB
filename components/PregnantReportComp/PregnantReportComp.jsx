@@ -27,9 +27,8 @@ import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
-import { getUserByExternalId } from "@services/oauth2Service";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
-import { getOsmByHealthService } from "@services/lookupService";
+import { getOsmByHealthService, getOsmById } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -982,9 +981,17 @@ const PregnantReportComp = () => {
       setIsLoadingUsers(true);
 
       try {
-        // 1. ดึงข้อมูลการประเมินทั้งหมด - ส่ง filter parameters (health_region, province, province_id, district, district_id, subdistrict, subdistrict_id, etc.)
-        // Backend รองรับทั้ง text (ชื่อภาษาไทย) และ id
-        const evaluations = await getAllPregnantWomenEvaluations({ skip: 0, limit: 1000, ...apiParams });
+        // 1. ดึงข้อมูลการประเมินทั้งหมด - ส่งเฉพาะ date filters
+        // Smart OSM API (pregnant-women-evaluations) ไม่รองรับ location filters
+        // เพราะข้อมูล location อยู่ใน OSM API, ไม่ใช่ใน evaluation data
+        // ดังนั้นจึงต้องดึงข้อมูลทั้งหมดมา แล้ว filter ด้วยข้อมูล OSM ใน frontend
+        const dateFilters = {
+          skip: 0,
+          limit: 1000,
+          start_date: apiParams.start_date,
+          end_date: apiParams.end_date,
+        };
+        const evaluations = await getAllPregnantWomenEvaluations(dateFilters);
         setAllEvaluations(evaluations); // เก็บข้อมูล evaluations ทั้งหมด
 
         // 1.1 สร้างรายการปีจาก created_at
@@ -1033,19 +1040,62 @@ const PregnantReportComp = () => {
 
         setPregnantData(formattedData);
 
-        // 4. ดึงข้อมูลผู้ใช้จาก OAuth2 API
+        // 4. ดึงข้อมูล OSM จาก OSM API (ใช้ getOsmById แทน OAuth2)
+        // เพราะ OSM API มีข้อมูลตำแหน่งที่ถูกต้อง (province_id, district_id, subdistrict_id, health_service_id)
         const newUserDataMap = new Map();
         const uniqueUserIds = [...new Set(aggregated.map(item => item.external_user_id))];
 
         await Promise.allSettled(
           uniqueUserIds.map(async (userId) => {
             try {
-              const userData = await getUserByExternalId(userId);
-              newUserDataMap.set(userId, userData);
+              const osmData = await getOsmById(userId);
+              if (osmData) {
+                // สร้างชื่อเต็มจากข้อมูล OSM
+                const fullName = `${osmData.prefix_name_th || ""}${osmData.first_name || ""} ${osmData.last_name || ""}`.trim();
+
+                newUserDataMap.set(userId, {
+                  id: osmData.id,
+                  name: fullName || "ไม่ระบุชื่อ",
+                  external_user_id: userId,
+                  citizen_id: osmData.citizen_id,
+                  phone: osmData.phone,
+                  email: osmData.email,
+                  // ข้อมูลตำแหน่ง - สำคัญสำหรับการ filter
+                  province_id: osmData.province_id,
+                  province_name_th: osmData.province_name_th,
+                  district_id: osmData.district_id,
+                  district_name_th: osmData.district_name_th,
+                  subdistrict_id: osmData.subdistrict_id,
+                  subdistrict_name_th: osmData.subdistrict_name_th,
+                  health_service_id: osmData.health_service_id,
+                  health_service_name_th: osmData.health_service_name_th,
+                  // ข้อมูลที่อยู่
+                  address_number: osmData.address_number,
+                  alley: osmData.alley,
+                  street: osmData.street,
+                  village_no: osmData.village_no,
+                  village_name: osmData.village_name,
+                  postal_code: osmData.postal_code,
+                  // ข้อมูลอื่นๆ
+                  birth_date: osmData.birth_date,
+                  gender: osmData.gender,
+                  marital_status: osmData.marital_status,
+                  occupation_name_th: osmData.occupation_name_th,
+                  education_name_th: osmData.education_name_th,
+                  blood_type: osmData.blood_type,
+                });
+              } else {
+                // Fallback ถ้าไม่พบข้อมูล OSM
+                newUserDataMap.set(userId, {
+                  id: userId,
+                  name: "ไม่ระบุชื่อ",
+                  external_user_id: userId,
+                });
+              }
             } catch (error) {
               // ไม่ log error 404
               if (error?.response?.status !== 404) {
-                console.error(`Failed to fetch user ${userId}:`, error);
+                console.error(`Failed to fetch OSM ${userId}:`, error);
               }
               // ใช้ข้อมูล fallback
               newUserDataMap.set(userId, {
