@@ -490,16 +490,13 @@ const DashboardSobos = () => {
       // ✅ ส่งทั้ง code, name, และ id เพื่อให้ backend รองรับทั้ง text และ id
 
       // Zone filter
-      if (zone && zone !== defaultZone) {
-        // User เลือก zone เอง
+      // ✅ ถ้า user เลือก zone เอง (แม้จะเท่ากับ defaultZone) ให้ใช้ค่าที่เลือก
+      // ✅ ถ้าไม่ได้เลือก (zone = "") แต่มี defaultZone (lockLevel != none) ให้ใช้ค่า locked
+      if (zone !== "") {
+        // User เลือก zone หรือ zone ถูก lock ไว้ - ใช้ค่า zone เสมอ
         const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
         filters.health_region = zoneNumber;
-        console.log("✅ Using user-selected zone:", zone, "→ health_region:", zoneNumber);
-      } else if (defaultZone && lockLevel !== 'none') {
-        // User ไม่ได้เลือก ใช้ค่า locked (สำหรับ user ที่ไม่ใช่ระดับกรม)
-        const zoneNumber = parseInt(String(defaultZone).replace(/\D/g, ''));
-        filters.health_region = zoneNumber;
-        console.log("🔒 Using locked zone:", defaultZone, "→ health_region:", zoneNumber);
+        console.log("✅ Using zone:", zone, "→ health_region:", zoneNumber);
       }
 
       // Province filter - user เลือกเอง หรือ lockLevel เป็น province/district/subdistrict
