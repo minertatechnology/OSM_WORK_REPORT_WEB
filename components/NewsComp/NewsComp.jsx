@@ -318,9 +318,15 @@ const NewsCompContent = () => {
         is_active: true, // ดึงเฉพาะที่ active
       });
 
+      console.log("API Response:", response);
+      console.log("Notifications:", response.notifications);
+
       const notifications = transformNotificationData(
         response.notifications || []
       );
+
+      console.log("Transformed notifications:", notifications);
+
       setRawNewsList(notifications);
       setFilteredNews(notifications);
     } catch (error) {
@@ -352,12 +358,76 @@ const NewsCompContent = () => {
   };
   const handleSubmitPopup = async (data) => {
     try {
+      console.log("=== handleSubmitPopup Debug ===");
+      console.log("received data:", data);
+      console.log("healthZone:", data.healthZone, "healthZoneData:", data.healthZoneData);
+      console.log("province:", data.province, "provinceData:", data.provinceData);
+      console.log("amphur:", data.amphur, "amphurData:", data.amphurData);
+      console.log("subdistrict:", data.subdistrict, "subdistrictData:", data.subdistrictData);
+      console.log("serviceUnit:", data.serviceUnit, "serviceUnitData:", data.serviceUnitData);
+
+      // สร้าง target_location JSON จากข้อมูลพื้นที่ที่เลือก
+      // เอาทุกระดับมาเสมอ ไม่ว่าจะเป็นค่าปกติหรือ "all"
+      const target_location = {};
+
+      // เขตสุขภาพ
+      if (data.healthZoneData && data.healthZoneData.code && data.healthZoneData.code !== "") {
+        target_location.health_zone = {
+          id: data.healthZoneData.code,
+          name: data.healthZoneData.name_th
+        };
+        console.log("Added health_zone:", target_location.health_zone);
+      }
+
+      // จังหวัด
+      if (data.provinceData && data.provinceData.code && data.provinceData.code !== "") {
+        target_location.province = {
+          id: data.provinceData.code,
+          name: data.provinceData.name_th
+        };
+        console.log("Added province:", target_location.province);
+      }
+
+      // อำเภอ
+      if (data.amphurData && data.amphurData.code && data.amphurData.code !== "") {
+        target_location.district = {
+          id: data.amphurData.code,
+          name: data.amphurData.name_th
+        };
+        console.log("Added district:", target_location.district);
+      }
+
+      // ตำบล
+      if (data.subdistrictData && data.subdistrictData.code && data.subdistrictData.code !== "") {
+        target_location.subdistrict = {
+          id: data.subdistrictData.code,
+          name: data.subdistrictData.name_th
+        };
+        console.log("Added subdistrict:", target_location.subdistrict);
+      }
+
+      // หน่วยบริการ
+      if (data.serviceUnitData && data.serviceUnitData.id && data.serviceUnitData.id !== "") {
+        target_location.service_unit = {
+          id: data.serviceUnitData.id,
+          name: data.serviceUnitData.name_th
+        };
+        console.log("Added service_unit:", target_location.service_unit);
+      }
+
+      console.log("Final target_location:", JSON.stringify(target_location, null, 2));
+
+      // กำหนด target_level เป็น all เสมอ (สำหรับ admin ที่สร้างข่าวสาร)
+      // เพื่อให้ทุกคนเห็นได้ และใช้ target_location สำหรับกรองตามพื้นที่จริง
+      const target_level = "all";
+
       // สร้างข้อมูลสำหรับส่ง API
       const notificationData = {
         title: data.title,
         message: data.detail || data.message,
         type: "info",
-        target_level: "all",
+        target_level: target_level,
+        target_location: Object.keys(target_location).length > 0 ? target_location : null,
         is_active: true,
         is_pinned: false,
         priority: 0,
