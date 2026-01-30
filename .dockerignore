@@ -2,4 +2,3 @@ node_modules
 .next/cache
 .git
 .claude
-.env
