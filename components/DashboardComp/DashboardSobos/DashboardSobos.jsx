@@ -93,11 +93,22 @@ const PER_PAGE_OPTIONS = [
   { label: "50", value: 50 },
 ];
 
-// สี Pie Chart สำหรับ 13 เขต
+// สี Pie Chart สำหรับ 13 เขต (index 0 = สีเทาสำหรับไม่มีข้อมูล)
 const ZONE_COLORS = [
-  "#6E28B7", "#4B61CF", "#5D86E7", "#4CA3DD",
-  "#7C83E1", "#A682FF", "#E0AAFF", "#FFB3E6",
-  "#FF9CEE", "#FFB7B2", "#FFDAC1", "#FFB347", "#EB6383"
+  "#E5E5E5", // 0 สีเทา (ไม่มีข้อมูล)
+  "#6E28B7", // 1
+  "#4B61CF", // 2
+  "#5D86E7", // 3
+  "#4CA3DD", // 4
+  "#7C83E1", // 5
+  "#A682FF", // 6
+  "#E0AAFF", // 7
+  "#FFB3E6", // 8
+  "#FF9CEE", // 9
+  "#FFB7B2", // 10
+  "#FFDAC1", // 11
+  "#FFB347", // 12
+  "#EB6383", // 13
 ];
 
 // Table Pagination Component
@@ -480,11 +491,6 @@ const DashboardSobos = () => {
       const defaultDistrict = initialFilters.district || "";
       const defaultSubdistrict = initialFilters.subdistrict || "";
 
-      console.log("🔒 DEBUG: initialFilters:", initialFilters);
-      console.log("🔒 DEBUG: defaultZone:", defaultZone, "defaultProvince:", defaultProvince, "defaultDistrict:", defaultDistrict, "defaultSubdistrict:", defaultSubdistrict);
-      console.log("🔒 DEBUG: user selection - zone:", zone, "province:", province, "district:", district, "subdistrict:", subdistrict);
-      console.log("🔒 DEBUG: lockLevel:", lockLevel);
-
       // ✅ User selection override: ถ้า user เลือกค่าใหม่ (ไม่เท่ากับ default) ให้ใช้ค่าที่ user เลือก
       // ✅ ถ้า user ไม่ได้เลือก (ค่าว่าง) ให้ใช้ค่า locked เฉพาะที่ user มีสิทธิ์เท่านั้น
       // ✅ ส่งทั้ง code, name, และ id เพื่อให้ backend รองรับทั้ง text และ id
@@ -496,7 +502,6 @@ const DashboardSobos = () => {
         // User เลือก zone หรือ zone ถูก lock ไว้ - ใช้ค่า zone เสมอ
         const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
         filters.health_region = zoneNumber;
-        console.log("✅ Using zone:", zone, "→ health_region:", zoneNumber);
       }
 
       // Province filter - user เลือกเอง หรือ lockLevel เป็น province/district/subdistrict
@@ -507,7 +512,6 @@ const DashboardSobos = () => {
           filters.province = provData.name_th || provData.name;
           filters.province_id = province;
         }
-        console.log("✅ Using user-selected province:", province, "name:", filters.province, "id:", filters.province_id);
       } else if (defaultProvince && lockLevel !== 'none' && lockLevel !== 'zone') {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = province, district, subdistrict
         // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง province_code)
@@ -516,7 +520,6 @@ const DashboardSobos = () => {
           filters.province = provData.name_th || provData.name;
           filters.province_id = defaultProvince;
         }
-        console.log("🔒 Using locked province:", defaultProvince, "name:", filters.province, "id:", filters.province_id);
       }
 
       // District filter - user เลือกเอง หรือ lockLevel เป็น district/subdistrict
@@ -527,7 +530,6 @@ const DashboardSobos = () => {
           filters.district = distData.name_th || distData.name;
           filters.district_id = district;
         }
-        console.log("✅ Using user-selected district:", district, "name:", filters.district, "id:", filters.district_id);
       } else if (defaultDistrict && (lockLevel === 'district' || lockLevel === 'subdistrict')) {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = district, subdistrict
         // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง district_code)
@@ -536,7 +538,6 @@ const DashboardSobos = () => {
           filters.district = distData.name_th || distData.name;
           filters.district_id = defaultDistrict;
         }
-        console.log("🔒 Using locked district:", defaultDistrict, "name:", filters.district, "id:", filters.district_id);
       }
 
       // Subdistrict filter - user เลือกเอง หรือ lockLevel เป็น subdistrict
@@ -547,7 +548,6 @@ const DashboardSobos = () => {
           filters.subdistrict = subdistData.name_th || subdistData.name;
           filters.subdistrict_id = subdistrict;
         }
-        console.log("✅ Using user-selected subdistrict:", subdistrict, "name:", filters.subdistrict, "id:", filters.subdistrict_id);
       } else if (defaultSubdistrict && lockLevel === 'subdistrict') {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = subdistrict เท่านั้น
         // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง subdistrict_code)
@@ -556,13 +556,11 @@ const DashboardSobos = () => {
           filters.subdistrict = subdistData.name_th || subdistData.name;
           filters.subdistrict_id = defaultSubdistrict;
         }
-        console.log("🔒 Using locked subdistrict:", defaultSubdistrict, "name:", filters.subdistrict, "id:", filters.subdistrict_id);
       }
 
       // ✅ Health Service filter (หน่วยบริการ)
       if (service) {
         filters.health_service_id = service;
-        console.log("✅ Using health_service_id:", service);
       }
 
       // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
@@ -570,7 +568,6 @@ const DashboardSobos = () => {
       if (service) {
         try {
           osmData = await getOsmByHealthService(service);
-          console.log("📊 OSM Data received:", osmData.length, "items");
           setOsmDataByService(osmData);
         } catch (err) {
           console.error("Error fetching OSM data:", err);
@@ -582,14 +579,6 @@ const DashboardSobos = () => {
 
       // ดึงข้อมูลจาก API /reports/map-data (ใช้ map-data แทน geo-summary เพื่อให้ได้ข้อมูล location)
       const mapDataResponse = await reportsMapService.getReportsMapData(filters);
-
-      console.log("✅ Map Data received:", mapDataResponse);
-
-      // Log ตัวอย่าง location_data เพื่อดูว่ามี field อะไรบ้าง
-      if (mapDataResponse.reports && mapDataResponse.reports.length > 0) {
-        console.log("📋 Sample report:", mapDataResponse.reports[0]);
-        console.log("📋 All fields in report:", Object.keys(mapDataResponse.reports[0]));
-      }
 
       // Filter ตามหน่วยบริการ (ถ้าเลือก)
       let filteredReports = mapDataResponse.reports || [];
@@ -787,16 +776,6 @@ const DashboardSobos = () => {
 
       // ✅ นับจำนวนรายงานจาก location_data
       // location_data จาก backend มี province_name_th, district_name_th, subdistrict_name_th โดยตรง
-      console.log("🔍 Counting reports - mapLevel:", mapLevel, "tableLevel:", tableLevel, "mapReports:", mapReports.length);
-
-      // Log ตัวอย่างข้อมูลเพื่อ debug
-      if (mapReports.length > 0) {
-        console.log("📊 Sample mapReport:", {
-          province_name_th: mapReports[0].province_name_th,
-          district_name_th: mapReports[0].district_name_th,
-          subdistrict_name_th: mapReports[0].subdistrict_name_th,
-        });
-      }
 
       // สร้าง map สำหรับ lookup ทั้งแบบ code และ name_th เพื่อให้ match ได้ง่ายขึ้น
       const lookupMapByCode = {};
@@ -828,18 +807,9 @@ const DashboardSobos = () => {
         });
       }
 
-      console.log("🗺️ Lookup maps:", {
-        mapLevel,
-        healthAreasCount: healthAreas.length,
-        provincesCount: provinces.length,
-        districtsCount: districts.length,
-        subdistrictsCount: subdistricts.length,
-        lookupMapByNameCount: Object.keys(lookupMapByName).length
-      });
-
       // นับจำนวนรายงานโดยใช้ code เป็น key
       const reportCountMap = {};
-      mapReports.forEach((r, idx) => {
+      mapReports.forEach((r) => {
         let key = null;
 
         if (mapLevel === "zone") {
@@ -851,51 +821,25 @@ const DashboardSobos = () => {
             );
             if (zoneData) {
               key = `HA${zoneData.zone}`;
-              console.log(`✅ Report ${idx}: province="${provinceName}" → zone="${key}"`);
-            } else {
-              console.log(`❌ Report ${idx}: province="${provinceName}" NOT FOUND in HEALTHZONE_PROVINCES`);
             }
-          } else {
-            console.log(`❌ Report ${idx}: province_name_th is null/undefined`);
           }
         } else if (mapLevel === "province") {
           // ใช้ province_name_th ตรงๆ
           const provinceName = r.province_name_th;
           if (provinceName) {
             key = lookupMapByName[provinceName];
-            if (key) {
-              console.log(`✅ Report ${idx}: province="${provinceName}" → key="${key}"`);
-            } else {
-              console.log(`❌ Report ${idx}: province="${provinceName}" NOT FOUND in lookupMapByName`);
-            }
-          } else {
-            console.log(`❌ Report ${idx}: province_name_th is null/undefined`);
           }
         } else if (mapLevel === "district") {
           // ใช้ district_name_th ตรงๆ
           const districtName = r.district_name_th;
           if (districtName) {
             key = lookupMapByName[districtName];
-            if (key) {
-              console.log(`✅ Report ${idx}: district="${districtName}" → key="${key}"`);
-            } else {
-              console.log(`❌ Report ${idx}: district="${districtName}" NOT FOUND in lookupMapByName`);
-            }
-          } else {
-            console.log(`❌ Report ${idx}: district_name_th is null/undefined`);
           }
         } else if (mapLevel === "subdistrict") {
           // ใช้ subdistrict_name_th ตรงๆ
           const subdistrictName = r.subdistrict_name_th;
           if (subdistrictName) {
             key = lookupMapByName[subdistrictName];
-            if (key) {
-              console.log(`✅ Report ${idx}: subdistrict="${subdistrictName}" → key="${key}"`);
-            } else {
-              console.log(`❌ Report ${idx}: subdistrict="${subdistrictName}" NOT FOUND in lookupMapByName`);
-            }
-          } else {
-            console.log(`❌ Report ${idx}: subdistrict_name_th is null/undefined`);
           }
         }
 
@@ -903,8 +847,6 @@ const DashboardSobos = () => {
           reportCountMap[key] = (reportCountMap[key] || 0) + 1;
         }
       });
-
-      console.log("📊 Report count map:", reportCountMap);
 
       // Merge จำนวนรายงานเข้ากับ map_items
       mapItems.forEach(item => {
@@ -1018,8 +960,6 @@ const DashboardSobos = () => {
         }
       });
 
-      console.log("📊 Table report count map:", tableReportCountMap);
-
       // Merge จำนวนรายงานเข้ากับ table_items
       tableItems.forEach(item => {
         // หา code จาก lookup map
@@ -1081,13 +1021,23 @@ const DashboardSobos = () => {
     const mapLevel = provinceSummary.map_level || "province";
 
     // ใช้ map_items จาก backend โดยตรง
-    return provinceSummary.map_items.map((item, idx) => ({
-      name: item.name_th || item.name || "ไม่ระบุ",
-      value: item.total_reports,
-      color: mapLevel === "zone"
-        ? (ZONE_COLORS[idx] || "#999")
-        : (ZONE_COLORS[idx % ZONE_COLORS.length] || "#999"),
-    }));
+    return provinceSummary.map_items.map((item, idx) => {
+      let color;
+      if (mapLevel === "zone") {
+        // ✅ สำหรับ zone level - ใช้เลขเขตจาก code (HA1, HA2, ...) เพื่อเลือกสีที่ถูกต้อง
+        const zoneMatch = String(item.code || "").match(/HA?(\d+)/);
+        const zoneNum = zoneMatch ? parseInt(zoneMatch[1]) : 0;
+        color = ZONE_COLORS[zoneNum] || "#999";
+      } else {
+        color = ZONE_COLORS[idx % ZONE_COLORS.length] || "#999";
+      }
+
+      return {
+        name: item.name_th || item.name || "ไม่ระบุ",
+        value: item.total_reports,
+        color,
+      };
+    });
   }, [provinceSummary]);
 
   // คำนวณค่ารวมสำหรับกลาง Pie Chart
@@ -1122,8 +1072,22 @@ const DashboardSobos = () => {
     const mapLevel = provinceSummary.map_level || "province";
 
     if (mapLevel === "zone") {
-      // สำหรับ zone level ให้ return codes ของ healthAreas (HA1, HA2, ...) เพื่อ highlight เขตบนแผนที่
-      return provinceSummary.map_items.map(item => item.code || item.name);
+      // ✅ สำหรับ zone level - หาจังหวัดทั้งหมดในเขตที่มีข้อมูล
+      // เพื่อให้ MapThailandService สามารถ highlight จังหวัดได้
+      const provinceSet = new Set();
+      provinceSummary.map_items.forEach(item => {
+        // item.code คือ "HA1", "HA2" ฯลฯ
+        const zoneMatch = String(item.code || "").match(/HA?(\d+)/);
+        if (zoneMatch) {
+          const zoneNum = parseInt(zoneMatch[1]);
+          // หาจังหวัดทั้งหมดในเขตนี้จาก HEALTHZONE_PROVINCES
+          const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNum);
+          if (zoneData) {
+            zoneData.provinces.forEach(prov => provinceSet.add(prov));
+          }
+        }
+      });
+      return Array.from(provinceSet);
     } else if (mapLevel === "province") {
       // แสดงชื่อจังหวัดทั้งหมดที่มีใน map_items
       return provinceSummary.map_items.map(item => item.name_th || item.name);
@@ -1239,21 +1203,8 @@ const DashboardSobos = () => {
           borderWidth: 1,
           shadow: true,
         },
-        colorAxis: {
-          min: 0,
-          max: 13,
-          dataClasses: chartPieData
-            .map((item) => {
-              const zoneNum = parseInt(item.name.match(/\d+/)?.[0] || "0");
-              return {
-                from: zoneNum,
-                to: zoneNum,
-                color: item.color,
-                name: item.name,
-              };
-            })
-            .concat([{ from: 0, to: 0, color: "#E5E5E5", name: "ไม่มีข้อมูล" }]),
-        },
+        // ✅ ไม่ต้องส่ง colorAxis เพราะ MapThailandService จะสร้างให้เอง
+        // เราส่งเฉพาะ tooltip เพื่อแสดงข้อมูลที่ถูกต้อง
       };
     }
 
