@@ -56,9 +56,10 @@ const mapApiDataToTableRow = (apiData) => {
     "statistics_1": "rd_1",
     "statistics_2": "rd_2",
     // Family Doctor Team (12.x)
-    "doctor_family_1": "fd_1",
-    "doctor_family_2": "fd_2",
-    "doctor_family_3": "fd_3",
+    // fd_1: "ไม่เป็นทีมหมอครอบครัว" - show "-" (not mapped)
+    "doctor_family_1": "fd_2",     // "ช่วยเหลือดูแลผู้ป่วยในชุมชน"
+    "doctor_family_2": "fd_3",     // "(1) ช่วยปรับปรุงสิ่งแวดล้อม"
+    "doctor_family_3": "fd_4",     // "(2) ให้กำลังใจ ผู้ป่วย"
     // Other Activities (13.x)
     "other_activity_1": "oa_1",
     "other_activity_2": "oa_2",
@@ -184,16 +185,9 @@ const TABLE_COLUMNS = [
     colspan: 4,
     subColumns: [
       { id: "so_1", label: "ไม่มีกลุ่มในความดูแลรับผิดชอบ", unit: "คน", rowspan: 2 },
-      {
-        id: "has_group",
-        label: "มีกลุ่มในความดูแลรับผิดชอบ",
-        colspan: 3,
-        subColumns: [
-          { id: "so_2_1", label: "(1) ผู้สูงอายุติดบ้านติดเตียง", unit: "คน" },
-          { id: "so_2_2", label: "(2) ผู้ป่วยโรคไม่ติดต่อเรื้อรัง", unit: "คน" },
-          { id: "so_2_3", label: "(3) ผู้ป่วยโรคไตอสม.", unit: "คน" },
-        ],
-      },
+      { id: "so_2_1", label: "(1) ผู้สูงอายุติดบ้านติดเตียง", unit: "คน", rowspan: 2 },
+      { id: "so_2_2", label: "(2) ผู้ป่วยโรคไม่ติดต่อเรื้อรัง", unit: "คน", rowspan: 2 },
+      { id: "so_2_3", label: "(3) ผู้ป่วยโรคไตอสม.", unit: "คน", rowspan: 2 },
     ],
   },
   {
@@ -267,64 +261,51 @@ const exportToExcel = (data, filters, locationLabel) => {
   const secondRow = [
     "", "", "", "", "",  // First 5 cols - empty (will be merged vertically)
     // Health Promotion sub-columns (11 cols)
-    "5.1 ให้คำแนะนำหญิงตั้งครรภ์ (รายใหม่)\n(คน)",
-    "5.2 ค้นหาหญิงตั้งครรภ์อายุต่ำกว่า 15 ปี (รายใหม่)\n(คน)",
-    "5.3 ติดตามหญิงตั้งครรภ์ให้ได้รับยาเม็ดเสริมไอโอดีน\n(คน)",
-    "5.4 ให้คำแนะนำหญิงหลังคลอด (รายใหม่)\n(คน)",
-    "5.5 ไม่สามารถเลี้ยงดูบุตรด้วยนมแม่ครบ 6 เดือน (รายใหม่)\n(คน)",
-    "5.6 ติดตามหญิงหลังคลอดในนมบุตร 6 เดือน ให้ได้รับยาเม็ตเสริมไอโอดีน\n(คน)",
-    "5.7 ให้คำแนะนำผู้สูงอายุ\n(คน)",
-    "5.8 ผู้สูงอายุที่เป็นโรคเรื้อรังและถูกทอดทิ้ง (รายใหม่)\n(คน)",
-    "5.9 คัดกรอง ประเมินภาวะสุขภาพผู้สูงอายุ (ภาวะถดถอย 9 ด้าน)\n(คน)",
-    "5.10 สร้างความรอบรู้ และให้บริการดูแลสุขภาพตามสภาพปัญหาภาวะถดถอยในแต่ละด้านของผู้สูงอายุ และประสานภาคีเครือข่ายในการดูแลผู้สูงอายุให้มีชีวิตความเป็นอยู่ที่ดี\n(คน)",
-    "5.11 ให้คำแนะนำผู้พิการ\n(คน)",
+    "ให้คำแนะนำหญิงตั้งครรภ์ (รายใหม่)\n(คน)",
+    "ค้นหาหญิงตั้งครรภ์อายุต่ำกว่า 15 ปี (รายใหม่)\n(คน)",
+    "ติดตามหญิงตั้งครรภ์ให้ได้รับยาเม็ดเสริมไอโอดีน\n(คน)",
+    "ให้คำแนะนำหญิงหลังคลอด (รายใหม่)\n(คน)",
+    "ไม่สามารถเลี้ยงดูบุตรด้วยนมแม่ครบ 6 เดือน (รายใหม่)\n(คน)",
+    "ติดตามหญิงหลังคลอดในนมบุตร 6 เดือน ให้ได้รับยาเม็ตเสริมไอโอดีน\n(คน)",
+    "ให้คำแนะนำผู้สูงอายุ\n(คน)",
+    "ผู้สูงอายุที่เป็นโรคเรื้อรังและถูกทอดทิ้ง (รายใหม่)\n(คน)",
+    "คัดกรอง ประเมินภาวะสุขภาพผู้สูงอายุ (ภาวะถดถอย 9 ด้าน)\n(คน)",
+    "สร้างความรอบรู้ และให้บริการดูแลสุขภาพตามสภาพปัญหาภาวะถดถอยในแต่ละด้านของผู้สูงอายุ และประสานภาคีเครือข่ายในการดูแลผู้สูงอายุให้มีชีวิตความเป็นอยู่ที่ดี\n(คน)",
+    "ให้คำแนะนำผู้พิการ\n(คน)",
     // Disease Prevention sub-columns (6 cols)
-    "6.1 ป้องกัน ควบคุม ไข้เลือดออก\n(ครัวเรือน)",
-    "6.2 ป้องกัน ควบคุลไข้หวัดใหญ่\n(ครัวเรือน)",
-    "6.3 คัดกรอง ให้คำแนะนำ กลุ่มเสี่ยงโรค (เบาหวาน ความดันโลหิตสูง มะเร็ง)\n(คน)",
-    "6.4 ให้คำแนะนำการบริโภคอาหารที่ผสมไอโอดีน\n(ครัวเรือน)",
-    "6.5 ให้คำแนะนำลดกินหวาน มัน เค็ม\n(ครัวเรือน)",
-    "6.6 สำรวจ เฝ้าระวัง ป้องกันโรคในกลุ่มเป้าหมาย 607 และปักหมุดแจ้งพิกัดกลุ่มเปราะบางในแอปพลิเคชันพันภัย\n(คน)",
+    "ป้องกัน ควบคุบ ไข้เลือดออก\n(ครัวเรือน)",
+    "ป้องกัน ควบคุลไข้หวัดใหญ่\n(ครัวเรือน)",
+    "คัดกรอง ให้คำแนะนำ กลุ่มเสี่ยงโรค (เบาหวาน ความดันโลหิตสูง มะเร็ง)\n(คน)",
+    "ให้คำแนะนำการบริโภคอาหารที่ผสมไอโอดีน\n(ครัวเรือน)",
+    "ให้คำแนะนำลดกินหวาน มัน เค็ม\n(ครัวเรือน)",
+    "สำรวจ เฝ้าระวัง ป้องกันโรคในกลุ่มเป้าหมาย 607 และปักหมุดแจ้งพิกัดกลุ่มเปราะบางในแอปพลิเคชันพันภัย\n(คน)",
     // Health Rehabilitation (1 col)
-    "7.1 เยี่ยมบ้านผู้ป่วยเบาหวาน ความดันโลหิต มะเร็ง ฯลฯ\n(ครั้ง)",
+    "เยี่ยมบ้านผู้ป่วยเบาหวาน ความดันโลหิต มะเร็ง ฯลฯ\n(ครั้ง)",
     // Consumer Protection (1 col)
-    "8.1 อาหารปลอดภัย\n(ครั้ง)",
+    "อาหารปลอดภัย\n(ครั้ง)",
     // Community Health sub-columns (2 cols)
-    "9.1 ร่วมเป็นจิตอาสา\n(ครั้ง)",
-    "9.2 จัดทำแผนสุขภาพ\n(ครั้ง)",
+    "ร่วมเป็นจิตอาสา\n(ครั้ง)",
+    "จัดทำแผนสุขภาพ\n(ครั้ง)",
     // Support OSM sub-columns (4 cols) - second row
-    "10.1 ไม่มีกลุ่มในความดูแลรับผิดชอบ\n(คน)",  // col 26
-    "มีกลุ่มในความดูแลรับผิดชอบ", "", "",  // col 27-29: header + placeholders (merged to col 29)
+    "ไม่มีกลุ่มในความดูแลรับผิดชอบ\n(คน)",  // col 26
+    "(1) ผู้สูงอายุติดบ้านติดเตียง\n(คน)",  // col 27
+    "(2) ผู้ป่วยโรคไม่ติดต่อเรื้อรัง\n(คน)",  // col 28
+    "(3) ผู้ป่วยโรคไตอสม.\n(คน)",  // col 29
     // Rational Drug Use sub-columns (2 cols)
-    "11.1 ให้ความรู้การใช้ยาที่ถูกต้อง\n(ครอบครัว)",
-    "11.2 เฝ้าระวังและให้คำแนะนำการใช้ยาปฏิชีวนะ/ยาชุด\n(ครั้ง)",
+    "ให้ความรู้การใช้ยาที่ถูกต้อง\n(ครอบครัว)",
+    "เฝ้าระวังและให้คำแนะนำการใช้ยาปฏิชีวนะ/ยาชุด\n(ครั้ง)",
     // Family Doctor Team sub-columns (4 cols)
-    "12.1 ไม่เป็นทีมหมอครอบครัว\n(ครั้ง)",
-    "12.2 ช่วยเหลือดูแลผู้ป่วยในชุมชน\n(คน)",
-    "12.3 (1) ช่วยปรับปรุงสิ่งแวดล้อม\n(ครอบครัว)",
-    "12.4 (2) ให้กำลังใจ ผู้ป่วย\n(ครอบครัว)",
+    "ไม่เป็นทีมหมอครอบครัว\n(ครั้ง)",
+    "ช่วยเหลือดูแลผู้ป่วยในชุมชน\n(คน)",
+    "(1) ช่วยปรับปรุงสิ่งแวดล้อม\n(ครอบครัว)",
+    "(2) ให้กำลังใจ ผู้ป่วย\n(ครอบครัว)",
     // Other Activities sub-columns (3 cols)
-    "13.1 ชวนลด ละ เลิกบุหรี่\n(คน)",
-    "13.2 ไม่สูบและเลิกได้ 6 เดือน\n(คน)",
-    "13.3 ร่วมกับเจ้าหน้าที่ในการติดตามผู้ผ่านการบำบัดยาเสพติดในระบบสมัครใจบำบัด โดยการสร้างกระบวนการมีส่วนร่วมของคนในชุมชน\n(คน)",
+    "ชวนลด ละ เลิกบุหรี่\n(คน)",
+    "ไม่สูบและเลิกได้ 6 เดือน\n(คน)",
+    "ร่วมกับเจ้าหน้าที่ในการติดตามผู้ผ่านการบำบัดยาเสพติดในระบบสมัครใจบำบัด โดยการสร้างกระบวนการมีส่วนร่วมของคนในชุมชน\n(คน)",
   ];
 
-  // Third row - for nested subColumns under "มีกลุ่มในความดูแลรับผิดชอบ" in Support OSM
-  const thirdRow = [
-    // First 26 columns are empty (columns 0-25)
-    "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",  // 26 empty strings for columns 0-25
-    // Column 26: empty (covered by vertical merge of "10.1..." from row 1)
-    "",
-    // Support OSM nested sub-columns (3 cols under "มีกลุ่มในความดูแลรับผิดชอบ")
-    // Columns 27-29
-    "(1) ผู้สูงอายุติดบ้านติดเตียง\n(คน)",    // col 27
-    "(2) ผู้ป่วยโรคไม่ติดต่อเรื้อรัง\n(คน)",    // col 28
-    "(3) ผู้ป่วยโรคไตอสม.\n(คน)",    // col 29
-    // Remaining columns empty to complete 39 total columns (columns 30-38)
-    "", "", "", "", "", "", "", "", "", "",  // 9 empty strings for columns 30-38
-  ];
-
-  const headers = [firstRow, secondRow, thirdRow];
+  const headers = [firstRow, secondRow];
 
   // Build data rows
   const getLocationKeyFromLabel = (label) => {
@@ -352,7 +333,7 @@ const exportToExcel = (data, filters, locationLabel) => {
     row.ch_1 ?? "-", row.ch_2 ?? "-",
     row.so_1 ?? "-", row.so_2_1 ?? "-", row.so_2_2 ?? "-", row.so_2_3 ?? "-",
     row.rd_1 ?? "-", row.rd_2 ?? "-",
-    row.fd_1 ?? "-", row.fd_2 ?? "-", row.fd_3 ?? "-", row.fd_4 ?? "-",
+    "-", row.fd_2 ?? "-", row.fd_3 ?? "-", row.fd_4 ?? "-",  // fd_1 always show "-"
     row.oa_1 ?? "-", row.oa_2 ?? "-", row.oa_3 ?? "-",
   ]);
 
@@ -422,17 +403,17 @@ const exportToExcel = (data, filters, locationLabel) => {
   // Health Rehabilitation (7.1): col 22 (1 col) - has sub-header in row 1, merged to row 2
   // Consumer Protection (8.1): col 23 (1 col) - has sub-header in row 1, merged to row 2
   // Community Health (9.x): col 24-25 (2 cols)
-  // Support OSM (10.x): col 26-29 (4 cols) - with nested structure
+  // Support OSM (10.x): col 26-29 (4 cols) - with 2-level structure
   // Rational Drug Use (11.x): col 30-31 (2 cols)
   // Family Doctor Team (12.x): col 32-35 (4 cols)
   // Other Activities (13.x): col 36-38 (3 cols)
   const merges = [
-    // Vertical merges for first 5 columns (rowspan=3 for columns without subColumns)
-    { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } },   // ลำดับ
-    { s: { r: 0, c: 1 }, e: { r: 2, c: 1 } },   // จังหวัด/Location
-    { s: { r: 0, c: 2 }, e: { r: 2, c: 2 } },   // จำนวนโควต้า
-    { s: { r: 0, c: 3 }, e: { r: 2, c: 3 } },   // จำนวนผู้รายงาน
-    { s: { r: 0, c: 4 }, e: { r: 2, c: 4 } },   // ร้อยละ
+    // Vertical merges for first 5 columns (rowspan=2 for columns without subColumns)
+    { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } },   // ลำดับ
+    { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } },   // จังหวัด/Location
+    { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } },   // จำนวนโควต้า
+    { s: { r: 0, c: 3 }, e: { r: 1, c: 3 } },   // จำนวนผู้รายงาน
+    { s: { r: 0, c: 4 }, e: { r: 1, c: 4 } },   // ร้อยละ
     // Horizontal merges for main header row (row 0)
     { s: { r: 0, c: 5 }, e: { r: 0, c: 15 } },   // Health Promotion (5.x) - 11 cols
     { s: { r: 0, c: 16 }, e: { r: 0, c: 21 } },  // Disease Prevention (6.x) - 6 cols
@@ -443,39 +424,6 @@ const exportToExcel = (data, filters, locationLabel) => {
     { s: { r: 0, c: 30 }, e: { r: 0, c: 31 } },  // Rational Drug Use (11.x)
     { s: { r: 0, c: 32 }, e: { r: 0, c: 35 } },  // Family Doctor Team (12.x)
     { s: { r: 0, c: 36 }, e: { r: 0, c: 38 } },  // Other Activities (13.x)
-    // Vertical merges for columns without sub-sub-columns in row 1
-    { s: { r: 1, c: 5 }, e: { r: 2, c: 5 } },   // hp_1
-    { s: { r: 1, c: 6 }, e: { r: 2, c: 6 } },   // hp_2
-    { s: { r: 1, c: 7 }, e: { r: 2, c: 7 } },   // hp_3
-    { s: { r: 1, c: 8 }, e: { r: 2, c: 8 } },   // hp_4
-    { s: { r: 1, c: 9 }, e: { r: 2, c: 9 } },   // hp_5
-    { s: { r: 1, c: 10 }, e: { r: 2, c: 10 } },  // hp_6
-    { s: { r: 1, c: 11 }, e: { r: 2, c: 11 } },  // hp_7
-    { s: { r: 1, c: 12 }, e: { r: 2, c: 12 } },  // hp_8
-    { s: { r: 1, c: 13 }, e: { r: 2, c: 13 } },  // hp_9
-    { s: { r: 1, c: 14 }, e: { r: 2, c: 14 } },  // hp_10
-    { s: { r: 1, c: 15 }, e: { r: 2, c: 15 } },  // hp_12
-    { s: { r: 1, c: 16 }, e: { r: 2, c: 16 } },  // dp_2
-    { s: { r: 1, c: 17 }, e: { r: 2, c: 17 } },  // dp_3
-    { s: { r: 1, c: 18 }, e: { r: 2, c: 18 } },  // dp_4
-    { s: { r: 1, c: 19 }, e: { r: 2, c: 19 } },  // dp_5
-    { s: { r: 1, c: 20 }, e: { r: 2, c: 20 } },  // dp_6
-    { s: { r: 1, c: 21 }, e: { r: 2, c: 21 } },  // dp_7
-    { s: { r: 1, c: 22 }, e: { r: 2, c: 22 } },  // hr_1 - vertical merge (row 1 to 2)
-    { s: { r: 1, c: 23 }, e: { r: 2, c: 23 } },  // cp_1 - vertical merge (row 1 to 2)
-    { s: { r: 1, c: 24 }, e: { r: 2, c: 24 } },  // ch_1
-    { s: { r: 1, c: 25 }, e: { r: 2, c: 25 } },  // ch_2
-    { s: { r: 1, c: 26 }, e: { r: 2, c: 26 } },  // so_1 (ไม่มีกลุ่มในความดูแล) - rowspan 2
-    { s: { r: 1, c: 27 }, e: { r: 1, c: 29 } },  // "มีกลุ่มในความดูแลรับผิดชอบ" - colspan 3, row 1
-    { s: { r: 1, c: 30 }, e: { r: 2, c: 30 } },  // rd_1
-    { s: { r: 1, c: 31 }, e: { r: 2, c: 31 } },  // rd_2
-    { s: { r: 1, c: 32 }, e: { r: 2, c: 32 } },  // fd_1
-    { s: { r: 1, c: 33 }, e: { r: 2, c: 33 } },  // fd_2
-    { s: { r: 1, c: 34 }, e: { r: 2, c: 34 } },  // fd_3
-    { s: { r: 1, c: 35 }, e: { r: 2, c: 35 } },  // fd_4
-    { s: { r: 1, c: 36 }, e: { r: 2, c: 36 } },  // oa_1
-    { s: { r: 1, c: 37 }, e: { r: 2, c: 37 } },  // oa_2
-    { s: { r: 1, c: 38 }, e: { r: 2, c: 38 } },  // oa_3
   ];
   ws["!merges"] = merges;
 
@@ -506,18 +454,6 @@ const exportToExcel = (data, filters, locationLabel) => {
     },
   };
 
-  const headerStyle3 = {
-    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" } },
-    fill: { fgColor: { rgb: "A855F7" } },
-    alignment: { horizontal: "center", vertical: "center", wrapText: true },
-    border: {
-      top: { style: "thin", color: borderColor },
-      bottom: { style: "thin", color: borderColor },
-      left: { style: "thin", color: borderColor },
-      right: { style: "thin", color: borderColor }
-    },
-  };
-
   const dataStyle = {
     font: { sz: 10 },
     alignment: { horizontal: "center", vertical: "center" },
@@ -536,12 +472,11 @@ const exportToExcel = (data, filters, locationLabel) => {
       if (!ws[cellAddress]) continue;
       if (R === 0) ws[cellAddress].s = headerStyle1;
       else if (R === 1) ws[cellAddress].s = headerStyle2;
-      else if (R === 2) ws[cellAddress].s = headerStyle3;
       else ws[cellAddress].s = dataStyle;
     }
   }
 
-  ws["!rows"] = [{ hpx: 30 }, { hpx: 60 }, { hpx: 50 }];
+  ws["!rows"] = [{ hpx: 30 }, { hpx: 60 }];
 
   XLSX.utils.book_append_sheet(wb, ws, "รายงาน อสม.1");
 
@@ -1061,7 +996,8 @@ const PublicReportComp = () => {
                             </th>
                           ));
                         }
-                        // SubColumn without nested subColumns - skip (return empty array)
+                        // SubColumn without nested subColumns but with rowspan - this column
+                        // occupies space in this row (covered by rowspan from row 1), so skip rendering
                         return [];
                       });
                     })}
@@ -1131,7 +1067,9 @@ const PublicReportComp = () => {
                       </td>
                     ))}
                     {/* Family Doctor Team */}
-                    {[1, 2, 3, 4].map((i) => (
+                    {/* fd_1: "ไม่เป็นทีมหมอครอบครัว" - always show "-" */}
+                    <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">-</td>
+                    {[2, 3, 4].map((i) => (
                       <td key={`fd_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
                         {row[`fd_${i}`] ?? "-"}
                       </td>
