@@ -18,6 +18,7 @@ import {
   Bell,
   Gift,
   ChevronDown,
+  FileSpreadsheet,
 } from "lucide-react";
 import { getMenuStructure, getUserMenuPermissions } from "@services/menuPermissionService";
 import { filterMenusByScope } from "@utils/menuPermissionHelper";
@@ -49,6 +50,7 @@ const ICON_MAP = {
   FileSearch: <FileSearch className="w-5 h-5" />,
   Bell: <Bell className="w-5 h-5" />,
   Gift: <Gift className="w-5 h-5" />,
+  FileSpreadsheet: <FileSpreadsheet className="w-5 h-5" />,
 };
 
 // Helper to get icon component from API icon name or return default
@@ -120,6 +122,11 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
+    {
+      name: "รายงานสาธารณะ อสม.1",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
+    },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
     //   url: "/osm-points",
@@ -183,6 +190,11 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
+    {
+      name: "รายงานสาธารณะ อสม.1",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
+    },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
     //   url: "/osm-points",
@@ -239,6 +251,11 @@ const MENU_MAP = {
       name: "รายงานประเมินหญิงตั้งครรภ์",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
+    },
+    {
+      name: "รายงานสาธารณะ อสม.1",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
     },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
@@ -297,6 +314,11 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
+    {
+      name: "รายงานสาธารณะ อสม.1",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
+    },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
     //   url: "/osm-points",
@@ -354,6 +376,11 @@ const MENU_MAP = {
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
+    {
+      name: "รายงานสาธารณะ อสม.1",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
+    },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
     //   url: "/osm-points",
@@ -410,6 +437,11 @@ const MENU_MAP = {
       name: "รายงานประเมินหญิงตั้งครรภ์",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
+    },
+    {
+      name: "รายงานสาธารณะ อสม.1",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
     },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
