@@ -11,6 +11,61 @@ const REPORT_BASE_URL = (
 ).replace(/\/$/, "");
 
 /**
+ * ดึงข้อมูลรายงาน อสม.1 สรุปตามสถานที่
+ * GET /report-osm1/summary/by-location
+ * @param {Object} params - Filter parameters
+ * @param {string} params.fiscal_year - ปีงบประมาณ (เช่น "2568")
+ * @param {string} params.month - เดือน (1-12)
+ * @param {string} params.zone_code - รหัสเขตสุขภาพ
+ * @param {string} params.province_code - รหัสจังหวัด
+ * @param {string} params.district_code - รหัสอำเภอ
+ * @param {string} params.subdistrict_code - รหัสตำบล
+ * @param {string} params.health_service_code - รหัสหน่วยบริการ
+ * @returns {Promise} - Promise containing report data
+ */
+export const getPublicOsm1SummaryByLocation = async (params = {}) => {
+  try {
+    const searchParams = new URLSearchParams();
+
+    // Map params to query parameters matching API expectation
+    if (params.fiscal_year) {
+      searchParams.append('fiscal_year', parseInt(params.fiscal_year));
+    }
+    if (params.month) {
+      searchParams.append('report_month', parseInt(params.month));
+    }
+    if (params.province_code) {
+      searchParams.append('province_id', params.province_code);
+    }
+    if (params.district_code) {
+      searchParams.append('district_id', params.district_code);
+    }
+    if (params.subdistrict_code) {
+      searchParams.append('subdistrict_id', params.subdistrict_code);
+    }
+    if (params.zone_code) {
+      searchParams.append('health_area_id', params.zone_code);
+    }
+    if (params.health_service_code) {
+      searchParams.append('health_service_id', params.health_service_code);
+    }
+
+    const queryString = searchParams.toString();
+    const url = queryString
+      ? `${REPORT_BASE_URL}/report-osm1/summary/by-location?${queryString}`
+      : `${REPORT_BASE_URL}/report-osm1/summary/by-location`;
+
+    const response = await axiosInstance.get(url);
+
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching OSM1 summary by location:", error);
+    // Return empty array on error instead of throwing
+    return [];
+  }
+};
+
+/**
  * ดึงข้อมูลรายงานสาธารณะตามเงื่อนไขที่กรอง
  * @param {Object} params - Filter parameters
  * @param {string} params.fiscal_year - ปีงบประมาณ (เช่น "2568")
@@ -88,4 +143,5 @@ export const getPublicOsm1Summary = async (params = {}) => {
 export default {
   getPublicReportData,
   getPublicOsm1Summary,
+  getPublicOsm1SummaryByLocation,
 };
