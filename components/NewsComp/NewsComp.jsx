@@ -328,8 +328,11 @@ const NewsCompContent = () => {
 
       console.log("Transformed notifications:", notifications);
 
-      setRawNewsList(notifications);
-      setFilteredNews(notifications);
+      // กรองเฉพาะ type: "info"
+      const infoOnlyNotifications = notifications.filter(n => n.type === "info");
+
+      setRawNewsList(infoOnlyNotifications);
+      setFilteredNews(infoOnlyNotifications);
     } catch (error) {
       console.error("Failed to load notifications:", error);
       showToast("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง", "error");
