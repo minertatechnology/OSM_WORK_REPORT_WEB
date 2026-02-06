@@ -3,6 +3,7 @@ import { Search, Download, RotateCcw, Loader2, FileText, MapPin, Building2, Home
 import { getHealthAreas, getProvinces, getDistricts, getSubdistricts, getHealthServices } from "@services/lookupService";
 import { getPublicOsm1SummaryByLocation } from "@services/publicReportService/publicReportService";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import { HEALTHZONE_PROVINCES } from "@utils/healthzone-province-data";
 import Swal from "sweetalert2";
 import XLSX from "xlsx-js-style";
 
@@ -561,11 +562,32 @@ const PublicReportComp = () => {
   useEffect(() => {
     const loadProvinces = async () => {
       if (!zone) {
+        // No zone selected - load all provinces
         const data = await getProvinces({ limit: 100 });
         setProvinces(data || []);
       } else {
-        const data = await getProvinces({ limit: 100 });
-        setProvinces(data || []);
+        // Zone selected - filter provinces using HEALTHZONE_PROVINCES mapping
+        // Convert zone code (e.g., "HA1", "HA12") to zone number (1, 12)
+        const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+
+        // Find zone data from HEALTHZONE_PROVINCES
+        const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
+
+        if (zoneData && zoneData.provinces) {
+          // Get province names in this zone
+          const provinceNamesInZone = zoneData.provinces.map(p => p.trim());
+
+          // Load all provinces and filter to only those in this zone
+          const allProvinces = await getProvinces({ limit: 100 });
+          const filteredProvinces = allProvinces.filter(p =>
+            provinceNamesInZone.includes(p.name_th?.trim())
+          );
+          setProvinces(filteredProvinces);
+        } else {
+          // Zone not found in mapping, load all provinces
+          const data = await getProvinces({ limit: 100 });
+          setProvinces(data || []);
+        }
       }
     };
     loadProvinces();
@@ -620,18 +642,67 @@ const PublicReportComp = () => {
     const fetchReportData = async () => {
       setLoading(true);
       try {
-        // Build params - only include location params if they have values
+        // Determine the display level based on filters selected
+        // The logic: show data at the child level of the most specific filter
+        let displayLevel = "province"; // default: show all provinces
+        let locationKey = "province";
+        let locationLabel = "จังหวัด";
+
+        // Build params based on what level we want to display
+        // - If service selected: show that service only
+        // - If subdistrict selected: show all services in that subdistrict
+        // - If district selected: show all subdistricts in that district
+        // - If province selected: show all districts in that province
+        // - If zone selected: show all provinces in that zone
+        // - If nothing selected: show all provinces
         const params = {
           fiscal_year: fiscalYear,
           month: month,
-          ...(zone && { zone_code: zone }),
-          ...(province && { province_code: province }),
-          ...(district && { district_code: district }),
-          ...(subdistrict && { subdistrict_code: subdistrict }),
-          ...(service && { health_service_code: service }),
         };
 
-        // Debug: log params to verify
+        if (service) {
+          // Show specific service
+          displayLevel = "service";
+          locationKey = "service";
+          locationLabel = "หน่วยบริการ";
+          params.health_service_code = service;
+          if (subdistrict) params.subdistrict_code = subdistrict;
+          if (district) params.district_code = district;
+          if (province) params.province_code = province;
+          if (zone) params.zone_code = zone;
+        } else if (subdistrict) {
+          // Show all services in this subdistrict
+          displayLevel = "service";
+          locationKey = "service";
+          locationLabel = "หน่วยบริการ";
+          params.subdistrict_code = subdistrict;
+          if (district) params.district_code = district;
+          if (province) params.province_code = province;
+          if (zone) params.zone_code = zone;
+        } else if (district) {
+          // Show all subdistricts in this district
+          displayLevel = "subdistrict";
+          locationKey = "subdistrict";
+          locationLabel = "ตำบล";
+          params.district_code = district;
+          if (province) params.province_code = province;
+          if (zone) params.zone_code = zone;
+        } else if (province) {
+          // Show all districts in this province
+          displayLevel = "district";
+          locationKey = "district";
+          locationLabel = "อำเภอ";
+          params.province_code = province;
+          if (zone) params.zone_code = zone;
+        } else if (zone) {
+          // Show all provinces in this zone
+          displayLevel = "province";
+          locationKey = "province";
+          locationLabel = "จังหวัด";
+          params.zone_code = zone;
+        }
+        // If nothing selected, show all provinces (no location params needed)
+
         console.log('API Request params:', params);
 
         // Call real API
@@ -640,48 +711,45 @@ const PublicReportComp = () => {
         // Check if API returned empty data (404 or no data)
         if (!apiData || (Array.isArray(apiData) && apiData.length === 0) || Object.keys(apiData).length === 0) {
           setReportData([]);
-          setCurrentLevel("province");
+          setCurrentLevel(displayLevel);
           return;
         }
 
-        // Determine the level and location key based on filters
-        let level = "province";
-        let locationKey = "province";
-        let locationLabel = "จังหวัด";
-
-        if (service) {
-          level = "service";
-          locationKey = "service";
-          locationLabel = "หน่วยบริการ";
-        } else if (subdistrict) {
-          level = "subdistrict";
-          locationKey = "subdistrict";
-          locationLabel = "ตำบล";
-        } else if (district) {
-          level = "district";
-          locationKey = "district";
-          locationLabel = "อำเภอ";
-        }
-
-        // Get location name based on current level
-        let locationName = "-";
-        if (level === "service") {
-          locationName = apiData.health_services || apiData.service_name || apiData.service || "-";
-        } else if (level === "subdistrict") {
-          locationName = apiData.subdistrict || "-";
-        } else if (level === "district") {
-          locationName = apiData.district || "-";
+        // Handle different response formats
+        let dataArray = [];
+        if (Array.isArray(apiData)) {
+          dataArray = apiData;
+        } else if (apiData.items && Array.isArray(apiData.items)) {
+          dataArray = apiData.items;
+        } else if (apiData.data && Array.isArray(apiData.data)) {
+          dataArray = apiData.data;
         } else {
-          locationName = apiData.province || "-";
+          // Single object response
+          dataArray = [apiData];
         }
 
-        const mappedData = [{
-          ...mapApiDataToTableRow(apiData),
-          [locationKey]: locationName,
-        }];
+        // Map each data item to table row format
+        const mappedData = dataArray.map((item) => {
+          let locationName = "-";
+
+          if (displayLevel === "service") {
+            locationName = item.health_services || item.service_name || item.service || item.name || "-";
+          } else if (displayLevel === "subdistrict") {
+            locationName = item.subdistrict_name || item.subdistrict || item.name_th || item.name || "-";
+          } else if (displayLevel === "district") {
+            locationName = item.district_name || item.district || item.name_th || item.name || "-";
+          } else {
+            locationName = item.province_name || item.province || item.name_th || item.name || "-";
+          }
+
+          return {
+            ...mapApiDataToTableRow(item),
+            [locationKey]: locationName,
+          };
+        });
 
         setReportData(mappedData);
-        setCurrentLevel(level);
+        setCurrentLevel(displayLevel);
       } catch (error) {
         console.error('Error fetching report data:', error);
         setReportData([]);
@@ -750,7 +818,7 @@ const PublicReportComp = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold">
-                    รายงานสาธารณะ อสม.1
+                    รายงานผลการรายงานผลการปฏิบัติงานของอสม.
                   </h1>
                   <p className="text-white/80">
                     รายงานสรุปผลการดำเนินงานของอาสาสมัครสาธารณสุข
@@ -817,7 +885,6 @@ const PublicReportComp = () => {
             }}
             options={(provinces || []).map((p) => ({ label: p.name_th, value: p.code }))}
             icon={Building2}
-            disabled={!zone}
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">

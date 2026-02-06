@@ -123,7 +123,7 @@ const MENU_MAP = {
       icon: <FileCheck className="w-5 h-5" />,
     },
     {
-      name: "รายงานสาธารณะ อสม.1",
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
       url: "/public-report",
       icon: <FileSpreadsheet className="w-5 h-5" />,
     },
@@ -191,7 +191,7 @@ const MENU_MAP = {
       icon: <FileCheck className="w-5 h-5" />,
     },
     {
-      name: "รายงานสาธารณะ อสม.1",
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
       url: "/public-report",
       icon: <FileSpreadsheet className="w-5 h-5" />,
     },
@@ -253,7 +253,7 @@ const MENU_MAP = {
       icon: <FileCheck className="w-5 h-5" />,
     },
     {
-      name: "รายงานสาธารณะ อสม.1",
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
       url: "/public-report",
       icon: <FileSpreadsheet className="w-5 h-5" />,
     },
@@ -315,7 +315,7 @@ const MENU_MAP = {
       icon: <FileCheck className="w-5 h-5" />,
     },
     {
-      name: "รายงานสาธารณะ อสม.1",
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
       url: "/public-report",
       icon: <FileSpreadsheet className="w-5 h-5" />,
     },
@@ -377,7 +377,7 @@ const MENU_MAP = {
       icon: <FileCheck className="w-5 h-5" />,
     },
     {
-      name: "รายงานสาธารณะ อสม.1",
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
       url: "/public-report",
       icon: <FileSpreadsheet className="w-5 h-5" />,
     },
@@ -439,7 +439,7 @@ const MENU_MAP = {
       icon: <FileCheck className="w-5 h-5" />,
     },
     {
-      name: "รายงานสาธารณะ อสม.1",
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
       url: "/public-report",
       icon: <FileSpreadsheet className="w-5 h-5" />,
     },

@@ -1,4 +1,4 @@
-import axiosInstance from "../axiosInstance";
+import axios from "axios";
 
 /**
  * Public Report Service
@@ -9,6 +9,11 @@ const REPORT_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL ||
   "http://localhost:8000/api/v1"
 ).replace(/\/$/, "");
+
+// Create a dedicated axios instance for public report API without error interceptors
+const publicReportAxios = axios.create({
+  baseURL: REPORT_BASE_URL,
+});
 
 /**
  * ดึงข้อมูลรายงาน อสม.1 สรุปตามสถานที่
@@ -52,15 +57,19 @@ export const getPublicOsm1SummaryByLocation = async (params = {}) => {
 
     const queryString = searchParams.toString();
     const url = queryString
-      ? `${REPORT_BASE_URL}/report-osm1/summary/by-location?${queryString}`
-      : `${REPORT_BASE_URL}/report-osm1/summary/by-location`;
+      ? `/report-osm1/summary/by-location?${queryString}`
+      : `/report-osm1/summary/by-location`;
 
-    const response = await axiosInstance.get(url);
+    const response = await publicReportAxios.get(url);
 
     return response.data;
   } catch (error) {
-    console.error("Error fetching OSM1 summary by location:", error);
-    // Return empty array on error instead of throwing
+    // Silently handle 404 errors (no data found) - don't log or alert
+    if (error.response?.status === 404) {
+      return [];
+    }
+    // Log other errors but still return empty array to prevent UI errors
+    console.error("Error fetching OSM1 summary by location:", error.response?.status, error.response?.data);
     return [];
   }
 };
@@ -89,10 +98,10 @@ export const getPublicReportData = async (params = {}) => {
 
     const queryString = searchParams.toString();
     const url = queryString
-      ? `${REPORT_BASE_URL}/reports/public/osm1-summary?${queryString}`
-      : `${REPORT_BASE_URL}/reports/public/osm1-summary`;
+      ? `/reports/public/osm1-summary?${queryString}`
+      : `/reports/public/osm1-summary`;
 
-    const response = await axiosInstance.get(url);
+    const response = await publicReportAxios.get(url);
 
     return response.data;
   } catch (error) {
@@ -118,10 +127,10 @@ export const getPublicOsm1Summary = async (params = {}) => {
 
     const queryString = searchParams.toString();
     const url = queryString
-      ? `${REPORT_BASE_URL}/reports/public/osm1-summary?${queryString}`
-      : `${REPORT_BASE_URL}/reports/public/osm1-summary`;
+      ? `/reports/public/osm1-summary?${queryString}`
+      : `/reports/public/osm1-summary`;
 
-    const response = await axiosInstance.get(url);
+    const response = await publicReportAxios.get(url);
 
     // รองรับหลายรูปแบบ response
     if (response.data?.data) {
