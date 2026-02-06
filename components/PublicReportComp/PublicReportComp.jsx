@@ -4,6 +4,7 @@ import { getHealthAreas, getProvinces, getDistricts, getSubdistricts, getHealthS
 import { getPublicOsm1SummaryByLocation } from "@services/publicReportService/publicReportService";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { HEALTHZONE_PROVINCES } from "@utils/healthzone-province-data";
+import { useUserPermission } from "@context/UserPermissionProvider";
 import Swal from "sweetalert2";
 import XLSX from "xlsx-js-style";
 
@@ -490,14 +491,33 @@ const exportToExcel = (data, filters, locationLabel) => {
 };
 
 const PublicReportComp = () => {
-  // Filter states
+  // Permission hooks
+  const { user, scope, isLocked, getInitialFilters, loading: permissionLoading } = useUserPermission();
+
+  // Filter states - initialize with permission-based filters if user is logged in
+  const initialFilters = useMemo(() => {
+    if (user && !permissionLoading) {
+      return getInitialFilters();
+    }
+    return {
+      zone: "",
+      province: "",
+      province_name_th: "",
+      district: "",
+      district_name_th: "",
+      subdistrict: "",
+      subdistrict_name_th: "",
+      service: "",
+    };
+  }, [user, permissionLoading, getInitialFilters]);
+
   const [fiscalYear, setFiscalYear] = useState(String(new Date().getFullYear() + 543));
   const [month, setMonth] = useState("");
-  const [zone, setZone] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
-  const [service, setService] = useState("");
+  const [zone, setZone] = useState(initialFilters.zone);
+  const [province, setProvince] = useState(initialFilters.province);
+  const [district, setDistrict] = useState(initialFilters.district);
+  const [subdistrict, setSubdistrict] = useState(initialFilters.subdistrict);
+  const [service, setService] = useState(initialFilters.service);
 
   // Location data
   const [healthAreas, setHealthAreas] = useState([]);
@@ -510,6 +530,23 @@ const PublicReportComp = () => {
   const [reportData, setReportData] = useState([]);
   const [currentLevel, setCurrentLevel] = useState("province"); // province, district, subdistrict, service
   const [loading, setLoading] = useState(false);
+
+  // Check if user is logged in
+  const isLoggedIn = user && !permissionLoading;
+
+  // Sync filter states with user permissions when they are loaded
+  useEffect(() => {
+    if (user && !permissionLoading) {
+      const filters = getInitialFilters();
+      // Only set filters if they haven't been manually changed by user
+      // For logged in users, apply permission-based filters
+      if (filters.zone && zone === "") setZone(filters.zone);
+      if (filters.province && province === "") setProvince(filters.province);
+      if (filters.district && district === "") setDistrict(filters.district);
+      if (filters.subdistrict && subdistrict === "") setSubdistrict(filters.subdistrict);
+      if (filters.service && service === "") setService(filters.service);
+    }
+  }, [user, permissionLoading]);
 
   // Helper to get location label based on current level
   const getLocationLabel = () => {
@@ -769,11 +806,12 @@ const PublicReportComp = () => {
   const handleReset = () => {
     setFiscalYear(String(new Date().getFullYear() + 543));
     setMonth("");
-    setZone("");
-    setProvince("");
-    setDistrict("");
-    setSubdistrict("");
-    setService("");
+    // Only reset filters that are not locked
+    if (!isLoggedIn || !isLocked('zone')) setZone("");
+    if (!isLoggedIn || !isLocked('province')) setProvince("");
+    if (!isLoggedIn || !isLocked('district')) setDistrict("");
+    if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
+    if (!isLoggedIn || !isLocked('service')) setService("");
   };
 
   const handleExportExcel = () => {
@@ -865,13 +903,15 @@ const PublicReportComp = () => {
             value={zone}
             onChange={(e) => {
               setZone(e.target.value);
-              setProvince("");
-              setDistrict("");
-              setSubdistrict("");
-              setService("");
+              // Clear child values only if they are not locked
+              if (!isLoggedIn || !isLocked('province')) setProvince("");
+              if (!isLoggedIn || !isLocked('district')) setDistrict("");
+              if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
+              if (!isLoggedIn || !isLocked('service')) setService("");
             }}
             options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
             icon={MapPin}
+            disabled={isLoggedIn && isLocked('zone')}
           />
           <CustomSelect
             label="จังหวัด"
@@ -879,12 +919,14 @@ const PublicReportComp = () => {
             value={province}
             onChange={(e) => {
               setProvince(e.target.value);
-              setDistrict("");
-              setSubdistrict("");
-              setService("");
+              // Clear child values only if they are not locked
+              if (!isLoggedIn || !isLocked('district')) setDistrict("");
+              if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
+              if (!isLoggedIn || !isLocked('service')) setService("");
             }}
             options={(provinces || []).map((p) => ({ label: p.name_th, value: p.code }))}
             icon={Building2}
+            disabled={isLoggedIn && isLocked('province')}
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
@@ -894,12 +936,13 @@ const PublicReportComp = () => {
             value={district}
             onChange={(e) => {
               setDistrict(e.target.value);
-              setSubdistrict("");
-              setService("");
+              // Clear child values only if they are not locked
+              if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
+              if (!isLoggedIn || !isLocked('service')) setService("");
             }}
             options={(districts || []).map((d) => ({ label: d.name_th, value: d.code }))}
             icon={Building2}
-            disabled={!province}
+            disabled={(isLoggedIn && isLocked('district')) || !province}
           />
           <CustomSelect
             label="ตำบล"
@@ -907,11 +950,12 @@ const PublicReportComp = () => {
             value={subdistrict}
             onChange={(e) => {
               setSubdistrict(e.target.value);
-              setService("");
+              // Clear child values only if they are not locked
+              if (!isLoggedIn || !isLocked('service')) setService("");
             }}
             options={(subdistricts || []).map((s) => ({ label: s.name_th, value: s.code }))}
             icon={Home}
-            disabled={!district}
+            disabled={(isLoggedIn && isLocked('subdistrict')) || !district}
           />
           <CustomSelect
             label="หน่วยบริการ"
@@ -923,7 +967,7 @@ const PublicReportComp = () => {
               value: String(s.id || s.code || "")
             }))}
             icon={Building2}
-            disabled={!subdistrict}
+            disabled={(isLoggedIn && isLocked('service')) || !subdistrict}
           />
         </div>
         <div className="flex gap-3 mt-4">
