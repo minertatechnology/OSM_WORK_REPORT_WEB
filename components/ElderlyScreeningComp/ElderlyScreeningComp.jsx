@@ -845,7 +845,22 @@ const ElderlyScreeningComp = () => {
       // รวมข้อมูลตาม external_user_id (ผู้ประเมิน)
       const aggregated = elderlyScreeningService.aggregateByAssessor(data);
 
-      setAggregatedData(aggregated);
+      // เพิ่ม location_data_resolved เข้าไปในแต่ละ assessor
+      const aggregatedWithLocation = aggregated.map((assessor) => {
+        // หา screening ล่าสุดเพื่อดึง location_data_resolved
+        const latestScreening = assessor.screenings.reduce((latest, current) => {
+          const latestDate = new Date(latest.created_at || latest.date || 0);
+          const currentDate = new Date(current.created_at || current.date || 0);
+          return currentDate > latestDate ? current : latest;
+        }, assessor.screenings[0]);
+
+        return {
+          ...assessor,
+          location_data_resolved: latestScreening?.location_data_resolved || {},
+        };
+      });
+
+      setAggregatedData(aggregatedWithLocation);
 
       // สร้างรายการปีจากข้อมูล
       const yearsSet = new Set();
@@ -918,17 +933,8 @@ const ElderlyScreeningComp = () => {
       // แปลงวันที่เป็นรูปแบบไทย: "25 มิถุนายน 2568"
       const thaiDate = formatThaiDate(assessorData.latest_date);
 
-      // ใช้ location data จาก OSM API (มี province_id, district_id, subdistrict_id, health_service_id)
-      const locationData = {
-        province_id: userData?.province_id || "",
-        province_name_th: userData?.province_name_th || "",
-        district_id: userData?.district_id || "",
-        district_name_th: userData?.district_name_th || "",
-        subdistrict_id: userData?.subdistrict_id || "",
-        subdistrict_name_th: userData?.subdistrict_name_th || "",
-        health_service_id: userData?.health_service_id || "",
-        health_service_name_th: userData?.health_service_name_th || "",
-      };
+      // ใช้ location data จาก location_data_resolved (API ใหม่ /elderly-screeningsall)
+      const locationResolved = assessorData.location_data_resolved || {};
 
       return {
         id: assessorData.external_user_id,
@@ -938,7 +944,7 @@ const ElderlyScreeningComp = () => {
         _thaiDate: thaiDate,
         _elderlyCount: assessorData.count,
         screenings: assessorData.screenings,
-        location_data: locationData,
+        location_data_resolved: locationResolved,
       };
     }).filter((row) => {
       // Year filtering
@@ -989,39 +995,51 @@ const ElderlyScreeningComp = () => {
       }
 
       // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
-      // กรองตาม OSM API data
-      const locationData = row.location_data || {};
+      // กรองตาม location_data_resolved จาก screening data (API ใหม่ /elderly-screeningsall)
+      const locationResolved = row.location_data_resolved || {};
 
-      // กรองตามเขตสุขภาพ
+      // กรองตามเขตสุขภาพ (ใช้ health_area_id จาก location_data_resolved)
       if (zone) {
-        const selectedHealthArea = healthAreas.find(h => h.code === zone);
-        if (selectedHealthArea && selectedHealthArea.provinces) {
-          const provinceInHealthArea = selectedHealthArea.provinces.find(
-            p => p.name_th === locationData.province_name_th
-          );
-          if (!provinceInHealthArea) {
+        const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+        // ใช้ health_area_id จาก location_data_resolved (เช่น "HA13" -> 13)
+        const healthAreaId = locationResolved.health_area_id;
+        if (healthAreaId) {
+          // แปลง "HA13" -> 13
+          const healthAreaNumber = parseInt(String(healthAreaId).replace(/\D/g, ''));
+          if (healthAreaNumber !== zoneNumber) {
             return false;
+          }
+        } else {
+          // Fallback: ค้นหาจาก healthAreas
+          const selectedHealthArea = healthAreas.find(h => h.code === zone);
+          if (selectedHealthArea && selectedHealthArea.provinces) {
+            const provinceInHealthArea = selectedHealthArea.provinces.find(
+              p => p.code === locationResolved.province_id
+            );
+            if (!provinceInHealthArea) {
+              return false;
+            }
           }
         }
       }
 
-      const selectedProvince = provinces.find(p => p.code === province);
-      const provinceMatch = !province || locationData.province_name_th === selectedProvince?.name_th;
+      // กรองตามจังหวัด (ใช้ province_id จาก location_data_resolved)
+      const provinceMatch = !province || locationResolved.province_id === province;
 
-      const selectedDistrict = districts.find(d => d.code === district);
-      const districtMatch = !district || locationData.district_name_th === selectedDistrict?.name_th;
+      // กรองตามอำเภอ (ใช้ district_id จาก location_data_resolved)
+      const districtMatch = !district || locationResolved.district_id === district;
 
-      const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
-      const subdistrictMatch = !subdistrict || locationData.subdistrict_name_th === selectedSubdistrict?.name_th;
+      // กรองตามตำบล (ใช้ subdistrict_id จาก location_data_resolved)
+      const subdistrictMatch = !subdistrict || locationResolved.subdistrict_id === subdistrict;
 
       // กรองตาม keyword
       const keywordMatch = !keywordLower || (
         row._assessorName.toLowerCase().includes(keywordLower) ||
         (row.external_user_id || "").toLowerCase().includes(keywordLower) ||
         (row._citizenId || "").toLowerCase().includes(keywordLower) ||
-        locationData.province_name_th?.toLowerCase().includes(keywordLower) ||
-        locationData.district_name_th?.toLowerCase().includes(keywordLower) ||
-        locationData.subdistrict_name_th?.toLowerCase().includes(keywordLower)
+        locationResolved.province?.toLowerCase().includes(keywordLower) ||
+        locationResolved.district?.toLowerCase().includes(keywordLower) ||
+        locationResolved.subdistrict?.toLowerCase().includes(keywordLower)
       );
 
       return provinceMatch && districtMatch && subdistrictMatch && keywordMatch;
