@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import {
   Download,
@@ -18,7 +18,8 @@ import {
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getHealthRecords } from "@services/healthRecordService";
 import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
-import { getOsmById, getOsmByHealthService } from "@services/lookupService";
+import { getOsmByHealthService } from "@services/lookupService";
+import oauth2Service from "@services/oauth2Service";
 import * as XLSX from "xlsx";
 import {
   getCurrentFiscalYear,
@@ -30,7 +31,6 @@ import {
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
-import { buildFilterParams, addDateFilters } from "@utils/filterParamsHelper";
 
 // Thai month names
 const THAI_MONTHS = [
@@ -157,24 +157,10 @@ function findSubdistrictIdByName(thaiName, subdistricts) {
 // Pagination helpers
 const PER_PAGE_OPTIONS = [
   { value: 10, label: "10" },
-  { value: 20, label: "20" },
+  { value: 25, label: "25" },
   { value: 50, label: "50" },
   { value: 100, label: "100" },
 ];
-
-function getPageNumbers(current, total) {
-  const visible = 5;
-  if (total <= visible) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = [];
-  if (current <= 3) {
-    pages.push(1, 2, 3, 4, "...", total);
-  } else if (current >= total - 2) {
-    pages.push(1, "...", total - 3, total - 2, total - 1, total);
-  } else {
-    pages.push(1, "...", current - 1, current, current + 1, "...", total);
-  }
-  return pages.filter((v, i, arr) => v === "..." || arr.indexOf(v) === i);
-}
 
 function PaginationWithPerPage({
   currentPage,
@@ -182,106 +168,174 @@ function PaginationWithPerPage({
   totalPages,
   itemsPerPage,
   setItemsPerPage,
+  totalItems = 0,
 }) {
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("...");
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-purple-100">
+    <div className="flex flex-row items-center justify-between gap-3 mt-6 pt-6 border-t-2 border-purple-100 flex-wrap">
       <div className="flex items-center gap-2">
-        <label htmlFor="per-page" className="text-sm text-gray-600 font-medium">
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
           แสดง
-        </label>
-        <select
-          id="per-page"
-          value={itemsPerPage}
-          onChange={(e) => {
-            setItemsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="appearance-none border border-purple-200 rounded-xl px-4 py-2 pr-8 text-sm font-semibold text-purple-600 bg-purple-50 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent hover:border-purple-400 cursor-pointer"
-        >
-          {PER_PAGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <span className="text-sm text-gray-600">รายการต่อหน้า</span>
+        </span>
+        <div className="relative">
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="appearance-none bg-gradient-to-r from-purple-50/80 to-violet-50/80 border-2 border-purple-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-[#7e32e2] cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all duration-200 min-w-[65px]"
+          >
+            {PER_PAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={16}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#7e32e2] pointer-events-none"
+          />
+        </div>
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รายการ/หน้า
+        </span>
       </div>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => setCurrentPage(1)}
-          disabled={currentPage === 1}
-          className={`hidden sm:flex p-2 rounded-lg transition-all ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
-          }`}
-          title="หน้าแรก"
-        >
-          <ChevronsLeft size={18} />
-        </button>
-        <button
-          onClick={() => setCurrentPage(currentPage - 1)}
-          disabled={currentPage === 1}
-          className={`p-2 rounded-lg transition-all ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
-          }`}
-          title="หน้าก่อนหน้า"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div className="hidden sm:flex items-center gap-1 mx-2">
-          {getPageNumbers(currentPage, totalPages).map((page, idx) =>
-            page === "..." ? (
-              <span key={idx} className="px-2 text-gray-400">
-                ...
+
+      {totalItems > 0 && (
+        <div className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รวม{" "}
+          <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+            {totalItems.toLocaleString("th-TH")}
+          </span>{" "}
+          รายการ
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        {totalPages > 1 && (
+          <>
+            <div className="text-xs font-medium text-gray-700 bg-gradient-to-r from-purple-50 to-white px-3 py-1.5 rounded-lg border border-purple-100 whitespace-nowrap">
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {startItem}
               </span>
-            ) : (
+              -
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {endItem}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-white px-1.5 py-1.5 rounded-lg border border-purple-100 shadow-sm">
               <button
-                key={idx}
-                onClick={() => setCurrentPage(page)}
-                className={`min-w-[36px] h-9 rounded-lg font-semibold transition-all ${
-                  currentPage === page
-                    ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md"
-                    : "text-purple-600 hover:bg-purple-50"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
                 }`}
               >
-                {page}
+                <ChevronsLeft size={16} />
               </button>
-            )
-          )}
-        </div>
-        <button
-          onClick={() => setCurrentPage(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className={`p-2 rounded-lg transition-all ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
-          }`}
-          title="หน้าถัดไป"
-        >
-          <ChevronRight size={18} />
-        </button>
-        <button
-          onClick={() => setCurrentPage(totalPages)}
-          disabled={currentPage === totalPages}
-          className={`hidden sm:flex p-2 rounded-lg transition-all ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-purple-600 bg-purple-50 hover:bg-purple-100"
-          }`}
-          title="หน้าสุดท้าย"
-        >
-          <ChevronsRight size={18} />
-        </button>
-        <div className="hidden sm:block ml-3 text-sm text-gray-600 font-medium bg-purple-50 px-3 py-2 rounded-lg">
-          หน้า {currentPage} / {totalPages}
-        </div>
-        <div className="sm:hidden ml-2 text-sm text-gray-600 font-medium">
-          {currentPage} / {totalPages}
-        </div>
+
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div className="flex items-center gap-1 mx-0.5">
+                {getPageNumbers().map((page, idx) => (
+                  <React.Fragment key={idx}>
+                    {page === "..." ? (
+                      <span className="px-2 py-1 text-gray-400 font-semibold text-xs">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`min-w-[32px] h-8 rounded-lg font-semibold text-xs transition-all duration-200 ${
+                          currentPage === page
+                            ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md scale-105"
+                            : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-100 hover:to-purple-50 hover:scale-105 border border-transparent hover:border-purple-200"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronRight size={16} />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -329,27 +383,6 @@ const OsmHealthComp = () => {
     isSubdistrictDisabled,
     isServiceDisabled,
   } = usePermissionFilters({ currentFiscalYear });
-
-  // Build filter params for backend API (supports both text and ID)
-  const filterParams = useMemo(() => {
-    return buildFilterParams({
-      zone,
-      province,
-      district,
-      subdistrict,
-      health_service_id: service,
-      provinces,
-      districts,
-      subdistricts,
-      lockLevel,
-      getInitialFilters,
-    });
-  }, [zone, province, district, subdistrict, service, provinces, districts, subdistricts, lockLevel, getInitialFilters]);
-
-  // Add date filters to params
-  const apiParams = useMemo(() => {
-    return addDateFilters(filterParams, year, month, yearType);
-  }, [filterParams, year, month, yearType]);
 
   // Data state
   const [healthRecords, setHealthRecords] = useState([]);
@@ -411,8 +444,7 @@ const OsmHealthComp = () => {
     const fetchHealthRecords = async () => {
       try {
         setIsLoading(true);
-        // ส่ง filterParams ไป backend (รองรับทั้ง text และ ID)
-        const data = await getHealthRecords({ limit: 1000, ...apiParams });
+        const data = await getHealthRecords({ limit: 1000 });
         setHealthRecords(data || []);
       } catch (error) {
         console.error("Failed to fetch health records:", error);
@@ -422,7 +454,8 @@ const OsmHealthComp = () => {
       }
     };
     fetchHealthRecords();
-  }, [apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
+  }, [year, month, yearType]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน (ใช้ค่า stable แทน apiParams)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Fetch OSM data when service is selected
   useEffect(() => {
@@ -658,139 +691,133 @@ const OsmHealthComp = () => {
         return parts.filter(Boolean).join(" ") || "-";
       };
 
-      // ดึงข้อมูลจาก OSM API สำหรับทุก record
-      const excelData = await Promise.all(
-        filteredRecords.map(async (record, index) => {
-          // ดึงข้อมูล OSM ถ้ามี external_user_id (ใช้ getOsmById แทน getUserByExternalId)
-          let osmData = null;
-          if (record.external_user_id) {
-            try {
-              osmData = await getOsmById(record.external_user_id);
-            } catch (error) {
-              console.error(`Failed to fetch OSM data for ${record.external_user_id}:`, error);
-            }
-          }
+      // ดึงข้อมูล OSM ทั้งหมดแบบ batch เพื่อลดจำนวน request
+      const uniqueUserIds = [...new Set(filteredRecords.map(record => record.external_user_id).filter(Boolean))];
+      const osmDataMap = await oauth2Service.getBatch(uniqueUserIds);
 
-          const fullName = `${record.prefix || ""}${record.first_name || ""} ${record.last_name || ""}`.trim() || "ไม่ระบุชื่อ";
+      const excelData = filteredRecords.map((record, index) => {
+        // ดึงข้อมูล OSM จาก batch result
+        const osmData = record.external_user_id ? osmDataMap[record.external_user_id] || null : null;
 
-          // ใช้ข้อมูลจาก OSM ถ้ามี ไม่งั้นใช้ของ record
-          const birthDate = osmData?.birth_date || "";
-          const age = calculateAge(birthDate);
-          const fullAddress = osmData ? buildFullAddress(osmData) : (record.address || "-");
+        const fullName = `${record.prefix || ""}${record.first_name || ""} ${record.last_name || ""}`.trim() || "ไม่ระบุชื่อ";
 
-          // แปลงค่าสถานภาพ
-          const maritalStatusMap = {
-            "single": "โสด",
-            "married": "สมรส",
-            "divorced": "หย่าร้าง",
-            "widowed": "หม้าย"
-          };
+        // ใช้ข้อมูลจาก OSM ถ้ามี ไม่งั้นใช้ของ record
+        const birthDate = osmData?.birth_date || "";
+        const age = calculateAge(birthDate);
+        const fullAddress = osmData ? buildFullAddress(osmData) : (record.address || "-");
 
-          // แปลงค่า Yes/No
-          const yesNoMap = {
-            "yes": "มี",
-            "no": "ไม่มี",
-            "unknown": "ไม่ทราบ"
-          };
+        // แปลงค่าสถานภาพ
+        const maritalStatusMap = {
+          "single": "โสด",
+          "married": "สมรส",
+          "divorced": "หย่าร้าง",
+          "widowed": "หม้าย"
+        };
 
-          // แปลงค่าความเสี่ยง CV
-          const cvRiskMap = {
-            "low": "เสี่ยงต่ำ",
-            "mid": "เสี่ยงปานกลาง",
-            "high": "เสี่ยงสูง"
-          };
+        // แปลงค่า Yes/No
+        const yesNoMap = {
+          "yes": "มี",
+          "no": "ไม่มี",
+          "unknown": "ไม่ทราบ"
+        };
 
-          // แปลงค่าความเครียด
-          const stressMap = {
-            "normal": "ไม่มีความเครียด",
-            "mid": "เครียดปานกลาง",
-            "high": "เครียดสูง"
-          };
+        // แปลงค่าความเสี่ยง CV
+        const cvRiskMap = {
+          "low": "เสี่ยงต่ำ",
+          "mid": "เสี่ยงปานกลาง",
+          "high": "เสี่ยงสูง"
+        };
 
-          // แปลงค่าภาวะซึมเศร้า
-          const depressionMap = {
-            "ok": "ปกติ",
-            "abnormal": "เสี่ยงเป็นโรคซึมเศร้า"
-          };
+        // แปลงค่าความเครียด
+        const stressMap = {
+          "normal": "ไม่มีความเครียด",
+          "mid": "เครียดปานกลาง",
+          "high": "เครียดสูง"
+        };
 
-          // แปลงค่าผลตรวจ
-          const resultMap = {
-            "normal": "ปกติ",
-            "abnormal": "ผิดปกติ",
-            "neg": "ผลเป็นลบ",
-            "pos": "ผลเป็นบวก"
-          };
+        // แปลงค่าภาวะซึมเศร้า
+        const depressionMap = {
+          "ok": "ปกติ",
+          "abnormal": "เสี่ยงเป็นโรคซึมเศร้า"
+        };
 
-          // แปลงค่า community screening
-          const livingMap = {
-            "hasCare": "ไม่ได้อยู่คนเดียว/มีคนดูแล",
-            "alone": "อยู่คนเดียว/ไม่มีคนดูแล"
-          };
+        // แปลงค่าผลตรวจ
+        const resultMap = {
+          "normal": "ปกติ",
+          "abnormal": "ผิดปกติ",
+          "neg": "ผลเป็นลบ",
+          "pos": "ผลเป็นบวก"
+        };
 
-          const houseSafetyMap = {
-            "safe": "มั่นคงแข็งแรง/ปลอดภัย",
-            "unsafe": "ไม่มั่นคง/ไม่ปลอดภัย"
-          };
+        // แปลงค่า community screening
+        const livingMap = {
+          "hasCare": "ไม่ได้อยู่คนเดียว/มีคนดูแล",
+          "alone": "อยู่คนเดียว/ไม่มีคนดูแล"
+        };
 
-          const incomeMap = {
-            "enough": "เพียงพอ",
-            "notEnough": "ไม่เพียงพอ"
-          };
+        const houseSafetyMap = {
+          "safe": "มั่นคงแข็งแรง/ปลอดภัย",
+          "unsafe": "ไม่มั่นคง/ไม่ปลอดภัย"
+        };
 
-          return {
-            "ลำดับ": index + 1,
-            "เลขบัตรประชาชน": osmData?.citizen_id || record.id_card || "-",
-            "ชื่อ-นามสกุล": fullName,
-            "วัน/เดือน/ปีเกิด": birthDate ? formatThaiDate(birthDate) : "-",
-            "อายุ": age,
-            "สถานภาพ": maritalStatusMap[osmData?.marital_status || record.marital_status] || osmData?.marital_status || record.marital_status || "-",
-            "ที่อยู่": fullAddress,
+        const incomeMap = {
+          "enough": "เพียงพอ",
+          "notEnough": "ไม่เพียงพอ"
+        };
 
-            // ประวัติสุขภาพ
-            "โรคประจำตัว": record.chronic_diseases || "-",
-            "แพ้ยา": record.drug_allergies || "-",
-            "แพ้อาหาร": record.food_allergies || "-",
+        return {
+          "ลำดับ": index + 1,
+          "เลขบัตรประชาชน": osmData?.citizen_id || record.id_card || "-",
+          "ชื่อ-นามสกุล": fullName,
+          "วัน/เดือน/ปีเกิด": birthDate ? formatThaiDate(birthDate) : "-",
+          "อายุ": age,
+          "สถานภาพ": maritalStatusMap[osmData?.marital_status || record.marital_status] || osmData?.marital_status || record.marital_status || "-",
+          "ที่อยู่": fullAddress,
 
-            // ประวัติครอบครัว
-            "ประวัติครอบครัว - มะเร็ง": yesNoMap[record.family_history_cancer] || "-",
-            "ประวัติครอบครัว - เบาหวาน": yesNoMap[record.family_history_diabetes] || "-",
-            "ประวัติครอบครัว - ความดันสูง": yesNoMap[record.family_history_hypertension] || "-",
-            "ประวัติครอบครัว - หัวใจหลอดเลือด": yesNoMap[record.family_history_cvd] || "-",
+          // ประวัติสุขภาพ
+          "โรคประจำตัว": record.chronic_diseases || "-",
+          "แพ้ยา": record.drug_allergies || "-",
+          "แพ้อาหาร": record.food_allergies || "-",
 
-            // การตรวจร่างกาย
-            "ความดันโลหิตบน": record.blood_pressure_systolic || "-",
-            "ความดันโลหิตล่าง": record.blood_pressure_diastolic || "-",
-            "ความดันโลหิต": record.blood_pressure_systolic && record.blood_pressure_diastolic
-              ? `${record.blood_pressure_systolic}/${record.blood_pressure_diastolic}`
-              : "-",
-            "น้ำหนัก (กก.)": record.weight || "-",
-            "ส่วนสูง (ซม.)": record.height || "-",
-            "BMI": record.bmi ? record.bmi.toFixed(2) : "-",
-            "รอบเอว (ซม.)": record.waist || "-",
+          // ประวัติครอบครัว
+          "ประวัติครอบครัว - มะเร็ง": yesNoMap[record.family_history_cancer] || "-",
+          "ประวัติครอบครัว - เบาหวาน": yesNoMap[record.family_history_diabetes] || "-",
+          "ประวัติครอบครัว - ความดันสูง": yesNoMap[record.family_history_hypertension] || "-",
+          "ประวัติครอบครัว - หัวใจหลอดเลือด": yesNoMap[record.family_history_cvd] || "-",
 
-            // การตรวจคัดกรอง
-            "ผลตรวจเต้านม": record.bse_result || "-",
-            "ความเสี่ยงโรคหัวใจ": cvRiskMap[record.cv_risk_score] || record.cv_risk_score || "-",
-            "ภาวะเครียด": stressMap[record.stress_level] || record.stress_level || "-",
-            "ภาวะซึมเศร้า": depressionMap[record.depression_2q] || record.depression_2q || "-",
+          // การตรวจร่างกาย
+          "ความดันโลหิตบน": record.blood_pressure_systolic || "-",
+          "ความดันโลหิตล่าง": record.blood_pressure_diastolic || "-",
+          "ความดันโลหิต": record.blood_pressure_systolic && record.blood_pressure_diastolic
+            ? `${record.blood_pressure_systolic}/${record.blood_pressure_diastolic}`
+            : "-",
+          "น้ำหนัก (กก.)": record.weight || "-",
+          "ส่วนสูง (ซม.)": record.height || "-",
+          "BMI": record.bmi ? record.bmi.toFixed(2) : "-",
+          "รอบเอว (ซม.)": record.waist || "-",
 
-            // ผลตรวจทางห้องปฏิบัติการ
-            "น้ำตาลในเลือด (mg/dl)": record.fasting_blood_sugar || "-",
-            "ผลตรวจอุจจาระ": resultMap[record.stool_result] || record.stool_result || "-",
-            "ผลตรวจ FIT": resultMap[record.fit_result] || record.fit_result || "-",
-            "ผลตรวจ HPV": resultMap[record.hpv_result] || record.hpv_result || "-",
+          // การตรวจคัดกรอง
+          "ผลตรวจเต้านม": record.bse_result || "-",
+          "ความเสี่ยงโรคหัวใจ": cvRiskMap[record.cv_risk_score] || record.cv_risk_score || "-",
+          "ภาวะเครียด": stressMap[record.stress_level] || record.stress_level || "-",
+          "ภาวะซึมเศร้า": depressionMap[record.depression_2q] || record.depression_2q || "-",
 
-            // Community Screening (60+)
-            "การอยู่อาศัย": livingMap[record.living_with_care] || record.living_with_care || "-",
-            "ลักษณะที่อยู่อาศัย": houseSafetyMap[record.house_safety] || record.house_safety || "-",
-            "ความเพียงพอของรายได้": incomeMap[record.income_sufficiency] || record.income_sufficiency || "-",
+          // ผลตรวจทางห้องปฏิบัติการ
+          "น้ำตาลในเลือด (mg/dl)": record.fasting_blood_sugar || "-",
+          "ผลตรวจอุจจาระ": resultMap[record.stool_result] || record.stool_result || "-",
+          "ผลตรวจ FIT": resultMap[record.fit_result] || record.fit_result || "-",
+          "ผลตรวจ HPV": resultMap[record.hpv_result] || record.hpv_result || "-",
 
-            // วันที่บันทึก
-            "วันที่บันทึก": formatThaiDate(record.updated_at),
-            "วันที่สร้าง": formatThaiDate(record.created_at),
-          };
-        })
-      );
+          // Community Screening (60+)
+          "การอยู่อาศัย": livingMap[record.living_with_care] || record.living_with_care || "-",
+          "ลักษณะที่อยู่อาศัย": houseSafetyMap[record.house_safety] || record.house_safety || "-",
+          "ความเพียงพอของรายได้": incomeMap[record.income_sufficiency] || record.income_sufficiency || "-",
+
+          // วันที่บันทึก
+          "วันที่บันทึก": formatThaiDate(record.updated_at),
+          "วันที่สร้าง": formatThaiDate(record.created_at),
+        };
+        });
 
       // สร้าง workbook และ worksheet
       const ws = XLSX.utils.json_to_sheet(excelData);
@@ -1221,6 +1248,7 @@ const OsmHealthComp = () => {
             totalPages={totalPages}
             itemsPerPage={itemsPerPage}
             setItemsPerPage={setItemsPerPage}
+            totalItems={filteredRecords.length}
           />
         </div>
       </div>

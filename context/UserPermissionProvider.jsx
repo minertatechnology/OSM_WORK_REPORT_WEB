@@ -148,6 +148,21 @@ export default function UserPermissionProvider({ children }) {
    * @returns {Object} - { zone, province, province_name_th, district, district_name_th, subdistrict, subdistrict_name_th, service }
    */
   const getInitialFilters = useCallback(() => {
+    // For country/department level users, return empty filters so they can choose any location
+    const permissionLevel = user?.permission_scope?.level || 'country';
+    if (permissionLevel === 'country') {
+      return {
+        zone: '',
+        province: '',
+        province_name_th: '',
+        district: '',
+        district_name_th: '',
+        subdistrict: '',
+        subdistrict_name_th: '',
+        service: '',
+      };
+    }
+
     return {
       zone: scope.zone || '',
       province: scope.province || '',
@@ -158,7 +173,7 @@ export default function UserPermissionProvider({ children }) {
       subdistrict_name_th: scope.subdistrict_name_th || '',
       service: scope.unit || '',
     };
-  }, [scope]);
+  }, [scope, user]);
 
   /**
    * Check if user can clear/reset a specific filter

@@ -55,26 +55,12 @@ import { getHealthAreaNameWithFallback } from "@utils/healthZoneHelper";
 // Mock data for select options (ลบ ZONES, PROVINCES, DISTRICTS, SUBDISTRICTS เพราะใช้จาก usePermissionFilters แทน)
 const PER_PAGE_OPTIONS = [
   { label: "10", value: 10 },
-  { label: "20", value: 20 },
+  { label: "25", value: 25 },
   { label: "50", value: 50 },
+  { label: "100", value: 100 },
 ];
 
-function getPageNumbers(currentPage, totalPages) {
-  const delta = 2;
-  const pages = [];
-  for (
-    let i = Math.max(1, currentPage - delta);
-    i <= Math.min(totalPages, currentPage + delta);
-    i++
-  ) {
-    pages.push(i);
-  }
-  if (pages[0] > 2) pages.unshift("...");
-  if (pages[0] !== 1) pages.unshift(1);
-  if (pages[pages.length - 1] < totalPages - 1) pages.push("...");
-  if (pages[pages.length - 1] !== totalPages) pages.push(totalPages);
-  return [...new Set(pages)];
-}
+// Old getPageNumbers removed
 
 // Function to mask CID for PDPA compliance
 // Mask last 4 digits (show first 9 digits)
@@ -749,117 +735,174 @@ function Pagination({
   totalPages,
   itemsPerPage,
   setItemsPerPage,
+  totalItems = 0,
 }) {
-  const options = [
-    { label: "10", value: 10 },
-    { label: "20", value: 20 },
-    { label: "50", value: 50 },
-  ];
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("...");
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-[#f0ebff]">
+    <div className="flex flex-row items-center justify-between gap-3 mt-6 pt-6 border-t-2 border-purple-100 flex-wrap">
       <div className="flex items-center gap-2">
-        <label htmlFor="per-page" className="text-sm text-gray-600 font-medium">
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
           แสดง
-        </label>
-        <select
-          id="per-page"
-          value={itemsPerPage}
-          onChange={(e) => {
-            setItemsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="appearance-none border border-[#e5e7eb] rounded-full px-4 py-2 pr-8 text-sm font-semibold text-[#7e32e2] bg-white shadow transition focus:outline-none focus:ring-2 focus:ring-[#7e32e2] focus:border-transparent hover:border-[#7e32e2] cursor-pointer"
-        >
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <span className="text-sm text-gray-600">แถว</span>
+        </span>
+        <div className="relative">
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="appearance-none bg-gradient-to-r from-purple-50/80 to-violet-50/80 border-2 border-purple-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-[#7e32e2] cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all duration-200 min-w-[65px]"
+          >
+            {PER_PAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={16}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#7e32e2] pointer-events-none"
+          />
+        </div>
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รายการ/หน้า
+        </span>
       </div>
-      <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-[#ece1f7] shadow-lg backdrop-blur-sm">
-        <button
-          onClick={() => setCurrentPage(1)}
-          disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าแรก"
-          aria-label="หน้าแรก"
-        >
-          <ChevronsLeft size={18} />
-        </button>
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="ก่อนหน้า"
-          aria-label="ก่อนหน้า"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div className="flex items-center gap-1 mx-2">
-          {getPageNumbers(currentPage, totalPages).map((page, idx) =>
-            page === "..." ? (
-              <span
-                key={idx}
-                className="px-2 py-1 text-gray-400 font-semibold select-none"
-              >
-                ...
+
+      {totalItems > 0 && (
+        <div className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รวม{" "}
+          <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+            {totalItems.toLocaleString("th-TH")}
+          </span>{" "}
+          รายการ
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        {totalPages > 1 && (
+          <>
+            <div className="text-xs font-medium text-gray-700 bg-gradient-to-r from-purple-50 to-white px-3 py-1.5 rounded-lg border border-purple-100 whitespace-nowrap">
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {startItem}
               </span>
-            ) : (
+              -
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {endItem}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-white px-1.5 py-1.5 rounded-lg border border-purple-100 shadow-sm">
               <button
-                key={idx}
-                onClick={() => setCurrentPage(page)}
-                className={`min-w-[36px] h-9 rounded-full font-semibold text-base transition-all duration-200 ${
-                  currentPage === page
-                    ? "bg-[#7e32e2] text-white shadow-lg scale-110 border border-[#7e32e2]"
-                    : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
                 }`}
-                aria-current={currentPage === page ? "page" : undefined}
               >
-                {page}
+                <ChevronsLeft size={16} />
               </button>
-            )
-          )}
-        </div>
-        <button
-          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-          disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="ถัดไป"
-          aria-label="ถัดไป"
-        >
-          <ChevronRight size={18} />
-        </button>
-        <button
-          onClick={() => setCurrentPage(totalPages)}
-          disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าสุดท้าย"
-          aria-label="หน้าสุดท้าย"
-        >
-          <ChevronsRight size={18} />
-        </button>
-        <div className="ml-3 text-sm text-[#888] font-semibold bg-[#f6eeff] px-4 py-2 rounded-xl shadow">
-          หน้า {currentPage} / {totalPages}
-        </div>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div className="flex items-center gap-1 mx-0.5">
+                {getPageNumbers().map((page, idx) => (
+                  <React.Fragment key={idx}>
+                    {page === "..." ? (
+                      <span className="px-2 py-1 text-gray-400 font-semibold text-xs">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`min-w-[32px] h-8 rounded-lg font-semibold text-xs transition-all duration-200 ${
+                          currentPage === page
+                            ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md scale-105"
+                            : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-100 hover:to-purple-50 hover:scale-105 border border-transparent hover:border-purple-200"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronRight size={16} />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1855,6 +1898,7 @@ const UserListComp = () => {
           totalPages={filteredTotalPages}
           itemsPerPage={itemsPerPage}
           setItemsPerPage={setItemsPerPage}
+          totalItems={filteredTotalItems}
         />
       </div>
     </div>

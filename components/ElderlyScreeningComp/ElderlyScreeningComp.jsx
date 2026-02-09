@@ -12,6 +12,7 @@ import {
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Calendar,
   MapPin,
   Building2,
@@ -27,10 +28,10 @@ import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import ElderlyScreeningDetail from "./ElderlyScreeningDetail/ElderlyScreeningDetail";
 import elderlyScreeningService from "@services/elderlyScreeningService";
-import { getOsmById } from "@services/lookupService";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 import { getOsmByHealthService } from "@services/lookupService";
+import oauth2Service from "@services/oauth2Service";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -43,7 +44,6 @@ import {
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
-import { buildFilterParams, addDateFilters } from "@utils/filterParamsHelper";
 
 // Mock Data
 const MONTHS = [
@@ -86,7 +86,7 @@ const WEEKS = [
 
 const PER_PAGE_OPTIONS = [
   { label: "10", value: 10 },
-  { label: "20", value: 20 },
+  { label: "25", value: 25 },
   { label: "50", value: 50 },
   { label: "100", value: 100 },
 ];
@@ -369,24 +369,6 @@ function exportToExcel(data, title = "รายงานคัดกรองผ
   saveAs(blob, `elderly_report_${new Date().toISOString().split("T")[0]}.xlsx`);
 }
 
-// Utility function for pagination numbers with ellipsis
-function getPageNumbers(currentPage, totalPages) {
-  const delta = 2;
-  const pages = [];
-  for (
-    let i = Math.max(1, currentPage - delta);
-    i <= Math.min(totalPages, currentPage + delta);
-    i++
-  ) {
-    pages.push(i);
-  }
-  if (pages[0] > 2) pages.unshift("...");
-  if (pages[0] !== 1) pages.unshift(1);
-  if (pages[pages.length - 1] < totalPages - 1) pages.push("...");
-  if (pages[pages.length - 1] !== totalPages) pages.push(totalPages);
-  return [...new Set(pages)];
-}
-
 // Modal component styled like the image (for both download and detail)
 function DetailModal({ open, onClose, data = [] }) {
   if (!open) return null;
@@ -549,111 +531,174 @@ function PaginationWithPerPage({
   totalPages,
   itemsPerPage,
   setItemsPerPage,
+  totalItems = 0,
 }) {
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("...");
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 mb-10 pt-4 border-t border-[#f0ebff]">
+    <div className="flex flex-row items-center justify-between gap-3 mt-6 pt-6 border-t-2 border-purple-100 flex-wrap">
       <div className="flex items-center gap-2">
-        <label htmlFor="per-page" className="text-sm text-gray-600 font-medium">
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
           แสดง
-        </label>
-        <select
-          id="per-page"
-          value={itemsPerPage}
-          onChange={(e) => {
-            setItemsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="appearance-none border border-[#e5e7eb] rounded-full px-4 py-2 pr-8 text-sm font-semibold text-[#7e32e2] bg-white shadow transition focus:outline-none focus:ring-2 focus:ring-[#7e32e2] focus:border-transparent hover:border-[#7e32e2] cursor-pointer"
-        >
-          {PER_PAGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <span className="text-sm text-gray-600">รายการต่อหน้า</span>
+        </span>
+        <div className="relative">
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="appearance-none bg-gradient-to-r from-purple-50/80 to-violet-50/80 border-2 border-purple-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-[#7e32e2] cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all duration-200 min-w-[65px]"
+          >
+            {PER_PAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={16}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#7e32e2] pointer-events-none"
+          />
+        </div>
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รายการ/หน้า
+        </span>
       </div>
-      <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-[#ece1f7] shadow-lg backdrop-blur-sm">
-        <button
-          onClick={() => setCurrentPage(1)}
-          disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าแรก"
-          aria-label="หน้าแรก"
-        >
-          <ChevronsLeft size={18} />
-        </button>
-        <button
-          onClick={() => setCurrentPage(currentPage - 1)}
-          disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าก่อนหน้า"
-          aria-label="หน้าก่อนหน้า"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div className="flex items-center gap-1 mx-2">
-          {getPageNumbers(currentPage, totalPages).map((page, idx) =>
-            page === "..." ? (
-              <span
-                key={`ellipsis-${idx}`}
-                className="px-2 py-1 text-gray-400 font-semibold select-none"
-              >
-                ...
+
+      {totalItems > 0 && (
+        <div className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รวม{" "}
+          <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+            {totalItems.toLocaleString("th-TH")}
+          </span>{" "}
+          รายการ
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        {totalPages > 1 && (
+          <>
+            <div className="text-xs font-medium text-gray-700 bg-gradient-to-r from-purple-50 to-white px-3 py-1.5 rounded-lg border border-purple-100 whitespace-nowrap">
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {startItem}
               </span>
-            ) : (
+              -
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {endItem}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-white px-1.5 py-1.5 rounded-lg border border-purple-100 shadow-sm">
               <button
-                key={`page-${page}`}
-                onClick={() => setCurrentPage(page)}
-                className={`min-w-[36px] h-9 rounded-full font-semibold text-base transition-all duration-200 ${
-                  currentPage === page
-                    ? "bg-[#7e32e2] text-white shadow-lg scale-110 border border-[#7e32e2]"
-                    : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
                 }`}
-                aria-current={currentPage === page ? "page" : undefined}
               >
-                {page}
+                <ChevronsLeft size={16} />
               </button>
-            )
-          )}
-        </div>
-        <button
-          onClick={() => setCurrentPage(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าถัดไป"
-          aria-label="หน้าถัดไป"
-        >
-          <ChevronRight size={18} />
-        </button>
-        <button
-          onClick={() => setCurrentPage(totalPages)}
-          disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าสุดท้าย"
-          aria-label="หน้าสุดท้าย"
-        >
-          <ChevronsRight size={18} />
-        </button>
-        <div className="ml-3 text-sm text-[#888] font-semibold bg-[#f6eeff] px-4 py-2 rounded-xl shadow">
-          หน้า {currentPage} / {totalPages}
-        </div>
+
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div className="flex items-center gap-1 mx-0.5">
+                {getPageNumbers().map((page, idx) => (
+                  <React.Fragment key={idx}>
+                    {page === "..." ? (
+                      <span className="px-2 py-1 text-gray-400 font-semibold text-xs">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`min-w-[32px] h-8 rounded-lg font-semibold text-xs transition-all duration-200 ${
+                          currentPage === page
+                            ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md scale-105"
+                            : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-100 hover:to-purple-50 hover:scale-105 border border-transparent hover:border-purple-200"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronRight size={16} />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -684,7 +729,7 @@ const ElderlyScreeningComp = () => {
   ];
 
   // Use permission-based filters
-  const { isLocked, lockLevel, getInitialFilters } = useUserPermission();
+  const { isLocked } = useUserPermission();
   const {
     yearType,
     year,
@@ -714,27 +759,6 @@ const ElderlyScreeningComp = () => {
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
   });
-
-  // Build filter params for backend API (supports both text and ID)
-  const filterParams = useMemo(() => {
-    return buildFilterParams({
-      zone,
-      province,
-      district,
-      subdistrict,
-      health_service_id: service,
-      provinces,
-      districts,
-      subdistricts,
-      lockLevel,
-      getInitialFilters,
-    });
-  }, [zone, province, district, subdistrict, service, provinces, districts, subdistricts, lockLevel, getInitialFilters]);
-
-  // Add date filters to params
-  const apiParams = useMemo(() => {
-    return addDateFilters(filterParams, year, month, yearType);
-  }, [filterParams, year, month, yearType]);
 
   const [week, setWeek] = useState("สัปดาห์ 4 (23/6/68-27/6/68)");
   const [keyword, setKeyword] = useState("");
@@ -784,11 +808,27 @@ const ElderlyScreeningComp = () => {
 
       // ดึงข้อมูลผู้สูงอายุทั้งหมด - ส่งเฉพาะ date filters (ไม่ส่ง location filters)
       // Smart OSM API ไม่รองรับ location filters, จะกรองตามพื้นที่ใน frontend ด้วย OSM data
+      let start_date, end_date;
+      if (year && month) {
+        const buddhistYear = parseInt(year);
+        const gregorianYear = buddhistYear - 543;
+        const monthNum = parseInt(month);
+
+        // For fiscal year, adjust the year if month is Oct-Dec (months 10-12)
+        let adjustedYear = gregorianYear;
+        if (yearType === "fiscal" && monthNum >= 10) {
+          adjustedYear = gregorianYear - 1;
+        }
+
+        start_date = new Date(adjustedYear, monthNum - 1, 1).toISOString();
+        end_date = new Date(adjustedYear, monthNum, 0, 23, 59, 59).toISOString();
+      }
+
       const dateFilters = {
         skip: 0,
         limit: 1000,
-        start_date: apiParams.start_date,
-        end_date: apiParams.end_date,
+        start_date,
+        end_date,
       };
       const data = await elderlyScreeningService.getAll(dateFilters);
 
@@ -819,32 +859,9 @@ const ElderlyScreeningComp = () => {
       const yearsList = Array.from(yearsSet).sort((a, b) => b - a);
       setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear?.toString() || "2568"]);
 
-      // ดึงข้อมูลผู้ใช้จาก OSM API (แทน OAuth2)
+      // ดึงข้อมูลผู้ใช้จาก OSM API ใช้ batch API (เรียกครั้งด้วย)
       const externalUserIds = aggregated.map((item) => item.external_user_id);
-      const osmDataPromises = externalUserIds.map((id) => getOsmById(id));
-      const osmResults = await Promise.allSettled(osmDataPromises);
-
-      // สร้าง map ข้อมูลผู้ใช้จาก OSM API response
-      const users = {};
-      osmResults.forEach((result, index) => {
-        if (result.status === "fulfilled" && result.value) {
-          const osmData = result.value;
-          const userId = externalUserIds[index];
-          users[userId] = {
-            id: osmData.id,
-            name: `${osmData.prefix_name_th || ""}${osmData.first_name || ""} ${osmData.last_name || ""}`.trim(),
-            citizen_id: osmData.citizen_id || "",
-            province_id: osmData.province_id || "",
-            province_name_th: osmData.province_name_th || "",
-            district_id: osmData.district_id || "",
-            district_name_th: osmData.district_name_th || "",
-            subdistrict_id: osmData.subdistrict_id || "",
-            subdistrict_name_th: osmData.subdistrict_name_th || "",
-            health_service_id: osmData.health_service_id || "",
-            health_service_name_th: osmData.health_service_name_th || "",
-          };
-        }
-      });
+      const users = await oauth2Service.getBatch(externalUserIds);
 
       setUserDataMap(users);
     } catch (err) {
@@ -860,7 +877,8 @@ const ElderlyScreeningComp = () => {
     } finally {
       setLoading(false);
     }
-  }, [apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
+  }, [year, month, yearType]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน (ใช้ค่า stable แทน apiParams)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchElderly();
@@ -916,6 +934,7 @@ const ElderlyScreeningComp = () => {
         id: assessorData.external_user_id,
         external_user_id: assessorData.external_user_id,
         _assessorName: assessorName,
+        _citizenId: userData?.citizen_id || "",
         _thaiDate: thaiDate,
         _elderlyCount: assessorData.count,
         screenings: assessorData.screenings,
@@ -963,7 +982,8 @@ const ElderlyScreeningComp = () => {
         // ยังคงต้อง filter keyword อยู่
         const keywordMatch = !keywordLower || (
           row._assessorName.toLowerCase().includes(keywordLower) ||
-          (row.external_user_id || "").toLowerCase().includes(keywordLower)
+          (row.external_user_id || "").toLowerCase().includes(keywordLower) ||
+          (row._citizenId || "").toLowerCase().includes(keywordLower)
         );
         return keywordMatch;
       }
@@ -998,6 +1018,7 @@ const ElderlyScreeningComp = () => {
       const keywordMatch = !keywordLower || (
         row._assessorName.toLowerCase().includes(keywordLower) ||
         (row.external_user_id || "").toLowerCase().includes(keywordLower) ||
+        (row._citizenId || "").toLowerCase().includes(keywordLower) ||
         locationData.province_name_th?.toLowerCase().includes(keywordLower) ||
         locationData.district_name_th?.toLowerCase().includes(keywordLower) ||
         locationData.subdistrict_name_th?.toLowerCase().includes(keywordLower)
@@ -1242,7 +1263,7 @@ const ElderlyScreeningComp = () => {
                 setKeyword(e.target.value);
                 setPage(1);
               }}
-              placeholder="พิมพ์เพื่อค้นหาชื่อหรือข้อมูล..."
+              placeholder="พิมพ์เพื่อค้นหาชื่อหรือเลขบัตรประชาชน"
               className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
             />
           </div>
@@ -1308,8 +1329,8 @@ const ElderlyScreeningComp = () => {
                 </tr>
               ) : (
                 paginatedRows.map((row, idx) => {
-                  // ดึง citizen_id จาก screening แรก (ถ้ามี)
-                  const citizenId = row.screenings?.[0]?.citizen_id || "";
+                  // ใช้ citizen_id จาก OSM data (_citizenId) เพื่อให้สอดคล้องกับการค้นหา
+                  const citizenId = row._citizenId || "";
                   return (
                     <tr
                       key={row.external_user_id || idx}
@@ -1394,6 +1415,7 @@ const ElderlyScreeningComp = () => {
           totalPages={totalPages}
           itemsPerPage={itemsPerPage}
           setItemsPerPage={setItemsPerPage}
+          totalItems={filteredRows.length}
         />
       </div>
     </div>

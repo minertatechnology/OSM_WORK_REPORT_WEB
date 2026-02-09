@@ -89,7 +89,7 @@ function TableWithPagination({
   onDetail,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(defaultItemsPerPage);
+  const [itemsPerPage, setItemsPerPage] = useState(defaultItemsPerPage);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -138,96 +138,120 @@ function TableWithPagination({
       <div className="overflow-x-auto">
         <NewsCompService rows={paginatedData} onDetail={onDetail} />
       </div>
-      {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-purple-100">
-          <div className="text-sm text-gray-600">
-            <span className="hidden sm:inline">
-              แสดง{" "}
-              <span className="font-semibold text-purple-600">{startItem}</span>{" "}
-              ถึง{" "}
-              <span className="font-semibold text-purple-600">{endItem}</span>{" "}
-              จาก{" "}
-            </span>
-            <span className="font-semibold text-purple-600">{data.length}</span>
-            <span className="sm:hidden"> รายการทั้งหมด</span>
-            <span className="hidden sm:inline"> รายการ</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              title="หน้าแรก"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-              className={`hidden sm:flex p-2 rounded-lg transition-all ${
-                currentPage === 1
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-purple-600 bg-purple-50 hover:bg-purple-100"
-              }`}
-            >
-              <ChevronsLeft size={18} />
-            </button>
-            <button
-              title="หน้าก่อนหน้า"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className={`p-2 rounded-lg transition-all ${
-                currentPage === 1
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-purple-600 bg-purple-50 hover:bg-purple-100"
-              }`}
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <div className="hidden sm:flex items-center gap-1 mx-2">
-              {getPageNumbers().map((page, idx) =>
-                page === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400">
-                    ...
-                  </span>
-                ) : (
-                  <button
-                    key={idx}
-                    onClick={() => handlePageChange(page)}
-                    className={`min-w-[36px] h-9 rounded-lg font-semibold transition-all ${
-                      currentPage === page
-                        ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md"
-                        : "text-purple-600 hover:bg-purple-50"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                )
-              )}
-            </div>
-            <div className="sm:hidden mx-2 text-sm text-gray-600 font-medium">
-              {currentPage} / {totalPages}
-            </div>
-            <button
-              title="หน้าถัดไป"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className={`p-2 rounded-lg transition-all ${
-                currentPage === totalPages
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-purple-600 bg-purple-50 hover:bg-purple-100"
-              }`}
-            >
-              <ChevronRight size={18} />
-            </button>
-            <button
-              title="หน้าสุดท้าย"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-              className={`hidden sm:flex p-2 rounded-lg transition-all ${
-                currentPage === totalPages
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-purple-600 bg-purple-50 hover:bg-purple-100"
-              }`}
-            >
-              <ChevronsRight size={18} />
-            </button>
-          </div>
+      {/* Pagination - Always show items per page selector */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-purple-100">
+        {data.length > 0 && (
+        <div className="text-sm text-gray-600">
+          <span className="hidden sm:inline">
+            แสดง{" "}
+            <span className="font-semibold text-purple-600">{startItem}</span>{" "}
+            ถึง{" "}
+            <span className="font-semibold text-purple-600">{endItem}</span>{" "}
+            จาก{" "}
+          </span>
+          <span className="font-semibold text-purple-600">{data.length}</span>
+          <span className="sm:hidden"> รายการทั้งหมด</span>
+          <span className="hidden sm:inline"> รายการ</span>
         </div>
-      )}
+        )}
+        <div className="flex items-center gap-4 ml-auto">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600">
+              แสดง
+            </label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="appearance-none border border-purple-200 rounded-lg px-3 py-2 pr-8 text-sm font-semibold text-purple-600 bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-transparent hover:border-purple-400 cursor-pointer"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-gray-600">รายการต่อหน้า</span>
+          </div>
+          {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+          <button
+            title="หน้าแรก"
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+            className={`hidden sm:flex p-2 rounded-lg transition-all ${
+              currentPage === 1
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-purple-600 bg-purple-50 hover:bg-purple-100"
+            }`}
+          >
+            <ChevronsLeft size={18} />
+          </button>
+          <button
+            title="หน้าก่อนหน้า"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className={`p-2 rounded-lg transition-all ${
+              currentPage === 1
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-purple-600 bg-purple-50 hover:bg-purple-100"
+            }`}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <div className="hidden sm:flex items-center gap-1 mx-2">
+            {getPageNumbers().map((page, idx) =>
+              page === "..." ? (
+                <span key={idx} className="px-2 text-gray-400">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={idx}
+                  onClick={() => handlePageChange(page)}
+                  className={`min-w-[36px] h-9 rounded-lg font-semibold transition-all ${
+                    currentPage === page
+                      ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md"
+                      : "text-purple-600 hover:bg-purple-50"
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            )}
+          </div>
+          <div className="sm:hidden mx-2 text-sm text-gray-600 font-medium">
+            {currentPage} / {totalPages}
+          </div>
+          <button
+            title="หน้าถัดไป"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className={`p-2 rounded-lg transition-all ${
+              currentPage === totalPages
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-purple-600 bg-purple-50 hover:bg-purple-100"
+            }`}
+          >
+            <ChevronRight size={18} />
+          </button>
+          <button
+            title="หน้าสุดท้าย"
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className={`hidden sm:flex p-2 rounded-lg transition-all ${
+              currentPage === totalPages
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-purple-600 bg-purple-50 hover:bg-purple-100"
+            }`}
+          >
+            <ChevronsRight size={18} />
+          </button>
+        </div>
+        )}
+        </div>
+      </div>
     </div>
   );
 }

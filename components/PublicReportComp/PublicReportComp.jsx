@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Download, RotateCcw, Loader2, FileText, MapPin, Building2, Home, Calendar, FileSpreadsheet } from "lucide-react";
+import { Search, Download, RotateCcw, Loader2, FileText, MapPin, Building2, Home, Calendar, FileSpreadsheet, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown } from "lucide-react";
 import { getHealthAreas, getProvinces, getDistricts, getSubdistricts, getHealthServices } from "@services/lookupService";
 import { getPublicOsm1SummaryByLocation } from "@services/publicReportService/publicReportService";
 import CustomSelect from "@services/customSelectService/customSelectService";
@@ -116,6 +116,14 @@ const FISCAL_MONTH_OPTIONS = [
   { label: "กรกฎาคม", value: "7" },
   { label: "สิงหาคม", value: "8" },
   { label: "กันยายน", value: "9" },
+];
+
+// Pagination options
+const PER_PAGE_OPTIONS = [
+  { label: "10", value: 10 },
+  { label: "25", value: 25 },
+  { label: "50", value: 50 },
+  { label: "100", value: 100 },
 ];
 
 // Table column definitions with hierarchical structure
@@ -519,6 +527,10 @@ const PublicReportComp = () => {
   const [subdistrict, setSubdistrict] = useState(initialFilters.subdistrict);
   const [service, setService] = useState(initialFilters.service);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   // Location data
   const [healthAreas, setHealthAreas] = useState([]);
   const [provinces, setProvinces] = useState([]);
@@ -841,6 +853,63 @@ const PublicReportComp = () => {
     });
   }, [currentLevel]);
 
+  // Pagination helpers
+  const totalPages = Math.ceil(reportData.length / itemsPerPage) || 1;
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, reportData.length);
+
+  // Paginated data
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return reportData.slice(startIndex, endIndex);
+  }, [reportData, currentPage, itemsPerPage]);
+
+  // Helper function to get page numbers
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("...");
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [fiscalYear, month, zone, province, district, subdistrict, service]);
+
   return (
     <div className="w-full min-h-screen bg-gradient-to-b from-[#f7f2ff] via-white to-white">
       {/* Header Section */}
@@ -1116,13 +1185,13 @@ const PublicReportComp = () => {
                 )}
               </thead>
               <tbody>
-                {reportData.map((row, idx) => (
+                {paginatedData.map((row, idx) => (
                   <tr
                     key={idx}
                     className={idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"}
                   >
                     <td className="py-3 px-3 text-center text-gray-700 border border-gray-200 font-medium">
-                      {idx + 1}
+                      {(currentPage - 1) * itemsPerPage + idx + 1}
                     </td>
                     <td className="py-3 px-3 text-center text-gray-700 border border-gray-200 font-medium whitespace-nowrap">
                       {row[getLocationKey()] ?? "-"}
@@ -1195,6 +1264,139 @@ const PublicReportComp = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Pagination */}
+            {reportData.length > 0 && (
+              <div className="flex flex-row items-center justify-between gap-3 mt-6 pt-6 border-t-2 border-purple-100 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                    แสดง
+                  </span>
+                  <div className="relative">
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="appearance-none bg-gradient-to-r from-purple-50/80 to-violet-50/80 border-2 border-purple-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-[#7e32e2] cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all duration-200 min-w-[65px]"
+                    >
+                      {PER_PAGE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={16}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#7e32e2] pointer-events-none"
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                    รายการ/หน้า
+                  </span>
+                </div>
+
+                <div className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                  รวม{" "}
+                  <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                    {reportData.length.toLocaleString("th-TH")}
+                  </span>{" "}
+                  รายการ
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {reportData.length > 0 && (
+                    <>
+                      <div className="text-xs font-medium text-gray-700 bg-gradient-to-r from-purple-50 to-white px-3 py-1.5 rounded-lg border border-purple-100 whitespace-nowrap">
+                        <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                          {startItem}
+                        </span>
+                        -
+                        <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                          {endItem}
+                        </span>
+                      </div>
+
+                      {totalPages > 1 && (
+                        <div className="flex items-center gap-1 bg-white px-1.5 py-1.5 rounded-lg border border-purple-100 shadow-sm">
+                          <button
+                            onClick={() => handlePageChange(1)}
+                            disabled={currentPage === 1}
+                            className={`p-1.5 rounded-md transition-all duration-200 ${
+                              currentPage === 1
+                                ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                                : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                            }`}
+                          >
+                            <ChevronsLeft size={16} />
+                          </button>
+
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`p-1.5 rounded-md transition-all duration-200 ${
+                              currentPage === 1
+                                ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                                : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                            }`}
+                          >
+                            <ChevronLeft size={16} />
+                          </button>
+
+                          <div className="flex items-center gap-1 mx-0.5">
+                            {getPageNumbers().map((page, idx) => (
+                              <React.Fragment key={idx}>
+                                {page === "..." ? (
+                                  <span className="px-2 py-1 text-gray-400 font-semibold text-xs">
+                                    ...
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => handlePageChange(page)}
+                                    className={`min-w-[32px] h-8 rounded-lg font-semibold text-xs transition-all duration-200 ${
+                                      currentPage === page
+                                        ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md scale-105"
+                                        : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-100 hover:to-purple-50 hover:scale-105 border border-transparent hover:border-purple-200"
+                                    }`}
+                                  >
+                                    {page}
+                                  </button>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </div>
+
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`p-1.5 rounded-md transition-all duration-200 ${
+                              currentPage === totalPages
+                                ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                                : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                            }`}
+                          >
+                            <ChevronRight size={16} />
+                          </button>
+
+                          <button
+                            onClick={() => handlePageChange(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className={`p-1.5 rounded-md transition-all duration-200 ${
+                              currentPage === totalPages
+                                ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                                : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                            }`}
+                          >
+                            <ChevronsRight size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

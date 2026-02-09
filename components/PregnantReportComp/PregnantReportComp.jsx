@@ -10,6 +10,7 @@ import {
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
   Calendar,
   MapPin,
@@ -28,7 +29,8 @@ import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
-import { getOsmByHealthService, getOsmById } from "@services/lookupService";
+import { getOsmByHealthService } from "@services/lookupService";
+import oauth2Service from "@services/oauth2Service";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -118,9 +120,9 @@ const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
 
 const PER_PAGE_OPTIONS = [
   { label: "10", value: 10 },
-  { label: "20", value: 20 },
+  { label: "25", value: 25 },
   { label: "50", value: 50 },
-  { label: "100", value: 100 },
+  { label: "50", value: 50 },
 ];
 
 // Health zone mapping - maps province_id to health_region (เขตสุขภาพ)
@@ -167,23 +169,6 @@ function isInHealthZone(provinceId, healthZone) {
   return zone === healthZone;
 }
 
-// Utility function for pagination numbers with ellipsis
-function getPageNumbers(currentPage, totalPages) {
-  const delta = 2;
-  const pages = [];
-  for (
-    let i = Math.max(1, currentPage - delta);
-    i <= Math.min(totalPages, currentPage + delta);
-    i++
-  ) {
-    pages.push(i);
-  }
-  if (pages[0] > 2) pages.unshift("...");
-  if (pages[0] !== 1) pages.unshift(1);
-  if (pages[pages.length - 1] < totalPages - 1) pages.push("...");
-  if (pages[pages.length - 1] !== totalPages) pages.push(totalPages);
-  return [...new Set(pages)];
-}
 
 // Export functions
 // 1. สรุปจำนวนการส่งรายงาน
@@ -699,163 +684,129 @@ function PaginationWithPerPage({
   totalPages,
   itemsPerPage,
   setItemsPerPage,
+  totalItems = 0,
 }) {
-  return (
-    <div className="flex flex-col items-center gap-4 mt-6 mb-10 pt-4 border-t border-[#f0ebff]">
-      {/* Mobile: Simple pagination */}
-      <div className="flex sm:hidden items-center justify-between w-full">
-        <button
-          onClick={() => setCurrentPage(currentPage - 1)}
-          disabled={currentPage === 1}
-          className={`flex items-center gap-1 px-3 py-2 rounded-lg font-medium text-sm transition-all ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] bg-purple-50 hover:bg-purple-100"
-          }`}
-        >
-          <ChevronLeft size={16} />
-          ก่อนหน้า
-        </button>
-        <div className="text-sm font-semibold text-[#7e32e2] bg-[#f6eeff] px-4 py-2 rounded-xl">
-          {currentPage} / {totalPages}
-        </div>
-        <button
-          onClick={() => setCurrentPage(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className={`flex items-center gap-1 px-3 py-2 rounded-lg font-medium text-sm transition-all ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] bg-purple-50 hover:bg-purple-100"
-          }`}
-        >
-          ถัดไป
-          <ChevronRight size={16} />
-        </button>
-      </div>
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
-      {/* Desktop: Full pagination */}
-      <div className="hidden sm:flex flex-col lg:flex-row items-center justify-between gap-4 w-full">
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor="per-page"
-            className="text-sm text-gray-600 font-medium"
-          >
-            แสดง
-          </label>
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("...");
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  return (
+    <div className="flex flex-row items-center justify-between gap-3 mt-6 pt-6 border-t-2 border-purple-100 flex-wrap">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          แสดง
+        </span>
+        <div className="relative">
           <select
-            id="per-page"
             value={itemsPerPage}
             onChange={(e) => {
               setItemsPerPage(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="appearance-none border-2 border-purple-200 rounded-full px-4 py-2 pr-8 text-sm font-semibold text-[#7e32e2] bg-gradient-to-r from-purple-50 to-violet-50 shadow transition focus:outline-none focus:ring-2 focus:ring-[#7e32e2] focus:border-transparent hover:border-purple-300 cursor-pointer"
+            className="appearance-none bg-gradient-to-r from-purple-50/80 to-violet-50/80 border-2 border-purple-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-[#7e32e2] cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all duration-200 min-w-[65px]"
           >
-            {PER_PAGE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            {PER_PAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
-          <span className="text-sm text-gray-600">รายการต่อหน้า</span>
+          <ChevronDown
+            size={16}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#7e32e2] pointer-events-none"
+          />
         </div>
-        <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-2xl bg-white border border-[#ece1f7] shadow-lg backdrop-blur-sm flex-wrap justify-center">
-          <button
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
-            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-              currentPage === 1
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-            }`}
-            title="หน้าแรก"
-          >
-            <ChevronsLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
-          <button
-            onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1}
-            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-              currentPage === 1
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-            }`}
-            title="หน้าก่อนหน้า"
-          >
-            <ChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
-          <div className="flex items-center gap-1 mx-1 sm:mx-2">
-            {getPageNumbers(currentPage, totalPages).map((page, idx) =>
-              page === "..." ? (
-                <span
-                  key={idx}
-                  className="px-1 sm:px-2 py-1 text-gray-400 font-semibold select-none text-sm"
-                >
-                  ...
-                </span>
-              ) : (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentPage(page)}
-                  className={`min-w-[32px] sm:min-w-[36px] h-8 sm:h-9 rounded-full font-semibold text-sm sm:text-base transition-all duration-200 ${
-                    currentPage === page
-                      ? "bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white shadow-lg scale-105 sm:scale-110"
-                      : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
-                  }`}
-                >
-                  {page}
-                </button>
-              )
-            )}
-          </div>
-          <button
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-              currentPage === totalPages
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-            }`}
-            title="หน้าถัดไป"
-          >
-            <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
-          <button
-            onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages}
-            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-              currentPage === totalPages
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-            }`}
-            title="หน้าสุดท้าย"
-          >
-            <ChevronsRight size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
-          <div className="ml-2 sm:ml-3 text-xs sm:text-sm text-[#888] font-semibold bg-[#f6eeff] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl shadow whitespace-nowrap">
-            หน้า {currentPage} / {totalPages}
-          </div>
-        </div>
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รายการ/หน้า
+        </span>
       </div>
 
-      {/* Mobile: Per page selector */}
-      <div className="flex sm:hidden items-center gap-2">
-        <span className="text-xs text-gray-500">แสดง</span>
-        <select
-          value={itemsPerPage}
-          onChange={(e) => {
-            setItemsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="appearance-none border border-purple-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-[#7e32e2] bg-purple-50 focus:outline-none cursor-pointer"
-        >
-          {PER_PAGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <span className="text-xs text-gray-500">รายการ</span>
+      {totalItems > 0 && (
+        <div className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รวม{" "}
+          <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+            {totalItems.toLocaleString("th-TH")}
+          </span>{" "}
+          รายการ
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        {totalPages > 1 && (
+          <>
+            <div className="text-xs font-medium text-gray-700 bg-gradient-to-r from-purple-50 to-white px-3 py-1.5 rounded-lg border border-purple-100 whitespace-nowrap">
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {startItem}
+              </span>
+              -
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {endItem}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-white px-1.5 py-1.5 rounded-lg border border-purple-100 shadow-sm">
+              <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className={`p-1.5 rounded-md transition-all duration-200 ${currentPage === 1 ? "text-gray-300 cursor-not-allowed bg-gray-50" : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"}`}>
+                <ChevronsLeft size={16} />
+              </button>
+              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} className={`p-1.5 rounded-md transition-all duration-200 ${currentPage === 1 ? "text-gray-300 cursor-not-allowed bg-gray-50" : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"}`}>
+                <ChevronLeft size={16} />
+              </button>
+              <div className="flex items-center gap-1 mx-0.5">
+                {getPageNumbers().map((page, idx) => (
+                  <React.Fragment key={idx}>
+                    {page === "..." ? (
+                      <span className="px-2 py-1 text-gray-400 font-semibold text-xs">...</span>
+                    ) : (
+                      <button onClick={() => setCurrentPage(page)} className={`min-w-[32px] h-8 rounded-lg font-semibold text-xs transition-all duration-200 ${currentPage === page ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md scale-105" : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-100 hover:to-purple-50 hover:scale-105 border border-transparent hover:border-purple-200"}`}>
+                        {page}
+                      </button>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} className={`p-1.5 rounded-md transition-all duration-200 ${currentPage === totalPages ? "text-gray-300 cursor-not-allowed bg-gray-50" : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"}`}>
+                <ChevronRight size={16} />
+              </button>
+              <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className={`p-1.5 rounded-md transition-all duration-200 ${currentPage === totalPages ? "text-gray-300 cursor-not-allowed bg-gray-50" : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"}`}>
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -970,6 +921,9 @@ const PregnantReportComp = () => {
   // State สำหรับเก็บ OSM data ตามหน่วยบริการ
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
 
+  // เก็บค่า date filters ล่าสุดเพื่อเช็คว่าเปลี่ยนหรือไม่
+  const prevDateFiltersRef = useRef({ start_date: null, end_date: null });
+
   // ดึงข้อมูลการประเมินหญิงตั้งครรภ์และข้อมูลผู้ใช้จาก API
   useEffect(() => {
     const fetchData = async () => {
@@ -1036,72 +990,57 @@ const PregnantReportComp = () => {
 
         setPregnantData(formattedData);
 
-        // 4. ดึงข้อมูล OSM จาก OSM API (ใช้ getOsmById แทน OAuth2)
-        // เพราะ OSM API มีข้อมูลตำแหน่งที่ถูกต้อง (province_id, district_id, subdistrict_id, health_service_id)
-        const newUserDataMap = new Map();
+        // 4. ดึงข้อมูล OSM จาก OSM API ใช้ batch API (/osm/batch)
+        // ใช้ batch API แทนการยิงรายตัวเพื่อลดจำนวน request
         const uniqueUserIds = [...new Set(aggregated.map(item => item.external_user_id))];
 
-        await Promise.allSettled(
-          uniqueUserIds.map(async (userId) => {
-            try {
-              const osmData = await getOsmById(userId);
-              if (osmData) {
-                // สร้างชื่อเต็มจากข้อมูล OSM
-                const fullName = `${osmData.prefix_name_th || ""}${osmData.first_name || ""} ${osmData.last_name || ""}`.trim();
+        const batchResults = await oauth2Service.getOSMsBatch(uniqueUserIds);
 
-                newUserDataMap.set(userId, {
-                  id: osmData.id,
-                  name: fullName || "ไม่ระบุชื่อ",
-                  external_user_id: userId,
-                  citizen_id: osmData.citizen_id,
-                  phone: osmData.phone,
-                  email: osmData.email,
-                  // ข้อมูลตำแหน่ง - สำคัญสำหรับการ filter
-                  province_id: osmData.province_id,
-                  province_name_th: osmData.province_name_th,
-                  district_id: osmData.district_id,
-                  district_name_th: osmData.district_name_th,
-                  subdistrict_id: osmData.subdistrict_id,
-                  subdistrict_name_th: osmData.subdistrict_name_th,
-                  health_service_id: osmData.health_service_id,
-                  health_service_name_th: osmData.health_service_name_th,
-                  // ข้อมูลที่อยู่
-                  address_number: osmData.address_number,
-                  alley: osmData.alley,
-                  street: osmData.street,
-                  village_no: osmData.village_no,
-                  village_name: osmData.village_name,
-                  postal_code: osmData.postal_code,
-                  // ข้อมูลอื่นๆ
-                  birth_date: osmData.birth_date,
-                  gender: osmData.gender,
-                  marital_status: osmData.marital_status,
-                  occupation_name_th: osmData.occupation_name_th,
-                  education_name_th: osmData.education_name_th,
-                  blood_type: osmData.blood_type,
-                });
-              } else {
-                // Fallback ถ้าไม่พบข้อมูล OSM
-                newUserDataMap.set(userId, {
-                  id: userId,
-                  name: "ไม่ระบุชื่อ",
-                  external_user_id: userId,
-                });
-              }
-            } catch (error) {
-              // ไม่ log error 404
-              if (error?.response?.status !== 404) {
-                console.error(`Failed to fetch OSM ${userId}:`, error);
-              }
-              // ใช้ข้อมูล fallback
-              newUserDataMap.set(userId, {
-                id: userId,
-                name: "ไม่ระบุชื่อ",
-                external_user_id: userId,
-              });
-            }
-          })
-        );
+        // แปลงผลลัพธ์จาก batch API เป็น Map
+        const newUserDataMap = new Map();
+        uniqueUserIds.forEach((userId) => {
+          const osmData = batchResults[userId];
+          if (osmData) {
+            newUserDataMap.set(userId, {
+              id: osmData.id,
+              name: osmData.name || "ไม่ระบุชื่อ",
+              external_user_id: userId,
+              citizen_id: osmData.citizen_id,
+              phone: osmData.phone,
+              email: osmData.email,
+              // ข้อมูลตำแหน่ง - สำคัญสำหรับการ filter
+              province_id: osmData.province_id,
+              province_name_th: osmData.province_name_th,
+              district_id: osmData.district_id,
+              district_name_th: osmData.district_name_th,
+              subdistrict_id: osmData.subdistrict_id,
+              subdistrict_name_th: osmData.subdistrict_name_th,
+              health_service_id: osmData.health_service_id,
+              health_service_name_th: osmData.health_service_name_th,
+              // ข้อมูลที่อยู่
+              address_number: osmData.address_number,
+              alley: osmData.alley,
+              street: osmData.street,
+              village_no: osmData.village_no,
+              village_name: osmData.village_name,
+              postal_code: osmData.postal_code,
+              // ข้อมูลอื่นๆ
+              birth_date: osmData.birth_date,
+              gender: osmData.gender,
+              marital_status: osmData.marital_status,
+              occupation_name_th: osmData.occupation_name_th,
+              education_name_th: osmData.education_name_th,
+              blood_type: osmData.blood_type,
+            });
+          } else {
+            // Fallback ถ้าไม่พบข้อมูล OSM
+            newUserDataMap.set(userId, {
+              id: userId,
+              name: "ไม่ระบุชื่อ",
+              external_user_id: userId,
+            });
+          }
+        });
 
         setUserDataMap(newUserDataMap);
       } catch (error) {
@@ -1114,7 +1053,21 @@ const PregnantReportComp = () => {
       }
     };
 
-    fetchData();
+    // เช็คว่า date filters เปลี่ยนหรือไม่ ถ้าไม่เปลี่ยนไม่ต้องยิงซ้ำ
+    const currentDateFilters = {
+      start_date: apiParams.start_date,
+      end_date: apiParams.end_date,
+    };
+
+    const prevDateFilters = prevDateFiltersRef.current;
+    const hasDateChanged =
+      currentDateFilters.start_date !== prevDateFilters.start_date ||
+      currentDateFilters.end_date !== prevDateFilters.end_date;
+
+    if (hasDateChanged) {
+      prevDateFiltersRef.current = currentDateFilters;
+      fetchData();
+    }
   }, [apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
 
   // ดึงข้อมูล OSM ตามหน่วยบริการ
@@ -1760,6 +1713,7 @@ const PregnantReportComp = () => {
           totalPages={totalPages}
           itemsPerPage={itemsPerPage}
           setItemsPerPage={setItemsPerPage}
+          totalItems={filteredRows.length}
         />
       </div>
     </div>
