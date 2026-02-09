@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { fetchCurrentUser } from '@services/authService/authService';
 import {
   roleToLockLevel,
@@ -132,7 +132,7 @@ export default function UserPermissionProvider({ children }) {
    * @param {string} field - Field name (zone, province, district, subdistrict, service)
    * @returns {boolean}
    */
-  const isLocked = (field) => {
+  const isLocked = useCallback((field) => {
     // Special case: หน่วยบริการ lock เฉพาะเมื่อมี scope.unit
     // เพื่อให้ระดับตำบล (ไม่มี service_unit) เลือกได้
     // แต่ระดับ รพสต. (มี service_unit) ถูก lock
@@ -141,13 +141,28 @@ export default function UserPermissionProvider({ children }) {
     }
 
     return isFieldLocked(lockLevel, field);
-  };
+  }, [scope.unit, lockLevel]);
 
   /**
    * Get initial filter values based on user scope
    * @returns {Object} - { zone, province, province_name_th, district, district_name_th, subdistrict, subdistrict_name_th, service }
    */
-  const getInitialFilters = () => {
+  const getInitialFilters = useCallback(() => {
+    // For country/department level users, return empty filters so they can choose any location
+    const permissionLevel = user?.permission_scope?.level || 'country';
+    if (permissionLevel === 'country') {
+      return {
+        zone: '',
+        province: '',
+        province_name_th: '',
+        district: '',
+        district_name_th: '',
+        subdistrict: '',
+        subdistrict_name_th: '',
+        service: '',
+      };
+    }
+
     return {
       zone: scope.zone || '',
       province: scope.province || '',
@@ -158,41 +173,41 @@ export default function UserPermissionProvider({ children }) {
       subdistrict_name_th: scope.subdistrict_name_th || '',
       service: scope.unit || '',
     };
-  };
+  }, [scope, user]);
 
   /**
    * Check if user can clear/reset a specific filter
    * @param {string} field - Field name
    * @returns {boolean}
    */
-  const canClearFilter = (field) => {
+  const canClearFilter = useCallback((field) => {
     return !isLocked(field);
-  };
+  }, [isLocked]);
 
   /**
    * Check if user can change a specific filter
    * @param {string} field - Field name
    * @returns {boolean}
    */
-  const canChangeFilter = (field) => {
+  const canChangeFilter = useCallback((field) => {
     return !isLocked(field);
-  };
+  }, [isLocked]);
 
   /**
    * Get permission level (country, region, province, district, subdistrict, village)
    * @returns {string}
    */
-  const getPermissionLevel = () => {
+  const getPermissionLevel = useCallback(() => {
     return user?.permission_scope?.level || 'country';
-  };
+  }, [user]);
 
   /**
    * Check if user has country/grand department permission
    * @returns {boolean}
    */
-  const isCountryLevel = () => {
+  const isCountryLevel = useCallback(() => {
     return getPermissionLevel() === 'country';
-  };
+  }, [getPermissionLevel]);
 
   const value = {
     user,

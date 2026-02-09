@@ -2,6 +2,7 @@ import { refreshToken } from "./authService";
 import {
     getRefreshToken,
     setTokens,
+    clearTokens,
 } from "@utils/tokenStorage";
 
 let isPaused = false;
@@ -89,6 +90,16 @@ export const forceRefreshNow = async () => {
         return true;
     } catch (error) {
         console.error("[Force Refresh] Failed to refresh token:", error);
+
+        // ✅ ถ้า refresh token ได้ 401 แปลว่า session หมดอายุทั้งหมด
+        // ให้ clear tokens และ redirect ไปหน้า login ทันที
+        if (error.response?.status === 401) {
+            clearTokens();
+            if (typeof window !== "undefined" && window.location.pathname !== "/") {
+                window.location.href = "/";
+            }
+        }
+
         return false;
     }
 };

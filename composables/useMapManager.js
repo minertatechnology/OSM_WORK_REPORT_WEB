@@ -7,7 +7,7 @@ export const useMapManager = () => {
   const [currentLevel, setCurrentLevel] = useState("");
   const [loadStartTime, setLoadStartTime] = useState(0);
   const mapRef = useRef(null);
-  const [ciByArea, setCiByArea] = useState({});
+  const [hiByArea, setHiByArea] = useState({});
   const [colorsByArea, setColorsByArea] = useState({}); // สำหรับ OSM - เก็บสีโดยตรงจาก hash
 
   // Import health regions hook
@@ -149,18 +149,60 @@ export const useMapManager = () => {
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }, []);
 
-  // ฟังก์ชันสร้างสีจากค่า CI (3 สี)
-  const getCIColor = useCallback((ci) => {
-    if (ci <= 0) {
-      return "#198754"; // 🟢 เขียวเข้ม - ปลอดภัย (CI ≤ 0)
-    } else if (ci <= 10) {
-      return "#f59e0b"; // 🟡 เหลืองเข้ม - เริ่มมี (0 < CI ≤ 10)
+  // ฟังก์ชันสร้างสีจากค่า HI (3 สี)
+  const getHIColor = useCallback((hi) => {
+    if (hi < 1) {
+      return "#198754"; // 🟢 เขียวเข้ม - ปลอดภัย (HI < 1%)
+    } else if (hi < 10) {
+      return "#f59e0b"; // 🟡 เหลืองเข้ม - เฝ้าระวัง (1% <= HI < 10%)
     } else {
-      return "#dc2626"; // 🔴 แดงเข้ม - เสี่ยงสูง (CI > 10)
+      return "#dc2626"; // 🔴 แดงเข้ม - เสี่ยงสูง (HI >= 10%)
     }
   }, []);
 
-  // กำหนดสีของ feature - รองรับทั้ง CI mode (Mosquito) และ color mode (OSM)
+  // Mapping table for KML filename -> display name mismatches
+  // Some KML files use shortened names while lookup API returns full names
+  const KML_NAME_MAPPINGS = {
+    "ป้อมปราบศัตรูพ่าย": "ป้อมปราบศัตรูพ่า",
+    // Add more mappings as needed for other districts/provinces
+  };
+
+  // Normalize ชื่อพื้นที่ให้ตรงกับ hiByArea keys (เหมือน calculateHIByArea)
+  // ลองทุกระดับเพื่อให้ match ได้ไม่ว่าจะเป็น province/amphoe/tambon
+  const normalizeAreaNameForMatch = useCallback((name) => {
+    if (!name) return "";
+
+    // เอาคำนำหน้าทั้งหมดออก ไม่ว่าจะระดับไหน
+    let normalized = String(name).trim()
+      .replace(/^จังหวัด\s*/i, "")
+      .replace(/^จ\.\s*/i, "")
+      .replace(/^อำเภอ\s*/i, "")
+      .replace(/^อ\.\s*/i, "")
+      .replace(/^เขต\s*/i, "")
+      .replace(/^ตำบล\s*/i, "")
+      .replace(/^ต\.\s*/i, "")
+      .replace(/^แขวง\s*/i, "")
+      .replace(/\s+/g, " ")  // ลดช่องว่างหลายช่องให้เหลือช่องเดียว
+      .trim();
+
+    // แปลงชื่อพิเศษ
+    if (["กรุงเทพฯ", "กทม.", "กทม"].includes(normalized)) {
+      normalized = "กรุงเทพมหานคร";
+    }
+
+    // Apply KML name mappings for reverse lookup
+    // If the name is a full name that doesn't match KML files, map to short name
+    if (KML_NAME_MAPPINGS[normalized]) {
+      normalized = KML_NAME_MAPPINGS[normalized];
+    }
+
+    // ลบช่องว่างที่อาจเกิดจากการ replace
+    normalized = normalized.trim();
+
+    return normalized;
+  }, []);
+
+  // กำหนดสีของ feature - รองรับทั้ง HI mode (Mosquito) และ color mode (OSM)
   const getFeatureColor = useCallback(
     (feature) => {
       const properties = feature.properties || {};
@@ -178,31 +220,51 @@ export const useMapManager = () => {
         "prov_name_t",
       ]);
 
-      // ใช้สีโดยตรจาก colorsByArea ถ้ามี (สำหรับ OSM - color mode)
-      if (name && colorsByArea && Object.keys(colorsByArea).length > 0) {
-        const color = colorsByArea[name];
-        if (color !== undefined) {
-          console.log("[getFeatureColor] Color mode - Match found:", name, "Color:", color);
-          return color;
-        }
-      }
-
-      // ใช้สีจากค่า CI ถ้ามีข้อมูล (สำหรับ Mosquito - CI mode)
-      if (name && ciByArea && Object.keys(ciByArea).length > 0) {
-        const ci = ciByArea[name];
-        if (ci !== undefined) {
-          console.log("[getFeatureColor] CI mode - Match found:", name, "CI:", ci, "Color:", getCIColor(ci));
-          return getCIColor(ci);
-        }
-        // ถ้าไม่มีข้อมูล CI สำหรับพื้นที่นี้ ให้โปร่งใส
-        console.log("[getFeatureColor] No CI for:", name, "| Available:", Object.keys(ciByArea));
+      if (!name) {
         return "transparent";
       }
 
-      // ถ้าไม่มีข้อมูลทั้ง CI และ color ให้โปร่งใส
+      // ใช้สีโดยตรจาก colorsByArea ถ้ามี (สำหรับ OSM - color mode)
+      // ถ้ามี colorsByArea แสดงว่าอยู่ใน OSM mode ซึ่งทุกพื้นที่ต้องมีสี
+      if (colorsByArea && Object.keys(colorsByArea).length > 0) {
+        // ลอง match ด้วยชื่อเดิมก่อน
+        let color = colorsByArea[name];
+
+        // ถ้าไม่เจอ ให้ลอง normalize ชื่อแล้ว match อีกครั้ง
+        if (color === undefined) {
+          const normalizedName = normalizeAreaNameForMatch(name);
+          color = colorsByArea[normalizedName];
+        }
+
+        if (color !== undefined) {
+          return color;
+        }
+        // ใน OSM mode ถ้าไม่เจอ match ให้คืน special value เพื่อบอกว่าไม่ต้องแสดง
+        return null;
+      }
+
+      // ใช้สีจากค่า HI ถ้ามีข้อมูล (สำหรับ Mosquito - HI mode)
+      if (hiByArea && Object.keys(hiByArea).length > 0) {
+        // ลอง match ด้วยชื่อเดิมก่อน
+        let hi = hiByArea[name];
+
+        // ถ้าไม่เจอ ให้ลอง normalize ชื่อแล้ว match อีกครั้ง
+        if (hi === undefined) {
+          const normalizedName = normalizeAreaNameForMatch(name);
+          hi = hiByArea[normalizedName];
+        }
+
+        if (hi !== undefined) {
+          return getHIColor(hi);
+        }
+        // ถ้าไม่มีข้อมูล HI สำหรับพื้นที่นี้ ให้โปร่งใส
+        return "transparent";
+      }
+
+      // ถ้าไม่มีข้อมูลทั้ง HI และ color ให้โปร่งใส
       return "transparent";
     },
-    [findPropertyValue, getCIColor, ciByArea, colorsByArea]
+    [findPropertyValue, getHIColor, hiByArea, colorsByArea, normalizeAreaNameForMatch]
   );
 
   // กำหนดสไตล์ของ feature
@@ -211,15 +273,27 @@ export const useMapManager = () => {
       const color = getFeatureColor(feature);
       const geometryType = feature.geometry.type;
 
-      // ทุกสีให้โปร่งใส (semi-transparent) เหมือนกันหมด
+      // null หมายถึง OSM mode ที่ไม่มีสีกำหนด -> โปร่งใสไม่ต้องแสดง
+      if (color === null) {
+        return {
+          color: "transparent",
+          fillColor: "transparent",
+          weight: 0,
+          opacity: 0,
+          fillOpacity: 0,
+        };
+      }
+
+      // "transparent" หมายถึง HI mode ที่ไม่มีข้อมูล -> ใช้สีเขียว (ปลอดภัย HI < 1%)
       const isNoData = color === "transparent";
-      const fillOpacity = isNoData ? 0 : 0.3; // โปร่งใส 30% สำหรับทุกพื้นที่ที่มีข้อมูล
+      const actualColor = isNoData ? "#198754" : color; // สีเขียว = ปลอดภัย
+      const actualFillColor = isNoData ? "#198754" : color;
 
       const baseStyle = {
-        color: color,
+        color: actualColor,
         weight: 2,
-        opacity: isNoData ? 0 : 0.8,
-        fillOpacity: fillOpacity,
+        opacity: 0.8, // ให้ขอบชัดเสมอ
+        fillOpacity: 0.3, // ให้ทุก polygon มี fillOpacity เท่ากัน 30%
       };
 
       switch (geometryType) {
@@ -227,8 +301,8 @@ export const useMapManager = () => {
         case "MultiPolygon":
           return {
             ...baseStyle,
-            fillColor: color,
-            fillOpacity: fillOpacity,
+            fillColor: actualFillColor,
+            fillOpacity: 0.3, // โปร่งใส 30% เหมือนกันหมด
           };
         case "LineString":
         case "MultiLineString":
@@ -353,29 +427,69 @@ export const useMapManager = () => {
         layer.bindPopup(popupContent, {
           maxWidth: 300,
           className: "custom-popup",
+          closeButton: true, // แสดงปุ่มปิด popup
         });
       }
 
-      // Hover effects
+      // เก็บ feature reference ไว้ใน layer เพื่อใช้ตอน mouseout
+      layer.feature = feature;
+
+      // เก็บสีไว้ใน layer เพื่อใช้เมื่อ mouseout (ป้องกันปัญหา stale closure)
+      layer.originalColor = getFeatureColor(feature);
+
+      // Hover effects - เฉพาะ highlight polygon ไม่เปิด popup
       layer.on("mouseover", (e) => {
         const layer = e.target;
         if (layer.setStyle) {
-          layer.setStyle({
+          const hoverStyle = {
             weight: 4,
             opacity: 1,
             fillOpacity: 0.6,
-          });
+          };
+          // ใช้ setStyle โดยตรง
+          layer.setStyle(hoverStyle);
         }
       });
 
       layer.on("mouseout", (e) => {
         const layer = e.target;
-        if (layer.setStyle) {
-          layer.setStyle(getFeatureStyle(feature));
+        if (layer.setStyle && layer.feature) {
+          // ใช้สีที่เก็บไว้ตอนสร้าง layer แทนการคำนวณใหม่
+          const color = layer.originalColor;
+
+          const props = layer.feature.properties || {};
+          const name = props.name || props.Name || props.NAME || props.ADM2_TH || props.ADM3_TH || "Unknown";
+
+          // null หมายถึง OSM mode ที่ไม่มีสีกำหนด -> โปร่งใสไม่ต้องแสดง
+          if (color === null) {
+            layer.setStyle({
+              color: "transparent",
+              fillColor: "transparent",
+              weight: 0,
+              opacity: 0,
+              fillOpacity: 0,
+            });
+            return;
+          }
+
+          const isNoData = color === "transparent";
+          const actualColor = isNoData ? "#198754" : color;
+
+          const originalStyle = {
+            color: actualColor,
+            fillColor: actualColor,
+            weight: 2,
+            opacity: 0.8,
+            fillOpacity: 0.3,
+          };
+          layer.setStyle(originalStyle);
         }
       });
+
+      // Click to open/close popup - Leaflet จะจัดการอัตโนมัติ
+      // ไม่ต้องเขียน click handler เพิ่ม เพราะ bindPopup ทำงานอัตโนมัติเมื่อคลิก
     },
-    [createPopupContent, getFeatureStyle]
+    [createPopupContent, getFeatureColor]
   );
 
   // สร้าง layers บนแผนที่
@@ -397,11 +511,17 @@ export const useMapManager = () => {
       features.forEach((feature, index) => {
         try {
           const layer = L.geoJSON(feature, {
-            style: (feature) => getFeatureStyle(feature),
+            style: getFeatureStyle,
             pointToLayer: (feature, latlng) =>
               createPointLayer(feature, latlng),
-            onEachFeature: (feature, layer) =>
-              bindFeatureInteractions(feature, layer),
+            onEachFeature: (feature, layer) => {
+              bindFeatureInteractions(feature, layer);
+              // ตั้งค่า zIndex ให้แต่ละ layer มีค่าตามลำดับ
+              // เพื่อป้องกันการทับซ้อนที่ไม่ต้องการ
+              if (layer.setStyle) {
+                layer.setStyle({ zIndex: index });
+              }
+            },
           });
 
           newLayers.push(layer);
@@ -443,22 +563,27 @@ export const useMapManager = () => {
   const clearAllLayers = useCallback(() => {
     if (!mapRef.current) return;
 
-    allLayers.forEach((layer) => {
-      mapRef.current.removeLayer(layer);
+    // ใช้ eachLayer จาก Leaflet เพื่อลบ layer ทั้งหมดที่อยู่บนแผนที่
+    mapRef.current.eachLayer((layer) => {
+      // ไม่ลบ tile layer (base map)
+      if (!(layer instanceof L.TileLayer)) {
+        mapRef.current.removeLayer(layer);
+      }
     });
+
     setAllLayers([]);
     setLoadedFiles(0);
     setCurrentLevel("");
-  }, [allLayers]);
+  }, []);
 
   // โหลดและแสดงข้อมูล KML บนแผนที่
   const loadAndDisplayKML = useCallback(
-    async (geoJsonData, level, updateStatus, ciData = null) => {
+    async (geoJsonData, level, updateStatus, hiData = null) => {
       if (!mapRef.current) return;
 
-      // ตั้งค่า CI แยกตามพื้นที่ถ้ามี (อย่ารีเซ็ตเมื่อไม่มี ciData เพราะอาจมีค่าอยู่แล้ว)
-      if (ciData) {
-        setCiByArea(ciData);
+      // ตั้งค่า HI แยกตามพื้นที่ถ้ามี (อย่ารีเซ็ตเมื่อไม่มี hiData เพราะอาจมีค่าอยู่แล้ว)
+      if (hiData) {
+        setHiByArea(hiData);
       }
 
       setLoadStartTime(Date.now());
@@ -546,32 +671,62 @@ export const useMapManager = () => {
     }
   }, []);
 
-  // อัปเดตสีของ layers ทั้งหมดเมื่อ ciByArea เปลี่ยน
+  // อัปเดตสีของ layers ทั้งหมดเมื่อ hiByArea หรือ colorsByArea เปลี่ยน
   const updateLayerColors = useCallback(() => {
     if (!mapRef.current || allLayers.length === 0) return;
 
-    console.log("[updateLayerColors] Updating", allLayers.length, "layers with ciByArea:", Object.keys(ciByArea));
-
     allLayers.forEach((layer) => {
-      if (layer && layer.setStyle && layer.getLayers) {
+      // ตรวจสอบว่า layer ยังอยู่บนแผนที่หรือไม่
+      if (!layer || !mapRef.current.hasLayer(layer)) {
+        return;
+      }
+
+      if (layer.setStyle && layer.getLayers) {
         // layer เป็น FeatureGroup ที่มีหลาย features
         layer.getLayers().forEach((featureLayer) => {
           if (featureLayer && featureLayer.feature && featureLayer.setStyle) {
-            const newStyle = getFeatureStyle(featureLayer.feature);
+            // คำนวณสีใหม่โดยตรงจาก feature และค่าปัจจุบัน
+            const color = getFeatureColor(featureLayer.feature);
+
+            // อัปเดต originalColor ไว้ใน layer ด้วย เพื่อใช้เมื่อ mouseout
+            featureLayer.originalColor = color;
+
+            // null หมายถึง OSM mode ที่ไม่มีสีกำหนด -> โปร่งใสไม่ต้องแสดง
+            if (color === null) {
+              featureLayer.setStyle({
+                color: "transparent",
+                fillColor: "transparent",
+                weight: 0,
+                opacity: 0,
+                fillOpacity: 0,
+              });
+              return;
+            }
+
+            const isNoData = color === "transparent";
+            const actualColor = isNoData ? "#198754" : color;
+
+            const newStyle = {
+              color: actualColor,
+              fillColor: actualColor,
+              weight: 2,
+              opacity: 0.8,
+              fillOpacity: 0.3,
+            };
+
             featureLayer.setStyle(newStyle);
           }
         });
       }
     });
-  }, [allLayers, getFeatureStyle, ciByArea]);
+  }, [allLayers, getFeatureColor, hiByArea, colorsByArea]);
 
-  // เมื่อ ciByArea เปลี่ยน ให้อัปเดตสีของ layers
+  // เมื่อ hiByArea หรือ colorsByArea เปลี่ยน ให้อัปเดตสีของ layers
   useEffect(() => {
-    console.log("[useMapManager] ciByArea changed:", Object.keys(ciByArea).length, "keys | allLayers:", allLayers.length);
     if (allLayers.length > 0) {
       updateLayerColors();
     }
-  }, [ciByArea, updateLayerColors, allLayers]);
+  }, [hiByArea, colorsByArea, updateLayerColors, allLayers]);
 
   // อัพเดท minZoom เมื่อขนาดหน้าจอเปลี่ยน (สำหรับ responsive)
   const updateResponsiveZoom = useCallback(() => {
@@ -597,7 +752,7 @@ export const useMapManager = () => {
     loadedFiles,
     currentLevel,
     loadStartTime,
-    ciByArea,
+    hiByArea,
 
     // Methods
     initializeMap,
@@ -607,7 +762,7 @@ export const useMapManager = () => {
     cleanup,
     updateResponsiveZoom,
     getResponsiveMinZoom,
-    setCiByAreaData: setCiByArea,
+    setHiByAreaData: setHiByArea,
     setColorsByAreaData: setColorsByArea,
     updateLayerColors,
   };

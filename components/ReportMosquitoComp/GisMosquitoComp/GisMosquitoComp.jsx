@@ -68,8 +68,11 @@ const normalizeAreaName = (value) => {
   return String(value).trim();
 };
 
-const normalizeAreaFileName = (value, level) =>
-  normalizeAreaKey(value, level);
+// Special case mappings for problematic district names (KML filename mismatches)
+const KML_NAME_MAPPINGS = {
+  "ป้อมปราบศัตรูพ่าย": "ป้อมปราบศัตรูพ่า",
+  // Add more special cases here if needed for other districts/provinces
+};
 
 const normalizeAreaKey = (value, level) => {
   const name = normalizeAreaName(value);
@@ -94,7 +97,20 @@ const normalizeAreaKey = (value, level) => {
     }
   }
 
+  // Apply KML name mappings for district and subdistrict levels
+  // This must be done AFTER other normalization but BEFORE returning
+  if (level === "district" || level === "subdistrict") {
+    if (KML_NAME_MAPPINGS[normalized]) {
+      normalized = KML_NAME_MAPPINGS[normalized];
+    }
+  }
+
   return normalized;
+};
+
+const normalizeAreaFileName = (value, level) => {
+  // Just use normalizeAreaKey since mapping is now applied there
+  return normalizeAreaKey(value, level);
 };
 
 const getReportProvinceName = (report) =>
@@ -137,89 +153,95 @@ const getReportsFromWeeklyDetails = (data) => {
   return [];
 };
 
-// ฟังก์ชันสร้างสีจากค่า CI
-// CI = 0: ปลอดภัย (สีเขียว)
-// 0 < CI <= 10: มีแหล่งเพาะพันธุ์ (สีเหลือง/ส้ม)
-// CI > 10: มีแหล่งเพาะพันธุ์เยอะ (สีแดง)
-const getCIColor = (ci) => {
-  if (ci <= 0) {
+// ฟังก์ชันสร้างสีจากค่า HI
+// HI < 1%: ปลอดภัย (สีเขียว)
+// 1% <= HI < 10%: เฝ้าระวัง (สีเหลือง/ส้ม)
+// HI >= 10%: มีความเสี่ยงสูง (สีแดง)
+const getHIColor = (hi) => {
+  if (hi < 1) {
     return { color: "#28a745", fillColor: "#28a745", fillOpacity: 0.3 }; // เขียว - ปลอดภัย
-  } else if (ci <= 5) {
-    return { color: "#ffc107", fillColor: "#ffc107", fillOpacity: 0.4 }; // เหลือง - เริ่มมี
-  } else if (ci <= 10) {
-    return { color: "#fd7e14", fillColor: "#fd7e14", fillOpacity: 0.5 }; // ส้ม - มีแหล่งเพาะพันธุ์
+  } else if (hi < 10) {
+    return { color: "#ffc107", fillColor: "#ffc107", fillOpacity: 0.4 }; // เหลือง - เฝ้าระวัง
   } else {
-    return { color: "#dc3545", fillColor: "#dc3545", fillOpacity: 0.6 }; // แดง - เยอะ
+    return { color: "#dc3545", fillColor: "#dc3545", fillOpacity: 0.6 }; // แดง - เสี่ยงสูง
   }
 };
 
-// คำนวณค่า HI (House Index) และ CI (Container Index) พร้อม S² (Variance)
+// คำนวณค่า HI (House Index) แยกตามพื้นที่ (จังหวัด/อำเภอ/ตำบล)
 // HI = (จำนวนบ้านที่สำรวจพบลูกน้ำยุงลาย / จำนวนบ้านที่สำรวจทั้งหมด) × 100
-// CI = (จำนวนภาชนะขังน้ำที่พบลูกน้ำยุงลาย / จำนวนภาชนะขังน้ำที่สำรวจทั้งหมด) × 100
-// S² = Variance (ความแปรปรวน)
 //
 // การแปลผล:
-// HI > 10%: มีความเสี่ยงสูงที่จะเกิดการแพร่ระบาด
-// HI < 1%: มีความเสี่ยงต่ำ
-// CI = 0: ถือว่าปลอดภัย, CI สูง = มีแหล่งเพาะพันธุ์เยอะ
-// คำนวณ CI แยกตามพื้นที่ (จังหวัด/อำเภอ/ตำบล)
-const calculateCIByArea = (data, getAreaName, availableAreas = [], level = "province") => {
+// HI < 1%: มีความเสี่ยงต่ำ (ปลอดภัย)
+// 1% <= HI < 10%: เฝ้าระวัง
+// HI >= 10%: มีความเสี่ยงสูงที่จะเกิดการแพร่ระบาด
+const calculateHIByArea = (data, getAreaName, availableAreas = [], level = "province") => {
   const reports = getReportsFromWeeklyDetails(data);
-  const ciMap = new Map();
+  const hiMap = new Map();
+
+  // Group reports by area
+  const areaReports = new Map();
 
   reports.forEach((report) => {
     const name = getAreaName(report);
-
     if (!name) return;
 
-    // Normalize area name to match map feature names (remove prefixes like "เขต", "อำเภอ", etc.)
     const normalizedName = normalizeAreaKey(name, level);
 
-    // รองรับทั้ง containers และ notes (โครงสร้างเดิม)
-    const containerData = report?.containers || report?.notes || { inside: [], outside: [] };
-    const insideContainers = Array.isArray(containerData.inside) ? containerData.inside : [];
-    const outsideContainers = Array.isArray(containerData.outside) ? containerData.outside : [];
-
-    let areaContainersSurveyed = 0;
-    let areaContainersWithLarvae = 0;
-
-    // นับภาชนะในบ้าน
-    insideContainers.forEach((container) => {
-      const total = Number(container?.total) || 0;
-      const found = Number(container?.found) || 0;
-      const validFound = Math.min(found, total);
-      areaContainersSurveyed += total;
-      areaContainersWithLarvae += validFound;
-    });
-
-    // นับภาชนะนอกบ้าน
-    outsideContainers.forEach((container) => {
-      const total = Number(container?.total) || 0;
-      const found = Number(container?.found) || 0;
-      const validFound = Math.min(found, total);
-      areaContainersSurveyed += total;
-      areaContainersWithLarvae += validFound;
-    });
-
-    // คำนวณ CI สำหรับพื้นที่นี้
-    const ci = areaContainersSurveyed > 0 ? (areaContainersWithLarvae / areaContainersSurveyed) * 100 : 0;
-    const finalCi = Math.min(ci, 100); // จำกัดไม่ให้เกิน 100%
-
-    // ใช้ชื่อ normalized เป็น key (เพื่อให้ตรงกับชื่อใน feature.properties ของแผนที่)
-    ciMap.set(normalizedName, finalCi);
+    if (!areaReports.has(normalizedName)) {
+      areaReports.set(normalizedName, []);
+    }
+    areaReports.get(normalizedName).push(report);
   });
 
-  // เติมค่า CI = 0 สำหรับพื้นที่ที่ไม่มีข้อมูล (ปลอดภัย - สีเขียว)
+  // Calculate HI for each area
+  areaReports.forEach((reportsInArea, areaName) => {
+    let housesWithLarvae = 0;
+    let housesSurveyed = reportsInArea.length;
+
+    reportsInArea.forEach((report) => {
+      const containerData = report?.containers || report?.notes || { inside: [], outside: [] };
+      const insideContainers = Array.isArray(containerData.inside) ? containerData.inside : [];
+      const outsideContainers = Array.isArray(containerData.outside) ? containerData.outside : [];
+
+      let houseHasLarvae = false;
+
+      // ตรวจสอบภาชนะในบ้าน
+      insideContainers.forEach((container) => {
+        const found = Number(container?.found) || 0;
+        if (found > 0) {
+          houseHasLarvae = true;
+        }
+      });
+
+      // ตรวจสอบภาชนะนอกบ้าน
+      outsideContainers.forEach((container) => {
+        const found = Number(container?.found) || 0;
+        if (found > 0) {
+          houseHasLarvae = true;
+        }
+      });
+
+      if (houseHasLarvae) {
+        housesWithLarvae++;
+      }
+    });
+
+    // คำนวณ HI = (จำนวนบ้านที่พบลูกน้ำ / จำนวนบ้านที่สำรวจ) × 100
+    const hi = housesSurveyed > 0 ? (housesWithLarvae / housesSurveyed) * 100 : 0;
+    hiMap.set(areaName, hi);
+  });
+
+  // เติมค่า HI = 0 สำหรับพื้นที่ที่ไม่มีข้อมูล (ปลอดภัย - สีเขียว)
   if (Array.isArray(availableAreas)) {
     availableAreas.forEach((areaName) => {
       const normalizedAreaName = normalizeAreaKey(areaName, level);
-      if (!ciMap.has(normalizedAreaName)) {
-        ciMap.set(normalizedAreaName, 0);
+      if (!hiMap.has(normalizedAreaName)) {
+        hiMap.set(normalizedAreaName, 0);
       }
     });
   }
 
-  return Object.fromEntries(ciMap);
+  return Object.fromEntries(hiMap);
 };
 
 const calculateHICI = (data) => {
@@ -424,13 +446,13 @@ const GisMosquitoComp = () => {
 
   const mosquitoReportData = monthlyReportData;
 
-  // State for storing CI values by area
-  const [ciByArea, setCiByArea] = useState({});
+  // State for storing HI values by area
+  const [hiByArea, setHiByArea] = useState({});
 
   const mapContainer = useRef(null);
 
-  // ฟังก์ชันกำหนดสีจากค่า CI สำหรับแสดงใน Donut Chart และ Area List
-  const getCIColorForDisplay = (areaName) => {
+  // ฟังก์ชันกำหนดสีจากค่า HI สำหรับแสดงใน Donut Chart และ Area List
+  const getHIColorForDisplay = (areaName) => {
     // Determine current level based on selection state
     const isLevelSubdistrict = selectedDistrict && availableSubdistricts.length > 0;
     const isLevelDistrict = !isLevelSubdistrict && selectedProvince && availableDistricts.length > 0;
@@ -440,21 +462,21 @@ const GisMosquitoComp = () => {
       ? "district"
       : "province";
 
-    // Normalize area name to match the keys in ciByArea
+    // Normalize area name to match the keys in hiByArea
     const normalizedKey = level === "province"
       ? normalizeAreaKeyWithThai(areaName, level)
       : normalizeAreaKey(areaName, level);
 
-    const ci = ciByArea?.[normalizedKey];
-    if (ci === undefined) {
+    const hi = hiByArea?.[normalizedKey];
+    if (hi === undefined) {
       return "transparent"; // โปร่งใส - ไม่มีข้อมูล
     }
-    if (ci <= 0) {
-      return "#198754"; // 🟢 เขียวเข้ม - ปลอดภัย (CI ≤ 0)
-    } else if (ci <= 10) {
-      return "#f59e0b"; // 🟡 เหลืองเข้ม - เริ่มมี (0 < CI ≤ 10)
+    if (hi < 1) {
+      return "#198754"; // 🟢 เขียวเข้ม - ปลอดภัย (HI < 1%)
+    } else if (hi < 10) {
+      return "#f59e0b"; // 🟡 เหลืองเข้ม - เฝ้าระวัง (1% <= HI < 10%)
     } else {
-      return "#dc2626"; // 🔴 แดงเข้ม - เสี่ยงสูง (CI > 10)
+      return "#dc2626"; // 🔴 แดงเข้ม - เสี่ยงสูง (HI >= 10%)
     }
   };
 
@@ -481,8 +503,7 @@ const GisMosquitoComp = () => {
     fitToData,
     cleanup,
     updateResponsiveZoom,
-    setCiByAreaData,
-    updateLayerColors,
+    setHiByAreaData,
   } = useMapManager();
 
   const { getHealthRegionsList, getProvincesInRegion } = useHealthRegions();
@@ -1748,7 +1769,7 @@ const GisMosquitoComp = () => {
     };
   }, [map]);
 
-  // Calculate CI by area and pass to useMapManager
+  // Calculate HI by area and pass to useMapManager
   useEffect(() => {
     if (!weeklyDetails) {
       return;
@@ -1776,7 +1797,7 @@ const GisMosquitoComp = () => {
       getAreaName = getReportProvinceName;
     }
 
-    // Calculate CI by area - ส่ง availableAreas ด้วยเพื่อเติมค่า CI = 0 สำหรับที่ไม่มีข้อมูล
+    // Calculate HI by area - ส่ง availableAreas ด้วยเพื่อเติมค่า HI = 0 สำหรับที่ไม่มีข้อมูล
     let availableAreas = [];
     if (isLevelSubdistrict) {
       availableAreas = availableSubdistricts;
@@ -1790,15 +1811,10 @@ const GisMosquitoComp = () => {
       availableAreas = availableProvinces;
     }
 
-    const ciData = calculateCIByArea(weeklyDetails, getAreaName, availableAreas, level);
-    console.log("[CI Data] Level:", level, "| Areas with CI:", Object.keys(ciData).filter(k => ciData[k] > 0), "| ciData:", ciData);
-    setCiByArea(ciData); // Update local state for Donut Chart and Area List
-    setCiByAreaData(ciData); // Update useMapManager state for map colors
-
-    // อัปเดตสีของ layers บนแผนที่
-    setTimeout(() => {
-      updateLayerColors();
-    }, 100);
+    const hiData = calculateHIByArea(weeklyDetails, getAreaName, availableAreas, level);
+    console.log("[HI Data] Level:", level, "| Areas with HI:", Object.keys(hiData).filter(k => hiData[k] > 0), "| hiData:", hiData);
+    setHiByArea(hiData); // Update local state for Donut Chart and Area List
+    setHiByAreaData(hiData); // Update useMapManager state for map colors (triggers updateLayerColors via useEffect)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     weeklyDetails,
@@ -2009,7 +2025,7 @@ const GisMosquitoComp = () => {
                                 const strokeDasharray = `${percentage} ${
                                   100 - percentage
                                 }`;
-                                const color = getCIColorForDisplay(item.name);
+                                const color = getHIColorForDisplay(item.name);
                                 const currentOffset = offset;
                                 offset = (offset - percentage) % 100;
 
@@ -2050,7 +2066,7 @@ const GisMosquitoComp = () => {
                               <div
                                 className={styles.colorDot}
                                 style={{
-                                  backgroundColor: getCIColorForDisplay(item.name),
+                                  backgroundColor: getHIColorForDisplay(item.name),
                                 }}
                               ></div>
                               {item.name}

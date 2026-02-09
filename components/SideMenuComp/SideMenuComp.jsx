@@ -18,6 +18,7 @@ import {
   Bell,
   Gift,
   ChevronDown,
+  FileSpreadsheet,
 } from "lucide-react";
 import { getMenuStructure, getUserMenuPermissions } from "@services/menuPermissionService";
 import { filterMenusByScope } from "@utils/menuPermissionHelper";
@@ -49,6 +50,7 @@ const ICON_MAP = {
   FileSearch: <FileSearch className="w-5 h-5" />,
   Bell: <Bell className="w-5 h-5" />,
   Gift: <Gift className="w-5 h-5" />,
+  FileSpreadsheet: <FileSpreadsheet className="w-5 h-5" />,
 };
 
 // Helper to get icon component from API icon name or return default
@@ -116,9 +118,14 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
+    },
+    {
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
     },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
@@ -179,9 +186,14 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
+    },
+    {
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
     },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
@@ -236,9 +248,14 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
+    },
+    {
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
     },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
@@ -293,9 +310,14 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
+    },
+    {
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
     },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
@@ -350,9 +372,14 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
+    },
+    {
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
     },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
@@ -407,9 +434,14 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
+    },
+    {
+      name: "รายงานผลการรายงานผลการปฏิบัติงานของอสม.",
+      url: "/public-report",
+      icon: <FileSpreadsheet className="w-5 h-5" />,
     },
     // {
     //   name: "จัดการคะแนนสะสม อสม.",
@@ -539,7 +571,8 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
             "ผลตรวจสุขภาพ อสม.": "health",
             "คัดกรองผู้สูงอายุในชุมชน": "elderly",
             "คัดกรองโรคไม่ติดต่อเรื้อรัง NCDs": "ncds",
-            "รายงานประเมินหญิงตั้งครรภ์": "pregnant",
+            "การติดตามการได้รับยาเม็ดเสริมไอโอดีน": "pregnant",
+            "รายงานผลการรายงานผลการปฏิบัติงานของอสม.": "public-report-osm",
             "ประกาศข่าวสาร": "news",
             "กำหนดสิทธิ์การเข้าถึง": "access_control",
             "จัดการคะแนนสะสม อสม.": "osm-points",

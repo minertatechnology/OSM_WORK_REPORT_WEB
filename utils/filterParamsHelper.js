@@ -44,23 +44,17 @@ export const buildFilterParams = ({
   const defaultSubdistrict = initialFilters.subdistrict || "";
   const defaultService = initialFilters.service || "";
 
-  console.log("🔒 filterParamsHelper - initialFilters:", initialFilters);
-  console.log("🔒 filterParamsHelper - user selection:", { zone, province, district, subdistrict, health_service_id });
-  console.log("🔒 filterParamsHelper - lockLevel:", lockLevel);
-
   // ========== Zone Filter ==========
   // Zone uses health_region parameter (number only)
   if (zone !== "") {
     const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
     if (!isNaN(zoneNumber)) {
       params.health_region = zoneNumber;
-      console.log("✅ Using zone:", zone, "→ health_region:", zoneNumber);
     }
   } else if (defaultZone && lockLevel !== 'none') {
     const zoneNumber = parseInt(String(defaultZone).replace(/\D/g, ''));
     if (!isNaN(zoneNumber)) {
       params.health_region = zoneNumber;
-      console.log("🔒 Using locked zone:", defaultZone, "→ health_region:", zoneNumber);
     }
   }
 
@@ -71,14 +65,12 @@ export const buildFilterParams = ({
     if (provData) {
       params.province = provData.name_th || provData.name;
       params.province_id = province;
-      console.log("✅ Using user-selected province:", province, "name:", params.province, "id:", params.province_id);
     }
   } else if (defaultProvince && lockLevel !== 'none' && lockLevel !== 'zone') {
     const provData = provinces.find(p => String(p.code || p.id) === defaultProvince);
     if (provData) {
       params.province = provData.name_th || provData.name;
       params.province_id = defaultProvince;
-      console.log("🔒 Using locked province:", defaultProvince, "name:", params.province, "id:", params.province_id);
     }
   }
 
@@ -89,14 +81,12 @@ export const buildFilterParams = ({
     if (distData) {
       params.district = distData.name_th || distData.name;
       params.district_id = district;
-      console.log("✅ Using user-selected district:", district, "name:", params.district, "id:", params.district_id);
     }
   } else if (defaultDistrict && (lockLevel === 'district' || lockLevel === 'subdistrict')) {
     const distData = districts.find(d => String(d.code || d.id) === defaultDistrict);
     if (distData) {
       params.district = distData.name_th || distData.name;
       params.district_id = defaultDistrict;
-      console.log("🔒 Using locked district:", defaultDistrict, "name:", params.district, "id:", params.district_id);
     }
   }
 
@@ -107,14 +97,12 @@ export const buildFilterParams = ({
     if (subdistData) {
       params.subdistrict = subdistData.name_th || subdistData.name;
       params.subdistrict_id = subdistrict;
-      console.log("✅ Using user-selected subdistrict:", subdistrict, "name:", params.subdistrict, "id:", params.subdistrict_id);
     }
   } else if (defaultSubdistrict && lockLevel === 'subdistrict') {
     const subdistData = subdistricts.find(s => String(s.code || s.id) === defaultSubdistrict);
     if (subdistData) {
       params.subdistrict = subdistData.name_th || subdistData.name;
       params.subdistrict_id = defaultSubdistrict;
-      console.log("🔒 Using locked subdistrict:", defaultSubdistrict, "name:", params.subdistrict, "id:", params.subdistrict_id);
     }
   }
 
@@ -122,13 +110,10 @@ export const buildFilterParams = ({
   // Send health_service_id directly
   if (health_service_id && health_service_id !== defaultService) {
     params.health_service_id = health_service_id;
-    console.log("✅ Using user-selected health_service_id:", health_service_id);
   } else if (defaultService) {
     params.health_service_id = defaultService;
-    console.log("🔒 Using locked health_service_id:", defaultService);
   }
 
-  console.log("📋 Final filterParams:", params);
   return params;
 };
 

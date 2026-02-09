@@ -38,9 +38,9 @@ function getPageNumbers(currentPage, totalPages) {
 }
 
 const PER_PAGE_OPTIONS = [
-  { label: "12", value: 12 },
-  { label: "24", value: 24 },
-  { label: "48", value: 48 },
+  { label: "10", value: 10 },
+  { label: "25", value: 25 },
+  { label: "50", value: 50 },
   { label: "100", value: 100 },
 ];
 
@@ -340,6 +340,7 @@ function PaginationWithPerPage({
         </select>
         <span className="text-sm text-gray-600">รายการต่อหน้า</span>
       </div>
+      {totalPages > 1 && (
       <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-[#ece1f7] shadow-lg backdrop-blur-sm">
         <button
           onClick={() => setCurrentPage(1)}
@@ -422,6 +423,7 @@ function PaginationWithPerPage({
           หน้า {currentPage} / {totalPages}
         </div>
       </div>
+      )}
     </div>
   );
 }

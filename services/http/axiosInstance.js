@@ -178,6 +178,14 @@ const handleTokenRefresh = async () => {
 
     return access_token;
   } catch (error) {
+    // ✅ ถ้า refresh token ได้ 401 แปลว่า session หมดอายุทั้งหมด
+    // ให้ clear tokens และ redirect ไปหน้า login ทันที
+    if (error.response?.status === 401) {
+      clearTokens();
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        window.location.href = "/";
+      }
+    }
     if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
       console.error("Token refresh failed:", error);
     }

@@ -378,11 +378,76 @@ export const getUserFromCache = (externalUserId) => {
   return userCache.get(externalUserId) || null;
 };
 
+/**
+ * ดึงรายการเจ้าหน้าที่แบบแบ่งหน้า
+ * @param {Object} params - Query parameters
+ * @param {number} params.page - หน้าที่ต้องการ (default: 1)
+ * @param {number} params.limit - จำนวนต่อหน้า (default: 20)
+ * @param {string} params.order_by - ฟิลด์ที่ใช้เรียง (default: created_at)
+ * @param {string} params.sort_dir - ทิศทางการเรียง (asc/desc, default: desc)
+ * @param {string} params.search - คำค้นหา (optional)
+ * @returns {Promise<Object>} { items: [...], total: number, page: number, limit: number, totalPages: number }
+ */
+export const getOfficersList = async (params = {}) => {
+  const {
+    page = 1,
+    limit = 100,
+    order_by = "created_at",
+    sort_dir = "desc",
+    search = "",
+  } = params;
+
+  try {
+    const queryParams = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      order_by,
+      sort_dir,
+    });
+
+    if (search) {
+      queryParams.append("search", search);
+    }
+
+    const response = await oauth2Api.get(`/officer?${queryParams.toString()}`);
+
+    // API ส่งข้อมูลมาใน response.data โดยตรง (ไม่ได้อยู่ใน response.data.data)
+    if (!response.data) {
+      return { items: [], total: 0, page, limit, totalPages: 0, pagination: { total: 0, pages: 0 } };
+    }
+
+    const data = response.data;
+    const items = data.items || [];
+    // API ส่ง pagination object ที่มี total และ pages
+    const pagination = data.pagination || {};
+    const total = pagination.total || data.total || 0;
+    const pages = pagination.pages || data.total_pages || data.pages || Math.ceil(total / limit);
+
+    return {
+      items,
+      total,
+      page: pagination.page || data.page || page,
+      limit: pagination.limit || data.limit || limit,
+      totalPages: pages,
+      pagination: {
+        total,
+        pages: pages,
+        page: pagination.page || data.page || page,
+        limit: pagination.limit || data.limit || limit,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching officers list:", error);
+    return { items: [], total: 0, page, limit, totalPages: 0, pagination: { total: 0, pages: 0 } };
+  }
+};
+
 export default {
   getById: getUserByExternalId,
   getBatch: getUsersBatch,
   getOSMsBatch: getOSMsBatch,
   getOfficersBatch: getOfficersBatch,
+  getOfficersList: getOfficersList,
   clearCache: clearUserCache,
   getFromCache: getUserFromCache,
 };

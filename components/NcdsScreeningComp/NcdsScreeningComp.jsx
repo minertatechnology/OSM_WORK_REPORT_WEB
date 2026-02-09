@@ -4,11 +4,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Eye,
+  EyeOff,
   Download,
   ChevronsLeft,
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Calendar,
   MapPin,
   Building2,
@@ -86,7 +88,7 @@ const ALL_ROWS = Array.from({ length: 100 }, (_, i) => ({
 
 const PER_PAGE_OPTIONS = [
   { label: "10", value: 10 },
-  { label: "20", value: 20 },
+  { label: "25", value: 25 },
   { label: "50", value: 50 },
   { label: "100", value: 100 },
 ];
@@ -349,24 +351,6 @@ function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {
   saveAs(blob, `ncds_report_${new Date().toISOString().split("T")[0]}.xlsx`);
 }
 
-// Utility function for pagination numbers with ellipsis
-function getPageNumbers(currentPage, totalPages) {
-  const delta = 2;
-  const pages = [];
-  for (
-    let i = Math.max(1, currentPage - delta);
-    i <= Math.min(totalPages, currentPage + delta);
-    i++
-  ) {
-    pages.push(i);
-  }
-  if (pages[0] > 2) pages.unshift("...");
-  if (pages[0] !== 1) pages.unshift(1);
-  if (pages[pages.length - 1] < totalPages - 1) pages.push("...");
-  if (pages[pages.length - 1] !== totalPages) pages.push(totalPages);
-  return [...new Set(pages)];
-}
-
 // Modal component styled like the image (for both download and detail)
 function DetailModal({ open, onClose, data = [] }) {
   if (!open) return null;
@@ -519,111 +503,174 @@ function PaginationWithPerPage({
   totalPages,
   itemsPerPage,
   setItemsPerPage,
+  totalItems = 0,
 }) {
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("...");
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 mb-10 pt-4 border-t border-[#f0ebff]">
+    <div className="flex flex-row items-center justify-between gap-3 mt-6 pt-6 border-t-2 border-purple-100 flex-wrap">
       <div className="flex items-center gap-2">
-        <label htmlFor="per-page" className="text-sm text-gray-600 font-medium">
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
           แสดง
-        </label>
-        <select
-          id="per-page"
-          value={itemsPerPage}
-          onChange={(e) => {
-            setItemsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="appearance-none border border-[#e5e7eb] rounded-full px-4 py-2 pr-8 text-sm font-semibold text-[#7e32e2] bg-white shadow transition focus:outline-none focus:ring-2 focus:ring-[#7e32e2] focus:border-transparent hover:border-[#7e32e2] cursor-pointer"
-        >
-          {PER_PAGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <span className="text-sm text-gray-600">รายการต่อหน้า</span>
+        </span>
+        <div className="relative">
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="appearance-none bg-gradient-to-r from-purple-50/80 to-violet-50/80 border-2 border-purple-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-[#7e32e2] cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all duration-200 min-w-[65px]"
+          >
+            {PER_PAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={16}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#7e32e2] pointer-events-none"
+          />
+        </div>
+        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รายการ/หน้า
+        </span>
       </div>
-      <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-[#ece1f7] shadow-lg backdrop-blur-sm">
-        <button
-          onClick={() => setCurrentPage(1)}
-          disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าแรก"
-          aria-label="หน้าแรก"
-        >
-          <ChevronsLeft size={18} />
-        </button>
-        <button
-          onClick={() => setCurrentPage(currentPage - 1)}
-          disabled={currentPage === 1}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === 1
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าก่อนหน้า"
-          aria-label="หน้าก่อนหน้า"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div className="flex items-center gap-1 mx-2">
-          {getPageNumbers(currentPage, totalPages).map((page, idx) =>
-            page === "..." ? (
-              <span
-                key={idx}
-                className="px-2 py-1 text-gray-400 font-semibold select-none"
-              >
-                ...
+
+      {totalItems > 0 && (
+        <div className="text-xs font-medium text-gray-700 whitespace-nowrap">
+          รวม{" "}
+          <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+            {totalItems.toLocaleString("th-TH")}
+          </span>{" "}
+          รายการ
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        {totalPages > 1 && (
+          <>
+            <div className="text-xs font-medium text-gray-700 bg-gradient-to-r from-purple-50 to-white px-3 py-1.5 rounded-lg border border-purple-100 whitespace-nowrap">
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {startItem}
               </span>
-            ) : (
+              -
+              <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                {endItem}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-white px-1.5 py-1.5 rounded-lg border border-purple-100 shadow-sm">
               <button
-                key={idx}
-                onClick={() => setCurrentPage(page)}
-                className={`min-w-[36px] h-9 rounded-full font-semibold text-base transition-all duration-200 ${
-                  currentPage === page
-                    ? "bg-[#7e32e2] text-white shadow-lg scale-110 border border-[#7e32e2]"
-                    : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-105"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
                 }`}
-                aria-current={currentPage === page ? "page" : undefined}
               >
-                {page}
+                <ChevronsLeft size={16} />
               </button>
-            )
-          )}
-        </div>
-        <button
-          onClick={() => setCurrentPage(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าถัดไป"
-          aria-label="หน้าถัดไป"
-        >
-          <ChevronRight size={18} />
-        </button>
-        <button
-          onClick={() => setCurrentPage(totalPages)}
-          disabled={currentPage === totalPages}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
-            currentPage === totalPages
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-[#7e32e2] hover:bg-[#f6eeff] hover:scale-110"
-          }`}
-          title="หน้าสุดท้าย"
-          aria-label="หน้าสุดท้าย"
-        >
-          <ChevronsRight size={18} />
-        </button>
-        <div className="ml-3 text-sm text-[#888] font-semibold bg-[#f6eeff] px-4 py-2 rounded-xl shadow">
-          หน้า {currentPage} / {totalPages}
-        </div>
+
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div className="flex items-center gap-1 mx-0.5">
+                {getPageNumbers().map((page, idx) => (
+                  <React.Fragment key={idx}>
+                    {page === "..." ? (
+                      <span className="px-2 py-1 text-gray-400 font-semibold text-xs">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`min-w-[32px] h-8 rounded-lg font-semibold text-xs transition-all duration-200 ${
+                          currentPage === page
+                            ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-md scale-105"
+                            : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-100 hover:to-purple-50 hover:scale-105 border border-transparent hover:border-purple-200"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronRight size={16} />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                    : "text-purple-600 hover:bg-gradient-to-r hover:from-purple-600 hover:to-purple-500 hover:text-white hover:scale-105 hover:shadow-md"
+                }`}
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -635,12 +682,10 @@ const NcdsScreeningComp = () => {
 
   // ใช้ state เพื่อหลีกเลี่ยง hydration mismatch
   const [detailId, setDetailId] = useState(null);
-  const [currentBuddhistYear, setCurrentBuddhistYear] = useState(null);
 
-  // โหลด searchParams และปีปัจจุบันหลัง hydration เสร็จ
+  // โหลด searchParams หลัง hydration เสร็จ
   useEffect(() => {
     setDetailId(searchParams.get("detail"));
-    setCurrentBuddhistYear(new Date().getFullYear() + 543);
   }, [searchParams]);
 
   const currentFiscalYear = getCurrentFiscalYear();
@@ -682,6 +727,7 @@ const NcdsScreeningComp = () => {
   const [week, setWeek] = useState("สัปดาห์ 4 (23/6/68-27/6/68)");
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [expandedCitizenIds, setExpandedCitizenIds] = useState(new Set());
 
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -689,20 +735,10 @@ const NcdsScreeningComp = () => {
   // State สำหรับเก็บข้อมูลจาก API
   const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [availableYears, setAvailableYears] = useState([]);
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
 
   // Note: Location data loading is handled by usePermissionFilters hook
-
-  // Set ปีเริ่มต้นหลัง currentBuddhistYear โหลดเสร็จ
-  useEffect(() => {
-    if (currentBuddhistYear && !year) {
-      setYear(currentBuddhistYear.toString());
-      if (availableYears.length === 0) {
-        setAvailableYears([currentBuddhistYear.toString()]);
-      }
-    }
-  }, [currentBuddhistYear, year, availableYears.length]);
+  // Note: usePermissionFilters already sets the default year, so no need for separate initialization
 
   // ดึงข้อมูลจาก API
   useEffect(() => {
@@ -734,24 +770,13 @@ const NcdsScreeningComp = () => {
           name: `${item.prefix}${item.first_name} ${item.last_name}`,
           date: formatThaiDate(item.assessment_date),
           _thaiDate: formatThaiDate(item.assessment_date), // เก็บวันที่ไทยสำหรับการกรอง
+          _citizenId: item.citizen_id || "", // เก็บเลขบัตรประชาชนสำหรับการค้นหา
           rawData: item, // เก็บข้อมูลดิบไว้ใช้ในหน้ารายละเอียด
           location_data: item.location_data || {}, // เก็บข้อมูล location
           external_user_id: item.external_user_id, // เพิ่ม external_user_id
         }));
 
         setAllRows(transformedData);
-
-        // สร้างรายการปีจากข้อมูล
-        const yearsSet = new Set();
-        data.forEach(item => {
-          if (item.assessment_date) {
-            const date = new Date(item.assessment_date);
-            const buddhistYear = date.getFullYear() + 543;
-            yearsSet.add(buddhistYear.toString());
-          }
-        });
-        const yearsList = Array.from(yearsSet).sort((a, b) => b - a);
-        setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear?.toString() || "2568"]);
       } catch (error) {
         console.error("Failed to fetch NCD screening data:", error);
         setAllRows([]);
@@ -761,7 +786,7 @@ const NcdsScreeningComp = () => {
     };
 
     fetchData();
-  }, [currentBuddhistYear, service]); // เพิ่ม service เพื่อให้ดึงข้อมูลใหม่เมื่อเลือกหน่วยบริการ
+  }, [service]); // เฉพาะ service เท่านั้นที่ต้องดึงข้อมูลใหม่ (ไม่ใช้ currentBuddhistYear เพราะ API ไม่ได้กรองตามปี)
 
   // Note: Location data loading is now handled by usePermissionFilters hook
 
@@ -828,7 +853,8 @@ const NcdsScreeningComp = () => {
         const keywordMatch = !keyword || (
           row.name.includes(keyword) ||
           row.date.includes(keyword) ||
-          String(row.index).includes(keyword)
+          String(row.index).includes(keyword) ||
+          (row._citizenId || "").includes(keyword)
         );
         return keywordMatch;
       }
@@ -867,6 +893,7 @@ const NcdsScreeningComp = () => {
         row.name.includes(keyword) ||
         row.date.includes(keyword) ||
         String(row.index).includes(keyword) ||
+        (row._citizenId || "").includes(keyword) ||
         locationData.region?.includes(keyword) ||
         locationData.city?.includes(keyword) ||
         locationData.district?.includes(keyword)
@@ -1108,7 +1135,7 @@ const NcdsScreeningComp = () => {
                 setKeyword(e.target.value);
                 setPage(1);
               }}
-              placeholder="พิมพ์เพื่อค้นหาชื่อหรือข้อมูล..."
+              placeholder="พิมพ์เพื่อค้นหาชื่อหรือเลขบัตรประชาชน..."
               className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
             />
           </div>
@@ -1136,6 +1163,9 @@ const NcdsScreeningComp = () => {
                 <th className="py-4 px-4 font-semibold text-left text-white">
                   ชื่อ-นามสกุล
                 </th>
+                <th className="py-4 px-4 font-semibold text-left text-white">
+                  เลขบัตรประชาชน
+                </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
                   วันที่
                 </th>
@@ -1147,7 +1177,7 @@ const NcdsScreeningComp = () => {
             <tbody>
               {paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center">
+                  <td colSpan={5} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <FileText size={48} className="text-gray-300" />
                       <p className="text-gray-500">ไม่พบข้อมูล</p>
@@ -1155,35 +1185,66 @@ const NcdsScreeningComp = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row, idx) => (
-                  <tr
-                    key={row.index}
-                    className={`${
-                      idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
-                    } hover:bg-purple-50 transition-colors`}
-                  >
-                    <td className="py-4 px-4 text-center font-medium text-gray-600">
-                      {(page - 1) * itemsPerPage + idx + 1}
-                    </td>
-                    <td className="py-4 px-4 font-medium text-[#231d37]">
-                      {row.name}
-                    </td>
-                    <td className="py-4 px-4 text-center text-gray-600">
-                      {row.date}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <button
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
-                        onClick={() =>
-                          router.push(`/ncds-screening?detail=${row.index}`)
-                        }
-                      >
-                        <Eye size={16} />
-                        รายละเอียด
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                paginatedRows.map((row, idx) => {
+                  const isExpanded = expandedCitizenIds.has(row.index);
+                  const citizenId = row._citizenId || "";
+                  // เมื่อ collapse แสดง 123456789XXXX (ปิด 4 ตัวท้าย), เมื่อ expand แสดงเลขทั้งหมด
+                  const displayCitizenId = citizenId
+                    ? (isExpanded ? citizenId : citizenId.slice(0, -4) + "XXXX")
+                    : "-";
+
+                  return (
+                    <tr
+                      key={row.index}
+                      className={`${
+                        idx % 2 === 0 ? "bg-white" : "bg-purple-50/30"
+                      } hover:bg-purple-50 transition-colors`}
+                    >
+                      <td className="py-4 px-4 text-center font-medium text-gray-600">
+                        {(page - 1) * itemsPerPage + idx + 1}
+                      </td>
+                      <td className="py-4 px-4 font-medium text-[#231d37]">
+                        {row.name}
+                      </td>
+                      <td className="py-4 px-4 text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm">{displayCitizenId}</span>
+                          {citizenId && citizenId !== "" && (
+                            <button
+                              onClick={() => {
+                                const newSet = new Set(expandedCitizenIds);
+                                if (isExpanded) {
+                                  newSet.delete(row.index);
+                                } else {
+                                  newSet.add(row.index);
+                                }
+                                setExpandedCitizenIds(newSet);
+                              }}
+                              className="text-[#7e32e2] hover:text-[#9333ea] transition-colors"
+                              title={isExpanded ? "ซ่อน 4 ตัวท้าย" : "แสดงทั้งหมด"}
+                            >
+                              {isExpanded ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center text-gray-600">
+                        {row.date}
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <button
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#9333ea] text-white font-semibold text-sm shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                          onClick={() =>
+                            router.push(`/ncds-screening?detail=${row.index}`)
+                          }
+                        >
+                          <Eye size={16} />
+                          รายละเอียด
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -1194,6 +1255,7 @@ const NcdsScreeningComp = () => {
           totalPages={totalPages}
           itemsPerPage={itemsPerPage}
           setItemsPerPage={setItemsPerPage}
+          totalItems={filteredRows.length}
         />
       </div>
     </div>

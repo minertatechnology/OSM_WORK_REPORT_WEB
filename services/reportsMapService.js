@@ -42,7 +42,6 @@ class ReportsMapService {
       if (filters.health_service_id) params.append("health_service_id", filters.health_service_id);
 
       const token = getAccessToken();
-      console.log("🔑 Token for map-data:", token ? `${token.substring(0, 20)}...` : "NO TOKEN");
 
       const headers = {};
       if (token) {
@@ -50,16 +49,12 @@ class ReportsMapService {
       }
 
       const url = `${SMART_OSM_API_BASE_URL}/analytics/reports/map-data?${params.toString()}`;
-      console.log("🌐 Fetching map-data from:", url);
 
       const response = await axios.get(url, { headers });
 
-      console.log("✅ Map-data response:", response.data);
       return response.data;
     } catch (error) {
-      console.error("❌ Error fetching reports map data:", error);
-      console.error("❌ Error response:", error.response?.data);
-      console.error("❌ Error status:", error.response?.status);
+      console.error("Error fetching reports map data:", error);
       throw error;
     }
   }
@@ -127,7 +122,6 @@ class ReportsMapService {
       params.append("show_unique_users", filters.show_unique_users !== false ? "true" : "false");
 
       const token = getAccessToken();
-      console.log("🔑 Token for province-summary:", token ? `${token.substring(0, 20)}...` : "NO TOKEN");
 
       const headers = {};
       if (token) {
@@ -135,16 +129,12 @@ class ReportsMapService {
       }
 
       const url = `${SMART_OSM_API_BASE_URL}/analytics/reports/province-summary?${params.toString()}`;
-      console.log("🌐 Fetching province-summary from:", url);
 
       const response = await axios.get(url, { headers });
 
-      console.log("✅ Province-summary response:", response.data);
       return response.data;
     } catch (error) {
-      console.error("❌ Error fetching province summary:", error);
-      console.error("❌ Error response:", error.response?.data);
-      console.error("❌ Error status:", error.response?.status);
+      console.error("Error fetching province summary:", error);
       throw error;
     }
   }
@@ -176,7 +166,6 @@ class ReportsMapService {
       params.append("show_unique_users", filters.show_unique_users !== false ? "true" : "false");
 
       const token = getAccessToken();
-      console.log("🔑 Token for geo-summary:", token ? `${token.substring(0, 20)}...` : "NO TOKEN");
 
       const headers = {};
       if (token) {
@@ -184,16 +173,12 @@ class ReportsMapService {
       }
 
       const url = `${SMART_OSM_API_BASE_URL}/analytics/reports/geo-summary?${params.toString()}`;
-      console.log("🌐 Fetching geo-summary from:", url);
 
       const response = await axios.get(url, { headers });
 
-      console.log("✅ Geo-summary response:", response.data);
       return response.data;
     } catch (error) {
-      console.error("❌ Error fetching geo summary:", error);
-      console.error("❌ Error response:", error.response?.data);
-      console.error("❌ Error status:", error.response?.status);
+      console.error("Error fetching geo summary:", error);
       throw error;
     }
   }

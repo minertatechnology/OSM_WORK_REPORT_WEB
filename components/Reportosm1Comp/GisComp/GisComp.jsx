@@ -67,8 +67,11 @@ const normalizeAreaName = (value) => {
   return String(value).trim();
 };
 
-const normalizeAreaFileName = (value, level) =>
-  normalizeAreaKey(value, level);
+// Special case mappings for problematic district names (KML filename mismatches)
+const KML_NAME_MAPPINGS = {
+  "ป้อมปราบศัตรูพ่าย": "ป้อมปราบศัตรูพ่า",
+  // Add more special cases here if needed for other districts/provinces
+};
 
 const normalizeAreaKey = (value, level) => {
   const name = normalizeAreaName(value);
@@ -93,7 +96,20 @@ const normalizeAreaKey = (value, level) => {
     }
   }
 
+  // Apply KML name mappings for district and subdistrict levels
+  // This must be done AFTER other normalization but BEFORE returning
+  if (level === "district" || level === "subdistrict") {
+    if (KML_NAME_MAPPINGS[normalized]) {
+      normalized = KML_NAME_MAPPINGS[normalized];
+    }
+  }
+
   return normalized;
+};
+
+const normalizeAreaFileName = (value, level) => {
+  // Just use normalizeAreaKey since mapping is now applied there
+  return normalizeAreaKey(value, level);
 };
 
 const getReportProvinceName = (report) =>
@@ -263,7 +279,6 @@ const GisComp = () => {
     cleanup,
     updateResponsiveZoom,
     setColorsByAreaData,
-    updateLayerColors,
   } = useMapManager();
 
   const {
@@ -1515,12 +1530,7 @@ const GisComp = () => {
 
     const colorsData = Object.fromEntries(colorsMap);
     console.log("[OSM Color Data] Level:", level, "| Areas:", Object.keys(colorsData).length, "| colorsData:", colorsData);
-    setColorsByAreaData(colorsData);
-
-    // Update map layer colors
-    setTimeout(() => {
-      updateLayerColors();
-    }, 100);
+    setColorsByAreaData(colorsData); // Update useMapManager state for map colors (triggers updateLayerColors via useEffect)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     weeklyDetails,
