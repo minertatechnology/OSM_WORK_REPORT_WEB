@@ -17,7 +17,7 @@ const PublicNavbar = ({ onLoginClick }) => {
         </div>
         <div>
           <h1 className="text-lg font-bold" style={{ color: PRIMARY }}>
-            รายงานผลการรายงานผลการปฏิบัติงานของอสม.
+            รายงานการติดตามการได้รับยาเม็ดเสริมไอโอดีน
           </h1>
           <p className="text-xs text-gray-500">ระบบรายงานสารสนเทศสุขภาพ</p>
         </div>

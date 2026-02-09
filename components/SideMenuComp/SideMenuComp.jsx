@@ -118,7 +118,7 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
@@ -186,7 +186,7 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
@@ -248,7 +248,7 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
@@ -310,7 +310,7 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
@@ -372,7 +372,7 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
@@ -434,7 +434,7 @@ const MENU_MAP = {
       icon: <Activity className="w-5 h-5" />,
     },
     {
-      name: "รายงานประเมินหญิงตั้งครรภ์",
+      name: "การติดตามการได้รับยาเม็ดเสริมไอโอดีน",
       url: "/pregnant-report",
       icon: <FileCheck className="w-5 h-5" />,
     },
@@ -571,7 +571,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
             "ผลตรวจสุขภาพ อสม.": "health",
             "คัดกรองผู้สูงอายุในชุมชน": "elderly",
             "คัดกรองโรคไม่ติดต่อเรื้อรัง NCDs": "ncds",
-            "รายงานประเมินหญิงตั้งครรภ์": "pregnant",
+            "การติดตามการได้รับยาเม็ดเสริมไอโอดีน": "pregnant",
             "รายงานผลการรายงานผลการปฏิบัติงานของอสม.": "public-report-osm",
             "ประกาศข่าวสาร": "news",
             "กำหนดสิทธิ์การเข้าถึง": "access_control",

@@ -248,6 +248,10 @@ export default function ManageAccess() {
   }
 
   async function handleSave() {
+    // ยืนยันก่อนบันทึก
+    const confirmSave = window.confirm("คุณต้องการบันทึกสิทธิ์การเข้าถึงเมนูหรือไม่?");
+    if (!confirmSave) return;
+
     setShowSuccess(true);
     setSaving(true);
     try {
@@ -288,6 +292,10 @@ export default function ManageAccess() {
   }
 
   function handleResetAndBack() {
+    // ยืนยันก่อนยกเลิก
+    const confirmBack = window.confirm("คุณต้องการยกเลิกการแก้ไขหรือไม่? การเปลี่ยนแปลงจะไม่ถูกบันทึก");
+    if (!confirmBack) return;
+
     setRole(savedRole.current);
     setMenuAccess(JSON.parse(JSON.stringify(savedAccess.current)));
     router.back();

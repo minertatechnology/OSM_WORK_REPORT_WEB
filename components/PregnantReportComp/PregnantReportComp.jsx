@@ -296,7 +296,7 @@ function exportOverviewPDF(data, userDataMap) {
   // Title
   doc.setFontSize(16);
   doc.setFont("Sarabun", "bold");
-  doc.text("สรุปภาพรวมรายงานประเมินหญิงตั้งครรภ์ในพื้นที่", 105, 15, {
+  doc.text("สรุปภาพรวมการติดตามการได้รับยาเม็ดเสริมไอโอดีนในพื้นที่", 105, 15, {
     align: "center",
   });
 
@@ -469,7 +469,7 @@ function exportNotSubmittedPDF(data, userDataMap) {
   );
 }
 
-function exportToExcel(data, userDataMap, title = "รายงานประเมินหญิงตั้งครรภ์") {
+function exportToExcel(data, userDataMap, title = "การติดตามการได้รับยาเม็ดเสริมไอโอดีน") {
   // Prepare data for Excel
   const excelData = data.map((row, idx) => {
     const userData = userDataMap?.get(row.external_user_id);
