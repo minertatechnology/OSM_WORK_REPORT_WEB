@@ -969,11 +969,14 @@ const PregnantReportComp = () => {
             month: "long",
           }) + " " + thaiYear;
 
-          // หา evaluation ล่าสุดเพื่อดึง location_data และ citizen_id
+          // หา evaluation ล่าสุดเพื่อดึง location_data_resolved และ citizen_id
           const latestEvaluation = evaluations.find(
             evaluation => evaluation.external_user_id === item.external_user_id &&
                          evaluation.created_at === item.latest_date
           ) || evaluations.find(evaluation => evaluation.external_user_id === item.external_user_id);
+
+          // ดึงข้อมูล location จาก location_data_resolved (API ใหม่)
+          const locationResolved = latestEvaluation?.location_data_resolved || {};
 
           return {
             index: index + 1,
@@ -984,6 +987,7 @@ const PregnantReportComp = () => {
             amount: item.count,
             status: item.status || "submitted",
             location_data: latestEvaluation?.location_data || {},
+            location_data_resolved: locationResolved, // เพิ่ม location_data_resolved
             citizen_id: latestEvaluation?.citizen_id || "",
           };
         });
@@ -1127,24 +1131,24 @@ const PregnantReportComp = () => {
       }
 
       // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
-      // กรองตามข้อมูล OSM user (จาก userDataMap) แทน location_data เพราะถูกต้อง
-      // userData มี province_id, district_id, subdistrict_id, health_service_id
+      // กรองตาม location_data_resolved จาก evaluation data (API ใหม่ /pregnant-women-evaluationsall)
 
-      // กรองตามเขตสุขภาพ (ใช้ userData.health_region หรือคำนวณจาก userData.province_id)
+      // กรองตามเขตสุขภาพ (ใช้ location_data_resolved.health_area_id)
       if (zone) {
         const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
-        // ลองใช้ userData.health_region ก่อน (ถ้ามี) - ถูกต้องที่สุด
-        const userHealthRegion = userData?.health_region;
-        if (userHealthRegion) {
-          // ถ้า OSM user data มี health_region ให้ใช้ค่านั้นเลย
-          if (userHealthRegion !== zoneNumber) {
+        // ใช้ health_area_id จาก location_data_resolved (เช่น "HA13" -> 13)
+        const healthAreaId = row.location_data_resolved?.health_area_id;
+        if (healthAreaId) {
+          // แปลง "HA13" -> 13
+          const healthAreaNumber = parseInt(String(healthAreaId).replace(/\D/g, ''));
+          if (healthAreaNumber !== zoneNumber) {
             return false;
           }
         } else {
-          // ถ้าไม่มี health_region ให้คำนวณจาก province_id แทน
-          const userProvinceId = String(userData?.province_id || "");
-          if (userProvinceId) {
-            const provinceInZone = isInHealthZone(userProvinceId, zoneNumber);
+          // Fallback: คำนวณจาก province_id ใน location_data_resolved
+          const provinceId = row.location_data_resolved?.province_id;
+          if (provinceId) {
+            const provinceInZone = isInHealthZone(provinceId, zoneNumber);
             if (!provinceInZone) {
               return false;
             }
@@ -1152,14 +1156,14 @@ const PregnantReportComp = () => {
         }
       }
 
-      // กรองตามจังหวัด
-      const provinceMatch = !province || userData?.province_id === province;
+      // กรองตามจังหวัด (ใช้ province_id จาก location_data_resolved)
+      const provinceMatch = !province || row.location_data_resolved?.province_id === province;
 
-      // กรองตามอำเภอ
-      const districtMatch = !district || userData?.district_id === district;
+      // กรองตามอำเภอ (ใช้ district_id จาก location_data_resolved)
+      const districtMatch = !district || row.location_data_resolved?.district_id === district;
 
-      // กรองตามตำบล
-      const subdistrictMatch = !subdistrict || userData?.subdistrict_id === subdistrict;
+      // กรองตามตำบล (ใช้ subdistrict_id จาก location_data_resolved)
+      const subdistrictMatch = !subdistrict || row.location_data_resolved?.subdistrict_id === subdistrict;
 
       // กรองตาม keyword (ชื่อ-นามสกุล)
       const nameKeywordMatch = !keyword || (
