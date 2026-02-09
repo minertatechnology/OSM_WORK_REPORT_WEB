@@ -36,6 +36,7 @@ const MENU_ICON_MAP = {
   "รายงานผลตรวจ ATK": <FileSearch className="w-5 h-5" />,
   ประกาศข่าวสาร: <Bell className="w-5 h-5" />,
   กำหนดสิทธิ์การเข้าถึง: <Users className="w-5 h-5" />,
+  "รายงานผลการรายงานผลการปฏิบัติงานของอสม.": <FileText className="w-5 h-5" />,
   // Submenu or fallback
   "ข้อมูลรายงาน อสม.1": <FileText className="w-5 h-5" />,
   "GIS รายงาน อสม.1": <FileText className="w-5 h-5" />,
