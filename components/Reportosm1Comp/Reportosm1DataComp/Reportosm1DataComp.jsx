@@ -26,7 +26,7 @@ import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bol
 import Reportosm1CompDetailComp from "../Reportosm1CompDetailComp/Reportosm1CompDetailComp";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getUsersBatch } from "@services/oauth2Service";
-import { getOsmByHealthService } from "@services/lookupService";
+import { getOsmByHealthService, getHealthServices } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -660,7 +660,6 @@ const Reportosm1DataComp = () => {
     provinces,
     districts,
     subdistricts,
-    healthServices,
     isDistrictDisabled,
     isSubdistrictDisabled,
     isServiceDisabled,
@@ -681,6 +680,7 @@ const Reportosm1DataComp = () => {
   const [apiData, setApiData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
+  const [filteredHealthServices, setFilteredHealthServices] = useState([]); // เก็บข้อมูลหน่วยบริการที่กรองตามพื้นที่
 
   // Note: Location data loading is handled by usePermissionFilters hook
 
@@ -703,6 +703,35 @@ const Reportosm1DataComp = () => {
     fetchOsmData();
   }, [service]);
 
+  // Fetch health services filtered by province/district/subdistrict
+  useEffect(() => {
+    const fetchHealthServices = async () => {
+      try {
+        const params = {};
+        // Add location filters if selected
+        if (province) params.province_code = province;
+        if (district) params.district_code = district;
+        if (subdistrict) params.subdistrict_code = subdistrict;
+
+        const data = await getHealthServices(params);
+
+        console.log("🏥 [OSM1] Filtered health services:", {
+          province,
+          district,
+          subdistrict,
+          count: data.length,
+        });
+
+        setFilteredHealthServices(data);
+      } catch (err) {
+        console.error("Error fetching health services:", err);
+        setFilteredHealthServices([]);
+      }
+    };
+
+    fetchHealthServices();
+  }, [province, district, subdistrict]);
+
   // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
@@ -713,7 +742,7 @@ const Reportosm1DataComp = () => {
           skip: 0,
           limit: 1000,
           // ไม่ส่ง location filters (zone, province, district, subdistrict) ไป backend
-          // ให้ frontend กรองเองจาก user_location
+          // ให้ frontend กรองเองจาก location_data_resolved
         }).toString();
 
         const response = await fetch(
@@ -725,48 +754,58 @@ const Reportosm1DataComp = () => {
           totalReports: data.length,
         });
 
-        // ดึงรายการ external_user_id ทั้งหมด
+        // ดึงรายการ external_user_id ทั้งหมดเพื่อไปดึงชื่อจาก OSM batch API
         const externalUserIds = data.map(item => item.external_user_id).filter(Boolean);
 
-        // ดึงข้อมูลผู้ใช้จาก OAuth2 API
+        // ดึงข้อมูลผู้ใช้จาก OSM batch API เพื่อเอาชื่อ
         const usersMap = await getUsersBatch(externalUserIds);
 
         // Debug: แสดงข้อมูล OSM แรก
         if (externalUserIds.length > 0) {
-          console.log("📥 [OSM1] OSM Data from API:", {
+          console.log("📥 [OSM1] OSM Data from batch API:", {
             totalUserIds: externalUserIds.length,
             firstUserId: externalUserIds[0],
             sampleUserData: usersMap[externalUserIds[0]],
           });
         }
 
-        // ผสานข้อมูลชื่อและที่อยู่เข้ากับข้อมูล submission (ใช้ข้อมูลจาก OSM ใหม่)
+        // ผสานข้อมูล: ชื่อจาก OSM batch API + ที่อยู่จาก location_data_resolved
         const enrichedData = data.map(item => {
           const userData = usersMap[item.external_user_id];
+          const locationResolved = item.location_data_resolved || {};
+
+          // สร้างชื่อเต็มจาก OSM batch API
+          const fullName = userData
+            ? `${userData.prefix_name_th || ""}${userData.first_name || ""} ${userData.last_name || ""}`.trim()
+            : item.external_user_id || "ไม่ระบุชื่อ";
+
+          // สร้าง user_location จาก location_data_resolved (ใช้สำหรับกรองพื้นที่)
           const userLocation = {
-            province_id: userData?.province_id,
-            province_name_th: userData?.province_name_th,
-            district_id: userData?.district_id,
-            district_name_th: userData?.district_name_th,
-            subdistrict_id: userData?.subdistrict_id,
-            subdistrict_name_th: userData?.subdistrict_name_th,
-            village_no: userData?.village_no,
-            health_service_id: userData?.health_service_id,
-            health_service_name_th: userData?.health_service_name_th,
+            province_id: locationResolved.province_id,
+            province_name_th: locationResolved.province,
+            district_id: locationResolved.district_id,
+            district_name_th: locationResolved.district,
+            subdistrict_id: locationResolved.subdistrict_id,
+            subdistrict_name_th: locationResolved.subdistrict,
+            health_area_id: locationResolved.health_area_id,
+            health_area_name: locationResolved.health_area,
+            health_services: locationResolved.health_services,
           };
 
-          // Debug: แสดงข้อมูล user แรก
+          // Debug: แสดงข้อมูลแรก
           if (item === data[0]) {
-            console.log("👤 [OSM1] Sample user data:", {
-              userId: item.external_user_id,
-              userData: userData,
+            console.log("📍 [OSM1] Sample enriched data:", {
+              submissionId: item.id,
+              externalUserId: item.external_user_id,
+              fullName: fullName,
+              locationResolved: locationResolved,
               userLocation: userLocation,
             });
           }
 
           return {
             ...item,
-            userName: userData?.name || item.external_user_id || "ไม่ระบุชื่อ",
+            userName: fullName,
             user_location: userLocation,
           };
         });
@@ -904,7 +943,7 @@ const Reportosm1DataComp = () => {
 
       return true;
     });
-  }, [keyword, year, yearType, month, ALL_ROWS, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, healthServices, osmDataByService]);
+  }, [keyword, year, yearType, month, ALL_ROWS, zone, province, district, subdistrict, service, healthAreas, provinces, districts, subdistricts, filteredHealthServices, osmDataByService]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
@@ -1049,7 +1088,7 @@ const Reportosm1DataComp = () => {
             placeholder="เลือกหน่วยบริการ"
             value={service}
             onChange={(e) => handleServiceChange(e.target.value)}
-            options={Array.isArray(healthServices) ? healthServices.map(h => ({
+            options={Array.isArray(filteredHealthServices) ? filteredHealthServices.map(h => ({
               label: h.name_th || h.name || h.service_name || "ไม่ระบุ",
               value: h.code
             })) : []}

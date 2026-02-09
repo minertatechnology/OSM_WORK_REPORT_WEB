@@ -21,6 +21,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import CustomSelect from "@services/customSelectService/customSelectService";
+import { getUsersBatch } from "@services/oauth2Service";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -30,7 +31,6 @@ import ReportMosquitoCompDetailComp from "../ReportMosquitoCompDetailComp/Report
 import {
   fetchMosquitoLarvaeReports,
 } from "@services/mosquitoLarvaeService/mosquitoLarvaeService";
-import oauth2Service from "@services/oauth2Service";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ArrowLeft } from "lucide-react";
 import { getOsmByHealthService } from "@services/lookupService";
@@ -926,23 +926,29 @@ const ReportMosquitoCompDataComp = () => {
 
         // View 2: Household list for specific user
         if (userId) {
-          // ดึงข้อมูลผู้ใช้ (อสม.)
-          const users = await oauth2Service.getBatch([userId]);
-          const userData = users[userId];
-          setSelectedUserName(userData?.name || "ไม่ระบุชื่อ");
+          // ดึงข้อมูลผู้ใช้ (อสม.) จาก OSM batch API เพื่อเอาชื่อ
+          const usersMap = await getUsersBatch([userId]);
+          const userData = usersMap[userId];
+
+          // สร้างชื่อเต็มจาก OSM batch API
+          const fullName = userData
+            ? `${userData.prefix_name_th || ""}${userData.first_name || ""} ${userData.last_name || ""}`.trim()
+            : userId || "ไม่ระบุชื่อ";
+          setSelectedUserName(fullName);
 
           // กรองข้อมูล reports ของ user นี้
           const userReports = data.filter(
             (report) => report.external_user_id === userId
           );
 
-          // Group by household_id และเก็บข้อมูลบ้าน + วันที่ล่าสุด
+          // Group by household_id และเก็บข้อมูลบ้าน + วันที่ล่าสุด + location_data_resolved
           const householdsMap = new Map();
           userReports.forEach((report) => {
             if (!report.household) return; // Skip if no household data
 
             const householdId = report.household_id;
             const existing = householdsMap.get(householdId);
+            const locationResolved = report.location_data_resolved || {};
 
             // ถ้ายังไม่มี หรือ report นี้ใหม่กว่า ให้อัพเดท
             if (!existing || new Date(report.report_date) > new Date(existing.lastReportDate)) {
@@ -956,15 +962,18 @@ const ReportMosquitoCompDataComp = () => {
                 residentCount: report.household.number_of_residents || 0,
                 location_data: report.location_data || report.household.location_data,
                 household: report.household,
-                // เพิ่มข้อมูลที่อยู่ของ อสม. เพื่อใช้กรอง (ใช้ข้อมูลจาก OSM ใหม่)
+                // สร้าง user_location จาก location_data_resolved (ใช้สำหรับกรองพื้นที่)
                 user_location: {
-                  province_id: userData?.province_id,
-                  province_name_th: userData?.province_name_th,
-                  district_id: userData?.district_id,
-                  district_name_th: userData?.district_name_th,
-                  subdistrict_id: userData?.subdistrict_id,
-                  subdistrict_name_th: userData?.subdistrict_name_th,
-                  village_no: userData?.village_no,
+                  province_id: locationResolved.province_id,
+                  province_name_th: locationResolved.province,
+                  district_id: locationResolved.district_id,
+                  district_name_th: locationResolved.district,
+                  subdistrict_id: locationResolved.subdistrict_id,
+                  subdistrict_name_th: locationResolved.subdistrict,
+                  health_area_id: locationResolved.health_area_id,
+                  health_area_name: locationResolved.health_area,
+                  health_services: locationResolved.health_services,
+                  // เพิ่ม health_service_id จาก userData สำหรับ filter หน่วยบริการ
                   health_service_id: userData?.health_service_id,
                   health_service_name_th: userData?.health_service_name_th,
                 },
@@ -984,7 +993,7 @@ const ReportMosquitoCompDataComp = () => {
         }
         // View 1: User list (group by user)
         else {
-          // จัดกลุ่มตาม external_user_id และนับจำนวนบ้าน (household_id ที่ไม่ซ้ำ)
+          // จัดกลุ่มตาม external_user_id และเก็บ report แรกไว้สำหรับดึง location_data_resolved
           const groupedByUser = {};
           data.forEach((report) => {
             const uid = report.external_user_id || "unknown";
@@ -994,6 +1003,8 @@ const ReportMosquitoCompDataComp = () => {
                 households: new Set(), // ใช้ Set เพื่อเก็บ household_id ที่ไม่ซ้ำ
                 lastReportDate: report.report_date,
                 reportCount: 0,
+                // เก็บ report แรกไว้เพื่อดึง location_data_resolved
+                firstReport: report,
               };
             }
             // เพิ่ม household_id เข้า Set (จะไม่ซ้ำอัตโนมัติ)
@@ -1007,39 +1018,53 @@ const ReportMosquitoCompDataComp = () => {
             groupedByUser[uid].reportCount++;
           });
 
-          // ดึงข้อมูลผู้ใช้ทั้งหมด
+          // ดึงข้อมูลผู้ใช้ทั้งหมดจาก OSM batch API เพื่อเอาชื่อ
           const externalUserIds = Object.keys(groupedByUser).filter(id => id !== "unknown");
-          let users = new Map();
+          let usersMap = new Map();
 
           if (externalUserIds.length > 0) {
-            users = await oauth2Service.getBatch(externalUserIds);
+            usersMap = await getUsersBatch(externalUserIds);
             // Debug: แสดงข้อมูล OSM ที่ได้จาก API
-            console.log("📥 [Mosquito] OSM Data from API:", {
+            console.log("📥 [Mosquito] OSM Data from batch API:", {
               totalUserIds: externalUserIds.length,
               firstUserId: externalUserIds[0],
-              sampleUserData: users[externalUserIds[0]],
+              sampleUserData: usersMap[externalUserIds[0]],
             });
           }
 
-          // แปลงข้อมูลพร้อมชื่อผู้ใช้และที่อยู่
+          // แปลงข้อมูลพร้อมชื่อผู้ใช้และที่อยู่จาก location_data_resolved
           const transformedData = Object.values(groupedByUser).map((userGroup, idx) => {
-            const userData = users[userGroup.userId];
+            const userData = usersMap[userGroup.userId];
+            const locationResolved = userGroup.firstReport?.location_data_resolved || {};
+
+            // สร้างชื่อเต็มจาก OSM batch API
+            const fullName = userData
+              ? `${userData.prefix_name_th || ""}${userData.first_name || ""} ${userData.last_name || ""}`.trim()
+              : userGroup.userId || "ไม่ระบุชื่อ";
+
+            // สร้าง user_location จาก location_data_resolved (ใช้สำหรับกรองพื้นที่)
+            const userLocation = {
+              province_id: locationResolved.province_id,
+              province_name_th: locationResolved.province,
+              district_id: locationResolved.district_id,
+              district_name_th: locationResolved.district,
+              subdistrict_id: locationResolved.subdistrict_id,
+              subdistrict_name_th: locationResolved.subdistrict,
+              health_area_id: locationResolved.health_area_id,
+              health_area_name: locationResolved.health_area,
+              health_services: locationResolved.health_services,
+              // เพิ่ม health_service_id จาก userData สำหรับ filter หน่วยบริการ
+              health_service_id: userData?.health_service_id,
+              health_service_name_th: userData?.health_service_name_th,
+            };
 
             // Debug: แสดงข้อมูล user แรก
             if (idx === 0) {
               console.log("👤 [Mosquito] Sample user data:", {
                 userId: userGroup.userId,
-                userData: userData,
-                userLocation: {
-                  province_id: userData?.province_id,
-                  province_name_th: userData?.province_name_th,
-                  district_id: userData?.district_id,
-                  district_name_th: userData?.district_name_th,
-                  subdistrict_id: userData?.subdistrict_id,
-                  subdistrict_name_th: userData?.subdistrict_name_th,
-                  health_service_id: userData?.health_service_id,
-                  health_service_name_th: userData?.health_service_name_th,
-                },
+                fullName: fullName,
+                locationResolved: locationResolved,
+                userLocation: userLocation,
               });
             }
 
@@ -1047,22 +1072,11 @@ const ReportMosquitoCompDataComp = () => {
               id: userGroup.userId,
               external_user_id: userGroup.userId,
               index: idx + 1,
-              name: userData?.name || "ไม่ระบุชื่อ",
+              name: fullName,
               lastReportDate: userGroup.lastReportDate,
               date: userGroup.lastReportDate ? formatThaiDate(userGroup.lastReportDate) : "-",
               amount: userGroup.households.size,
-              // เพิ่มข้อมูลที่อยู่ของ อสม. เพื่อใช้กรอง (ใช้ข้อมูลจาก OSM ใหม่)
-              user_location: {
-                province_id: userData?.province_id,
-                province_name_th: userData?.province_name_th,
-                district_id: userData?.district_id,
-                district_name_th: userData?.district_name_th,
-                subdistrict_id: userData?.subdistrict_id,
-                subdistrict_name_th: userData?.subdistrict_name_th,
-                village_no: userData?.village_no,
-                health_service_id: userData?.health_service_id,
-                health_service_name_th: userData?.health_service_name_th,
-              },
+              user_location: userLocation,
             };
           });
 
