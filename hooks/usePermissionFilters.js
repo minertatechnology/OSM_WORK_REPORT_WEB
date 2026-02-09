@@ -81,22 +81,17 @@ export const usePermissionFilters = (options = {}) => {
 
         if (!zone) {
           // ไม่ได้เลือกเขต - โหลดจังหวัดทั้งหมด
-          console.log('📍 Loading all provinces (no zone selected)');
           const data = await getProvinces({ limit: 100 });
           setProvinces(data || []);
-          console.log('📍 Loaded provinces:', data?.length, 'items');
         } else if (isProvinceLocked) {
           // ✅ Province is locked - load ALL provinces (don't filter by zone)
           // This ensures the locked province is always available
-          console.log('📍 Province is locked, loading ALL provinces (no zone filter)');
           const data = await getProvinces({ limit: 100 });
           setProvinces(data || []);
-          console.log('📍 Loaded all provinces (province locked):', data?.length, 'items');
         } else {
           // เลือกเขตแล้วและ province ไม่ได้ lock - ใช้ข้อมูลจาก HEALTHZONE_PROVINCES
           // แปลง zone code (เช่น "HA1", "HA12") เป็นเลขเขต (1, 12)
           const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
-          console.log('📍 Zone selected, loading provinces for zone:', zone, 'zoneNumber:', zoneNumber);
 
           // หาข้อมูลเขตจาก HEALTHZONE_PROVINCES
           const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
@@ -104,7 +99,6 @@ export const usePermissionFilters = (options = {}) => {
           if (zoneData && zoneData.provinces) {
             // ดึงชื่อจังหวัดที่อยู่ในเขตนี้
             const provinceNamesInZone = zoneData.provinces.map(p => p.trim());
-            console.log('📍 Province names in zone:', provinceNamesInZone);
 
             // โหลดจังหวัดทั้งหมด แล้วกรองเอาเฉพาะที่อยู่ในเขต
             const allProvinces = await getProvinces({ limit: 100 });
@@ -112,9 +106,7 @@ export const usePermissionFilters = (options = {}) => {
               provinceNamesInZone.includes(p.name_th?.trim())
             );
             setProvinces(filteredProvinces);
-            console.log('📍 Filtered provinces:', filteredProvinces?.length, 'items');
           } else {
-            console.warn('📍 No zone data found for zone:', zone);
             setProvinces([]);
           }
         }
@@ -208,17 +200,13 @@ export const usePermissionFilters = (options = {}) => {
     if (!permissionLoading && scope) {
       // ⚠️ ถ้าเป็นสิทธิ์สูงสุด (สบส) ไม่ต้อง set ค่าเริ่มต้น ให้เลือกเอง
       if (lockLevel === 'none') {
-        console.log('🔓 Lock level is none - not setting initial values');
         return;
       }
 
       const initialFilters = getInitialFilters();
-      console.log('🔒 Initial filters:', initialFilters);
-      console.log('🔒 Lock level:', lockLevel);
 
       // Set zone first - this will trigger the provinces loading effect
       if (initialFilters.zone) {
-        console.log('🔒 Setting locked zone:', initialFilters.zone);
         setZone(initialFilters.zone);
       }
     }
@@ -252,9 +240,6 @@ export const usePermissionFilters = (options = {}) => {
 
       // Set province after provinces are loaded
       if (shouldSetProvince) {
-        console.log('🔒 Setting locked province:', initialFilters.province, initialFilters.province_name_th);
-        console.log('📋 Available provinces:', provinces.map(p => ({ code: p.code, id: p.id, name: p.name_th })));
-
         // Try to find matching province by code or id
         const matchingProvince = provinces.find(p =>
           String(p.code || p.id) === String(initialFilters.province) ||
@@ -263,7 +248,6 @@ export const usePermissionFilters = (options = {}) => {
 
         if (matchingProvince) {
           const provinceCode = String(matchingProvince.code || matchingProvince.id);
-          console.log('✅ Found province by code/id:', matchingProvince);
           setProvince(provinceCode);
         } else {
           // If not found, try to match by name
@@ -272,29 +256,23 @@ export const usePermissionFilters = (options = {}) => {
             p.name === initialFilters.province_name_th
           );
           if (nameMatch) {
-            console.log('✅ Found province by name:', nameMatch);
             setProvince(String(nameMatch.code || nameMatch.id));
-          } else {
-            console.warn('❌ Could not find province:', initialFilters);
           }
         }
       }
 
       // Set district after districts are loaded
       if (shouldSetDistrict) {
-        console.log('🔒 Setting locked district:', initialFilters.district);
         setDistrict(initialFilters.district);
       }
 
       // Set subdistrict after subdistricts are loaded
       if (shouldSetSubdistrict) {
-        console.log('🔒 Setting locked subdistrict:', initialFilters.subdistrict);
         setSubdistrict(initialFilters.subdistrict);
       }
 
       // Set service independently (only set once, not dependent on location loading)
       if (initialFilters.service && !initialValuesSet) {
-        console.log('🔒 Setting locked service:', initialFilters.service);
         setService(initialFilters.service);
       }
 

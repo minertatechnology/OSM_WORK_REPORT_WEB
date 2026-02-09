@@ -48,7 +48,6 @@ import {
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
-import { buildFilterParams, addDateFilters } from "@utils/filterParamsHelper";
 
 // Generate dynamic year options (last 5 years)
 const currentFiscalYear = getCurrentFiscalYear();
@@ -768,7 +767,7 @@ const ReportMosquitoCompDataComp = () => {
   const searchParams = useSearchParams();
 
   // Use permission-based filters
-  const { isLocked, lockLevel, getInitialFilters } = useUserPermission();
+  const { isLocked } = useUserPermission();
   const {
     yearType,
     year,
@@ -804,27 +803,6 @@ const ReportMosquitoCompDataComp = () => {
     defaultYearType: "fiscal",
     includeWeek: true, // Enable week filtering for this component
   });
-
-  // Build filter params for backend API (supports both text and ID)
-  const filterParams = useMemo(() => {
-    return buildFilterParams({
-      zone,
-      province,
-      district,
-      subdistrict,
-      health_service_id: service,
-      provinces,
-      districts,
-      subdistricts,
-      lockLevel,
-      getInitialFilters,
-    });
-  }, [zone, province, district, subdistrict, service, provinces, districts, subdistricts, lockLevel, getInitialFilters]);
-
-  // Add date filters to params
-  const apiParams = useMemo(() => {
-    return addDateFilters(filterParams, year, month, yearType);
-  }, [filterParams, year, month, yearType]);
 
   // Generate dynamic week options based on selected year and month
   const WEEKS = useMemo(() => {
@@ -1051,7 +1029,8 @@ const ReportMosquitoCompDataComp = () => {
     };
 
     loadData();
-  }, [userId, householdId, service, apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
+  }, [userId, householdId, service, year, month, yearType]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน (ใช้ค่า stable แทน apiParams)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
 
   // Filter and search

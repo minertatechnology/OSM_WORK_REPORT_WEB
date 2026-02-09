@@ -3,6 +3,7 @@ import React, {
   useMemo,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import ButtonService from "@services/buttonService/buttonService";
 import CustomSelect from "@services/customSelectService/customSelectService";
@@ -93,11 +94,22 @@ const PER_PAGE_OPTIONS = [
   { label: "50", value: 50 },
 ];
 
-// สี Pie Chart สำหรับ 13 เขต
+// สี Pie Chart สำหรับ 13 เขต (index 0 = สีเทาสำหรับไม่มีข้อมูล)
 const ZONE_COLORS = [
-  "#6E28B7", "#4B61CF", "#5D86E7", "#4CA3DD",
-  "#7C83E1", "#A682FF", "#E0AAFF", "#FFB3E6",
-  "#FF9CEE", "#FFB7B2", "#FFDAC1", "#FFB347", "#EB6383"
+  "#E5E5E5", // 0 สีเทา (ไม่มีข้อมูล)
+  "#6E28B7", // 1
+  "#4B61CF", // 2
+  "#5D86E7", // 3
+  "#4CA3DD", // 4
+  "#7C83E1", // 5
+  "#A682FF", // 6
+  "#E0AAFF", // 7
+  "#FFB3E6", // 8
+  "#FF9CEE", // 9
+  "#FFB7B2", // 10
+  "#FFDAC1", // 11
+  "#FFB347", // 12
+  "#EB6383", // 13
 ];
 
 // Table Pagination Component
@@ -178,6 +190,10 @@ const TableWithPagination = ({
         return "อำเภอ";
       case "subdistrict":
         return "ตำบล";
+      case "service":
+        return "หน่วยบริการ";
+      case "osm":
+        return "อสม.";
       default:
         return "พื้นที่";
     }
@@ -203,7 +219,35 @@ const TableWithPagination = ({
                   เขตสุขภาพ
                 </th>
               )}
-              {(tableLevel === "district" || tableLevel === "subdistrict") && (
+              {tableLevel === "district" && (
+                <th className="py-3 px-4 font-semibold text-center rounded-tr-xl">
+                  จังหวัด
+                </th>
+              )}
+              {tableLevel === "subdistrict" && (
+                <>
+                  <th className="py-3 px-4 font-semibold text-center">
+                    อำเภอ
+                  </th>
+                  <th className="py-3 px-4 font-semibold text-center rounded-tr-xl">
+                    จังหวัด
+                  </th>
+                </>
+              )}
+              {tableLevel === "service" && (
+                <>
+                  <th className="py-3 px-4 font-semibold text-center">
+                    ตำบล
+                  </th>
+                  <th className="py-3 px-4 font-semibold text-center">
+                    อำเภอ
+                  </th>
+                  <th className="py-3 px-4 font-semibold text-center rounded-tr-xl">
+                    จังหวัด
+                  </th>
+                </>
+              )}
+              {tableLevel === "osm" && (
                 <th className="py-3 px-4 font-semibold text-center rounded-tr-xl">
                   จังหวัด
                 </th>
@@ -235,7 +279,47 @@ const TableWithPagination = ({
                       </span>
                     </td>
                   )}
-                  {(tableLevel === "district" || tableLevel === "subdistrict") && (
+                  {tableLevel === "district" && (
+                    <td className="py-3 px-4 text-center align-middle">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        {row.province_name || "-"}
+                      </span>
+                    </td>
+                  )}
+                  {tableLevel === "subdistrict" && (
+                    <>
+                      <td className="py-3 px-4 text-center align-middle">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {row.district_name || "-"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center align-middle">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {row.province_name || "-"}
+                        </span>
+                      </td>
+                    </>
+                  )}
+                  {tableLevel === "service" && (
+                    <>
+                      <td className="py-3 px-4 text-center align-middle">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {row.subdistrict_name || "-"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center align-middle">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {row.district_name || "-"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center align-middle">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {row.province_name || "-"}
+                        </span>
+                      </td>
+                    </>
+                  )}
+                  {tableLevel === "osm" && (
                     <td className="py-3 px-4 text-center align-middle">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                         {row.province_name || "-"}
@@ -246,7 +330,7 @@ const TableWithPagination = ({
               ))
             ) : (
               <tr>
-                <td colSpan={tableLevel === "province" ? 4 : 3} className="py-8 text-center text-gray-500">
+                <td colSpan={tableLevel === "subdistrict" ? 5 : (tableLevel === "service" ? 6 : (tableLevel === "province" ? 4 : 3))} className="py-8 text-center text-gray-500">
                   ไม่มีข้อมูลที่จะแสดง
                 </td>
               </tr>
@@ -429,6 +513,35 @@ const DashboardSobos = () => {
     defaultYearType: "fiscal",
   });
 
+  // ✅ ใช้ refs เพื่อเก็บค่าล่าสุดของ lookup data
+  // เพื่อไม่ต้องใส่ใน dependencies ของ fetchData (ซึ่งจะทำให้เกิด infinite loop)
+  const healthAreasRef = useRef(healthAreas);
+  const provincesRef = useRef(provinces);
+  const districtsRef = useRef(districts);
+  const subdistrictsRef = useRef(subdistricts);
+  const healthServicesRef = useRef(healthServices);
+
+  // ✅ อัปเดต refs เมื่อค่าเปลี่ยน
+  useEffect(() => {
+    healthAreasRef.current = healthAreas;
+  }, [healthAreas]);
+
+  useEffect(() => {
+    provincesRef.current = provinces;
+  }, [provinces]);
+
+  useEffect(() => {
+    districtsRef.current = districts;
+  }, [districts]);
+
+  useEffect(() => {
+    subdistrictsRef.current = subdistricts;
+  }, [subdistricts]);
+
+  useEffect(() => {
+    healthServicesRef.current = healthServices;
+  }, [healthServices]);
+
   // ล้างข้อมูลการค้นหา
   const handleClear = () => {
     handleReset(String(currentFiscalYear), "fiscal");
@@ -479,11 +592,7 @@ const DashboardSobos = () => {
       const defaultProvince = initialFilters.province || "";
       const defaultDistrict = initialFilters.district || "";
       const defaultSubdistrict = initialFilters.subdistrict || "";
-
-      console.log("🔒 DEBUG: initialFilters:", initialFilters);
-      console.log("🔒 DEBUG: defaultZone:", defaultZone, "defaultProvince:", defaultProvince, "defaultDistrict:", defaultDistrict, "defaultSubdistrict:", defaultSubdistrict);
-      console.log("🔒 DEBUG: user selection - zone:", zone, "province:", province, "district:", district, "subdistrict:", subdistrict);
-      console.log("🔒 DEBUG: lockLevel:", lockLevel);
+      const defaultService = initialFilters.service || "";
 
       // ✅ User selection override: ถ้า user เลือกค่าใหม่ (ไม่เท่ากับ default) ให้ใช้ค่าที่ user เลือก
       // ✅ ถ้า user ไม่ได้เลือก (ค่าว่าง) ให้ใช้ค่า locked เฉพาะที่ user มีสิทธิ์เท่านั้น
@@ -496,73 +605,65 @@ const DashboardSobos = () => {
         // User เลือก zone หรือ zone ถูก lock ไว้ - ใช้ค่า zone เสมอ
         const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
         filters.health_region = zoneNumber;
-        console.log("✅ Using zone:", zone, "→ health_region:", zoneNumber);
       }
 
       // Province filter - user เลือกเอง หรือ lockLevel เป็น province/district/subdistrict
       if (province && province !== defaultProvince) {
         // User เลือก province เอง - ส่งเป็น text และ id (ไม่ส่ง province_code)
-        const provData = provinces.find(p => String(p.code || p.id) === province);
+        const provData = provincesRef.current.find(p => String(p.code || p.id) === province);
         if (provData) {
           filters.province = provData.name_th || provData.name;
           filters.province_id = province;
         }
-        console.log("✅ Using user-selected province:", province, "name:", filters.province, "id:", filters.province_id);
       } else if (defaultProvince && lockLevel !== 'none' && lockLevel !== 'zone') {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = province, district, subdistrict
         // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง province_code)
-        const provData = provinces.find(p => String(p.code || p.id) === defaultProvince);
+        const provData = provincesRef.current.find(p => String(p.code || p.id) === defaultProvince);
         if (provData) {
           filters.province = provData.name_th || provData.name;
           filters.province_id = defaultProvince;
         }
-        console.log("🔒 Using locked province:", defaultProvince, "name:", filters.province, "id:", filters.province_id);
       }
 
       // District filter - user เลือกเอง หรือ lockLevel เป็น district/subdistrict
       if (district && district !== defaultDistrict) {
         // User เลือก district เอง - ส่งเป็น text และ id (ไม่ส่ง district_code)
-        const distData = districts.find(d => String(d.code || d.id) === district);
+        const distData = districtsRef.current.find(d => String(d.code || d.id) === district);
         if (distData) {
           filters.district = distData.name_th || distData.name;
           filters.district_id = district;
         }
-        console.log("✅ Using user-selected district:", district, "name:", filters.district, "id:", filters.district_id);
       } else if (defaultDistrict && (lockLevel === 'district' || lockLevel === 'subdistrict')) {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = district, subdistrict
         // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง district_code)
-        const distData = districts.find(d => String(d.code || d.id) === defaultDistrict);
+        const distData = districtsRef.current.find(d => String(d.code || d.id) === defaultDistrict);
         if (distData) {
           filters.district = distData.name_th || distData.name;
           filters.district_id = defaultDistrict;
         }
-        console.log("🔒 Using locked district:", defaultDistrict, "name:", filters.district, "id:", filters.district_id);
       }
 
       // Subdistrict filter - user เลือกเอง หรือ lockLevel เป็น subdistrict
       if (subdistrict && subdistrict !== defaultSubdistrict) {
         // User เลือก subdistrict เอง - ส่งเป็น text และ id (ไม่ส่ง subdistrict_code)
-        const subdistData = subdistricts.find(s => String(s.code || s.id) === subdistrict);
+        const subdistData = subdistrictsRef.current.find(s => String(s.code || s.id) === subdistrict);
         if (subdistData) {
           filters.subdistrict = subdistData.name_th || subdistData.name;
           filters.subdistrict_id = subdistrict;
         }
-        console.log("✅ Using user-selected subdistrict:", subdistrict, "name:", filters.subdistrict, "id:", filters.subdistrict_id);
       } else if (defaultSubdistrict && lockLevel === 'subdistrict') {
         // User ไม่ได้เลือก ใช้ค่า locked เฉพาะ lockLevel = subdistrict เท่านั้น
         // ✅ ส่งเป็น text และ id โดยตรง (ไม่ส่ง subdistrict_code)
-        const subdistData = subdistricts.find(s => String(s.code || s.id) === defaultSubdistrict);
+        const subdistData = subdistrictsRef.current.find(s => String(s.code || s.id) === defaultSubdistrict);
         if (subdistData) {
           filters.subdistrict = subdistData.name_th || subdistData.name;
           filters.subdistrict_id = defaultSubdistrict;
         }
-        console.log("🔒 Using locked subdistrict:", defaultSubdistrict, "name:", filters.subdistrict, "id:", filters.subdistrict_id);
       }
 
       // ✅ Health Service filter (หน่วยบริการ)
       if (service) {
         filters.health_service_id = service;
-        console.log("✅ Using health_service_id:", service);
       }
 
       // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
@@ -570,7 +671,6 @@ const DashboardSobos = () => {
       if (service) {
         try {
           osmData = await getOsmByHealthService(service);
-          console.log("📊 OSM Data received:", osmData.length, "items");
           setOsmDataByService(osmData);
         } catch (err) {
           console.error("Error fetching OSM data:", err);
@@ -582,14 +682,6 @@ const DashboardSobos = () => {
 
       // ดึงข้อมูลจาก API /reports/map-data (ใช้ map-data แทน geo-summary เพื่อให้ได้ข้อมูล location)
       const mapDataResponse = await reportsMapService.getReportsMapData(filters);
-
-      console.log("✅ Map Data received:", mapDataResponse);
-
-      // Log ตัวอย่าง location_data เพื่อดูว่ามี field อะไรบ้าง
-      if (mapDataResponse.reports && mapDataResponse.reports.length > 0) {
-        console.log("📋 Sample report:", mapDataResponse.reports[0]);
-        console.log("📋 All fields in report:", Object.keys(mapDataResponse.reports[0]));
-      }
 
       // Filter ตามหน่วยบริการ (ถ้าเลือก)
       let filteredReports = mapDataResponse.reports || [];
@@ -694,36 +786,52 @@ const DashboardSobos = () => {
       // country (กรม) → map=zone, table=province
       // area (เขต) → map=province, table=district
       // province (จังหวัด) → map=district, table=subdistrict
-      // district (อำเภอ) → map=subdistrict, table=subdistrict
-      // subdistrict (ตำบล) → map=subdistrict, table=subdistrict
+      // district (อำเภอ) → map=subdistrict, table=service
+      // subdistrict (ตำบล) → map=service, table=osm
+      // service (หน่วยบริการ) → map=osm, table=osm
 
-      // ✅ ถ้า user มีการเลือก filter (zone/province/district) ให้แสดงผลตามที่เลือก
+      // ✅ ถ้า user มีการเลือก filter (zone/province/district/subdistrict/service) ให้แสดงผลตามที่เลือก
       // โดยไม่สนใจ lockLevel เพราะ user อยากเห็นข้อมูลระดับที่เลือก
       let mapLevel = "province";
       let tableLevel = "province";
 
       // หาค่า default filter จาก permission (ค่าที่ user ถูกล็อคไว้)
-      // ใช้ defaultZone, defaultProvince, defaultDistrict จากด้านบนที่ประกาศไปแล้ว
+      // ใช้ defaultZone, defaultProvince, defaultDistrict, defaultSubdistrict จากด้านบนที่ประกาศไปแล้ว
 
-      // ถ้าเลือก zone filter (ไม่ว่า lockLevel จะเป็นอะไร) → แสดงผลระดับ zone
-      // เช็คว่า zone ต่างจากค่า default (แปลว่า user เลือกเพิ่ม)
-      if (zone && zone !== defaultZone && !province) {
-        mapLevel = "zone";
-        tableLevel = "province";
+      // ✅ ให้ความสำคัญกับ filter ที่ user เลือกล่าสุด (ลำดับสุดท้ายสุด)
+      // ถ้าเลือก service → แสดงหน่วยบริการที่เลือกทั้งในตารางและสัดส่วน
+      if (service && service !== defaultService) {
+        mapLevel = "service";
+        tableLevel = "service";
       }
-      // ถ้าเลือก province filter (ไม่ว่า lockLevel จะเป็นอะไร) → แสดงผลระดับ province
-      // เช็คว่า province ต่างจากค่า default (แปลว่า user เลือกเพิ่ม)
-      else if (province && province !== defaultProvince && !district) {
-        mapLevel = "province";
-        tableLevel = "district";
+      // ถ้าเลือก subdistrict → แสดงหน่วยบริการทั้งในตารางและสัดส่วน
+      else if (subdistrict && subdistrict !== defaultSubdistrict) {
+        mapLevel = "service";
+        tableLevel = "service";
       }
-      // ถ้าเลือก district filter (ไม่ว่า lockLevel จะเป็นอะไร) → แสดงผลระดับ district
-      // เช็คว่า district ต่างจากค่า default (แปลว่า user เลือกเพิ่ม)
-      else if (district && district !== defaultDistrict && !subdistrict) {
+      // ถ้าเลือก district → แสดงตำบล
+      else if (district && district !== defaultDistrict) {
         mapLevel = "district";
         tableLevel = "subdistrict";
       }
-      // ถ้าไม่ได้เลือก filter หรือเลือกลงไปถึง subdistrict → ใช้ lockLevel
+      // ถ้าเลือก province → แสดงอำเภอ
+      // ✅ รองรับกรณี user มีสิทธิ์ระดับต่ำ (district/subdistrict) แต่อยากเห็นอำเภอในจังหวัดตัวเอง
+      // ✅ ถ้าไม่ได้เลือก filter หรือมีการเลือก lock อยู่ → ให้แสดงระดับตามสิทธิ์อย่างง่ายขึ้น
+      else if (province && !district && !subdistrict && !service) {
+        mapLevel = "district";
+        tableLevel = "district";
+      }
+      else if (province && province !== defaultProvince && !district) {
+        mapLevel = "district";
+        tableLevel = "district";
+      }
+      // ถ้าเลือก zone → แสดงจังหวัด
+      // ✅ เช็คว่า user เลือก zone จริงๆ (ไม่ใช่ค่า lock) หรือ lockLevel เป็น none/zone ให้กรอง
+      else if (zone && !province && (lockLevel === "none" || lockLevel === "zone" || zone !== defaultZone)) {
+        mapLevel = "province";
+        tableLevel = "province";
+      }
+      // ถ้าไม่ได้เลือก filter → ใช้ lockLevel
       else {
         // Override ตาม lockLevel (permission level ของ user)
         if (lockLevel === "none") {
@@ -741,105 +849,168 @@ const DashboardSobos = () => {
         } else if (lockLevel === "district") {
           // district (อำเภอ)
           mapLevel = "subdistrict";
-          tableLevel = "subdistrict";
+          tableLevel = "service";
         } else if (lockLevel === "subdistrict") {
           // subdistrict (ตำบล)
-          mapLevel = "subdistrict";
-          tableLevel = "subdistrict";
+          mapLevel = "service";
+          tableLevel = "osm";
+        } else if (lockLevel === "service") {
+          // service (หน่วยบริการ)
+          mapLevel = "osm";
+          tableLevel = "osm";
         }
       }
 
       // สร้าง map_items จาก lookup
       let mapItems = [];
+      // ✅ ประกาศตัวแปร filtered items ร่วมกันเพื่อให้ lookupMap ใช้ได้
+      let filteredServices = [];
+      let filteredProvinces = [];
+      let filteredDistricts = [];
+      let filteredSubdistricts = [];
       if (mapLevel === "zone") {
         // ใช้ healthAreas จาก lookup
-        mapItems = healthAreas.map(area => ({
+        mapItems = healthAreasRef.current.map(area => ({
           name_th: area.name_th,
           name: area.name_th,
           code: area.code,
           total_reports: 0
         }));
       } else if (mapLevel === "province") {
-        // ใช้ provinces จาก lookup (กรองตาม zone ถ้าเลือก)
-        mapItems = provinces.map(p => ({
+        // ✅ กรองจังหวัดตาม zone ที่เลือก
+        filteredProvinces = provincesRef.current;
+        if (zone && (lockLevel === "none" || lockLevel === "zone" || zone !== defaultZone)) {
+          const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+          const zoneProvinces = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
+          if (zoneProvinces) {
+            filteredProvinces = provincesRef.current.filter(p =>
+              zoneProvinces.provinces.some(prov => prov.trim() === p.name_th.trim())
+            );
+          }
+        }
+        mapItems = filteredProvinces.map(p => ({
           name_th: p.name_th,
           name: p.name_th,
           code: p.code || p.id,
           total_reports: 0
         }));
       } else if (mapLevel === "district") {
-        // ใช้ districts จาก lookup
-        mapItems = districts.map(d => ({
+        // ✅ กรองอำเภอตามจังหวัดที่เลือก
+        filteredDistricts = districtsRef.current;
+        if (province) {
+          const provData = provincesRef.current.find(p => String(p.code || p.id) === province);
+          if (provData) {
+            filteredDistricts = districtsRef.current.filter(d => d.province_name_th === provData.name_th);
+          }
+        }
+        mapItems = filteredDistricts.map(d => ({
           name_th: d.name_th,
           name: d.name_th,
           code: d.code || d.id,
           total_reports: 0
         }));
       } else if (mapLevel === "subdistrict") {
-        // ใช้ subdistricts จาก lookup
-        mapItems = subdistricts.map(s => ({
+        // ✅ กรองตำบลตามอำเภอที่เลือก
+        filteredSubdistricts = subdistrictsRef.current;
+        if (district) {
+          const distData = districtsRef.current.find(d => String(d.code || d.id) === district);
+          if (distData) {
+            filteredSubdistricts = subdistrictsRef.current.filter(s => s.district_name_th === distData.name_th);
+          }
+        }
+        mapItems = filteredSubdistricts.map(s => ({
           name_th: s.name_th,
           name: s.name_th,
           code: s.code || s.id,
+          total_reports: 0
+        }));
+      } else if (mapLevel === "service") {
+        // ✅ กรองหน่วยบริการตามที่เลือก (service) หรือตามตำบลที่เลือก
+        filteredServices = healthServicesRef.current || [];
+        if (service) {
+          const serviceData = (healthServicesRef.current || []).find(s => String(s.id || s.code) === service);
+          if (serviceData) {
+            filteredServices = [serviceData];
+          }
+        } else if (subdistrict) {
+          const subdistData = subdistrictsRef.current.find(s => String(s.code || s.id) === subdistrict);
+          if (subdistData) {
+            filteredServices = (healthServicesRef.current || []).filter(svc =>
+              (svc.subdistrict?.name_th === subdistData.name_th) ||
+              (String(svc.subdistrict?.code || "") === String(subdistrict))
+            );
+          }
+        }
+        mapItems = filteredServices.map(s => ({
+          name_th: s.name_th || s.name || s.service_name || "ไม่ระบุ",
+          name: s.name_th || s.name || s.service_name || "ไม่ระบุ",
+          code: s.id || s.code || "",
+          total_reports: 0
+        }));
+      } else if (mapLevel === "osm") {
+        // ใช้ osmData จาก OSM
+        mapItems = osmData.map(osm => ({
+          name_th: osm.full_name || osm.name_th || osm.firstname + " " + (osm.lastname || ""),
+          name: osm.full_name || osm.name_th || osm.firstname + " " + (osm.lastname || ""),
+          code: osm.id || "",
           total_reports: 0
         }));
       }
 
       // ✅ นับจำนวนรายงานจาก location_data
       // location_data จาก backend มี province_name_th, district_name_th, subdistrict_name_th โดยตรง
-      console.log("🔍 Counting reports - mapLevel:", mapLevel, "tableLevel:", tableLevel, "mapReports:", mapReports.length);
-
-      // Log ตัวอย่างข้อมูลเพื่อ debug
-      if (mapReports.length > 0) {
-        console.log("📊 Sample mapReport:", {
-          province_name_th: mapReports[0].province_name_th,
-          district_name_th: mapReports[0].district_name_th,
-          subdistrict_name_th: mapReports[0].subdistrict_name_th,
-        });
-      }
 
       // สร้าง map สำหรับ lookup ทั้งแบบ code และ name_th เพื่อให้ match ได้ง่ายขึ้น
       const lookupMapByCode = {};
       const lookupMapByName = {};
 
       if (mapLevel === "zone") {
-        healthAreas.forEach(area => {
+        healthAreasRef.current.forEach(area => {
           const code = String(area.code);
           lookupMapByCode[code] = area.name_th;
           lookupMapByName[area.name_th] = code;
         });
       } else if (mapLevel === "province") {
-        provinces.forEach(p => {
+        // ✅ ใช้ filteredProvinces ที่กรองแล้ว
+        filteredProvinces.forEach(p => {
           const code = String(p.code || p.id);
           lookupMapByCode[code] = p.name_th;
           lookupMapByName[p.name_th] = code;
         });
       } else if (mapLevel === "district") {
-        districts.forEach(d => {
+        // ✅ ใช้ filteredDistricts ที่กรองแล้ว
+        filteredDistricts.forEach(d => {
           const code = String(d.code || d.id);
           lookupMapByCode[code] = d.name_th;
           lookupMapByName[d.name_th] = code;
         });
       } else if (mapLevel === "subdistrict") {
-        subdistricts.forEach(s => {
+        // ✅ ใช้ filteredSubdistricts ที่กรองแล้ว
+        filteredSubdistricts.forEach(s => {
           const code = String(s.code || s.id);
           lookupMapByCode[code] = s.name_th;
           lookupMapByName[s.name_th] = code;
         });
+      } else if (mapLevel === "service") {
+        // ✅ ใช้เฉพาะ filteredServices ที่กรองแล้ว (ไม่ใช้ทั้งหมด)
+        filteredServices.forEach(s => {
+          const id = String(s.id || s.code || "");
+          const name = s.name_th || s.name || s.service_name || "";
+          lookupMapByCode[id] = name;
+          lookupMapByName[name] = id;
+        });
+      } else if (mapLevel === "osm") {
+        osmData.forEach(osm => {
+          const id = String(osm.id || "");
+          const name = osm.full_name || osm.name_th || osm.firstname + " " + (osm.lastname || "");
+          lookupMapByCode[id] = name;
+          lookupMapByName[name] = id;
+        });
       }
-
-      console.log("🗺️ Lookup maps:", {
-        mapLevel,
-        healthAreasCount: healthAreas.length,
-        provincesCount: provinces.length,
-        districtsCount: districts.length,
-        subdistrictsCount: subdistricts.length,
-        lookupMapByNameCount: Object.keys(lookupMapByName).length
-      });
 
       // นับจำนวนรายงานโดยใช้ code เป็น key
       const reportCountMap = {};
-      mapReports.forEach((r, idx) => {
+      mapReports.forEach((r) => {
         let key = null;
 
         if (mapLevel === "zone") {
@@ -851,51 +1022,37 @@ const DashboardSobos = () => {
             );
             if (zoneData) {
               key = `HA${zoneData.zone}`;
-              console.log(`✅ Report ${idx}: province="${provinceName}" → zone="${key}"`);
-            } else {
-              console.log(`❌ Report ${idx}: province="${provinceName}" NOT FOUND in HEALTHZONE_PROVINCES`);
             }
-          } else {
-            console.log(`❌ Report ${idx}: province_name_th is null/undefined`);
           }
         } else if (mapLevel === "province") {
           // ใช้ province_name_th ตรงๆ
           const provinceName = r.province_name_th;
           if (provinceName) {
             key = lookupMapByName[provinceName];
-            if (key) {
-              console.log(`✅ Report ${idx}: province="${provinceName}" → key="${key}"`);
-            } else {
-              console.log(`❌ Report ${idx}: province="${provinceName}" NOT FOUND in lookupMapByName`);
-            }
-          } else {
-            console.log(`❌ Report ${idx}: province_name_th is null/undefined`);
           }
         } else if (mapLevel === "district") {
           // ใช้ district_name_th ตรงๆ
           const districtName = r.district_name_th;
           if (districtName) {
             key = lookupMapByName[districtName];
-            if (key) {
-              console.log(`✅ Report ${idx}: district="${districtName}" → key="${key}"`);
-            } else {
-              console.log(`❌ Report ${idx}: district="${districtName}" NOT FOUND in lookupMapByName`);
-            }
-          } else {
-            console.log(`❌ Report ${idx}: district_name_th is null/undefined`);
           }
         } else if (mapLevel === "subdistrict") {
           // ใช้ subdistrict_name_th ตรงๆ
           const subdistrictName = r.subdistrict_name_th;
           if (subdistrictName) {
             key = lookupMapByName[subdistrictName];
-            if (key) {
-              console.log(`✅ Report ${idx}: subdistrict="${subdistrictName}" → key="${key}"`);
-            } else {
-              console.log(`❌ Report ${idx}: subdistrict="${subdistrictName}" NOT FOUND in lookupMapByName`);
-            }
-          } else {
-            console.log(`❌ Report ${idx}: subdistrict_name_th is null/undefined`);
+          }
+        } else if (mapLevel === "service") {
+          // ใช้ health_service_id จากรายงาน
+          const serviceId = r.health_service_id;
+          if (serviceId) {
+            key = String(serviceId);
+          }
+        } else if (mapLevel === "osm") {
+          // ใช้ external_user_id จากรายงาน
+          const osmId = r.external_user_id;
+          if (osmId) {
+            key = String(osmId);
           }
         }
 
@@ -903,8 +1060,6 @@ const DashboardSobos = () => {
           reportCountMap[key] = (reportCountMap[key] || 0) + 1;
         }
       });
-
-      console.log("📊 Report count map:", reportCountMap);
 
       // Merge จำนวนรายงานเข้ากับ map_items
       mapItems.forEach(item => {
@@ -916,13 +1071,24 @@ const DashboardSobos = () => {
       // สร้าง table_items จาก lookup (เหมือนกันแต่ใช้ tableLevel)
       let tableItems = [];
       if (tableLevel === "zone") {
-        tableItems = healthAreas.map(area => ({
+        tableItems = healthAreasRef.current.map(area => ({
           name_th: area.name_th,
           name: area.name_th,
           total_reports: 0
         }));
       } else if (tableLevel === "province") {
-        tableItems = provinces.map(p => {
+        // ✅ กรองจังหวัดตาม zone ที่เลือก (ถ้ามี)
+        let filteredProvinces = provincesRef.current;
+        if (zone && (lockLevel === "none" || lockLevel === "zone" || zone !== defaultZone)) {
+          const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+          const zoneProvinces = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
+          if (zoneProvinces) {
+            filteredProvinces = provincesRef.current.filter(p =>
+              zoneProvinces.provinces.some(prov => prov.trim() === p.name_th.trim())
+            );
+          }
+        }
+        tableItems = filteredProvinces.map(p => {
           // หา zone_name จาก HEALTHZONE_PROVINCES
           const zoneData = HEALTHZONE_PROVINCES.find(z =>
             z.provinces.some(prov => prov.trim() === p.name_th.trim())
@@ -936,18 +1102,88 @@ const DashboardSobos = () => {
           };
         });
       } else if (tableLevel === "district") {
-        tableItems = districts.map(d => ({
+        // ✅ กรองอำเภอตามจังหวัดที่เลือก
+        let filteredDistricts = districtsRef.current;
+        if (province) {
+          const provData = provincesRef.current.find(p => String(p.code || p.id) === province);
+          if (provData) {
+            filteredDistricts = districtsRef.current.filter(d => d.province_name_th === provData.name_th);
+          }
+        }
+        tableItems = filteredDistricts.map(d => ({
           name_th: d.name_th,
           name: d.name_th,
           total_reports: 0,
           province_name: d.province_name_th || "-"
         }));
       } else if (tableLevel === "subdistrict") {
-        tableItems = subdistricts.map(s => ({
-          name_th: s.name_th,
-          name: s.name_th,
+        // ✅ กรองตำบลตามอำเภอที่เลือก
+        let filteredSubdistricts = subdistrictsRef.current;
+        if (district) {
+          const distData = districtsRef.current.find(d => String(d.code || d.id) === district);
+          if (distData) {
+            filteredSubdistricts = subdistrictsRef.current.filter(s => s.district_name_th === distData.name_th);
+          }
+        }
+
+        // ✅ สร้าง map ของ districts เพื่อหา province_name และ district_name
+        const districtMap = {};
+        districtsRef.current.forEach(d => {
+          districtMap[d.name_th] = {
+            province_name_th: d.province_name_th,
+            district_name_th: d.name_th
+          };
+        });
+
+        tableItems = filteredSubdistricts.map(s => {
+          // ✅ ดึงข้อมูลจังหวัดและอำเภอจาก districts lookup โดย match ชื่ออำเภอ
+          const distInfo = districtMap[s.district_name_th] || {};
+          return {
+            name_th: s.name_th,
+            name: s.name_th,
+            total_reports: 0,
+            province_name: distInfo.province_name_th || s.province_name_th || "-",
+            district_name: distInfo.district_name_th || s.district_name_th || "-"
+          };
+        });
+      } else if (tableLevel === "service") {
+        // ✅ กรองหน่วยบริการตามที่เลือก (service) หรือตามตำบลที่เลือก
+        // ใช้ตัวแปร filteredServices ร่วมกับ tableLookupMap
+        if (!filteredServices || filteredServices.length === 0) {
+          filteredServices = healthServicesRef.current || [];
+        }
+        if (service) {
+          // User เลือกหน่วยบริการเอง - แสดงเฉพาะหน่วยบริการที่เลือก
+          const serviceData = (healthServicesRef.current || []).find(s => String(s.id || s.code) === service);
+          if (serviceData) {
+            filteredServices = [serviceData];
+          }
+        } else if (subdistrict) {
+          const subdistData = subdistrictsRef.current.find(s => String(s.code || s.id) === subdistrict);
+          if (subdistData) {
+            filteredServices = (healthServicesRef.current || []).filter(svc =>
+              (svc.subdistrict?.name_th === subdistData.name_th) ||
+              (String(svc.subdistrict?.code || "") === String(subdistrict))
+            );
+          }
+        }
+        tableItems = filteredServices.map(s => ({
+          name_th: s.name_th || s.name || s.service_name || "ไม่ระบุ",
+          name: s.name_th || s.name || s.service_name || "ไม่ระบุ",
           total_reports: 0,
-          province_name: s.province_name_th || "-"
+          province_name: s.province?.name_th || s.province_name_th || "-",
+          district_name: s.district?.name_th || s.district_name_th || "-",
+          subdistrict_name: s.subdistrict?.name_th || s.subdistrict_name_th || "-",
+          id: s.id || s.code || ""
+        }));
+      } else if (tableLevel === "osm") {
+        // ✅ แสดง OSM ตามหน่วยบริการที่เลือก
+        tableItems = osmData.map(osm => ({
+          name_th: osm.full_name || osm.name_th || osm.firstname + " " + (osm.lastname || ""),
+          name: osm.full_name || osm.name_th || osm.firstname + " " + (osm.lastname || ""),
+          total_reports: 0,
+          province_name: osm.province_name_th || "-",
+          id: osm.id || ""
         }));
       }
 
@@ -957,28 +1193,43 @@ const DashboardSobos = () => {
       const tableLookupMapByName = {};
 
       if (tableLevel === "zone") {
-        healthAreas.forEach(area => {
+        healthAreasRef.current.forEach(area => {
           const code = String(area.code);
           tableLookupMapByCode[code] = area.name_th;
           tableLookupMapByName[area.name_th] = code;
         });
       } else if (tableLevel === "province") {
-        provinces.forEach(p => {
+        provincesRef.current.forEach(p => {
           const code = String(p.code || p.id);
           tableLookupMapByCode[code] = p.name_th;
           tableLookupMapByName[p.name_th] = code;
         });
       } else if (tableLevel === "district") {
-        districts.forEach(d => {
+        districtsRef.current.forEach(d => {
           const code = String(d.code || d.id);
           tableLookupMapByCode[code] = d.name_th;
           tableLookupMapByName[d.name_th] = code;
         });
       } else if (tableLevel === "subdistrict") {
-        subdistricts.forEach(s => {
+        subdistrictsRef.current.forEach(s => {
           const code = String(s.code || s.id);
           tableLookupMapByCode[code] = s.name_th;
           tableLookupMapByName[s.name_th] = code;
+        });
+      } else if (tableLevel === "service") {
+        // ✅ ใช้ filteredServices ที่กรองแล้ว (เหมือน tableItems)
+        filteredServices.forEach(s => {
+          const id = String(s.id || s.code || "");
+          const name = s.name_th || s.name || s.service_name || "";
+          tableLookupMapByCode[id] = name;
+          tableLookupMapByName[name] = id;
+        });
+      } else if (tableLevel === "osm") {
+        osmData.forEach(osm => {
+          const id = String(osm.id || "");
+          const name = osm.full_name || osm.name_th || osm.firstname + " " + (osm.lastname || "");
+          tableLookupMapByCode[id] = name;
+          tableLookupMapByName[name] = id;
         });
       }
 
@@ -1011,6 +1262,18 @@ const DashboardSobos = () => {
           if (subdistrictName) {
             key = tableLookupMapByName[subdistrictName];
           }
+        } else if (tableLevel === "service") {
+          // ✅ สำหรับ service level - ใช้ health_service_id จากรายงาน
+          const serviceId = r.health_service_id;
+          if (serviceId) {
+            key = String(serviceId);
+          }
+        } else if (tableLevel === "osm") {
+          // ✅ สำหรับ OSM level - ใช้ external_user_id จากรายงาน
+          const osmId = r.external_user_id;
+          if (osmId) {
+            key = String(osmId);
+          }
         }
 
         if (key) {
@@ -1018,14 +1281,17 @@ const DashboardSobos = () => {
         }
       });
 
-      console.log("📊 Table report count map:", tableReportCountMap);
-
       // Merge จำนวนรายงานเข้ากับ table_items
       tableItems.forEach(item => {
-        // หา code จาก lookup map
-        const itemCode = tableLookupMapByName[item.name_th];
+        // สำหรับ service/osm level ใช้ id แทน name
+        let itemKey;
+        if (tableLevel === "service" || tableLevel === "osm") {
+          itemKey = String(item.id);
+        } else {
+          itemKey = tableLookupMapByName[item.name_th];
+        }
         // ใช้ || 0 เพื่อให้แน่ใจว่าถ้าไม่มีข้อมูลจะเป็น 0
-        item.total_reports = itemCode ? (tableReportCountMap[itemCode] || 0) : 0;
+        item.total_reports = itemKey ? (tableReportCountMap[itemKey] || 0) : 0;
       });
 
       setProvinceSummary({
@@ -1045,7 +1311,8 @@ const DashboardSobos = () => {
     } finally {
       setLoading(false);
     }
-  }, [zone, province, district, subdistrict, service, year, month, selectedReportType, healthAreas, provinces, districts, subdistricts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zone, province, district, subdistrict, service, year, month, selectedReportType, lockLevel, getInitialFilters]);
 
   // ค้นหาอัตโนมัติเมื่อ filter เปลี่ยน
   useEffect(() => {
@@ -1080,20 +1347,43 @@ const DashboardSobos = () => {
 
     const mapLevel = provinceSummary.map_level || "province";
 
+    // ✅ ตรวจสอบว่าต้องใช้ค่า display หรือไม่
+    // 1. ถ้าทุก items มี total_reports = 0 ต้องใช้ค่า 1 ให้แสดงสีได้
+    // 2. ถ้ามี items เพียง 1 ตัว ต้องใช้ค่า 1 เพื่อให้แสดงสีได้ (ไม่ว่าค่าจะเท่าไหร่)
+    const allZeros = provinceSummary.map_items.every(item => item.total_reports === 0);
+    const hasSingleItem = provinceSummary.map_items.length === 1;
+    const useDisplayValue = allZeros || hasSingleItem;
+
     // ใช้ map_items จาก backend โดยตรง
-    return provinceSummary.map_items.map((item, idx) => ({
-      name: item.name_th || item.name || "ไม่ระบุ",
-      value: item.total_reports,
-      color: mapLevel === "zone"
-        ? (ZONE_COLORS[idx] || "#999")
-        : (ZONE_COLORS[idx % ZONE_COLORS.length] || "#999"),
-    }));
+    return provinceSummary.map_items.map((item, idx) => {
+      let color;
+      if (mapLevel === "zone") {
+        // ✅ สำหรับ zone level - ใช้เลขเขตจาก code (HA1, HA2, ...) เพื่อเลือกสีที่ถูกต้อง
+        const zoneMatch = String(item.code || "").match(/HA?(\d+)/);
+        const zoneNum = zoneMatch ? parseInt(zoneMatch[1]) : 0;
+        color = ZONE_COLORS[zoneNum] || "#999";
+      } else {
+        color = ZONE_COLORS[idx % ZONE_COLORS.length] || "#999";
+      }
+
+      // ✅ ถ้าต้องการค่า display (กรณี allZeros หรือ singleItem) ให้ใช้ค่า 1
+      // ถ้ามีบาง items มีค่ามากกว่า 0 และมีมากกว่า 1 item ให้ใช้ค่าจริง
+      const displayValue = useDisplayValue ? 1 : item.total_reports;
+
+      return {
+        name: item.name_th || item.name || "ไม่ระบุ",
+        value: displayValue,
+        // เก็บค่าจริงไว้แสดงในตัวเลขรวม
+        actualValue: item.total_reports,
+        color,
+      };
+    });
   }, [provinceSummary]);
 
-  // คำนวณค่ารวมสำหรับกลาง Pie Chart
+  // คำนวณค่ารวมสำหรับกลาง Pie Chart (ใช้ actualValue เพื่อแสดงค่าจริง)
   const chartSummaryValue = useMemo(() => {
     return chartPieData
-      .reduce((sum, p) => sum + (p.value || 0), 0)
+      .reduce((sum, p) => sum + (p.actualValue || 0), 0)
       .toLocaleString();
   }, [chartPieData]);
 
@@ -1109,6 +1399,8 @@ const DashboardSobos = () => {
       total_reports: item.total_reports,
       province_name: item.province_name || "-",
       zone_name: item.zone_name || "-",
+      district_name: item.district_name || "-",
+      subdistrict_name: item.subdistrict_name || "-",
     }));
   }, [provinceSummary]);
 
@@ -1122,8 +1414,22 @@ const DashboardSobos = () => {
     const mapLevel = provinceSummary.map_level || "province";
 
     if (mapLevel === "zone") {
-      // สำหรับ zone level ให้ return codes ของ healthAreas (HA1, HA2, ...) เพื่อ highlight เขตบนแผนที่
-      return provinceSummary.map_items.map(item => item.code || item.name);
+      // ✅ สำหรับ zone level - หาจังหวัดทั้งหมดในเขตที่มีข้อมูล
+      // เพื่อให้ MapThailandService สามารถ highlight จังหวัดได้
+      const provinceSet = new Set();
+      provinceSummary.map_items.forEach(item => {
+        // item.code คือ "HA1", "HA2" ฯลฯ
+        const zoneMatch = String(item.code || "").match(/HA?(\d+)/);
+        if (zoneMatch) {
+          const zoneNum = parseInt(zoneMatch[1]);
+          // หาจังหวัดทั้งหมดในเขตนี้จาก HEALTHZONE_PROVINCES
+          const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNum);
+          if (zoneData) {
+            zoneData.provinces.forEach(prov => provinceSet.add(prov));
+          }
+        }
+      });
+      return Array.from(provinceSet);
     } else if (mapLevel === "province") {
       // แสดงชื่อจังหวัดทั้งหมดที่มีใน map_items
       return provinceSummary.map_items.map(item => item.name_th || item.name);
@@ -1201,11 +1507,11 @@ const DashboardSobos = () => {
       chartPieData.forEach((item) => {
         const zoneNum = parseInt(item.name.match(/\d+/)?.[0] || "0");
         zoneDataMap[zoneNum] = {
-          value: item.value,
+          value: item.actualValue,
           color: item.color,
           percent: (
-            (item.value /
-              (chartPieData.reduce((sum, p) => sum + p.value, 0) || 1)) *
+            (item.actualValue /
+              (chartPieData.reduce((sum, p) => sum + p.actualValue, 0) || 1)) *
             100
           ).toFixed(1),
         };
@@ -1239,21 +1545,8 @@ const DashboardSobos = () => {
           borderWidth: 1,
           shadow: true,
         },
-        colorAxis: {
-          min: 0,
-          max: 13,
-          dataClasses: chartPieData
-            .map((item) => {
-              const zoneNum = parseInt(item.name.match(/\d+/)?.[0] || "0");
-              return {
-                from: zoneNum,
-                to: zoneNum,
-                color: item.color,
-                name: item.name,
-              };
-            })
-            .concat([{ from: 0, to: 0, color: "#E5E5E5", name: "ไม่มีข้อมูล" }]),
-        },
+        // ✅ ไม่ต้องส่ง colorAxis เพราะ MapThailandService จะสร้างให้เอง
+        // เราส่งเฉพาะ tooltip เพื่อแสดงข้อมูลที่ถูกต้อง
       };
     }
 
@@ -1261,11 +1554,11 @@ const DashboardSobos = () => {
     const itemDataMap = {};
     chartPieData.forEach((item, idx) => {
       itemDataMap[item.name] = {
-        value: item.value,
+        value: item.actualValue,
         color: item.color,
         percent: (
-          (item.value /
-            (chartPieData.reduce((sum, p) => sum + p.value, 0) || 1)) *
+          (item.actualValue /
+            (chartPieData.reduce((sum, p) => sum + p.actualValue, 0) || 1)) *
           100
         ).toFixed(1),
       };
@@ -1652,7 +1945,7 @@ const DashboardSobos = () => {
                             </span>
                           </div>
                           <span className="text-[15px] text-[#7e32e2] font-bold shrink-0 ml-4">
-                            {item.value.toLocaleString()}
+                            {item.actualValue.toLocaleString()}
                           </span>
                         </div>
                       ))}
@@ -1670,7 +1963,7 @@ const DashboardSobos = () => {
                             </span>
                           </div>
                           <span className="text-[15px] text-[#7e32e2] font-bold shrink-0 ml-4">
-                            {item.value.toLocaleString()}
+                            {item.actualValue.toLocaleString()}
                           </span>
                         </div>
                       ))}
@@ -1692,6 +1985,8 @@ const DashboardSobos = () => {
                 {provinceSummary.table_level === "province" && "ตารางข้อมูลรายละเอียดตามจังหวัด"}
                 {provinceSummary.table_level === "district" && "ตารางข้อมูลรายละเอียดตามอำเภอ"}
                 {provinceSummary.table_level === "subdistrict" && "ตารางข้อมูลรายละเอียดตามตำบล"}
+                {provinceSummary.table_level === "service" && "ตารางข้อมูลรายละเอียดตามหน่วยบริการ"}
+                {provinceSummary.table_level === "osm" && "ตารางข้อมูลรายละเอียดตามอสม."}
                 {!provinceSummary.table_level && "ตารางข้อมูลรายละเอียด"}
               </h2>
             </div>
