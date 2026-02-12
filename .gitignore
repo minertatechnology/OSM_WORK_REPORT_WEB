@@ -43,3 +43,7 @@ yarn.lock
 
 # local logs
 .logs/
+
+# build scripts
+build-docker.sh
+push-docker.sh
