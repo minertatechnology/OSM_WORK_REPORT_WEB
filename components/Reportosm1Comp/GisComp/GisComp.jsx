@@ -68,8 +68,8 @@ const normalizeAreaName = (value) => {
 };
 
 // Special case mappings for problematic district names (KML filename mismatches)
+// Empty for now - all files have been renamed to match lookup API names
 const KML_NAME_MAPPINGS = {
-  "ป้อมปราบศัตรูพ่าย": "ป้อมปราบศัตรูพ่า",
   // Add more special cases here if needed for other districts/provinces
 };
 
@@ -136,6 +136,11 @@ const getReportSubdistrictName = (report) =>
 const normalizeMonthlyReportDataFromAnalytics = (data) => {
   if (!data) {
     return { total: 0, items: [] };
+  }
+
+  // กรณีที่เรา set total เองจาก filteredReports.length
+  if (typeof data?.total === "number" && Array.isArray(data?.report_osm1_reports)) {
+    return { total: data.total, items: [] };
   }
 
   if (typeof data?.total === "number" && Array.isArray(data?.items)) {
@@ -228,6 +233,7 @@ const GisComp = () => {
     total: 0,
     items: [],
   });
+  const [isDataLoading, setIsDataLoading] = useState(false);
 
   const mapContainer = useRef(null);
 
@@ -455,7 +461,6 @@ const GisComp = () => {
     );
 
     // Count reports by area
-    // Count reports by area
     const counts = new Map();
     filteredReports.forEach((report) => {
       const name = getAreaName(report);
@@ -467,12 +472,16 @@ const GisComp = () => {
         return;
       }
       // Find matching display name from areaList (case-insensitive match via normalized key)
-      let displayName = name;
+      let displayName = null;
       for (const [areaKey, areaName] of areaKeyByName) {
         if (key === areaKey) {
           displayName = areaName;
           break;
         }
+      }
+      // ถ้าไม่ match กับ area ไหนเลย ให้ข้าม (ไม่นับ)
+      if (!displayName) {
+        return;
       }
       counts.set(displayName, (counts.get(displayName) || 0) + 1);
     });
@@ -521,11 +530,11 @@ const GisComp = () => {
         let filePath = "";
 
         if (level === "province") {
-          filePath = `/split-provinces/${name}.kml`;
+          filePath = `/geojson-provinces/${name}.json`;
         } else if (level === "amphoe") {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
           const amphoeFileName = normalizeAreaFileName(name, "district");
-          filePath = `/split-amphoe/${englishProvinceName}/${amphoeFileName}.kml`;
+          filePath = `/geojson-amphoe/${englishProvinceName}/${amphoeFileName}.json`;
         } else if (level === "tambon") {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
           const districtFileName = normalizeAreaFileName(
@@ -533,9 +542,9 @@ const GisComp = () => {
             "district"
           );
           const tambonFileName = normalizeAreaFileName(name, "subdistrict");
-          filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.kml`;
+          filePath = `/geojson-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.json`;
         } else {
-          filePath = `/split-provinces/${name}.kml`;
+          filePath = `/geojson-provinces/${name}.json`;
         }
 
         const response = await fetch(filePath);
@@ -545,20 +554,11 @@ const GisComp = () => {
           );
         }
 
-        const kmlText = await response.text();
-        const parser = new DOMParser();
-        const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-
-        const parserError = kmlDoc.querySelector("parsererror");
-        if (parserError) {
-          throw new Error(`XML parsing error: ${parserError.textContent}`);
-        }
-
-        const toGeoJSON = await import("@mapbox/togeojson");
-        const geoJsonData = toGeoJSON.kml(kmlDoc);
+        // Directly parse JSON (GeoJSON format)
+        const geoJsonData = await response.json();
 
         if (!geoJsonData || !geoJsonData.features) {
-          throw new Error("ไม่พบ features ในไฟล์ KML");
+          throw new Error("ไม่พบ features ในไฟล์ GeoJSON");
         }
 
         const result = await loadAndDisplayKML(geoJsonData, level);
@@ -574,7 +574,6 @@ const GisComp = () => {
             `โหลด ${levelText} ${name} สำเร็จ: ${result.featureCount} features (${result.loadTime}s)`,
             "success"
           );
-          // ไม่ต้องเรียก fitToData() ที่นี่ เพราะ loadAndDisplayKML จัดการการซูมให้แล้ว
         }
       } catch (error) {
         console.error("Error loading map data:", error);
@@ -638,7 +637,7 @@ const GisComp = () => {
           // ล้าง layers เดิม
           clearAllLayers();
 
-          // โหลด KML ของทุกอำเภอในจังหวัด
+          // โหลด GeoJSON ของทุกอำเภอในจังหวัด
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
           const loadPromises = districtNames.map(async (amphoeName) => {
             try {
@@ -646,18 +645,14 @@ const GisComp = () => {
                 amphoeName,
                 "district"
               );
-              const filePath = `/split-amphoe/${englishProvinceName}/${amphoeFileName}.kml`;
+              const filePath = `/geojson-amphoe/${englishProvinceName}/${amphoeFileName}.json`;
               const response = await fetch(filePath);
               if (!response.ok) {
                 console.warn(`ไม่พบไฟล์: ${filePath}`);
                 return null;
               }
 
-              const kmlText = await response.text();
-              const parser = new DOMParser();
-              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-              const toGeoJSON = await import("@mapbox/togeojson");
-              const geoJsonData = toGeoJSON.kml(kmlDoc);
+              const geoJsonData = await response.json();
 
               if (geoJsonData && geoJsonData.features) {
                 return { amphoeName, geoJsonData };
@@ -766,16 +761,11 @@ const GisComp = () => {
                 tambonName,
                 "subdistrict"
               );
-              const filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.kml`;
+              const filePath = `/geojson-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.json`;
               const response = await fetch(filePath);
               if (!response.ok) return null;
 
-              const kmlText = await response.text();
-              const parser = new DOMParser();
-              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-
-              const tj = await import("@mapbox/togeojson");
-              const geoJsonData = tj.kml(kmlDoc);
+              const geoJsonData = await response.json();
 
               return { tambonName, geoJsonData };
             } catch (error) {
@@ -852,7 +842,7 @@ const GisComp = () => {
         setIsLoading(true);
         clearAllLayers();
 
-        // โหลด KML ของตำบลที่เลือก
+        // โหลด GeoJSON ของตำบลที่เลือก
         const englishProvinceName = getEnglishProvinceName(selectedProvince);
         const districtFileName = normalizeAreaFileName(
           selectedDistrict,
@@ -862,16 +852,11 @@ const GisComp = () => {
           selectedSubdistrict,
           "subdistrict"
         );
-        const filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${subdistrictFileName}.kml`;
+        const filePath = `/geojson-tambon/${englishProvinceName}/${districtFileName}/${subdistrictFileName}.json`;
         const response = await fetch(filePath);
 
         if (response.ok) {
-          const kmlText = await response.text();
-          const parser = new DOMParser();
-          const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-
-          const tj = await import("@mapbox/togeojson");
-          const geoJsonData = tj.kml(kmlDoc);
+          const geoJsonData = await response.json();
 
           // เพิ่มชื่อตำบลใน properties เพื่อให้สีถูกต้อง
           const featuresWithName = geoJsonData.features.map((feature) => ({
@@ -1013,21 +998,17 @@ const GisComp = () => {
 
         clearAllLayers();
 
-        // โหลดข้อมูล KML ของทุกจังหวัดในเขตสุขภาพ
+        // โหลดข้อมูล GeoJSON ของทุกจังหวัดในเขตสุขภาพ
         const loadPromises = provincesInRegion.map(async (provinceName) => {
           try {
-            const filePath = `/split-provinces/${provinceName}.kml`;
+            const filePath = `/geojson-provinces/${provinceName}.json`;
             const response = await fetch(filePath);
             if (!response.ok) {
               console.warn(`ไม่พบไฟล์: ${filePath}`);
               return null;
             }
 
-            const kmlText = await response.text();
-            const parser = new DOMParser();
-            const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-            const toGeoJSON = await import("@mapbox/togeojson");
-            const geoJsonData = toGeoJSON.kml(kmlDoc);
+            const geoJsonData = await response.json();
 
             if (geoJsonData && geoJsonData.features) {
               return { provinceName, geoJsonData };
@@ -1310,74 +1291,30 @@ const GisComp = () => {
     if (selectedHealthRegion || selectedProvince || selectedDistrict || selectedSubdistrict) return;
 
     let mounted = true;
-    const BATCH_SIZE = 20; // Load 20 provinces at a time
 
     const loadAllProvinces = async () => {
       try {
         setIsLoading(true);
         clearAllLayers();
 
-        updateStatus(`กำลังโหลดแผนที่ประเทศไทย (${availableProvinces.length} จังหวัด)...`, "info");
+        updateStatus(`กำลังโหลดแผนที่ประเทศไทย...`, "info");
 
-        const allFeatures = [];
-        let loadedCount = 0;
-
-        // Load provinces in batches
-        for (let i = 0; i < availableProvinces.length; i += BATCH_SIZE) {
-          if (!mounted) break;
-
-          const batch = availableProvinces.slice(i, i + BATCH_SIZE);
-
-          const loadPromises = batch.map(async (provinceName) => {
-            try {
-              const filePath = `/split-provinces/${provinceName}.kml`;
-              const response = await fetch(filePath);
-              if (!response.ok) {
-                console.warn(`ไม่พบไฟล์: ${filePath}`);
-                return null;
-              }
-
-              const kmlText = await response.text();
-              const parser = new DOMParser();
-              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-              const toGeoJSON = await import("@mapbox/togeojson");
-              const geoJsonData = toGeoJSON.kml(kmlDoc);
-
-              if (geoJsonData && geoJsonData.features) {
-                return geoJsonData.features;
-              }
-              return null;
-            } catch (error) {
-              console.error(`Error loading ${provinceName}:`, error);
-              return null;
-            }
-          });
-
-          const results = await Promise.all(loadPromises);
-          const batchFeatures = results.filter((f) => f !== null).flat();
-
-          allFeatures.push(...batchFeatures);
-          loadedCount += batch.length;
-
-          // Update progress
-          updateStatus(
-            `กำลังโหลดแผนที่: ${loadedCount}/${availableProvinces.length} จังหวัด...`,
-            "info"
-          );
-
-          // Render current batch progressively (optional - shows map faster)
-          if (batchFeatures.length > 0 && allFeatures.length > 0) {
-            const combinedGeoJSON = {
-              type: "FeatureCollection",
-              features: [...allFeatures],
-            };
-            await loadAndDisplayKML(combinedGeoJSON, "province");
-          }
+        // Load combined GeoJSON file (single request instead of 77)
+        const response = await fetch('/geojson-thailand-provinces.json');
+        if (!response.ok) {
+          throw new Error('Failed to load map data');
         }
 
-        if (mounted && allFeatures.length > 0) {
+        const geoJsonData = await response.json();
+
+        if (!mounted) return;
+
+        // Render map
+        if (geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
+          await loadAndDisplayKML(geoJsonData, "province");
+
           updateStatus(
-            `โหลดแผนที่ประเทศไทยสำเร็จ: ${availableProvinces.length} จังหวัด, ${allFeatures.length} features`,
+            `โหลดแผนที่ประเทศไทยสำเร็จ: ${geoJsonData.features.length} จังหวัด`,
             "success"
           );
         }
@@ -1424,6 +1361,7 @@ const GisComp = () => {
 
     const fetchWeeklyDetails = async () => {
       try {
+        setIsDataLoading(true);
         // ดึงข้อมูลทั้งหมด (ส่ง 0 เพื่อไม่ให้ server filter)
         const { data } = await reportsAnalyticsService.getWeeklyOsm1Details({
           year: "0",
@@ -1463,10 +1401,11 @@ const GisComp = () => {
           return true;
         });
 
-        // สร้าง data object ใหม่จาก reports ที่กรองแล้ว
+        // สร้าง data object ใหม่จาก reports ที่กรองแล้ว และอัพเดท total ให้ตรงกับจำนวนที่กรอง
         const filteredData = {
           ...data,
-          report_osm1_reports: filteredReports
+          report_osm1_reports: filteredReports,
+          total: filteredReports.length  // อัพเดท total ให้ตรงกับจำนวน reports ที่กรองแล้ว
         };
 
         setWeeklyDetails(filteredData);
@@ -1475,6 +1414,8 @@ const GisComp = () => {
         if (error?.name === "AbortError") {
           return;
         }
+      } finally {
+        setIsDataLoading(false);
       }
     };
 
@@ -1511,25 +1452,43 @@ const GisComp = () => {
       availableAreas = availableProvinces;
     }
 
-    // Calculate color data for OSM reports using hash-based colors (like in Donut Chart)
-    // OSM doesn't have container data like Mosquito reports, so we use hash-based colors
-    const colorsMap = new Map();
+    // นับจำนวน reports ตาม area ก่อน
+    const reports = weeklyDetails?.report_osm1_reports || [];
+    const getAreaName = isLevelSubdistrict
+      ? getReportSubdistrictName
+      : isLevelDistrict
+      ? getReportDistrictName
+      : getReportProvinceName;
 
-    // Use hash to generate colors for each area (same as Donut Chart)
+    const counts = new Map();
+    reports.forEach((report) => {
+      const name = getAreaName(report);
+      const key = level === "province"
+        ? normalizeAreaKeyWithThai(name, level)
+        : normalizeAreaKey(name, level);
+      if (key) {
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    });
+
+    // Calculate color data - สีเทาสำหรับพื้นที่ที่ไม่มีข้อมูล
+    const colorsMap = new Map();
+    const GRAY_COLOR = "#9CA3AF"; // สีเทา
+
     if (Array.isArray(availableAreas)) {
       availableAreas.forEach((areaName) => {
         const normalizedAreaName = level === "province"
           ? normalizeAreaKeyWithThai(areaName, level)
           : normalizeAreaKey(areaName, level);
 
-        // Use same color generation as Donut Chart (getProvinceColor)
-        const color = getProvinceColor(areaName);
+        // ถ้าไม่มีข้อมูล (count = 0) ให้เป็นสีเทา
+        const hasData = counts.get(normalizedAreaName) > 0;
+        const color = hasData ? getProvinceColor(areaName) : GRAY_COLOR;
         colorsMap.set(normalizedAreaName, color);
       });
     }
 
     const colorsData = Object.fromEntries(colorsMap);
-    console.log("[OSM Color Data] Level:", level, "| Areas:", Object.keys(colorsData).length, "| colorsData:", colorsData);
     setColorsByAreaData(colorsData); // Update useMapManager state for map colors (triggers updateLayerColors via useEffect)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1750,7 +1709,30 @@ const GisComp = () => {
 
                 {/* Chart Card */}
                 <div ref={chartCardRef} className={styles.chartCard}>
-                  {displayData.length > 0 ? (
+                  {isDataLoading ? (
+                    <>
+                      {/* Skeleton Donut Chart */}
+                      <div className={styles.donutChart}>
+                        <div className={styles.donutContainer} style={{ position: 'relative' }}>
+                          <div className={`${styles.skeleton} ${styles.skeletonDonut}`}></div>
+                          <div className={styles.skeletonDonutCenter}></div>
+                        </div>
+                      </div>
+
+                      {/* Skeleton Province List */}
+                      <div className={styles.provinceList}>
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                          <div key={i} className={styles.skeletonItem}>
+                            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                              <div className={`${styles.skeleton} ${styles.skeletonDot}`}></div>
+                              <div className={`${styles.skeleton} ${styles.skeletonText}`}></div>
+                            </div>
+                            <div className={`${styles.skeleton} ${styles.skeletonValue}`}></div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : displayData.length > 0 ? (
                     <>
                       {/* Donut Chart */}
                       <div className={styles.donutChart}>
@@ -1854,10 +1836,19 @@ const GisComp = () => {
               </div>
 
               <div className={styles.totalSection}>
-                <div className={styles.totalValue}>
-                  {monthlyReportData.total}
-                </div>
-                <div className={styles.totalLabel}>รวมทุกรายการ</div>
+                {isDataLoading ? (
+                  <>
+                    <div className={`${styles.skeleton} ${styles.skeletonTotal}`}></div>
+                    <div className={`${styles.skeleton} ${styles.skeletonLabel}`}></div>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.totalValue}>
+                      {monthlyReportData.total}
+                    </div>
+                    <div className={styles.totalLabel}>รวมทุกรายการ</div>
+                  </>
+                )}
               </div>
 
               <div className={styles.reportItems}>

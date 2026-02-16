@@ -69,8 +69,8 @@ const normalizeAreaName = (value) => {
 };
 
 // Special case mappings for problematic district names (KML filename mismatches)
+// Empty for now - all files have been renamed to match lookup API names
 const KML_NAME_MAPPINGS = {
-  "ป้อมปราบศัตรูพ่าย": "ป้อมปราบศัตรูพ่า",
   // Add more special cases here if needed for other districts/provinces
 };
 
@@ -174,6 +174,7 @@ const getHIColor = (hi) => {
 // HI < 1%: มีความเสี่ยงต่ำ (ปลอดภัย)
 // 1% <= HI < 10%: เฝ้าระวัง
 // HI >= 10%: มีความเสี่ยงสูงที่จะเกิดการแพร่ระบาด
+// undefined: ไม่มีข้อมูล (แสดงสีเทา)
 const calculateHIByArea = (data, getAreaName, availableAreas = [], level = "province") => {
   const reports = getReportsFromWeeklyDetails(data);
   const hiMap = new Map();
@@ -231,15 +232,9 @@ const calculateHIByArea = (data, getAreaName, availableAreas = [], level = "prov
     hiMap.set(areaName, hi);
   });
 
-  // เติมค่า HI = 0 สำหรับพื้นที่ที่ไม่มีข้อมูล (ปลอดภัย - สีเขียว)
-  if (Array.isArray(availableAreas)) {
-    availableAreas.forEach((areaName) => {
-      const normalizedAreaName = normalizeAreaKey(areaName, level);
-      if (!hiMap.has(normalizedAreaName)) {
-        hiMap.set(normalizedAreaName, 0);
-      }
-    });
-  }
+  // ❌ ไม่เติมค่า HI = 0 สำหรับพื้นที่ที่ไม่มีข้อมูล
+  // แต่เติมค่า undefined เพื่อให้แสดงสีเทาแทน
+  // พื้นที่ที่มีข้อมูลจะมีค่า HI จริง, พื้นที่ที่ไม่มีข้อมูลจะเป็น undefined
 
   return Object.fromEntries(hiMap);
 };
@@ -443,6 +438,7 @@ const GisMosquitoComp = () => {
     containersSurveyed: 0,
     containersWithLarvae: 0,
   });
+  const [isDataLoading, setIsDataLoading] = useState(false);
 
   const mosquitoReportData = monthlyReportData;
 
@@ -469,7 +465,7 @@ const GisMosquitoComp = () => {
 
     const hi = hiByArea?.[normalizedKey];
     if (hi === undefined) {
-      return "transparent"; // โปร่งใส - ไม่มีข้อมูล
+      return "#9CA3AF"; // สีเทา - ไม่มีข้อมูล
     }
     if (hi < 1) {
       return "#198754"; // 🟢 เขียวเข้ม - ปลอดภัย (HI < 1%)
@@ -736,11 +732,11 @@ const GisMosquitoComp = () => {
         let filePath = "";
 
         if (level === "province") {
-          filePath = `/split-provinces/${name}.kml`;
+          filePath = `/geojson-provinces/${name}.json`;
         } else if (level === "amphoe") {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
           const amphoeFileName = normalizeAreaFileName(name, "district");
-          filePath = `/split-amphoe/${englishProvinceName}/${amphoeFileName}.kml`;
+          filePath = `/geojson-amphoe/${englishProvinceName}/${amphoeFileName}.json`;
         } else if (level === "tambon") {
           const englishProvinceName = getEnglishProvinceName(selectedProvince);
           const districtFileName = normalizeAreaFileName(
@@ -748,9 +744,9 @@ const GisMosquitoComp = () => {
             "district"
           );
           const tambonFileName = normalizeAreaFileName(name, "subdistrict");
-          filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.kml`;
+          filePath = `/geojson-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.json`;
         } else {
-          filePath = `/split-provinces/${name}.kml`;
+          filePath = `/geojson-provinces/${name}.json`;
         }
 
         const response = await fetch(filePath);
@@ -760,20 +756,11 @@ const GisMosquitoComp = () => {
           );
         }
 
-        const kmlText = await response.text();
-        const parser = new DOMParser();
-        const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-
-        const parserError = kmlDoc.querySelector("parsererror");
-        if (parserError) {
-          throw new Error(`XML parsing error: ${parserError.textContent}`);
-        }
-
-        const toGeoJSON = await import("@mapbox/togeojson");
-        const geoJsonData = toGeoJSON.kml(kmlDoc);
+        // Directly parse JSON (GeoJSON format)
+        const geoJsonData = await response.json();
 
         if (!geoJsonData || !geoJsonData.features) {
-          throw new Error("ไม่พบ features ในไฟล์ KML");
+          throw new Error("ไม่พบ features ในไฟล์ GeoJSON");
         }
 
         const result = await loadAndDisplayKML(geoJsonData, level);
@@ -857,18 +844,14 @@ const GisMosquitoComp = () => {
                 amphoeName,
                 "district"
               );
-              const filePath = `/split-amphoe/${englishProvinceName}/${amphoeFileName}.kml`;
+              const filePath = `/geojson-amphoe/${englishProvinceName}/${amphoeFileName}.json`;
               const response = await fetch(filePath);
               if (!response.ok) {
                 console.warn(`ไม่พบไฟล์: ${filePath}`);
                 return null;
               }
 
-              const kmlText = await response.text();
-              const parser = new DOMParser();
-              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-              const toGeoJSON = await import("@mapbox/togeojson");
-              const geoJsonData = toGeoJSON.kml(kmlDoc);
+              const geoJsonData = await response.json();
 
               if (geoJsonData && geoJsonData.features) {
                 return { amphoeName, geoJsonData };
@@ -974,16 +957,11 @@ const GisMosquitoComp = () => {
                 tambonName,
                 "subdistrict"
               );
-              const filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.kml`;
+              const filePath = `/geojson-tambon/${englishProvinceName}/${districtFileName}/${tambonFileName}.json`;
               const response = await fetch(filePath);
               if (!response.ok) return null;
 
-              const kmlText = await response.text();
-              const parser = new DOMParser();
-              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-
-              const tj = await import("@mapbox/togeojson");
-              const geoJsonData = tj.kml(kmlDoc);
+              const geoJsonData = await response.json();
 
               return { tambonName, geoJsonData };
             } catch (error) {
@@ -1068,16 +1046,11 @@ const GisMosquitoComp = () => {
           selectedSubdistrict,
           "subdistrict"
         );
-        const filePath = `/split-tambon/${englishProvinceName}/${districtFileName}/${subdistrictFileName}.kml`;
+        const filePath = `/geojson-tambon/${englishProvinceName}/${districtFileName}/${subdistrictFileName}.json`;
         const response = await fetch(filePath);
 
         if (response.ok) {
-          const kmlText = await response.text();
-          const parser = new DOMParser();
-          const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-
-          const tj = await import("@mapbox/togeojson");
-          const geoJsonData = tj.kml(kmlDoc);
+          const geoJsonData = await response.json();
 
           const featuresWithName = geoJsonData.features.map((feature) => ({
             ...feature,
@@ -1443,72 +1416,30 @@ const GisMosquitoComp = () => {
     if (selectedHealthRegion || selectedProvince || selectedDistrict || selectedSubdistrict) return;
 
     let mounted = true;
-    const BATCH_SIZE = 20; // Load 20 provinces at a time
 
     const loadAllProvinces = async () => {
       try {
         setIsLoading(true);
         clearAllLayers();
 
-        updateStatus(`กำลังโหลดแผนที่ประเทศไทย (${availableProvinces.length} จังหวัด)...`, "info");
+        updateStatus(`กำลังโหลดแผนที่ประเทศไทย...`, "info");
 
-        const allFeatures = [];
-        let loadedCount = 0;
-
-        // Load provinces in batches
-        for (let i = 0; i < availableProvinces.length; i += BATCH_SIZE) {
-          if (!mounted) break;
-
-          const batch = availableProvinces.slice(i, i + BATCH_SIZE);
-
-          const loadPromises = batch.map(async (provinceName) => {
-            try {
-              const filePath = `/split-provinces/${provinceName}.kml`;
-              const response = await fetch(filePath);
-              if (!response.ok) {
-                console.warn(`ไม่พบไฟล์: ${filePath}`);
-                return null;
-              }
-
-              const kmlText = await response.text();
-              const parser = new DOMParser();
-              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-              const toGeoJSON = await import("@mapbox/togeojson");
-              const geoJsonData = toGeoJSON.kml(kmlDoc);
-
-              if (geoJsonData && geoJsonData.features) {
-                return geoJsonData.features;
-              }
-              return null;
-            } catch (error) {
-              console.error(`Error loading ${provinceName}:`, error);
-              return null;
-            }
-          });
-
-          const results = await Promise.all(loadPromises);
-          const batchFeatures = results.filter((f) => f !== null).flat();
-
-          allFeatures.push(...batchFeatures);
-          loadedCount += batch.length;
-
-          // Update progress
-          updateStatus(
-            `กำลังโหลดแผนที่: ${loadedCount}/${availableProvinces.length} จังหวัด...`,
-            "info"
-          );
+        // Load combined GeoJSON file (single request instead of 77)
+        const response = await fetch('/geojson-thailand-provinces.json');
+        if (!response.ok) {
+          throw new Error('Failed to load map data');
         }
 
-        // Load all features ONCE after all batches are complete (no overlapping)
-        if (mounted && allFeatures.length > 0) {
-          const combinedGeoJSON = {
-            type: "FeatureCollection",
-            features: allFeatures,
-          };
-          await loadAndDisplayKML(combinedGeoJSON, "province");
+        const geoJsonData = await response.json();
+
+        if (!mounted) return;
+
+        // Render map
+        if (geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
+          await loadAndDisplayKML(geoJsonData, "province");
 
           updateStatus(
-            `โหลดแผนที่ประเทศไทยสำเร็จ: ${availableProvinces.length} จังหวัด, ${allFeatures.length} features`,
+            `โหลดแผนที่ประเทศไทยสำเร็จ: ${geoJsonData.features.length} จังหวัด`,
             "success"
           );
         }
@@ -1540,72 +1471,47 @@ const GisMosquitoComp = () => {
     if (selectedProvince || selectedDistrict || selectedSubdistrict) return;
 
     let mounted = true;
-    const BATCH_SIZE = 20;
 
     const loadProvincesInRegion = async () => {
       try {
         setIsLoading(true);
         clearAllLayers();
 
-        updateStatus(`กำลังโหลดแผนที่${selectedHealthRegion} (${availableProvincesInRegion.length} จังหวัด)...`, "info");
+        updateStatus(`กำลังโหลดแผนที่${selectedHealthRegion}...`, "info");
 
-        const allFeatures = [];
-        let loadedCount = 0;
-
-        // Load provinces in batches
-        for (let i = 0; i < availableProvincesInRegion.length; i += BATCH_SIZE) {
-          if (!mounted) break;
-
-          const batch = availableProvincesInRegion.slice(i, i + BATCH_SIZE);
-
-          const loadPromises = batch.map(async (provinceName) => {
-            try {
-              const filePath = `/split-provinces/${provinceName}.kml`;
-              const response = await fetch(filePath);
-              if (!response.ok) {
-                console.warn(`ไม่พบไฟล์: ${filePath}`);
-                return null;
-              }
-
-              const kmlText = await response.text();
-              const parser = new DOMParser();
-              const kmlDoc = parser.parseFromString(kmlText, "text/xml");
-              const toGeoJSON = await import("@mapbox/togeojson");
-              const geoJsonData = toGeoJSON.kml(kmlDoc);
-
-              if (geoJsonData && geoJsonData.features) {
-                return geoJsonData.features;
-              }
-              return null;
-            } catch (error) {
-              console.error(`Error loading ${provinceName}:`, error);
-              return null;
-            }
-          });
-
-          const results = await Promise.all(loadPromises);
-          const batchFeatures = results.filter((f) => f !== null).flat();
-
-          allFeatures.push(...batchFeatures);
-          loadedCount += batch.length;
-
-          // Update progress
-          updateStatus(
-            `กำลังโหลดแผนที่: ${loadedCount}/${availableProvincesInRegion.length} จังหวัด...`,
-            "info"
-          );
+        // Load combined GeoJSON file and filter by province names
+        const response = await fetch('/geojson-thailand-provinces.json');
+        if (!response.ok) {
+          throw new Error('Failed to load map data');
         }
 
-        // Load all features ONCE after all batches are complete (no overlapping)
-        if (mounted && allFeatures.length > 0) {
-          const combinedGeoJSON = {
+        const geoJsonData = await response.json();
+
+        if (!mounted) return;
+
+        // Filter features to only include provinces in the selected health region
+        const regionProvinceSet = new Set(
+          availableProvincesInRegion.map(name => normalizeAreaKey(name, "province"))
+        );
+
+        const filteredFeatures = geoJsonData.features.filter(feature => {
+          const provinceName = feature.properties?.province_name ||
+                               feature.properties?.name ||
+                               feature.properties?.PROV_NAMT ||
+                               feature.properties?.PROVINCE;
+          if (!provinceName) return false;
+          return regionProvinceSet.has(normalizeAreaKey(provinceName, "province"));
+        });
+
+        if (filteredFeatures.length > 0) {
+          const filteredGeoJSON = {
             type: "FeatureCollection",
-            features: allFeatures,
+            features: filteredFeatures,
           };
-          await loadAndDisplayKML(combinedGeoJSON, "province");
+          await loadAndDisplayKML(filteredGeoJSON, "province");
 
           updateStatus(
-            `โหลดแผนที่${selectedHealthRegion}สำเร็จ: ${availableProvincesInRegion.length} จังหวัด, ${allFeatures.length} features`,
+            `โหลดแผนที่${selectedHealthRegion}สำเร็จ: ${filteredFeatures.length} จังหวัด`,
             "success"
           );
 
@@ -1670,6 +1576,7 @@ const GisMosquitoComp = () => {
 
     const fetchWeeklyDetails = async () => {
       try {
+        setIsDataLoading(true);
         // ดึงข้อมูลทั้งหมด (ส่ง 0 เพื่อไม่ให้ server filter)
         const { data } = await reportsAnalyticsService.getWeeklyMosquitoDetails({
           year: "0",
@@ -1720,6 +1627,8 @@ const GisMosquitoComp = () => {
         if (error?.name === "AbortError") {
           return;
         }
+      } finally {
+        setIsDataLoading(false);
       }
     };
 
@@ -1992,7 +1901,30 @@ const GisMosquitoComp = () => {
 
                 {/* Chart Card */}
                 <div ref={chartCardRef} className={styles.chartCard}>
-                  {displayData.length > 0 ? (
+                  {isDataLoading ? (
+                    <>
+                      {/* Skeleton Donut Chart */}
+                      <div className={styles.donutChart}>
+                        <div className={styles.donutContainer} style={{ position: 'relative' }}>
+                          <div className={`${styles.skeleton} ${styles.skeletonDonut}`}></div>
+                          <div className={styles.skeletonDonutCenter}></div>
+                        </div>
+                      </div>
+
+                      {/* Skeleton Province List */}
+                      <div className={styles.provinceList}>
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                          <div key={i} className={styles.skeletonItem}>
+                            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                              <div className={`${styles.skeleton} ${styles.skeletonDot}`}></div>
+                              <div className={`${styles.skeleton} ${styles.skeletonText}`}></div>
+                            </div>
+                            <div className={`${styles.skeleton} ${styles.skeletonValue}`}></div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : displayData.length > 0 ? (
                     <>
                       {/* Donut Chart */}
                       <div className={styles.donutChart}>
@@ -2097,10 +2029,19 @@ const GisMosquitoComp = () => {
                 </div>
 
                 <div className={styles.totalSection}>
-                  <div className={styles.totalValue}>
-                    {mosquitoReportData.total}
-                  </div>
-                  <div className={styles.totalLabel}>รวมทุกรายการ</div>
+                  {isDataLoading ? (
+                    <>
+                      <div className={`${styles.skeleton} ${styles.skeletonTotal}`}></div>
+                      <div className={`${styles.skeleton} ${styles.skeletonLabel}`}></div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={styles.totalValue}>
+                        {mosquitoReportData.total}
+                      </div>
+                      <div className={styles.totalLabel}>รวมทุกรายการ</div>
+                    </>
+                  )}
                 </div>
 
                 {/* HI/CI Section */}

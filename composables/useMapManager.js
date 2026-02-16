@@ -149,8 +149,11 @@ export const useMapManager = () => {
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }, []);
 
-  // ฟังก์ชันสร้างสีจากค่า HI (3 สี)
+  // ฟังก์ชันสร้างสีจากค่า HI (3 สี + สีเทาสำหรับไม่มีข้อมูล)
   const getHIColor = useCallback((hi) => {
+    if (hi === undefined || hi === null) {
+      return "#9CA3AF"; // สีเทา - ไม่มีข้อมูล
+    }
     if (hi < 1) {
       return "#198754"; // 🟢 เขียวเข้ม - ปลอดภัย (HI < 1%)
     } else if (hi < 10) {
@@ -162,8 +165,8 @@ export const useMapManager = () => {
 
   // Mapping table for KML filename -> display name mismatches
   // Some KML files use shortened names while lookup API returns full names
+  // Empty for now - all files have been renamed to match lookup API names
   const KML_NAME_MAPPINGS = {
-    "ป้อมปราบศัตรูพ่าย": "ป้อมปราบศัตรูพ่า",
     // Add more mappings as needed for other districts/provinces
   };
 
@@ -257,12 +260,12 @@ export const useMapManager = () => {
         if (hi !== undefined) {
           return getHIColor(hi);
         }
-        // ถ้าไม่มีข้อมูล HI สำหรับพื้นที่นี้ ให้โปร่งใส
-        return "transparent";
+        // ถ้าไม่มีข้อมูล HI สำหรับพื้นที่นี้ ให้เป็นสีเทา
+        return "#9CA3AF";
       }
 
-      // ถ้าไม่มีข้อมูลทั้ง HI และ color ให้โปร่งใส
-      return "transparent";
+      // ถ้าไม่มีข้อมูลทั้ง HI และ color ให้เป็นสีเทา
+      return "#9CA3AF";
     },
     [findPropertyValue, getHIColor, hiByArea, colorsByArea, normalizeAreaNameForMatch]
   );
@@ -284,10 +287,10 @@ export const useMapManager = () => {
         };
       }
 
-      // "transparent" หมายถึง HI mode ที่ไม่มีข้อมูล -> ใช้สีเขียว (ปลอดภัย HI < 1%)
+      // "transparent" หมายถึง HI mode ที่ไม่มีข้อมูล -> ใช้สีเทา (ไม่มีข้อมูล)
       const isNoData = color === "transparent";
-      const actualColor = isNoData ? "#198754" : color; // สีเขียว = ปลอดภัย
-      const actualFillColor = isNoData ? "#198754" : color;
+      const actualColor = isNoData ? "#9CA3AF" : color; // สีเทา = ไม่มีข้อมูล
+      const actualFillColor = isNoData ? "#9CA3AF" : color;
 
       const baseStyle = {
         color: actualColor,
@@ -473,7 +476,7 @@ export const useMapManager = () => {
           }
 
           const isNoData = color === "transparent";
-          const actualColor = isNoData ? "#198754" : color;
+          const actualColor = isNoData ? "#9CA3AF" : color; // สีเทา = ไม่มีข้อมูล
 
           const originalStyle = {
             color: actualColor,
@@ -704,7 +707,7 @@ export const useMapManager = () => {
             }
 
             const isNoData = color === "transparent";
-            const actualColor = isNoData ? "#198754" : color;
+            const actualColor = isNoData ? "#9CA3AF" : color; // สีเทา = ไม่มีข้อมูล
 
             const newStyle = {
               color: actualColor,

@@ -696,6 +696,77 @@
   border-left: 4px solid #6e28b7;
 }
 
+/* Skeleton Loading Styles */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeletonDonut {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+}
+
+.skeletonDonutCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  background: white;
+  border-radius: 50%;
+}
+
+.skeletonItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.skeletonDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.skeletonText {
+  height: 14px;
+  flex: 1;
+  margin-left: 8px;
+}
+
+.skeletonValue {
+  width: 30px;
+  height: 14px;
+}
+
+.skeletonTotal {
+  width: 80px;
+  height: 36px;
+  margin: 0 auto 5px;
+}
+
+.skeletonLabel {
+  width: 100px;
+  height: 14px;
+  margin: 0 auto;
+}
+
 /* Medium screen - ensure scroll works */
 @media (max-height: 800px) {
   .rightPanel {
