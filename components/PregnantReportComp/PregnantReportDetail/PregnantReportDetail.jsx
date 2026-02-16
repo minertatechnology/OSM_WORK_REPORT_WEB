@@ -71,8 +71,8 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
           null,
           "หญิงหลังคลอด",
           null,
-          "รับยา",
-          "จำนวนวันใน 1 สัปดาห์ที่ทานยา",
+          "การได้รับยา",
+          "วันที่ได้รับยา",
           "สาเหตุ"
         ],
         // Row 2: Sub headers
@@ -148,7 +148,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
           { min: 90, max: 130 },   // 4: หญิงตั้งครรภ์ 25+
           { min: 80, max: 120 },   // 5: หลังคลอด 0-12
           { min: 80, max: 120 },   // 6: หลังคลอด 13-24
-          { min: 70, max: 100 },   // 7: รับยา
+          { min: 90, max: 130 },   // 7: การได้รับยา
           { min: 100, max: 150 },  // 8: จำนวนวัน
           { min: 150, max: 350 },  // 9: สาเหตุ
         ];
@@ -317,7 +317,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       // Table settings
       const rowHeight = 12;
       const headerHeight = 11;
-      const colWidths = [7, 22, 13, 13, 13, 13, 13, 14, 20, 36];
+      const colWidths = [7, 22, 13, 13, 13, 13, 13, 18, 20, 36];
       const tableWidth = colWidths.reduce((sum, w) => sum + w, 0);
       const startX = (210 - tableWidth) / 2;
 
@@ -363,19 +363,13 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         doc.rect(currentX + pregnantWidth, currentY, postpartumWidth, headerHeight);
         doc.text("หญิงหลังคลอด", currentX + pregnantWidth + postpartumWidth / 2, currentY + 5.5, { align: "center" });
 
-        // รับยา (rowSpan 2)
+        // การได้รับยา (rowSpan 2)
         doc.rect(currentX + pregnantWidth + postpartumWidth, currentY, colWidths[7], headerHeight * 2);
-        doc.text("รับยา", currentX + pregnantWidth + postpartumWidth + colWidths[7] / 2, currentY + headerHeight, { align: "center" });
+        doc.text("การได้รับยา", currentX + pregnantWidth + postpartumWidth + colWidths[7] / 2, currentY + headerHeight, { align: "center" });
 
-        // จำนวนวันฯ (rowSpan 2)
+        // วันที่ได้รับยา (rowSpan 2)
         doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[7], currentY, colWidths[8], headerHeight * 2);
-        const daysText = "จำนวนวันใน\n1 สัปดาห์\nที่ทานยา";
-        const daysLines = daysText.split('\n');
-        doc.setFontSize(6.5);
-        doc.text(daysLines[0], currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8] / 2, currentY + headerHeight - 3, { align: "center" });
-        doc.text(daysLines[1], currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8] / 2, currentY + headerHeight, { align: "center" });
-        doc.text(daysLines[2], currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8] / 2, currentY + headerHeight + 3, { align: "center" });
-        doc.setFontSize(11);
+        doc.text("วันที่ได้รับยา", currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8] / 2, currentY + headerHeight, { align: "center" });
 
         // สาเหตุ (rowSpan 2)
         doc.rect(currentX + pregnantWidth + postpartumWidth + colWidths[7] + colWidths[8], currentY, colWidths[9], headerHeight * 2);
@@ -632,16 +626,16 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
                   <th
                     rowSpan={2}
                     className="border border-black py-4 px-4 font-bold text-center text-[#231d37] text-base"
-                    style={{ width: "100px" }}
+                    style={{ width: "130px" }}
                   >
-                    รับยา
+                    การได้รับยา
                   </th>
                   <th
                     rowSpan={2}
                     className="border border-black py-4 px-4 font-bold text-center text-[#231d37] text-base"
                     style={{ width: "120px" }}
                   >
-                    จำนวนวันใน 1 สัปดาห์ที่ทานยา
+                    วันที่ได้รับยา
                   </th>
                   <th
                     rowSpan={2}
