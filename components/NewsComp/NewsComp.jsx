@@ -337,10 +337,12 @@ const NewsCompContent = () => {
   const loadNotifications = async () => {
     setLoading(true);
     try {
+      // กรองจาก Backend โดยตรง (type: "info")
       const response = await fetchNotifications({
         skip: 0,
         limit: 1000,
-        is_active: true, // ดึงเฉพาะที่ active
+        is_active: true,
+        type: "info", // กรองจาก Backend เลย ไม่ต้องกรอง client-side
       });
 
       console.log("API Response:", response);
@@ -352,11 +354,8 @@ const NewsCompContent = () => {
 
       console.log("Transformed notifications:", notifications);
 
-      // กรองเฉพาะ type: "info"
-      const infoOnlyNotifications = notifications.filter(n => n.type === "info");
-
-      setRawNewsList(infoOnlyNotifications);
-      setFilteredNews(infoOnlyNotifications);
+      setRawNewsList(notifications);
+      setFilteredNews(notifications);
     } catch (error) {
       console.error("Failed to load notifications:", error);
       showToast("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง", "error");
@@ -507,60 +506,82 @@ const NewsCompContent = () => {
     setFilteredNews(rawNewsList);
   };
 
-  // Handle search submit
-  const handleSearch = (e) => {
+  // Handle search submit - ยิง API กรองที่ Backend
+  const handleSearch = async (e) => {
     e.preventDefault();
-    let filtered = rawNewsList;
-
-    // กรองตามวันที่ (แปลงจาก date string)
-    if (year || month || week) {
-      filtered = filtered.filter((n) => {
-        const dateStr = n.date || "";
-
-        // แปลงวันที่ไทยเป็น Date object
-        const parsedDate = parseThaiDate(dateStr);
-        if (!parsedDate) return false;
-
-        // เช็คปี
-        if (year) {
-          const yearNum = parseInt(year);
-          const matchesYear = yearType === "fiscal"
-            ? isInFiscalYear(parsedDate, yearNum)
-            : isInCalendarYear(parsedDate, yearNum);
-          if (!matchesYear) return false;
-        }
-
-        // เช็คเดือน
-        if (month) {
-          const targetMonth = parseInt(month);
-          if (parsedDate.getMonth() + 1 !== targetMonth) return false;
-        }
-
-        // สัปดาห์ - ต้องแปลงวันที่เป็นตัวเลข
-        if (week) {
-          const match = dateStr.match(/^(\d+)/);
-          if (match) {
-            const day = parseInt(match[1]);
-            const weekNum = parseInt(week.match(/\d+/)[0]);
-
-            const weekRanges = {
-              1: [1, 7],
-              2: [8, 14],
-              3: [15, 21],
-              4: [22, 28],
-              5: [29, 31],
-            };
-
-            const range = weekRanges[weekNum];
-            if (range && (day < range[0] || day > range[1])) return false;
-          }
-        }
-
-        return true;
+    setLoading(true);
+    try {
+      // ยิง API พร้อม params กรองที่ Backend
+      const response = await fetchNotifications({
+        skip: 0,
+        limit: 1000,
+        is_active: true,
+        type: "info",
+        // ส่ง location params ไปกรองที่ Backend
+        health_zone_id: zone || null,
+        province_id: province || null,
+        district_id: district || null,
+        subdistrict_id: subdistrict || null,
+        service_unit_id: service || null,
       });
-    }
 
-    setFilteredNews(filtered);
+      let notifications = transformNotificationData(response.notifications || []);
+
+      // กรองตามวันที่ที่ client-side (Backend ยังไม่รองรับ)
+      if (year || month || week) {
+        notifications = notifications.filter((n) => {
+          const dateStr = n.date || "";
+
+          // แปลงวันที่ไทยเป็น Date object
+          const parsedDate = parseThaiDate(dateStr);
+          if (!parsedDate) return false;
+
+          // เช็คปี
+          if (year) {
+            const yearNum = parseInt(year);
+            const matchesYear = yearType === "fiscal"
+              ? isInFiscalYear(parsedDate, yearNum)
+              : isInCalendarYear(parsedDate, yearNum);
+            if (!matchesYear) return false;
+          }
+
+          // เช็คเดือน
+          if (month) {
+            const targetMonth = parseInt(month);
+            if (parsedDate.getMonth() + 1 !== targetMonth) return false;
+          }
+
+          // สัปดาห์ - ต้องแปลงวันที่เป็นตัวเลข
+          if (week) {
+            const match = dateStr.match(/^(\d+)/);
+            if (match) {
+              const day = parseInt(match[1]);
+              const weekNum = parseInt(week.match(/\d+/)[0]);
+
+              const weekRanges = {
+                1: [1, 7],
+                2: [8, 14],
+                3: [15, 21],
+                4: [22, 28],
+                5: [29, 31],
+              };
+
+              const range = weekRanges[weekNum];
+              if (range && (day < range[0] || day > range[1])) return false;
+            }
+          }
+
+          return true;
+        });
+      }
+
+      setFilteredNews(notifications);
+    } catch (error) {
+      console.error("Failed to search notifications:", error);
+      showToast("ไม่สามารถค้นหาข้อมูลได้ กรุณาลองใหม่อีกครั้ง", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Stats data

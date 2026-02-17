@@ -16,6 +16,11 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL;
  * @param {boolean} params.is_active - Filter by active status
  * @param {string} params.type - Filter by type (info, warning, alert, success, system)
  * @param {string} params.target_level - Filter by target level
+ * @param {string} params.health_zone_id - Filter by health zone
+ * @param {string} params.province_id - Filter by province
+ * @param {string} params.district_id - Filter by district
+ * @param {string} params.subdistrict_id - Filter by subdistrict
+ * @param {string} params.service_unit_id - Filter by service unit
  * @returns {Promise<Object>} { total, notifications }
  */
 export const fetchNotifications = async ({
@@ -24,6 +29,11 @@ export const fetchNotifications = async ({
   is_active = null,
   type = null,
   target_level = null,
+  health_zone_id = null,
+  province_id = null,
+  district_id = null,
+  subdistrict_id = null,
+  service_unit_id = null,
 } = {}) => {
   try {
     const token = getAccessToken();
@@ -37,6 +47,11 @@ export const fetchNotifications = async ({
     if (is_active !== null) params.is_active = is_active;
     if (type) params.type = type;
     if (target_level) params.target_level = target_level;
+    if (health_zone_id) params.health_zone_id = health_zone_id;
+    if (province_id) params.province_id = province_id;
+    if (district_id) params.district_id = district_id;
+    if (subdistrict_id) params.subdistrict_id = subdistrict_id;
+    if (service_unit_id) params.service_unit_id = service_unit_id;
 
     const response = await axios.get(`${API_BASE_URL}/notifications`, {
       params,
