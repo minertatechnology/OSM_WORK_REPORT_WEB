@@ -383,7 +383,7 @@ export default function NewsAddPopup({
     subdistrict === "all" ||
     (isSobos && isHealthZoneNotSelected);
 
-  const isDisableTitle = forceDisableAll || (isSobos && isHealthZoneNotSelected);
+  const isDisableTitle = (isSobos && isHealthZoneNotSelected);
 
   // เมื่อเป็นโหมด detail ทุกช่อง disabled
   const allDisabled = mode === "detail";
@@ -393,14 +393,14 @@ export default function NewsAddPopup({
   const isRequiredAmphur = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
   const isRequiredSubdistrict = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
   const isRequiredServiceUnit = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
-  const isRequiredTitle = !forceDisableAll && !(isSobos && isHealthZoneNotSelected) && !allDisabled;
+  const isRequiredTitle = !(isSobos && isHealthZoneNotSelected) && !allDisabled;
 
   // error สีแดง (เฉพาะโหมดเพิ่ม)
   const errorProvince = !allDisabled && validate && (!province || province === "");
   const errorAmphur = !allDisabled && validate && (!amphur || amphur === "");
   const errorSubdistrict = !allDisabled && validate && (!subdistrict || subdistrict === "");
   const errorServiceUnit = !allDisabled && validate && (!serviceUnit || serviceUnit === "");
-  const errorTitle = !allDisabled && validate && (!title || title === "");
+  const errorTitle = !allDisabled && validate && isRequiredTitle && (!title || title === "");
 
   // สี label
   function labelColor(val, disabled, error) {
