@@ -67,30 +67,6 @@ export const loginUser = async ({ username, password, client_id, user_type, scop
 };
 
 /**
- * เปลี่ยนรหัสผ่าน
- */
-export const changePassword = async ({ old_password, new_password }) => {
-  try {
-    const token = Cookies.get("token");
-    const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/change-password`,
-      {
-        old_password,
-        new_password,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-/**
  * ดึงข้อมูลผู้ใช้จาก /auth/me
  */
 export const fetchUserInfo = async () => {

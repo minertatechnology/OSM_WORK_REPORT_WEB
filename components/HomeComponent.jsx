@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Eye, EyeOff, Lock, User2, X } from "lucide-react";
-import Cookies from "js-cookie";
 import alertService from "@services/alertService/alertService";
-import { loginUser, fetchUserInfo, changePassword } from "@pages/api/login/login";
+import { loginUser, fetchUserInfo } from "@pages/api/login/login";
 // Thai ID Modal
 function ThaiIdModal({ open, onClose }) {
   if (!open) return null;
@@ -49,188 +48,6 @@ function ThaiIdModal({ open, onClose }) {
   );
 }
 
-// Change Password Modal
-function ChangePasswordModal({ open, onClose, onSuccess }) {
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showOldPassword, setShowOldPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-
-  const validate = () => {
-    const err = {};
-    if (!oldPassword.trim()) err.oldPassword = "กรุณากรอกรหัสผ่านที่ผู้ดูแลระบบให้";
-    if (!newPassword.trim()) err.newPassword = "กรุณากรอกรหัสผ่านใหม่";
-    else if (newPassword.length < 8) err.newPassword = "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร";
-    if (!confirmPassword.trim()) err.confirmPassword = "กรุณายืนยันรหัสผ่านใหม่";
-    else if (newPassword !== confirmPassword) err.confirmPassword = "รหัสผ่านไม่ตรงกัน";
-    setErrors(err);
-    return Object.keys(err).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) return;
-
-    setLoading(true);
-    try {
-      await changePassword({
-        old_password: oldPassword,
-        new_password: newPassword,
-      });
-      onSuccess();
-    } catch (err) {
-      const message = err.response?.data?.message || err.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ";
-      alertService.error("ข้อผิดพลาด", message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-2 py-8">
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 rounded-full p-1 outline-none focus:ring-2 focus:ring-[#7e32e2]"
-          aria-label="ปิด"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        <div className="mb-4">
-          <div className="font-bold text-lg text-[#7e32e2] text-center">
-            เปลี่ยนรหัสผ่าน
-          </div>
-          <div className="text-gray-500 text-sm text-center mt-1">
-            กรุณาเปลี่ยนรหัสผ่านก่อนเข้าใช้งานระบบ
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Old Password */}
-          <div>
-            <label className="block font-semibold text-gray-700 mb-1 text-sm">
-              รหัสผ่านที่ผู้ดูแลระบบให้
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                <Lock className="w-5 h-5" />
-              </span>
-              <input
-                type={showOldPassword ? "text" : "password"}
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                className={`w-full rounded-md h-10 pl-10 pr-10 border ${
-                  errors.oldPassword
-                    ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-300"
-                    : "border-gray-300 focus:border-[#7e32e2] focus:ring-2 focus:ring-[#7e32e2]/20"
-                } outline-none transition text-sm`}
-                placeholder="ระบุรหัสผ่านที่ผู้ดูแลระบบให้"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowOldPassword(!showOldPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-[#7e32e2]"
-                tabIndex={-1}
-              >
-                {showOldPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {errors.oldPassword && (
-              <p className="text-xs text-red-600 mt-1">{errors.oldPassword}</p>
-            )}
-          </div>
-
-          {/* New Password */}
-          <div>
-            <label className="block font-semibold text-gray-700 mb-1 text-sm">
-              รหัสผ่านใหม่
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                <Lock className="w-5 h-5" />
-              </span>
-              <input
-                type={showNewPassword ? "text" : "password"}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className={`w-full rounded-md h-10 pl-10 pr-10 border ${
-                  errors.newPassword
-                    ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-300"
-                    : "border-gray-300 focus:border-[#7e32e2] focus:ring-2 focus:ring-[#7e32e2]/20"
-                } outline-none transition text-sm`}
-                placeholder="ระบุรหัสผ่านใหม่"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-[#7e32e2]"
-                tabIndex={-1}
-              >
-                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {errors.newPassword && (
-              <p className="text-xs text-red-600 mt-1">{errors.newPassword}</p>
-            )}
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label className="block font-semibold text-gray-700 mb-1 text-sm">
-              ยืนยันรหัสผ่านใหม่
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                <Lock className="w-5 h-5" />
-              </span>
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className={`w-full rounded-md h-10 pl-10 pr-10 border ${
-                  errors.confirmPassword
-                    ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-300"
-                    : "border-gray-300 focus:border-[#7e32e2] focus:ring-2 focus:ring-[#7e32e2]/20"
-                } outline-none transition text-sm`}
-                placeholder="ยืนยันรหัสผ่านใหม่"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-[#7e32e2]"
-                tabIndex={-1}
-              >
-                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {errors.confirmPassword && (
-              <p className="text-xs text-red-600 mt-1">{errors.confirmPassword}</p>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-10 rounded-md bg-[#7e32e2] hover:bg-[#6d37b7] transition text-white font-semibold shadow-md disabled:opacity-60"
-          >
-            {loading ? "กำลังบันทึก..." : "บันทึกรหัสผ่านใหม่"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
@@ -239,8 +56,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ username: "", password: "" });
   const [showThaiId, setShowThaiId] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [pendingUserInfo, setPendingUserInfo] = useState(null);
   // Always use "officer" user type - no need for state
   const userType = "officer";
 
@@ -249,16 +64,6 @@ export default function LoginPage() {
     setUsername("1189900323155");
     setPassword("password");
     // userType is already set to "officer" by default, no need to set it
-  }
-
-  function handleDevAutoFillProvince() {
-    setUsername("1999999999993");
-    setPassword("password1");
-  }
-
-  function handleDevAutoFillHospital() {
-    setUsername("3281947193712");
-    setPassword("qZTCo3uIuX4q");
   }
 
   function validate() {
@@ -280,22 +85,13 @@ export default function LoginPage() {
       alertService.loading("กำลังเข้าสู่ระบบ...", "กรุณารอสักครู่");
 
       // เรียก API login จริงที่ https://thaiphc2dev.minertatech.com/api/v1/auth/login/json
-      const loginResponse = await loginUser({
+      await loginUser({
         username,
         password,
         client_id: process.env.NEXT_PUBLIC_CLIENT_ID || "1fb6e163-f9d7-4bc5-8729-f6b97ee89983",
         user_type: userType,
         scope: ["openid", "profile"],
       });
-
-      // ตรวจสอบว่าต้องเปลี่ยนรหัสผ่านหรือไม่
-      if (loginResponse?.needs_password_change) {
-        alertService.closeLoading();
-        setLoading(false);
-        setPendingUserInfo({ username, remember });
-        setShowChangePassword(true);
-        return;
-      }
 
       // ดึงข้อมูล user จาก /auth/me
       const userInfo = await fetchUserInfo();
@@ -338,27 +134,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  // Handle successful password change
-  async function handlePasswordChangeSuccess() {
-    setShowChangePassword(false);
-
-    // แสดง alert และรอให้ผู้ใช้กดตกลง
-    await alertService.success(
-      "เปลี่ยนรหัสผ่านสำเร็จ",
-      "กรุณาเข้าสู่ระบบอีกครั้งด้วยรหัสผ่านใหม่"
-    );
-
-    // Clear token and redirect to login
-    Cookies.remove("token");
-    Cookies.remove("refresh_token");
-    sessionStorage.clear();
-    localStorage.removeItem("user_info");
-
-    // Reset state and stay on login page
-    setPendingUserInfo(null);
-    setPassword("");
   }
 
   return (
@@ -548,32 +323,14 @@ export default function LoginPage() {
               </button>
               {/* DEV: Auto Fill Button */}
               {process.env.NEXT_PUBLIC_ENV_MODE === 'development' && (
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleDevAutoFill}
-                    className="w-full h-9 rounded-md border-2 border-dashed border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400 disabled:opacity-60"
-                  >
-                    🔧 DEV: Auto Fill (เจ้าหน้าที่)
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleDevAutoFillProvince}
-                    className="w-full h-9 rounded-md border-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 disabled:opacity-60"
-                  >
-                    🏢 DEV: Auto Fill (จังหวัด กรุง)
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleDevAutoFillHospital}
-                    className="w-full h-9 rounded-md border-2 border-dashed border-green-400 bg-green-50 text-green-700 hover:bg-green-100 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 disabled:opacity-60"
-                  >
-                    🏥 DEV: Auto Fill (รพ.สต.)
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleDevAutoFill}
+                  className="w-full h-9 rounded-md border-2 border-dashed border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400 disabled:opacity-60"
+                >
+                  🔧 DEV: Auto Fill (เจ้าหน้าที่)
+                </button>
               )}
             </div>
           </form>
@@ -591,12 +348,6 @@ export default function LoginPage() {
       </div>
       {/* Thai ID Modal */}
       <ThaiIdModal open={showThaiId} onClose={() => setShowThaiId(false)} />
-      {/* Change Password Modal */}
-      <ChangePasswordModal
-        open={showChangePassword}
-        onClose={() => setShowChangePassword(false)}
-        onSuccess={handlePasswordChangeSuccess}
-      />
     </div>
   );
 }
