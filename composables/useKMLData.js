@@ -11,13 +11,13 @@ export const useKMLData = () => {
   const [currentLevel, setCurrentLevel] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Configuration สำหรับไฟล์ที่แยกแล้ว
+  // Configuration สำหรับไฟล์ที่แยกแล้ว (GeoJSON format)
   const dataConfig = {
     folderPaths: {
-      province: "/split-provinces/",
-      amphoe: "/split-amphoe/",
-      tambon: "/split-tambon/",
-      amphoeByProvince: "/split-amphoe/",
+      province: "/geojson-provinces/",
+      amphoe: "/geojson-amphoe/",
+      tambon: "/geojson-tambon/",
+      amphoeByProvince: "/geojson-amphoe/",
     },
     propertyMappings: {
       amphoe: {
@@ -165,7 +165,7 @@ export const useKMLData = () => {
         const englishProvinceName = getEnglishProvinceName(provinceName);
         // ดึงชื่อไฟล์อำเภอจาก API
         const response = await fetch(
-          `/api/list-files?dir=split-amphoe/${englishProvinceName}`
+          `/api/list-files?dir=geojson-amphoe/${englishProvinceName}`
         );
         if (!response.ok) throw new Error("ไม่สามารถอ่านรายชื่ออำเภอได้");
         const files = await response.json();
@@ -197,7 +197,7 @@ export const useKMLData = () => {
       try {
         const englishProvinceName = getEnglishProvinceName(provinceName);
         const response = await fetch(
-          `/api/list-files?dir=split-tambon/${englishProvinceName}/${amphoeName}`
+          `/api/list-files?dir=geojson-tambon/${englishProvinceName}/${amphoeName}`
         );
         if (!response.ok) throw new Error("ไม่สามารถอ่านรายชื่อตำบลได้");
         const files = await response.json();

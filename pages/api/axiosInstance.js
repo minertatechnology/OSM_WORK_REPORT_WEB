@@ -38,7 +38,7 @@ const decodeBase64Url = (input) => {
     if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
       console.warn(
         "[axiosInstance] Failed to decode base64 token payload",
-        error
+        error,
       );
     }
   }
@@ -94,7 +94,7 @@ const getTokenRemainingMs = (token) => {
   const clientNow = Date.now();
   const serverOffset =
     typeof window !== "undefined" &&
-      typeof window.SERVER_TIME_OFFSET_MS === "number"
+    typeof window.SERVER_TIME_OFFSET_MS === "number"
       ? window.SERVER_TIME_OFFSET_MS
       : 0;
 
@@ -212,7 +212,7 @@ axiosInstance.interceptors.request.use(
           if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
             console.error(
               "[Token Refresh] Pre-flight refresh failed",
-              refreshError
+              refreshError,
             );
           }
           activeToken = token;
@@ -223,54 +223,55 @@ axiosInstance.interceptors.request.use(
 
       if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
         const preview = `${String(activeToken).slice(0, 12)}...`;
-        console.log(
-          "[axiosInstance][auth]",
-          config.method?.toUpperCase(),
-          config.url,
-          {
-            hasAuthHeader: Boolean(config.headers.Authorization),
-            tokenPreview: preview,
-          }
-        );
+        // console.log(
+        //   "[axiosInstance][auth]",
+        //   config.method?.toUpperCase(),
+        //   config.url,
+        //   {
+        //     hasAuthHeader: Boolean(config.headers.Authorization),
+        //     tokenPreview: preview,
+        //   }
+        // );
       }
     } else if (
       process.env.NEXT_PUBLIC_DEBUG_MODE === "true" &&
       !isAuthEndpoint
     ) {
-      console.warn(
-        `[axiosInstance][request] ${config.method?.toUpperCase()} ${config.url
-        } - No token found`
-      );
+      // console.warn(
+      //   `[axiosInstance][request] ${config.method?.toUpperCase()} ${
+      //     config.url
+      //   } - No token found`,
+      // );
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // Response Interceptor
 axiosInstance.interceptors.response.use(
   (response) => {
     if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-      console.log(
-        "[axiosInstance][response]",
-        response.config.method?.toUpperCase(),
-        response.config.url,
-        response.status,
-        response.data
-      );
+      // console.log(
+      //   "[axiosInstance][response]",
+      //   response.config.method?.toUpperCase(),
+      //   response.config.url,
+      //   response.status,
+      //   response.data,
+      // );
     }
     return response;
   },
   async (error) => {
     if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-      console.error(
-        "[axiosInstance][error]",
-        error?.config?.method?.toUpperCase(),
-        error?.config?.url,
-        error?.response?.status,
-        error?.response?.data
-      );
+      // console.error(
+      //   "[axiosInstance][error]",
+      //   error?.config?.method?.toUpperCase(),
+      //   error?.config?.url,
+      //   error?.response?.status,
+      //   error?.response?.data,
+      // );
     }
     const originalRequest = error.config;
 
@@ -304,10 +305,7 @@ axiosInstance.interceptors.response.use(
         // Refresh failed - redirect to login
         clearTokens();
 
-        if (
-          typeof window !== "undefined" &&
-          window.location.pathname !== "/"
-        ) {
+        if (typeof window !== "undefined" && window.location.pathname !== "/") {
           window.location.href = "/";
         }
 
@@ -316,7 +314,7 @@ axiosInstance.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosInstance;

@@ -43,7 +43,7 @@ const decodeBase64Url = (input) => {
     if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
       console.warn(
         "[axiosInstance] Failed to decode base64 token payload",
-        error
+        error,
       );
     }
   }
@@ -99,7 +99,7 @@ const getTokenRemainingMs = (token) => {
   const clientNow = Date.now();
   const serverOffset =
     typeof window !== "undefined" &&
-      typeof window.SERVER_TIME_OFFSET_MS === "number"
+    typeof window.SERVER_TIME_OFFSET_MS === "number"
       ? window.SERVER_TIME_OFFSET_MS
       : 0;
 
@@ -138,7 +138,7 @@ const shouldProactivelyRefreshToken = (token) => {
 
   const bufferWindow = Math.max(
     INTERACTION_REFRESH_BUFFER_MS,
-    TOKEN_REFRESH_THRESHOLD_MS
+    TOKEN_REFRESH_THRESHOLD_MS,
   );
   return remaining <= bufferWindow && isUserCurrentlyActive();
 };
@@ -248,14 +248,14 @@ axiosInstance.interceptors.request.use(
             !needsStandardRefresh
           ) {
             console.log(
-              "[Token Refresh] Proactive refresh triggered by user activity"
+              "[Token Refresh] Proactive refresh triggered by user activity",
             );
           }
         } catch (refreshError) {
           if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
             console.error(
               "[Token Refresh] Pre-flight refresh failed",
-              refreshError
+              refreshError,
             );
           }
           activeToken = token;
@@ -266,54 +266,55 @@ axiosInstance.interceptors.request.use(
 
       if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
         const preview = `${String(activeToken).slice(0, 12)}...`;
-        console.log(
-          "[axiosInstance][auth]",
-          config.method?.toUpperCase(),
-          config.url,
-          {
-            hasAuthHeader: Boolean(config.headers.Authorization),
-            tokenPreview: preview,
-          }
-        );
+        // console.log(
+        //   "[axiosInstance][auth]",
+        //   config.method?.toUpperCase(),
+        //   config.url,
+        //   {
+        //     hasAuthHeader: Boolean(config.headers.Authorization),
+        //     tokenPreview: preview,
+        //   }
+        // );
       }
 
       if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-        console.log(
-          "[axiosInstance][request]",
-          config.method?.toUpperCase(),
-          config.url,
-          {
-            params: config.params,
-            data: config.data,
-          }
-        );
+        // console.log(
+        //   "[axiosInstance][request]",
+        //   config.method?.toUpperCase(),
+        //   config.url,
+        //   {
+        //     params: config.params,
+        //     data: config.data,
+        //   },
+        // );
       }
     } else if (
       process.env.NEXT_PUBLIC_DEBUG_MODE === "true" &&
       !isAuthEndpoint
     ) {
       console.warn(
-        `[axiosInstance][request] ${config.method?.toUpperCase()} ${config.url
-        } - No token found`
+        `[axiosInstance][request] ${config.method?.toUpperCase()} ${
+          config.url
+        } - No token found`,
       );
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // Response Interceptor
 axiosInstance.interceptors.response.use(
   (response) => {
     if (process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
-      console.log(
-        "[axiosInstance][response]",
-        response.config.method?.toUpperCase(),
-        response.config.url,
-        response.status,
-        response.data
-      );
+      // console.log(
+      //   "[axiosInstance][response]",
+      //   response.config.method?.toUpperCase(),
+      //   response.config.url,
+      //   response.status,
+      //   response.data,
+      // );
     }
     return response;
   },
@@ -324,7 +325,7 @@ axiosInstance.interceptors.response.use(
         error?.config?.method?.toUpperCase(),
         error?.config?.url,
         error?.response?.status,
-        error?.response?.data
+        error?.response?.data,
       );
     }
     const originalRequest = error.config;
@@ -382,13 +383,13 @@ axiosInstance.interceptors.response.use(
                 .warning(
                   "Session หมดอายุ",
                   `คุณไม่ได้ใช้งานระบบเป็นเวลา ${idleDuration} นาที กรุณาเข้าสู่ระบบใหม่อีกครั้ง`,
-                  { confirmButtonText: "เข้าสู่ระบบ" }
+                  { confirmButtonText: "เข้าสู่ระบบ" },
                 )
                 .then(() => {
                   clearTokens();
                   window.location.href = "/";
                 });
-            }
+            },
           );
         } else {
           // ถ้ายังใช้งานอยู่ (tab active) แต่ refresh ไม่สำเร็จ
@@ -408,7 +409,7 @@ axiosInstance.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosInstance;
