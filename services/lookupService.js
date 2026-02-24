@@ -4,7 +4,7 @@ import { getAuthToken } from "../utils/tokenHelper";
 
 // สร้าง axios instance สำหรับ OSM API (เหมือนกับ oauth2Service.js)
 const osmApi = axios.create({
-  baseURL: "https://thaiphc2dev.minertatech.com/api/v1",
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -35,15 +35,35 @@ const cache = new Map();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 /**
+ * Helper function สำหรับ retry พร้อม exponential backoff
+ */
+const withRetry = async (fetchFn, retries = 3, delay = 1000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fetchFn();
+    } catch (error) {
+      console.warn(`[lookupService] Attempt ${i + 1}/${retries} failed:`, error.message);
+      if (i === retries - 1) {
+        throw error;
+      }
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+    }
+  }
+};
+
+/**
  * Helper function สำหรับ cache
  */
 const withCache = async (key, fetchFn, ttl = CACHE_TTL) => {
   const cached = cache.get(key);
   if (cached && Date.now() - cached.timestamp < ttl) {
+    console.log(`[lookupService] Cache hit for ${key}`);
     return cached.data;
   }
 
-  const data = await fetchFn();
+  console.log(`[lookupService] Cache miss for ${key}, fetching...`);
+  const data = await withRetry(fetchFn);
   cache.set(key, { data, timestamp: Date.now() });
   return data;
 };

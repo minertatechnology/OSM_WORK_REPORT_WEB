@@ -556,6 +556,19 @@ const DashboardSobos = () => {
     healthServicesRef.current = healthServices;
   }, [healthServices]);
 
+  // 🔍 DEBUG: Track provinceSummary changes
+  useEffect(() => {
+    console.log("🔍 [DEBUG] provinceSummary state changed:", {
+      hasData: !!provinceSummary,
+      mapLevel: provinceSummary?.map_level,
+      tableLevel: provinceSummary?.table_level,
+      mapItems_count: provinceSummary?.map_items?.length || 0,
+      tableItems_count: provinceSummary?.table_items?.length || 0,
+      total_reports: provinceSummary?.total_reports,
+      total_items: provinceSummary?.total_items
+    });
+  }, [provinceSummary]);
+
   // ล้างข้อมูลการค้นหา
   const handleClear = () => {
     handleReset(String(currentFiscalYear), "fiscal");
@@ -569,6 +582,7 @@ const DashboardSobos = () => {
 
   // ฟังก์ชันดึงข้อมูลจาก API (ใช้ /reports/geo-summary แบบ dynamic)
   const fetchData = useCallback(async () => {
+    console.log("🔍 [DEBUG] fetchData called");
     setLoading(true);
     setError(null);
 
@@ -699,6 +713,20 @@ const DashboardSobos = () => {
         filters.health_service_id = service;
       }
 
+      console.log("🔍 [DEBUG] Fetching with filters:", filters);
+      console.log("🔍 [DEBUG] Current state:", {
+        zone,
+        province,
+        district,
+        subdistrict,
+        service,
+        year,
+        month,
+        selectedReportType,
+        lockLevel,
+        currentLevel: subdistrict ? "subdistrict" : district ? "district" : province ? "province" : "province"
+      });
+
       // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
       let osmData = [];
       if (service) {
@@ -717,9 +745,24 @@ const DashboardSobos = () => {
       const mapDataResponse =
         await reportsMapService.getReportsMapData(filters);
 
+      console.log("🔍 [DEBUG] API Response:", {
+        total_reports: mapDataResponse.total_reports,
+        reports_count: mapDataResponse.reports?.length || 0,
+        has_items: !!mapDataResponse.items,
+        items_count: mapDataResponse.items?.length || 0,
+        summary_by_type: mapDataResponse.summary_by_type
+      });
+
       // Filter ตามหน่วยบริการ (ถ้าเลือก)
       let filteredReports = mapDataResponse.reports || [];
       let filteredItems = mapDataResponse.items || [];
+
+      console.log("🔍 [DEBUG] After initial filter:", {
+        filteredReports_count: filteredReports.length,
+        filteredItems_count: filteredItems.length,
+        service: service,
+        osmData_count: osmData.length
+      });
 
       // ✅ Permission filters ถูกส่งไป backend แล้ว ไม่ต้อง filter ฝั่ง frontend
       // (ดูตรง filters.health_region, filters.province_code, filters.district_code, filters.subdistrict_code)
@@ -905,6 +948,14 @@ const DashboardSobos = () => {
           tableLevel = "osm";
         }
       }
+
+      console.log("🔍 [DEBUG] Creating mapItems - lookup data:", {
+        provincesRef_count: provincesRef.current?.length || 0,
+        districtsRef_count: districtsRef.current?.length || 0,
+        subdistrictsRef_count: subdistrictsRef.current?.length || 0,
+        healthServicesRef_count: healthServicesRef.current?.length || 0,
+        healthAreasRef_count: healthAreasRef.current?.length || 0
+      });
 
       // สร้าง map_items จาก lookup
       let mapItems = [];
@@ -1400,6 +1451,20 @@ const DashboardSobos = () => {
         item.total_reports = itemKey ? tableReportCountMap[itemKey] || 0 : 0;
       });
 
+      console.log("🔍 [DEBUG] Before setProvinceSummary:", {
+        mapLevel,
+        tableLevel,
+        mapItems_count: mapItems?.length || 0,
+        tableItems_count: tableItems?.length || 0,
+        mapReports_count: mapReports.length,
+        finalItems_count: finalItems.length,
+        currentLevel,
+        lockLevel
+      });
+
+      console.log("🔍 [DEBUG] mapItems sample:", mapItems.slice(0, 3));
+      console.log("🔍 [DEBUG] tableItems sample:", tableItems.slice(0, 3));
+
       setProvinceSummary({
         map_level: mapLevel,
         map_items: mapItems,
@@ -1410,8 +1475,12 @@ const DashboardSobos = () => {
         items: finalItems,
         location_data: mapReports,
       });
+
+      console.log("✅ [DEBUG] setProvinceSummary completed");
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("❌ [DEBUG] Error in fetchData:", err);
+      console.error("❌ [DEBUG] Error message:", err.message);
+      console.error("❌ [DEBUG] Error stack:", err.stack);
       setError("เกิดข้อผิดพลาดในการดึงข้อมูล");
     } finally {
       setLoading(false);
@@ -1435,6 +1504,39 @@ const DashboardSobos = () => {
     fetchData();
   }, [fetchData]);
 
+  // ✅ Track whether we've successfully loaded data with lookup data ready
+  const hasLoadedWithLookupDataRef = useRef(false);
+  const isInitialLoadRef = useRef(true);
+
+  // Update flag when we get valid data
+  useEffect(() => {
+    if (provinceSummary && provinceSummary.map_items && provinceSummary.map_items.length > 0) {
+      hasLoadedWithLookupDataRef.current = true;
+    }
+  }, [provinceSummary]);
+
+  // ✅ ค้นหาอีกครั้งเมื่อ lookup data โหลดเสร็จ (แก้ปัญหา race condition)
+  // เฝ้าดู healthAreas และ provinces โดยตรง
+  useEffect(() => {
+    const isLookupDataReady = healthAreas.length > 0 && provinces.length > 0;
+    const hasValidData = provinceSummary && provinceSummary.map_items && provinceSummary.map_items.length > 0;
+
+    // Trigger when:
+    // 1. Lookup data is ready
+    // 2. Not currently loading
+    // 3. Either initial load OR we have empty data
+    if (isLookupDataReady && !loading && !hasValidData) {
+      console.log("🔄 [DEBUG] Lookup data ready, triggering fetchData", {
+        healthAreas_count: healthAreas.length,
+        provinces_count: provinces.length,
+        isInitialLoad: isInitialLoadRef.current,
+        hasValidData
+      });
+      isInitialLoadRef.current = false;
+      fetchData();
+    }
+  }, [healthAreas, provinces, loading, provinceSummary, fetchData]);
+
   // กดค้นหา (เผื่อผู้ใช้ต้องการกดค้นหาเอง)
   const handleSearch = useCallback(() => {
     fetchData();
@@ -1457,7 +1559,15 @@ const DashboardSobos = () => {
 
   // สร้างข้อมูล Pie Chart แบบ Dynamic ตาม map_level (ใช้ map_items จาก backend)
   const chartPieData = useMemo(() => {
+    console.log("🔍 [DEBUG] chartPieData rendering:", {
+      hasProvinceSummary: !!provinceSummary,
+      hasMapItems: !!provinceSummary?.map_items,
+      mapItems_count: provinceSummary?.map_items?.length || 0,
+      mapItems_sample: provinceSummary?.map_items?.slice(0, 3)
+    });
+
     if (!provinceSummary || !provinceSummary.map_items) {
+      console.warn("⚠️ [DEBUG] chartPieData: No provinceSummary or map_items!");
       return [];
     }
 
@@ -1507,7 +1617,15 @@ const DashboardSobos = () => {
 
   // สร้างข้อมูลตารางแบบ Dynamic ตาม table_level (ใช้ table_items จาก backend โดยตรง)
   const tableData = useMemo(() => {
+    console.log("🔍 [DEBUG] tableData rendering:", {
+      hasProvinceSummary: !!provinceSummary,
+      hasTableItems: !!provinceSummary?.table_items,
+      tableItems_count: provinceSummary?.table_items?.length || 0,
+      tableItems_sample: provinceSummary?.table_items?.slice(0, 3)
+    });
+
     if (!provinceSummary || !provinceSummary.table_items) {
+      console.warn("⚠️ [DEBUG] tableData: No provinceSummary or table_items!");
       return [];
     }
 
