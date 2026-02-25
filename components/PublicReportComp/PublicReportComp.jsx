@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Download, RotateCcw, Loader2, FileText, MapPin, Building2, Home, Calendar, FileSpreadsheet, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown } from "lucide-react";
+import { Search, Download, RotateCcw, Loader2, FileText, MapPin, Building2, Home, Calendar, FileSpreadsheet, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown, Landmark, Globe } from "lucide-react";
 import { getHealthAreas, getProvinces, getDistricts, getSubdistricts, getHealthServices } from "@services/lookupService";
 import { getPublicOsm1SummaryByLocation } from "@services/publicReportService/publicReportService";
+import { generateBangkokPDF, downloadBangkokPDF } from "@services/publicReportService/generateBangkokPDF";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { HEALTHZONE_PROVINCES } from "@utils/healthzone-province-data";
 import { useUserPermission } from "@context/UserPermissionProvider";
@@ -233,6 +234,12 @@ const TABLE_COLUMNS = [
 ];
 
 // Export to Excel function using xlsx-js-style
+// Thai number conversion
+const toThaiNumber = (num) => {
+  const thaiNums = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+  return String(num).replace(/[0-9]/g, (d) => thaiNums[parseInt(d)]);
+};
+
 const exportToExcel = (data, filters, locationLabel) => {
   // Create workbook
   const wb = XLSX.utils.book_new();
@@ -540,8 +547,12 @@ const PublicReportComp = () => {
 
   // Report data
   const [reportData, setReportData] = useState([]);
+  const [bangkokData, setBangkokData] = useState([]); // Separate data for Bangkok
   const [currentLevel, setCurrentLevel] = useState("province"); // province, district, subdistrict, service
   const [loading, setLoading] = useState(false);
+
+  // Active tab: "all" or "bangkok"
+  const [activeTab, setActiveTab] = useState("all");
 
   // Check if user is logged in
   const isLoggedIn = user && !permissionLoading;
@@ -797,7 +808,18 @@ const PublicReportComp = () => {
           };
         });
 
-        setReportData(mappedData);
+        // Separate Bangkok data from other provinces
+        const bangkokItems = mappedData.filter((item) =>
+          item.province === "กรุงเทพมหานคร" ||
+          item.province?.includes("กรุงเทพ")
+        );
+        const otherItems = mappedData.filter((item) =>
+          item.province !== "กรุงเทพมหานคร" &&
+          !item.province?.includes("กรุงเทพ")
+        );
+
+        setBangkokData(bangkokItems);
+        setReportData(otherItems);
         setCurrentLevel(displayLevel);
       } catch (error) {
         console.error('Error fetching report data:', error);
@@ -827,7 +849,7 @@ const PublicReportComp = () => {
   };
 
   const handleExportExcel = () => {
-    exportToExcel(reportData, {
+    exportToExcel(currentData, {
       fiscalYear,
       month,
       zone,
@@ -853,17 +875,22 @@ const PublicReportComp = () => {
     });
   }, [currentLevel]);
 
+  // Get current data based on active tab
+  const currentData = useMemo(() => {
+    return activeTab === "bangkok" ? bangkokData : reportData;
+  }, [activeTab, bangkokData, reportData]);
+
   // Pagination helpers
-  const totalPages = Math.ceil(reportData.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(currentData.length / itemsPerPage) || 1;
   const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, reportData.length);
+  const endItem = Math.min(currentPage * itemsPerPage, currentData.length);
 
   // Paginated data
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return reportData.slice(startIndex, endIndex);
-  }, [reportData, currentPage, itemsPerPage]);
+    return currentData.slice(startIndex, endIndex);
+  }, [currentData, currentPage, itemsPerPage]);
 
   // Helper function to get page numbers
   const getPageNumbers = () => {
@@ -905,10 +932,10 @@ const PublicReportComp = () => {
     setCurrentPage(page);
   };
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters or tab change
   useEffect(() => {
     setCurrentPage(1);
-  }, [fiscalYear, month, zone, province, district, subdistrict, service]);
+  }, [fiscalYear, month, zone, province, district, subdistrict, service, activeTab]);
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-b from-[#f7f2ff] via-white to-white">
@@ -934,9 +961,27 @@ const PublicReportComp = () => {
               </div>
             </div>
             <div className="flex w-full lg:w-auto justify-end gap-3">
+              {activeTab === "bangkok" && (
+                <>
+                  <button
+                    onClick={() => downloadBangkokPDF({ fiscalYear, month })}
+                    className="flex items-center gap-2 bg-white/20 text-white font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/30 hover:-translate-y-0.5 hover:bg-white/30 transition"
+                  >
+                    <FileText size={18} />
+                    รายงานกรุงเทพ
+                  </button>
+                  <button
+                    onClick={() => generateBangkokPDF({ fiscalYear, month })}
+                    className="flex items-center gap-2 bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition"
+                  >
+                    <Download size={18} />
+                    พิมพ์รายงาน
+                  </button>
+                </>
+              )}
               <button
                 onClick={handleExportExcel}
-                disabled={loading || reportData.length === 0}
+                disabled={loading || currentData.length === 0}
                 className="flex items-center gap-2 bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download size={18} />
@@ -945,6 +990,42 @@ const PublicReportComp = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Quick Access Tabs */}
+      <div className="mb-4 flex flex-wrap gap-3">
+        <button
+          onClick={() => {
+            setActiveTab("all");
+            // Reset to show all - clear all location filters
+            setZone("");
+            setProvince("");
+            setDistrict("");
+            setSubdistrict("");
+            setService("");
+          }}
+          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all duration-200 ${
+            activeTab === "all" && !zone && !province
+              ? "bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white shadow-lg"
+              : "bg-white border-2 border-purple-200 text-[#7e32e2] hover:bg-purple-50 hover:border-purple-300"
+          }`}
+        >
+          <Globe size={20} />
+          ภาพรวมทั้งหมด
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("bangkok");
+          }}
+          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all duration-200 ${
+            activeTab === "bangkok"
+              ? "bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white shadow-lg"
+              : "bg-white border-2 border-purple-200 text-[#7e32e2] hover:bg-purple-50 hover:border-purple-300"
+          }`}
+        >
+          <Landmark size={20} />
+          กรุงเทพมหานคร
+        </button>
       </div>
 
       {/* Filter Section */}
@@ -1066,7 +1147,7 @@ const PublicReportComp = () => {
               <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
             </div>
           </div>
-        ) : reportData.length === 0 ? (
+        ) : currentData.length === 0 ? (
           <div className="py-12 text-center">
             <div className="flex flex-col items-center gap-3">
               <FileText size={48} className="text-gray-300" />
@@ -1266,7 +1347,7 @@ const PublicReportComp = () => {
             </table>
 
             {/* Pagination */}
-            {reportData.length > 0 && (
+            {currentData.length > 0 && (
               <div className="flex flex-row items-center justify-between gap-3 mt-6 pt-6 border-t-2 border-purple-100 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
@@ -1300,13 +1381,13 @@ const PublicReportComp = () => {
                 <div className="text-xs font-medium text-gray-700 whitespace-nowrap">
                   รวม{" "}
                   <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
-                    {reportData.length.toLocaleString("th-TH")}
+                    {currentData.length.toLocaleString("th-TH")}
                   </span>{" "}
                   รายการ
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {reportData.length > 0 && (
+                  {currentData.length > 0 && (
                     <>
                       <div className="text-xs font-medium text-gray-700 bg-gradient-to-r from-purple-50 to-white px-3 py-1.5 rounded-lg border border-purple-100 whitespace-nowrap">
                         <span className="font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
