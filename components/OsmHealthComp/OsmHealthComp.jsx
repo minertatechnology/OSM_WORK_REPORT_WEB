@@ -863,10 +863,9 @@ const OsmHealthComp = () => {
       ];
       ws["!cols"] = colWidths;
 
-      // สร้างชื่อไฟล์ด้วยวันที่ปัจจุบัน
-      const now = new Date();
-      const dateStr = `${now.getDate()}_${now.getMonth() + 1}_${now.getFullYear() + 543}`;
-      const fileName = `ผลตรวจสุขภาพ_อสม_${dateStr}.xlsx`;
+      // สร้างชื่อไฟล์ - Format: HP_{year}.xlsx
+      const currentYear = new Date().getFullYear();
+      const fileName = `HP_${currentYear}.xlsx`;
 
       // ดาวน์โหลดไฟล์
       XLSX.writeFile(wb, fileName);

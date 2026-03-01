@@ -1232,13 +1232,11 @@ const OsmThaiPHCComp = () => {
     // Add worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, "ข้อมูล อสม. Thai PHC");
 
-    // Generate filename with current date and category
-    const today = new Date();
-    const dateStr = `${today.getDate()}-${today.getMonth() + 1}-${
-      today.getFullYear() + 543
-    }`;
-    const categoryPart = legend ? `_${legend}` : "";
-    const filename = `ข้อมูล_อสม_Thai_PHC${categoryPart}_${dateStr}.xlsx`;
+    // Generate filename - Format: PHC{date}_{year}.xlsx
+    const currentDate = new Date();
+    const datePart = `${currentDate.getDate()}-${currentDate.getMonth() + 1}`;
+    const currentYear = currentDate.getFullYear();
+    const filename = `PHC${datePart}_${currentYear}.xlsx`;
 
     // Save file
     XLSX.writeFile(wb, filename);
@@ -1409,12 +1407,11 @@ const OsmThaiPHCComp = () => {
       },
     });
 
-    // Generate filename with current date and category
-    const categoryPart = legend ? `_${legend}` : "";
-    const filename = `รายงาน_อสม_Thai_PHC${categoryPart}_${dateStr.replace(
-      /\//g,
-      "-"
-    )}.pdf`;
+    // Generate filename - Format: PHC{date}_{year}.pdf
+    const currentDate = new Date();
+    const datePart = `${currentDate.getDate()}-${currentDate.getMonth() + 1}`;
+    const currentYear = currentDate.getFullYear();
+    const filename = `PHC${datePart}_${currentYear}.pdf`;
 
     // Save file
     doc.save(filename);

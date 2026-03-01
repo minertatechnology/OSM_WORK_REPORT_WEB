@@ -17,12 +17,37 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
   const name = reportData?.name || "นางสาวชบุษบก ผดุงจิตร";
   const date = reportData?.date || "";
   const externalUserId = reportData?.rawData?.external_user_id;
+  // ดึง first_name จาก name (format: "prefix + first_name + space + last_name")
+  // เช่น "นางAtthaphon Songpoon" -> "Atthaphon"
+  const fullName = reportData?.name || "";
+  const thaiPrefixes = ["นาย", "นาง", "นางสาว", "เด็กชาย", "เด็กหญิง"];
+  let firstName = "";
+  if (fullName) {
+    let nameWithoutPrefix = fullName;
+    for (const prefix of thaiPrefixes) {
+      if (fullName.startsWith(prefix)) {
+        nameWithoutPrefix = fullName.slice(prefix.length);
+        break;
+      }
+    }
+    // ตัด prefix ออกแล้ว split ด้วย space จะได้ first_name ก่อน
+    const parts = nameWithoutPrefix.split(" ");
+    firstName = parts[0] || "";
+  }
+  const osmCode = reportData?.rawData?.osm_code || reportData?.rawData?.osmCode || firstName || "";
   const fiscalYear = reportData?.rawData?.fiscal_year;
 
   // Debug: แสดงข้อมูลที่ได้รับ
   useEffect(() => {
-    // Debug info removed for production
-  }, [reportData, externalUserId, fiscalYear]);
+    console.log("=== Debug Export Filename ===");
+    console.log("reportData:", reportData);
+    console.log("reportData.rawData:", reportData?.rawData);
+    console.log("reportData.rawData?.first_name:", reportData?.rawData?.first_name);
+    console.log("reportData.rawData?.osm_code:", reportData?.rawData?.osm_code);
+    console.log("firstName:", firstName);
+    console.log("osmCode:", osmCode);
+    console.log("============================");
+  }, [reportData, externalUserId, fiscalYear, firstName, osmCode]);
 
   // Fetch activity data from API
   useEffect(() => {
@@ -420,7 +445,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       const addWatermark = (doc) => {
         const watermarkImage = "/Smart_Osm_Plus.png";
         const imgWidth = 150;
-        const imgHeight = 100;
+        const imgHeight = 150;
 
         // Portrait: 210x297
         const centerX = 220 / 2;
@@ -670,8 +695,10 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         }
       });
 
-      // บันทึกไฟล์
-      doc.save(`รายงาน_อสม1_${month}_${year}.pdf`);
+      // บันทึกไฟล์ - Format: OSM1{osm_code}_{year}.pdf หรือ OSM1_{year}.pdf (ถ้าไม่มี osm_code)
+      const currentYear = new Date().getFullYear();
+      const code = osmCode || "";
+      doc.save(`OSM1${code}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");

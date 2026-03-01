@@ -51,7 +51,9 @@ const buildLocationText = (record) => {
 };
 
 const ElderlyScreeningDetail = ({
+  assessorId,
   assessorName,
+  osmCode,
   elderlyList = [],
   elderlyCount = 0,
   onBack
@@ -393,7 +395,10 @@ const ElderlyScreeningDetail = ({
         currentY += rowHeight;
       });
 
-      doc.save(`รายงานคัดกรองผู้สูงอายุ_${assessorName || "report"}.pdf`);
+      // Save PDF - Format: ES{osm_code}_{year}.pdf หรือ ES{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
+      const currentYear = new Date().getFullYear();
+      const code = osmCode || reportData?.first_name || "";
+      doc.save(`ES${code}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -679,9 +684,10 @@ const ElderlyScreeningDetail = ({
 
       XLSX.utils.book_append_sheet(wb, ws, "รายงานคัดกรองผู้สูงอายุ");
 
-      const now = new Date();
-      const fileNameDate = now.toISOString().split('T')[0];
-      XLSX.writeFile(wb, `รายงานคัดกรองผู้สูงอายุ_${fileNameDate}.xlsx`);
+      // Save Excel - Format: ES{osm_code}_{year}.xlsx
+      const currentYear = new Date().getFullYear();
+      const code = osmCode || "";
+      XLSX.writeFile(wb, `ES${code}_${currentYear}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");

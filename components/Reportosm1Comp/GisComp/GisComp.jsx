@@ -1701,9 +1701,9 @@ const GisComp = () => {
             <div className={styles.chartSection}>
                 <div className={styles.chartTitleRow}>
                   <div className={styles.chartTitle}>แผนภาพเชิงพื้นที่</div>
-                  <button className={styles.downloadBtn}>
+                  {/* <button className={styles.downloadBtn}>
                     <Download size={16} />
-                  </button>
+                  </button> */}
                 </div>
                 <div className={styles.reportDivider}></div>
 

@@ -803,8 +803,10 @@ doc.setFontSize(12);
   doc.setFontSize(12);
   doc.text("แอปพลิเคชัน สมาร์ท อสม. ( แบบบันทึกผลการตรวจสุขภาพ อสม. ) | หน้าที่ 2 จาก 2", pageWidth / 2, footerY, { align: "center" });
 
-  // Save PDF
-  const fileName = `health_record_${record.id_card || record.id || "unknown"}_${Date.now()}.pdf`;
+  // Save PDF - Format: HP{osm_code}_{year}.pdf หรือ HP{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
+  const currentYear = new Date().getFullYear();
+  const osmCode = record.osm_code || record.osmCode || record.first_name || "";
+  const fileName = `HP${osmCode}_${currentYear}.pdf`;
   doc.save(fileName);
 };
 

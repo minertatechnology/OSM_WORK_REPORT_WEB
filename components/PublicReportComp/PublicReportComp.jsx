@@ -497,10 +497,9 @@ const exportToExcel = (data, filters, locationLabel) => {
 
   XLSX.utils.book_append_sheet(wb, ws, "รายงาน อสม.1");
 
-  const fiscalYear = filters.fiscalYear || new Date().getFullYear() + 543;
-  const monthLabel = filters.month ? FISCAL_MONTH_OPTIONS.find(m => m.value === filters.month)?.label : "";
-  const dateStr = new Date().toISOString().split("T")[0];
-  const filename = `รายงานสาธารณะ_อสม1_${fiscalYear}_${monthLabel ? monthLabel.replace(/\s+/g, '_') : ''}_${dateStr}.xlsx`;
+  // Generate filename - Format: PB_{year}.xlsx
+  const currentYear = new Date().getFullYear();
+  const filename = `PB_${currentYear}.xlsx`;
 
   XLSX.writeFile(wb, filename);
 };

@@ -152,7 +152,9 @@ const Reportosm1Comp = () => {
       }
     });
 
-    doc.save(`รายงาน-อสม-${reportData.month}-${reportData.year}.pdf`);
+    // Save PDF - Format: OSM1_{year}.pdf
+    const currentYear = new Date().getFullYear();
+    doc.save(`OSM1_${currentYear}.pdf`);
   };
 
   const handleSave = () => {

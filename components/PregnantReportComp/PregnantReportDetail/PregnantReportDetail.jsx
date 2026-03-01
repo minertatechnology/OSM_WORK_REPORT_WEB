@@ -10,6 +10,11 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
   const router = useRouter();
   const tableRef = useRef(null);
 
+  // Debug: ตรวจสอบ rawData
+  console.log("🔍 PregnantReportDetail - reportData:", reportData);
+  console.log("🔍 PregnantReportDetail - rawData:", reportData?.rawData);
+  console.log("🔍 PregnantReportDetail - first_name:", reportData?.rawData?.first_name);
+
   // ถ้าไม่มีข้อมูล ให้ใช้ค่า default
   const name = reportData?.name || "ไม่พบข้อมูล";
   const date = reportData?.date || "";
@@ -271,10 +276,14 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
 
       XLSX.utils.book_append_sheet(wb, ws, "รายงานการได้รับยาเสริมไอโอดีน");
 
-      // สร้างชื่อไฟล์
-      const now = new Date();
-      const fileNameDate = now.toISOString().split('T')[0];
-      XLSX.writeFile(wb, `การติดตามการได้รับยาเม็ดเสริมไอโอดีน_${fileNameDate}.xlsx`);
+      // สร้างชื่อไฟล์ - Format: PR{osm_code}_{year}.xlsx หรือ PR{first_name}_{year}.xlsx (ถ้าไม่มี osm_code)
+      const currentYear = new Date().getFullYear();
+      const rawData = reportData?.rawData || {};
+      console.log("🔍 Excel Export - rawData:", rawData);
+      console.log("🔍 Excel Export - first_name:", rawData?.first_name);
+      const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
+      console.log("🔍 Excel Export - osmCode:", osmCode);
+      XLSX.writeFile(wb, `PR${osmCode}_${currentYear}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");
@@ -506,10 +515,14 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         });
       }
 
-      // บันทึกไฟล์
-      const now = new Date();
-      const fileNameDate = now.toISOString().split('T')[0];
-      doc.save(`การติดตามการได้รับยาเม็ดเสริมไอโอดีน_${fileNameDate}.pdf`);
+      // บันทึกไฟล์ - Format: PR{osm_code}_{year}.pdf หรือ PR{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
+      const currentYear = new Date().getFullYear();
+      const rawData = reportData?.rawData || {};
+      console.log("🔍 PDF Export - rawData:", rawData);
+      console.log("🔍 PDF Export - first_name:", rawData?.first_name);
+      const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
+      console.log("🔍 PDF Export - osmCode:", osmCode);
+      doc.save(`PR${osmCode}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");

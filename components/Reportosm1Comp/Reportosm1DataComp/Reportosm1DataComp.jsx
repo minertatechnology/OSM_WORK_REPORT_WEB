@@ -152,7 +152,9 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(`สรุปยอดรายงาน_อสม1_${new Date().toISOString().split("T")[0]}.pdf`);
+  // Save PDF - Format: OSM1_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`OSM1_${currentYear}.pdf`);
 }
 
 function exportDistrictPDF(data) {
@@ -246,7 +248,9 @@ function exportDistrictPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(`สรุปรายอำเภอ_อสม1_${new Date().toISOString().split("T")[0]}.pdf`);
+  // Save PDF - Format: OSM1_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`OSM1_${currentYear}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -323,9 +327,9 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `หน่วยที่ยังไม่ส่ง_อสม1_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: OSM1_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`OSM1_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, title = "รายงาน อสม.1") {
@@ -345,7 +349,9 @@ function exportToExcel(data, title = "รายงาน อสม.1") {
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  saveAs(blob, `osm1_report_${new Date().toISOString().split("T")[0]}.xlsx`);
+  // Save Excel - Format: OSM1_{year}.xlsx
+  const currentYear = new Date().getFullYear();
+  saveAs(blob, `OSM1_${currentYear}.xlsx`);
 }
 
 function DetailModal({ open, onClose, data = [] }) {
@@ -1009,14 +1015,14 @@ const Reportosm1DataComp = () => {
                 </div>
               </div>
             </div>
-            <div className="flex w-full lg:w-auto justify-end">
+            {/* <div className="flex w-full lg:w-auto justify-end">
               <button
                 className="bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition"
                 onClick={() => setModalOpen(true)}
               >
                 <Download size={18} className="inline mr-2" /> ดาวน์โหลดรายงาน
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

@@ -168,9 +168,9 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปจำนวนรายงาน_NCDs_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: NCDs_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`NCDs_${currentYear}.pdf`);
 }
 
 function exportOverviewPDF(data) {
@@ -251,7 +251,9 @@ function exportOverviewPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(`สรุปภาพรวม_NCDs_${new Date().toISOString().split("T")[0]}.pdf`);
+  // Save PDF - Format: NCDs_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`NCDs_${currentYear}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -325,9 +327,9 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `อสม_ที่ยังไม่ส่งรายงาน_NCDs_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: NCDs_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`NCDs_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {
@@ -348,7 +350,9 @@ function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  saveAs(blob, `ncds_report_${new Date().toISOString().split("T")[0]}.xlsx`);
+  // Save Excel - Format: NCDs_{year}.xlsx
+  const currentYear = new Date().getFullYear();
+  saveAs(blob, `NCDs_${currentYear}.xlsx`);
 }
 
 // Modal component styled like the image (for both download and detail)
@@ -774,6 +778,7 @@ const NcdsScreeningComp = () => {
           rawData: item, // เก็บข้อมูลดิบไว้ใช้ในหน้ารายละเอียด
           location_data: item.location_data || {}, // เก็บข้อมูล location
           external_user_id: item.external_user_id, // เพิ่ม external_user_id
+          osm_code: item.osm_code, // เพิ่ม osm_code สำหรับชื่อไฟล์
         }));
 
         setAllRows(transformedData);
@@ -943,6 +948,7 @@ const NcdsScreeningComp = () => {
           name: selectedRow?.name || "ไม่พบข้อมูล",
           date: selectedRow?.date || "",
           rawData: selectedRow?.rawData || {}, // ส่งข้อมูลดิบจาก API
+          osm_code: selectedRow?.osm_code, // ส่ง osm_code สำหรับชื่อไฟล์
         }}
       />
     );
@@ -976,14 +982,14 @@ const NcdsScreeningComp = () => {
                 </div>
               </div>
             </div>
-            <div className="flex w-full lg:w-auto justify-end">
+            {/* <div className="flex w-full lg:w-auto justify-end">
               <button
                 className="bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition"
                 onClick={() => setModalOpen(true)}
               >
                 <Download size={18} className="inline mr-2" /> รายละเอียดเอกสาร
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

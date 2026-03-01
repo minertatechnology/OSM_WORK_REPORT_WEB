@@ -262,9 +262,9 @@ function exportSummaryPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปจำนวนการส่งรายงาน_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: PR_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`PR_${currentYear}.pdf`);
 }
 
 // 2. สรุปภาพรวมรายงานในพื้นที่
@@ -361,9 +361,9 @@ function exportOverviewPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปภาพรวมรายงานในพื้นที่_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: PR_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`PR_${currentYear}.pdf`);
 }
 
 // 3. อสม. ที่ยังไม่ส่งรายงาน
@@ -449,9 +449,9 @@ function exportNotSubmittedPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `อสม_ที่ยังไม่ส่งรายงาน_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: PR_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`PR_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, userDataMap, title = "การติดตามการได้รับยาเม็ดเสริมไอโอดีน") {
@@ -487,10 +487,9 @@ function exportToExcel(data, userDataMap, title = "การติดตาม�
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  saveAs(
-    blob,
-    `pregnant_report_${new Date().toISOString().split("T")[0]}.xlsx`
-  );
+  // Save Excel - Format: PR_{year}.xlsx
+  const currentYear = new Date().getFullYear();
+  saveAs(blob, `PR_${currentYear}.xlsx`);
 }
 
 // Modal component styled like the image (for both download and detail)
@@ -548,7 +547,7 @@ function DetailModal({ open, onClose, data = [], userDataMap = new Map() }) {
         >
           <X size={20} className="text-gray-500" />
         </button>
-        <div className="flex items-center gap-3 mb-6">
+        {/* <div className="flex items-center gap-3 mb-6">
           <div className="p-3 bg-gradient-to-br from-[#7e32e2] to-[#a855f7] rounded-xl">
             <Download size={24} className="text-white" />
           </div>
@@ -558,7 +557,7 @@ function DetailModal({ open, onClose, data = [], userDataMap = new Map() }) {
             </h3>
             <p className="text-sm text-gray-500"></p>
           </div>
-        </div>
+        </div> */}
         <div className="flex flex-col gap-4 mb-6">
           {/* Row 1 - สรุปจำนวนการส่งรายงาน */}
           <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl">
@@ -1035,6 +1034,12 @@ const PregnantReportComp = () => {
               occupation_name_th: osmData.occupation_name_th,
               education_name_th: osmData.education_name_th,
               blood_type: osmData.blood_type,
+              // ข้อมูลสำหรับสร้างชื่อไฟล์
+              osm_code: osmData.osm_code || osmData.osmCode || null,
+              osmCode: osmData.osm_code || osmData.osmCode || null,
+              first_name: osmData.first_name || "",
+              last_name: osmData.last_name || "",
+              prefix_name_th: osmData.prefix_name_th || "",
             });
           } else {
             // Fallback ถ้าไม่พบข้อมูล OSM
@@ -1258,6 +1263,12 @@ const PregnantReportComp = () => {
       reportYear = (date.getFullYear() + 543).toString();
     }
 
+    // ดึงข้อมูล OSM user จาก userDataMap
+    const selectedUserData = userDataMap.get(selectedRow?.external_user_id);
+    console.log("🔍 DEBUG - external_user_id:", selectedRow?.external_user_id);
+    console.log("🔍 DEBUG - selectedUserData:", selectedUserData);
+    console.log("🔍 DEBUG - userDataMap keys:", Array.from(userDataMap.keys()));
+
     return (
       <PregnantReportDetail
         reportData={{
@@ -1266,6 +1277,7 @@ const PregnantReportComp = () => {
           name: userName || "ไม่พบข้อมูล",
           date: selectedRow?.date || selectedRow?._thaiDate || "",
           external_user_id: selectedRow?.external_user_id,
+          rawData: selectedUserData,
         }}
         evaluations={userEvaluations}
       />

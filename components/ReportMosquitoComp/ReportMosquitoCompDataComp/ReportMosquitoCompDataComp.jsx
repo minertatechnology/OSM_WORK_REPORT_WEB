@@ -273,9 +273,9 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปยอดรายงาน_ลูกน้ำยุงลาย_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: MR_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`MR_${currentYear}.pdf`);
 }
 
 function exportDistrictPDF(data) {
@@ -370,9 +370,9 @@ function exportDistrictPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปรายอำเภอ_ลูกน้ำยุงลาย_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: MR_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`MR_${currentYear}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -450,11 +450,9 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `หน่วยที่ยังไม่ส่ง_ลูกน้ำยุงลาย_${
-      new Date().toISOString().split("T")[0]
-    }.pdf`
-  );
+  // Save PDF - Format: MR_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`MR_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, title = "รายงานลูกน้ำยุงลาย") {
@@ -475,10 +473,9 @@ function exportToExcel(data, title = "รายงานลูกน้ำยุ
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  saveAs(
-    blob,
-    `mosquito_report_${new Date().toISOString().split("T")[0]}.xlsx`
-  );
+  // Save Excel - Format: MR_{year}.xlsx
+  const currentYear = new Date().getFullYear();
+  saveAs(blob, `MR_${currentYear}.xlsx`);
 }
 
 function DetailModal({ open, onClose, data = [] }) {
@@ -872,6 +869,7 @@ const ReportMosquitoCompDataComp = () => {
   // API data states
   const [apiData, setApiData] = useState([]);
   const [selectedUserName, setSelectedUserName] = useState("");
+  const [selectedUserData, setSelectedUserData] = useState(null); // เก็บข้อมูล OSM user ที่เลือก
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
@@ -935,6 +933,7 @@ const ReportMosquitoCompDataComp = () => {
             ? `${userData.prefix_name_th || ""}${userData.first_name || ""} ${userData.last_name || ""}`.trim()
             : userId || "ไม่ระบุชื่อ";
           setSelectedUserName(fullName);
+          setSelectedUserData(userData); // เก็บข้อมูล user ทั้งหมดสำหรับส่งไป DetailComp
 
           // กรองข้อมูล reports ของ user นี้
           const userReports = data.filter(
@@ -1378,6 +1377,7 @@ const ReportMosquitoCompDataComp = () => {
           name: "รายละเอียดการสำรวจลูกน้ำยุงลาย",
           userId: userId,
           householdId: householdId,
+          rawData: selectedUserData, // ส่งข้อมูล OSM user ไปให้ DetailComp
         }}
       />
     );
@@ -1630,14 +1630,14 @@ const ReportMosquitoCompDataComp = () => {
                 </div>
               </div>
             </div>
-            <div className="flex w-full lg:w-auto justify-end">
+            {/* <div className="flex w-full lg:w-auto justify-end">
               <button
                 className="bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition"
                 onClick={() => setModalOpen(true)}
               >
                 <Download size={18} className="inline mr-2" /> ดาวน์โหลดรายงาน
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

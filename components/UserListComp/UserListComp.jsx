@@ -433,7 +433,9 @@ function exportUserListPDF(data) {
     rowCountOnPage++;
   });
 
-  doc.save(`รายชื่อผู้ใช้งาน_${new Date().toISOString().split("T")[0]}.pdf`);
+  // Save PDF - Format: User_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`User_${currentYear}.pdf`);
 }
 
 // Export Excel function - แสดงเฉพาะคอลัมน์ที่แสดงในตาราง (ใช้ HTML Table สำหรับเส้นขอบ)
@@ -499,7 +501,9 @@ function exportUserListExcel(data) {
   const blob = new Blob([tableHtml], {
     type: "application/vnd.ms-excel;charset=utf-8",
   });
-  saveAs(blob, `รายชื่อผู้ใช้งาน_${new Date().toISOString().split("T")[0]}.xls`);
+  // Save Excel - Format: User_{year}.xlsx
+  const currentYear = new Date().getFullYear();
+  saveAs(blob, `User_${currentYear}.xlsx`);
 }
 
 // Download Modal

@@ -24,6 +24,24 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
   const week = reportData?.week || "สัปดาห์ที่ 1";
   const name = reportData?.name || "รายงานลูกน้ำยุงลาย บ้านเหนือ หมู่ 3 ต.ในเมือง อ.เมือง";
   const householdId = reportData?.householdId;
+  const externalUserId = reportData?.userId; // external_user_id จาก userId
+
+  // ดึงชื่อผู้รับผิดชอบจาก rawData (OSM user data)
+  // rawData มี prefix_name_th, first_name, last_name
+  const rawData = reportData?.rawData || {};
+  const prefixName = rawData?.prefix_name_th || "";
+  const firstNameFromData = rawData?.first_name || "";
+  const lastNameFromData = rawData?.last_name || "";
+
+  // สร้างชื่อเต็ม: prefix + first_name + last_name (เช่น "นาง Atthaphon Songpoon")
+  const responsiblePersonName = prefixName && firstNameFromData
+    ? `${prefixName}${firstNameFromData} ${lastNameFromData}`.trim()
+    : "";
+
+  // ใช้ first_name สำหรับ filename (ถ้าไม่มี osm_code)
+  const firstName = firstNameFromData;
+
+  const osmCode = rawData?.osm_code || rawData?.osmCode || firstName || "";
 
   // Fetch reports when component mounts
   useEffect(() => {
@@ -500,8 +518,14 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
         doc.setFont("Sarabun", "normal");
         doc.text(`ประจำเดือน ${reportMonth} ${reportWeek}`, 148.5, 16, { align: "center" });
 
-        const nameParts = doc.splitTextToSize(name, 180);
+        // แสดงชื่อผู้รับผิดชอบใน PDF
         let yPos = 21;
+        if (responsiblePersonName) {
+          doc.text(`ผู้รับผิดชอบ: ${responsiblePersonName}`, 148.5, yPos, { align: "center" });
+          yPos += 5;
+        }
+
+        const nameParts = doc.splitTextToSize(name, 180);
         nameParts.forEach((line) => {
           doc.text(line, 148.5, yPos, { align: "center" });
           yPos += 4;
@@ -528,8 +552,10 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
         }
       }
 
-      // บันทึกไฟล์
-      doc.save(`รายละเอียดลูกน้ำยุงลาย_${reportMonth}_${reportYear}.pdf`);
+      // บันทึกไฟล์ - Format: MR{osm_code}_{year}.pdf หรือ MR_{year}.pdf (ถ้าไม่มี osm_code)
+      const currentYear = new Date().getFullYear();
+      const code = osmCode || "";
+      doc.save(`MR${code}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -608,6 +634,11 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
             <p className="text-gray-700 font-medium text-base mb-1">
               ประจำเดือน {displayMonth} {displayWeek}
             </p>
+            {responsiblePersonName && (
+              <p className="text-gray-700 font-medium text-base mb-1">
+                ผู้รับผิดชอบ: {responsiblePersonName}
+              </p>
+            )}
             <p className="text-gray-700 font-medium text-base">{name}</p>
           </div>
 

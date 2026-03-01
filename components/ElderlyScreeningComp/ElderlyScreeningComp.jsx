@@ -169,9 +169,9 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปจำนวนรายงาน_ผู้สูงอายุ_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: ES_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`ES_${currentYear}.pdf`);
 }
 
 function exportOverviewPDF(data) {
@@ -255,9 +255,9 @@ function exportOverviewPDF(data) {
     yPos += rowHeight;
   });
 
-  doc.save(
-    `สรุปภาพรวม_ผู้สูงอายุ_${new Date().toISOString().split("T")[0]}.pdf`
-  );
+  // Save PDF - Format: ES_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`ES_${currentYear}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -340,11 +340,9 @@ function exportNotSubmittedPDF(data) {
     });
   }
 
-  doc.save(
-    `อสม_ที่ยังไม่ส่งรายงาน_ผู้สูงอายุ_${
-      new Date().toISOString().split("T")[0]
-    }.pdf`
-  );
+  // Save PDF - Format: ES_{year}.pdf
+  const currentYear = new Date().getFullYear();
+  doc.save(`ES_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, title = "รายงานคัดกรองผู้สูงอายุ") {
@@ -366,7 +364,9 @@ function exportToExcel(data, title = "รายงานคัดกรองผ
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  saveAs(blob, `elderly_report_${new Date().toISOString().split("T")[0]}.xlsx`);
+  // Save Excel - Format: ES_{year}.xlsx
+  const currentYear = new Date().getFullYear();
+  saveAs(blob, `ES_${currentYear}.xlsx`);
 }
 
 // Modal component styled like the image (for both download and detail)
@@ -1106,6 +1106,7 @@ const ElderlyScreeningComp = () => {
       <ElderlyScreeningDetail
         assessorId={detailId}
         assessorName={assessorName}
+        osmCode={userData?.osm_code}
         elderlyList={assessorData?.screenings || []}
         elderlyCount={assessorData?.count || 0}
         onBack={() => router.push("/elderly-screening")}
@@ -1141,14 +1142,14 @@ const ElderlyScreeningComp = () => {
                 </div>
               </div>
             </div>
-            <div className="flex w-full lg:w-auto justify-end">
+            {/* <div className="flex w-full lg:w-auto justify-end">
               <button
                 className="bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition"
                 onClick={() => setModalOpen(true)}
               >
                 <Download size={18} className="inline mr-2" /> ดาวน์โหลดรายงาน
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
