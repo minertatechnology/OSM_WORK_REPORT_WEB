@@ -65,15 +65,6 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
     checkBangkok();
   }, [reportData]);
-    console.log("=== Debug Export Filename ===");
-    console.log("reportData:", reportData);
-    console.log("reportData.rawData:", reportData?.rawData);
-    console.log("reportData.rawData?.first_name:", reportData?.rawData?.first_name);
-    console.log("reportData.rawData?.osm_code:", reportData?.rawData?.osm_code);
-    console.log("firstName:", firstName);
-    console.log("osmCode:", osmCode);
-    console.log("============================");
-  }, [reportData, externalUserId, fiscalYear, firstName, osmCode]);
 
   // Fetch activity data from API
   useEffect(() => {

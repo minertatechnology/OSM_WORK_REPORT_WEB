@@ -553,6 +553,18 @@ const PublicReportComp = () => {
   // Active tab: "all" or "bangkok"
   const [activeTab, setActiveTab] = useState("all");
 
+  // Store all provinces from lookup for filling missing data
+  const [allProvincesLookup, setAllProvincesLookup] = useState([]);
+
+  // Store lookup data for Bangkok tab (for filling missing data with 0)
+  const [allDistrictsLookup, setAllDistrictsLookup] = useState([]);
+  const [allSubdistrictsLookup, setAllSubdistrictsLookup] = useState([]);
+  const [allHealthServicesLookup, setAllHealthServicesLookup] = useState([]);
+
+  // Bangkok constants
+  const BANGKOK_ZONE = "HA13"; // เขตสุขภาพที่ 13
+  const BANGKOK_PROVINCE_CODE = "10"; // กรุงเทพมหานคร
+
   // Check if user is logged in
   const isLoggedIn = user && !permissionLoading;
 
@@ -615,6 +627,46 @@ const PublicReportComp = () => {
       }
     };
     loadHealthAreas();
+  }, []);
+
+  // Load all provinces for filling missing data (for village health volunteers)
+  useEffect(() => {
+    const loadAllProvinces = async () => {
+      try {
+        const data = await getProvinces({ limit: 100 });
+        setAllProvincesLookup(data || []);
+      } catch (error) {
+        console.error('Failed to load all provinces:', error);
+        setAllProvincesLookup([]);
+      }
+    };
+    loadAllProvinces();
+  }, []);
+
+  // Load all districts/subdistricts/healthservices for Bangkok (for filling missing data in bangkok tab)
+  useEffect(() => {
+    const loadBangkokLookupData = async () => {
+      try {
+        // Load all districts in Bangkok
+        const districtsData = await getDistricts(BANGKOK_PROVINCE_CODE);
+        setAllDistrictsLookup(districtsData || []);
+
+        // Load all subdistricts in Bangkok (need to loop through each district)
+        const allSubdistricts = [];
+        for (const dist of (districtsData || [])) {
+          const subdistData = await getSubdistricts(dist.code || dist.district_code || dist.id);
+          allSubdistricts.push(...(subdistData || []));
+        }
+        setAllSubdistrictsLookup(allSubdistricts);
+
+        // Load all health services in Bangkok
+        const healthServicesData = await getHealthServices({ province_code: BANGKOK_PROVINCE_CODE });
+        setAllHealthServicesLookup(healthServicesData || []);
+      } catch (error) {
+        console.error('Failed to load Bangkok lookup data:', error);
+      }
+    };
+    loadBangkokLookupData();
   }, []);
 
   // Load provinces when zone changes
@@ -767,16 +819,12 @@ const PublicReportComp = () => {
         // Call real API
         const apiData = await getPublicOsm1SummaryByLocation(params);
 
-        // Check if API returned empty data (404 or no data)
-        if (!apiData || (Array.isArray(apiData) && apiData.length === 0) || Object.keys(apiData).length === 0) {
-          setReportData([]);
-          setCurrentLevel(displayLevel);
-          return;
-        }
-
         // Handle different response formats
         let dataArray = [];
-        if (Array.isArray(apiData)) {
+        if (!apiData || (Array.isArray(apiData) && apiData.length === 0) || (typeof apiData === 'object' && Object.keys(apiData).length === 0)) {
+          // No data from API - will fill with 0 values from lookup later
+          dataArray = [];
+        } else if (Array.isArray(apiData)) {
           dataArray = apiData;
         } else if (apiData.items && Array.isArray(apiData.items)) {
           dataArray = apiData.items;
@@ -801,9 +849,13 @@ const PublicReportComp = () => {
             locationName = item.province_name || item.province || item.name_th || item.name || "-";
           }
 
+          // Get province name for filtering (used to separate Bangkok from other provinces)
+          const provinceName = item.province_name || item.province || item.name_th || item.name || "-";
+
           return {
             ...mapApiDataToTableRow(item),
             [locationKey]: locationName,
+            province: provinceName, // Always include province for filtering
           };
         });
 
@@ -812,12 +864,207 @@ const PublicReportComp = () => {
           item.province === "กรุงเทพมหานคร" ||
           item.province?.includes("กรุงเทพ")
         );
-        const otherItems = mappedData.filter((item) =>
+        let otherItems = mappedData.filter((item) =>
           item.province !== "กรุงเทพมหานคร" &&
           !item.province?.includes("กรุงเทพ")
         );
 
-        setBangkokData(bangkokItems);
+        // For village health volunteers (activeTab === "all"), fill missing data with 0 values
+        // Logic:
+        // - If province selected: show all districts in that province
+        // - If district selected: show all subdistricts in that district
+        // - If subdistrict selected: show all health services in that subdistrict (if no services, don't show)
+        // - If service selected: show that service only
+        // - If nothing selected: show all provinces (fill missing with 0)
+        if (activeTab === "all") {
+          // Helper function to create empty row with 0 values
+          const createEmptyRow = (locationName, locationKey, provinceName) => ({
+            [locationKey]: locationName,
+            province: provinceName || locationName,
+            quota: 0,
+            reporters: 0,
+            percentage: 0,
+            // All activity columns with 0
+            hp_1: 0, hp_2: 0, hp_3: 0, hp_4: 0, hp_5: 0, hp_6: 0, hp_7: 0, hp_8: 0, hp_9: 0, hp_10: 0, hp_12: 0,
+            dp_2: 0, dp_3: 0, dp_4: 0, dp_5: 0, dp_6: 0, dp_7: 0,
+            hr_1: 0,
+            cp_1: 0,
+            ch_1: 0, ch_2: 0,
+            so_1: 0, so_2_1: 0, so_2_2: 0, so_2_3: 0,
+            rd_1: 0, rd_2: 0,
+            fd_2: 0, fd_3: 0, fd_4: 0,
+            oa_1: 0, oa_2: 0, oa_3: 0,
+          });
+
+          // Create a map of existing data by location name
+          const existingDataMap = new Map();
+          otherItems.forEach(item => {
+            const key = item[locationKey] || item.district || item.subdistrict || item.service || item.province;
+            existingDataMap.set(key, item);
+          });
+
+          let filledData = [];
+
+          if (displayLevel === "province" && allProvincesLookup.length > 0) {
+            // Show all provinces (except Bangkok) - fill missing with 0
+            let provincesToShow = allProvincesLookup.filter(p =>
+              p.name_th !== "กรุงเทพมหานคร" &&
+              !p.name_th?.includes("กรุงเทพ")
+            );
+
+            // If zone is selected, filter provinces by zone
+            if (zone) {
+              const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
+              const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
+              if (zoneData && zoneData.provinces) {
+                const provinceNamesInZone = zoneData.provinces.map(p => p.trim());
+                provincesToShow = provincesToShow.filter(p =>
+                  provinceNamesInZone.includes(p.name_th?.trim())
+                );
+              }
+            }
+
+            filledData = provincesToShow.map(p => {
+              const existingData = existingDataMap.get(p.name_th);
+              if (existingData) {
+                return existingData;
+              }
+              return createEmptyRow(p.name_th, "province", p.name_th);
+            });
+          } else if (displayLevel === "district" && districts.length > 0) {
+            // Show all districts in selected province - fill missing with 0
+            filledData = districts.map(dist => {
+              const existingData = existingDataMap.get(dist.name_th);
+              if (existingData) {
+                return existingData;
+              }
+              return createEmptyRow(dist.name_th, "district", provinces.find(p => p.code === province)?.name_th);
+            });
+          } else if (displayLevel === "subdistrict" && subdistricts.length > 0) {
+            // Show all subdistricts in selected district - fill missing with 0
+            filledData = subdistricts.map(sd => {
+              const existingData = existingDataMap.get(sd.name_th);
+              if (existingData) {
+                return existingData;
+              }
+              return createEmptyRow(sd.name_th, "subdistrict", provinces.find(p => p.code === province)?.name_th);
+            });
+          } else if (displayLevel === "service" && subdistrict && healthServices.length > 0) {
+            // Show all health services in selected subdistrict
+            // If no services exist, don't show anything (empty array)
+            const servicesInSubdistrict = healthServices.filter(hs =>
+              hs.subdistrict_code === subdistrict || hs.subdistrict_id === subdistrict || hs.subdistrict === subdistrict
+            );
+            if (servicesInSubdistrict.length > 0) {
+              filledData = servicesInSubdistrict.map(hs => {
+                const existingData = existingDataMap.get(hs.name_th || hs.name || hs.service_name);
+                if (existingData) {
+                  return existingData;
+                }
+                return createEmptyRow(hs.name_th || hs.name || hs.service_name, "service", provinces.find(p => p.code === province)?.name_th);
+              });
+            } else {
+              // If no services in subdistrict, keep existing data (don't fill with 0)
+              filledData = otherItems;
+            }
+          } else if (displayLevel === "service" && service) {
+            // Show selected service only
+            filledData = otherItems;
+          } else {
+            // For other cases, keep existing data
+            filledData = otherItems;
+          }
+
+          otherItems = filledData;
+        }
+
+        // For proactive health volunteers (activeTab === "bangkok"), fill missing data with 0 values
+        // Logic:
+        // - If province selected: show all districts in that province
+        // - If district selected: show all subdistricts in that district
+        // - If subdistrict selected: show all health services in that subdistrict (if no services, don't show)
+        // - If service selected: show that service only
+        if (activeTab === "bangkok") {
+          // Helper function to create empty row with 0 values
+          const createEmptyRow = (locationName, locationKey) => ({
+            [locationKey]: locationName,
+            province: "กรุงเทพมหานคร",
+            quota: 0,
+            reporters: 0,
+            percentage: 0,
+            // All activity columns with 0
+            hp_1: 0, hp_2: 0, hp_3: 0, hp_4: 0, hp_5: 0, hp_6: 0, hp_7: 0, hp_8: 0, hp_9: 0, hp_10: 0, hp_12: 0,
+            dp_2: 0, dp_3: 0, dp_4: 0, dp_5: 0, dp_6: 0, dp_7: 0,
+            hr_1: 0,
+            cp_1: 0,
+            ch_1: 0, ch_2: 0,
+            so_1: 0, so_2_1: 0, so_2_2: 0, so_2_3: 0,
+            rd_1: 0, rd_2: 0,
+            fd_2: 0, fd_3: 0, fd_4: 0,
+            oa_1: 0, oa_2: 0, oa_3: 0,
+          });
+
+          // Create a map of existing data by location name
+          const existingDataMap = new Map();
+          bangkokItems.forEach(item => {
+            const key = item[locationKey] || item.service || item.subdistrict || item.district || item.province;
+            existingDataMap.set(key, item);
+          });
+
+          let filledBangkokData = [];
+
+          if (displayLevel === "district" && allDistrictsLookup.length > 0) {
+            // Show all districts in Bangkok - fill missing with 0
+            filledBangkokData = allDistrictsLookup.map(dist => {
+              const existingData = existingDataMap.get(dist.name_th);
+              if (existingData) {
+                return existingData;
+              }
+              return createEmptyRow(dist.name_th, "district");
+            });
+          } else if (displayLevel === "subdistrict" && district && allSubdistrictsLookup.length > 0) {
+            // Show all subdistricts in selected district - fill missing with 0
+            const subdistrictsInDistrict = allSubdistrictsLookup.filter(sd =>
+              sd.district_code === district || sd.district_id === district || sd.district === district
+            );
+            filledBangkokData = subdistrictsInDistrict.map(sd => {
+              const existingData = existingDataMap.get(sd.name_th);
+              if (existingData) {
+                return existingData;
+              }
+              return createEmptyRow(sd.name_th, "subdistrict");
+            });
+          } else if (displayLevel === "service" && subdistrict && allHealthServicesLookup.length > 0) {
+            // Show all health services in selected subdistrict
+            // If no services exist, don't show anything (empty array)
+            const servicesInSubdistrict = allHealthServicesLookup.filter(hs =>
+              hs.subdistrict_code === subdistrict || hs.subdistrict_id === subdistrict || hs.subdistrict === subdistrict
+            );
+            if (servicesInSubdistrict.length > 0) {
+              filledBangkokData = servicesInSubdistrict.map(hs => {
+                const existingData = existingDataMap.get(hs.name_th || hs.name || hs.service_name);
+                if (existingData) {
+                  return existingData;
+                }
+                return createEmptyRow(hs.name_th || hs.name || hs.service_name, "service");
+              });
+            } else {
+              // If no services in subdistrict, keep existing data (don't fill with 0)
+              filledBangkokData = bangkokItems;
+            }
+          } else if (displayLevel === "service" && service) {
+            // Show selected service only
+            filledBangkokData = bangkokItems;
+          } else {
+            // For other cases, keep existing data
+            filledBangkokData = bangkokItems;
+          }
+
+          setBangkokData(filledBangkokData);
+        } else {
+          setBangkokData(bangkokItems);
+        }
+
         setReportData(otherItems);
         setCurrentLevel(displayLevel);
       } catch (error) {
@@ -830,7 +1077,7 @@ const PublicReportComp = () => {
     };
 
     fetchReportData();
-  }, [fiscalYear, month, zone, province, district, subdistrict, service]);
+  }, [fiscalYear, month, zone, province, district, subdistrict, service, activeTab, allProvincesLookup, allDistrictsLookup, allSubdistrictsLookup, allHealthServicesLookup, districts, subdistricts, healthServices, provinces]);
 
   const handleSearch = () => {
     // Data will be refetched by useEffect
@@ -839,12 +1086,21 @@ const PublicReportComp = () => {
   const handleReset = () => {
     setFiscalYear(String(new Date().getFullYear() + 543));
     setMonth("");
-    // Only reset filters that are not locked
-    if (!isLoggedIn || !isLocked('zone')) setZone("");
-    if (!isLoggedIn || !isLocked('province')) setProvince("");
-    if (!isLoggedIn || !isLocked('district')) setDistrict("");
-    if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
-    if (!isLoggedIn || !isLocked('service')) setService("");
+
+    // For proactive health volunteers (bangkok tab), keep zone locked, reset only child filters
+    if (activeTab === "bangkok") {
+      setDistrict("");
+      setSubdistrict("");
+      setService("");
+    } else {
+      // For village health volunteers, reset all filters
+      // Only reset filters that are not locked
+      if (!isLoggedIn || !isLocked('zone')) setZone("");
+      if (!isLoggedIn || !isLocked('province')) setProvince("");
+      if (!isLoggedIn || !isLocked('district')) setDistrict("");
+      if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
+      if (!isLoggedIn || !isLocked('service')) setService("");
+    }
   };
 
   const handleExportExcel = () => {
@@ -951,7 +1207,7 @@ const PublicReportComp = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold">
-                    รายงานผลการรายงานผลการปฏิบัติงานของอสม.
+                    ผลการรายงานผลการปฏิบัติงานของอสม.
                   </h1>
                   <p className="text-white/80">
                     รายงานสรุปผลการดำเนินงานของอาสาสมัครสาธารณสุข
@@ -960,7 +1216,7 @@ const PublicReportComp = () => {
               </div>
             </div>
             <div className="flex w-full lg:w-auto justify-end gap-3">
-              {activeTab === "bangkok" && (
+              {/* {activeTab === "bangkok" && (
                 <>
                   <button
                     onClick={() => downloadBangkokPDF({ fiscalYear, month })}
@@ -977,7 +1233,7 @@ const PublicReportComp = () => {
                     พิมพ์รายงาน
                   </button>
                 </>
-              )}
+              )} */}
               <button
                 onClick={handleExportExcel}
                 disabled={loading || currentData.length === 0}
@@ -996,7 +1252,7 @@ const PublicReportComp = () => {
         <button
           onClick={() => {
             setActiveTab("all");
-            // Reset to show all - clear all location filters
+            // Reset to show all provinces except Bangkok - clear all location filters
             setZone("");
             setProvince("");
             setDistrict("");
@@ -1010,11 +1266,17 @@ const PublicReportComp = () => {
           }`}
         >
           <Globe size={20} />
-          ภาพรวมทั้งหมด
+          อาสาสมัครสารธารณะสุขประจำหมู่บ้าน
         </button>
         <button
           onClick={() => {
             setActiveTab("bangkok");
+            // Lock to Bangkok zone and province for proactive health volunteers
+            setZone(BANGKOK_ZONE);
+            setProvince(BANGKOK_PROVINCE_CODE); // Set province to Bangkok to show districts
+            setDistrict("");
+            setSubdistrict("");
+            setService("");
           }}
           className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all duration-200 ${
             activeTab === "bangkok"
@@ -1023,7 +1285,7 @@ const PublicReportComp = () => {
           }`}
         >
           <Landmark size={20} />
-          กรุงเทพมหานคร
+          อาสาสมัครสารธารณะสุขเชิงรุก
         </button>
       </div>
 
@@ -1058,9 +1320,13 @@ const PublicReportComp = () => {
               if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
               if (!isLoggedIn || !isLocked('service')) setService("");
             }}
-            options={Array.isArray(healthAreas) ? healthAreas.map(h => ({ label: h.name_th, value: h.code })) : []}
+            options={Array.isArray(healthAreas)
+              ? healthAreas
+                  .filter(h => activeTab === "all" ? h.code !== BANGKOK_ZONE : true) // Hide zone 13 for "all" tab
+                  .map(h => ({ label: h.name_th, value: h.code }))
+              : []}
             icon={MapPin}
-            disabled={isLoggedIn && isLocked('zone')}
+            disabled={activeTab === "bangkok" || (isLoggedIn && isLocked('zone'))}
           />
           <CustomSelect
             label="จังหวัด"
@@ -1073,7 +1339,9 @@ const PublicReportComp = () => {
               if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
               if (!isLoggedIn || !isLocked('service')) setService("");
             }}
-            options={(provinces || []).map((p) => ({ label: p.name_th, value: p.code }))}
+            options={(provinces || [])
+              .filter(p => activeTab === "all" ? (p.name_th !== "กรุงเทพมหานคร" && !p.name_th?.includes("กรุงเทพ")) : true) // Hide Bangkok for "all" tab
+              .map((p) => ({ label: p.name_th, value: p.code }))}
             icon={Building2}
             disabled={isLoggedIn && isLocked('province')}
           />
