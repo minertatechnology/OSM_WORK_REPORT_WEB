@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileText, Download } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
@@ -10,6 +10,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
   const tableRef = useRef(null);
   const [activityData, setActivityData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isBangkok, setIsBangkok] = useState(false);
 
   // ถ้าไม่มีข้อมูล ให้ใช้ค่า default
   const year = reportData?.year || "2568";
@@ -36,9 +37,34 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
   }
   const osmCode = reportData?.rawData?.osm_code || reportData?.rawData?.osmCode || firstName || "";
   const fiscalYear = reportData?.rawData?.fiscal_year;
+  const reportMonth = reportData?.rawData?.report_month;
 
-  // Debug: แสดงข้อมูลที่ได้รับ
+  // เช็คว่าเป็นกรุงเทพหรือไม่ - เช็คจาก province_id = "10" เท่านั้น
+  // สำคัญ: ใช้ osm_province_id จาก OSM batch API เป็นหลัก
   useEffect(() => {
+    const checkBangkok = () => {
+      // เช็คจาก osm_province_id ก่อน (จาก OSM batch API - สำคัญสุด)
+      const osmProvinceId = reportData?.rawData?.osm_province_id;
+
+      // แปลงเป็น string และเช็คว่าเป็น "10" หรือไม่
+      const provinceId = String(osmProvinceId || "");
+
+      // กรุงเทพมหานครมี province_id = "10" เท่านั้น
+      const isBangkokUser = provinceId === "10";
+
+      setIsBangkok(isBangkokUser);
+
+      console.log("📍 [OSM1 Detail] Checking Bangkok:", {
+        osmProvinceId,
+        provinceId,
+        isBangkokUser,
+        rawDataKeys: reportData?.rawData ? Object.keys(reportData.rawData) : [],
+        fullRawData: reportData?.rawData
+      });
+    };
+
+    checkBangkok();
+  }, [reportData]);
     console.log("=== Debug Export Filename ===");
     console.log("reportData:", reportData);
     console.log("reportData.rawData:", reportData?.rawData);
@@ -51,7 +77,6 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
   // Fetch activity data from API
   useEffect(() => {
-    // Clear ข้อมูลเก่าก่อนเมื่อเปลี่ยนคน
     setActivityData([]);
 
     const fetchActivityData = async () => {
@@ -63,17 +88,120 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       try {
         setLoading(true);
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/activity-data/all?skip=0&limit=1000`
-        );
+        // เลือก API ตามประเภท (กรุงเทพ หรือ 67 จังหวัด)
+        const baseApiUrl = process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL;
+        const apiEndpoint = isBangkok
+          ? `${baseApiUrl}/report-osm1-bangkok/activity-data/all`
+          : `${baseApiUrl}/report-osm1/activity-data/all`;
+
+        // ส่ง external_user_id เป็น parameter เพื่อกรองที่ backend
+        const queryParams = new URLSearchParams({
+          skip: 0,
+          limit: 1000,
+        });
+
+        if (externalUserId) {
+          queryParams.append('external_user_id', externalUserId);
+        }
+        if (fiscalYear) {
+          queryParams.append('fiscal_year', fiscalYear);
+        }
+        if (reportMonth) {
+          queryParams.append('report_month', reportMonth);
+        }
+
+        const apiUrl = `${apiEndpoint}?${queryParams.toString()}`;
+
+        console.log("🔍 [OSM1 Detail] Fetching from API:", { isBangkok, apiUrl, externalUserId, fiscalYear, reportMonth });
+
+        const response = await fetch(apiUrl);
         const data = await response.json();
 
+        console.log("📥 [OSM1 Detail] API Response:", {
+          isBangkok,
+          totalRecords: Array.isArray(data) ? data.length : 0,
+          sampleData: Array.isArray(data) && data.length > 0 ? data[0] : data
+        });
+
+        // Debug: แสดงค่าที่ใช้ filter
+        console.log("🔍 [OSM1 Detail] Filter values:", {
+          externalUserId,
+          fiscalYear,
+          reportMonth,
+          fiscalYearType: typeof fiscalYear,
+          reportMonthType: typeof reportMonth
+        });
+
+        // Debug: แสดงค่าจาก API sample
+        if (Array.isArray(data) && data.length > 0) {
+          const sample = data[0];
+          console.log("🔍 [OSM1 Detail] API sample values:", {
+            apiExternalUserId: sample.external_user_id,
+            apiFiscalYear: sample.fiscal_year,
+            apiReportMonth: sample.report_month,
+            apiActivityId: sample.activity_id,
+            apiCategory: sample.category,
+            apiFiscalYearType: typeof sample.fiscal_year,
+            apiReportMonthType: typeof sample.report_month
+          });
+
+          // หา records ที่มี external_user_id ตรงกัน
+          const matchingExternalId = data.filter(item => item.external_user_id === externalUserId);
+          console.log("🔍 [OSM1 Detail] Records matching external_user_id:", matchingExternalId.length);
+
+          if (matchingExternalId.length > 0) {
+            console.log("🔍 [OSM1 Detail] Sample matching record:", {
+              externalUserId: matchingExternalId[0].external_user_id,
+              fiscalYear: matchingExternalId[0].fiscal_year,
+              reportMonth: matchingExternalId[0].report_month,
+              activityId: matchingExternalId[0].activity_id,
+              category: matchingExternalId[0].category
+            });
+          }
+        }
+
         // กรองข้อมูลเฉพาะของ external_user_id และ fiscal_year นี้
+        // แปลงค่าเป็น string เพื่อเปรียบเทียบ
+        // หมายเหตุ: report_month ใน API อาจเป็น undefined ถ้าไม่ได้ระบุ
         const userActivities = data.filter(
-          (item) =>
-            item.external_user_id === externalUserId &&
-            item.fiscal_year === fiscalYear
+          (item) => {
+            const matchExternalId = item.external_user_id === externalUserId;
+            const matchFiscalYear = String(item.fiscal_year) === String(fiscalYear);
+            // ถ้า API ไม่มี report_month หรือ reportMonth ไม่ได้ระบุ ให้ข้ามเงื่อนไขนี้
+            const matchReportMonth = !reportMonth || item.report_month === undefined || String(item.report_month) === String(reportMonth);
+
+            return matchExternalId && matchFiscalYear && matchReportMonth;
+          }
         );
+
+        console.log("✅ [OSM1 Detail] Filtered activities:", {
+          isBangkok,
+          userActivitiesCount: userActivities.length,
+          userActivities: userActivities
+        });
+
+        // Log unique activity_ids จาก API เพื่อดูว่า API ส่งอะไรมา
+        if (userActivities.length > 0) {
+          const uniqueActivityIds = [...new Set(userActivities.map(item => item.activity_id))];
+          const sampleByActivity = {};
+          uniqueActivityIds.forEach(id => {
+            const item = userActivities.find(i => i.activity_id === id);
+            if (item) {
+              sampleByActivity[id] = {
+                value: item.value,
+                category: item.category,
+                activity_type: item.activity_type,
+                notes: item.notes ? 'has notes' : 'no notes'
+              };
+            }
+          });
+          console.log("📊 [OSM1 Detail] Unique activity_ids from API:", uniqueActivityIds);
+          console.log("📊 [OSM1 Detail] Sample data by activity:", sampleByActivity);
+
+          // Log ALL fields จาก record แรกเพื่อดูว่า API ส่งอะไรมาบ้าง
+          console.log("📊 [OSM1 Detail] ALL fields from first record:", Object.keys(userActivities[0]));
+          console.log("📊 [OSM1 Detail] First record full data:", JSON.stringify(userActivities[0], null, 2));
+        }
 
         setActivityData(userActivities);
       } catch (error) {
@@ -85,9 +213,92 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     };
 
     fetchActivityData();
-  }, [externalUserId, fiscalYear, name, reportData]);
+  }, [externalUserId, fiscalYear, reportMonth, name, reportData, isBangkok]);
 
-  // โครงสร้างข้อมูลหัวข้อกิจกรรมตามเอกสาร PDF - แบบรายงานผลการปฏิบัติงานของ อสม.
+  // โครงสร้างข้อมูล 12 หมวดสำหรับกรุงเทพ (ตรงกับ database report_activities_bangkok)
+  const ACTIVITY_STRUCTURE_BANGKOK = React.useMemo(() => [
+    // 1. การดูแลหญิงตั้งครรภ์
+    { no: "1.", activity: "การดูแลหญิงตั้งครรภ์", unit: "", isMainCategory: true, category: "PREGNANT_WOMEN" },
+    { no: "1.1", activity: "จำนวนหญิงตั้งครรภ์ในพื้นที่รับผิดชอบ", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_1" },
+    { no: "1.2", activity: "จำนวนหญิงตั้งครรภ์ที่ได้รับการดูแลติดตาม", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_2" },
+    { no: "1.3", activity: "จำนวนครั้งที่เยี่ยมบ้านหญิงตั้งครรภ์", unit: "ครั้ง", category: "PREGNANT_WOMEN", activityId: "pregnant_women_3" },
+    { no: "1.4", activity: "จำนวนหญิงตั้งครรภ์ที่ได้รับคำแนะนำการดูแลสุขภาพ", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_4" },
+    { no: "1.5", activity: "จำนวนหญิงตั้งครรภ์ที่คลอดแล้ว", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_5" },
+    // 2. การดูแลหญิงหลังคลอด
+    { no: "2.", activity: "การดูแลหญิงหลังคลอด", unit: "", isMainCategory: true, category: "POSTPARTUM_WOMEN" },
+    { no: "2.1", activity: "จำนวนหญิงหลังคลอดในพื้นที่รับผิดชอบ", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_1" },
+    { no: "2.2", activity: "จำนวนหญิงหลังคลอดที่ได้รับการดูแลติดตาม", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_2" },
+    { no: "2.3", activity: "จำนวนครั้งที่เยี่ยมบ้านหญิงหลังคลอด", unit: "ครั้ง", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_3" },
+    { no: "2.4", activity: "จำนวนหญิงหลังคลอดที่ได้รับคำแนะนำการดูแลสุขภาพ", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_4" },
+    { no: "2.5", activity: "จำนวนหญิงหลังคลอดที่ให้นมบุตร", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_5" },
+    // 3. การดูแลเด็กแรกเกิด - ๖ ปี
+    { no: "3.", activity: "การดูแลเด็กแรกเกิด - ๖ ปี", unit: "", isMainCategory: true, category: "CHILDREN" },
+    { no: "3.1", activity: "จำนวนเด็กแรกเกิด - ๖ ปี ในพื้นที่รับผิดชอบ", unit: "คน", category: "CHILDREN", activityId: "children_1" },
+    { no: "3.2", activity: "จำนวนเด็กที่ได้รับการดูแลติดตาม", unit: "คน", category: "CHILDREN", activityId: "children_2" },
+    { no: "3.3", activity: "จำนวนครั้งที่เยี่ยมบ้านเด็ก", unit: "ครั้ง", category: "CHILDREN", activityId: "children_3" },
+    { no: "3.4", activity: "จำนวนเด็กที่ได้รับการพัฒนาการเหมาะสม", unit: "คน", category: "CHILDREN", activityId: "children_4" },
+    { no: "3.5", activity: "จำนวนเด็กที่ได้รับวัคซีนครบถ้วน", unit: "คน", category: "CHILDREN", activityId: "children_5" },
+    // 4. การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ
+    { no: "4.", activity: "การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ", unit: "", isMainCategory: true, category: "SEXUAL_HEALTH" },
+    { no: "4.1", activity: "จำนวนครั้งที่ให้คำแนะนำเรื่องสุขภาวะทางเพศ", unit: "ครั้ง", category: "SEXUAL_HEALTH", activityId: "sexual_health_1" },
+    { no: "4.2", activity: "จำนวนผู้รับคำแนะนำ (เด็กและเยาวชน)", unit: "คน", category: "SEXUAL_HEALTH", activityId: "sexual_health_2" },
+    { no: "4.3", activity: "จำนวนผู้รับคำแนะนำ (ผู้ปกครอง)", unit: "คน", category: "SEXUAL_HEALTH", activityId: "sexual_health_3" },
+    { no: "4.4", activity: "จำนวนครั้งที่ประสานงานกับโรงเรียน", unit: "ครั้ง", category: "SEXUAL_HEALTH", activityId: "sexual_health_4" },
+    // 5. การดูแลผู้สูงอายุ
+    { no: "5.", activity: "การดูแลผู้สูงอายุ", unit: "", isMainCategory: true, category: "ELDERLY" },
+    { no: "5.1", activity: "จำนวนผู้สูงอายุในพื้นที่รับผิดชอบ (60 ปีขึ้นไป)", unit: "คน", category: "ELDERLY", activityId: "elderly_1" },
+    { no: "5.2", activity: "จำนวนผู้สูงอายุที่ได้รับการดูแลติดตาม", unit: "คน", category: "ELDERLY", activityId: "elderly_2" },
+    { no: "5.3", activity: "จำนวนครั้งที่เยี่ยมบ้านผู้สูงอายุ", unit: "ครั้ง", category: "ELDERLY", activityId: "elderly_3" },
+    { no: "5.4", activity: "จำนวนผู้สูงอายุที่ได้รับคำแนะนำการดูแลสุขภาพ", unit: "คน", category: "ELDERLY", activityId: "elderly_4" },
+    { no: "5.5", activity: "จำนวนผู้สูงอายุที่มีผู้ดูแล", unit: "คน", category: "ELDERLY", activityId: "elderly_5" },
+    // 6. การดูแลคนพิการ
+    { no: "6.", activity: "การดูแลคนพิการ", unit: "", isMainCategory: true, category: "DISABLED" },
+    { no: "6.1", activity: "จำนวนคนพิการในพื้นที่รับผิดชอบ", unit: "คน", category: "DISABLED", activityId: "disabled_1" },
+    { no: "6.2", activity: "จำนวนคนพิการที่ได้รับการดูแลติดตาม", unit: "คน", category: "DISABLED", activityId: "disabled_2" },
+    { no: "6.3", activity: "จำนวนครั้งที่เยี่ยมบ้านคนพิการ", unit: "ครั้ง", category: "DISABLED", activityId: "disabled_3" },
+    { no: "6.4", activity: "จำนวนคนพิการที่ได้รับคำแนะนำการดูแลสุขภาพ", unit: "คน", category: "DISABLED", activityId: "disabled_4" },
+    { no: "6.5", activity: "จำนวนคนพิการที่ได้รับการประสานงานบริการฟื้นฟู", unit: "คน", category: "DISABLED", activityId: "disabled_5" },
+    // 7. การเฝ้าระวัง ป้องกัน และควบคุมโรค
+    { no: "7.", activity: "การเฝ้าระวัง ป้องกัน และควบคุมโรค", unit: "", isMainCategory: true, category: "DISEASE_CONTROL" },
+    { no: "7.1", activity: "จำนวนครั้งที่เฝ้าระวังโรคติดเชื้อ", unit: "ครั้ง", category: "DISEASE_CONTROL", activityId: "disease_control_1" },
+    { no: "7.2", activity: "จำนวนครั้งที่ให้คำแนะนำการป้องกันโรค", unit: "ครั้ง", category: "DISEASE_CONTROL", activityId: "disease_control_2" },
+    { no: "7.3", activity: "จำนวนผู้ที่ได้รับการคัดกรองโรค", unit: "คน", category: "DISEASE_CONTROL", activityId: "disease_control_3" },
+    { no: "7.4", activity: "จำนวนผู้ป่วยที่ได้รับการติดตาม", unit: "คน", category: "DISEASE_CONTROL", activityId: "disease_control_4" },
+    { no: "7.5", activity: "จำนวนครั้งที่ประสานงานกับสถานบริการสาธารณสุข", unit: "ครั้ง", category: "DISEASE_CONTROL", activityId: "disease_control_5" },
+    // 8. การฟื้นฟูสุขภาพ
+    { no: "8.", activity: "การฟื้นฟูสุขภาพ", unit: "", isMainCategory: true, category: "REHABILITATION" },
+    { no: "8.1", activity: "จำนวนผู้ที่ได้รับการฟื้นฟูสุขภาพ", unit: "คน", category: "REHABILITATION", activityId: "rehabilitation_1" },
+    { no: "8.2", activity: "จำนวนครั้งที่ให้คำแนะนำการฟื้นฟูสุขภาพ", unit: "ครั้ง", category: "REHABILITATION", activityId: "rehabilitation_2" },
+    { no: "8.3", activity: "จำนวนผู้ที่ได้รับการฝึกทักษะการดำรงชีวิต", unit: "คน", category: "REHABILITATION", activityId: "rehabilitation_3" },
+    { no: "8.4", activity: "จำนวนครั้งที่ประสานงานกับศูนย์ฟื้นฟู", unit: "ครั้ง", category: "REHABILITATION", activityId: "rehabilitation_4" },
+    // 9. การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ
+    { no: "9.", activity: "การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ", unit: "", isMainCategory: true, category: "SMOKING_CESSATION" },
+    { no: "9.1", activity: "จำนวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าในพื้นที่รับผิดชอบ", unit: "คน", category: "SMOKING_CESSATION", activityId: "smoking_cessation_1" },
+    { no: "9.2", activity: "จำนวนครั้งที่ให้คำแนะนำการเลิกสูบ", unit: "ครั้ง", category: "SMOKING_CESSATION", activityId: "smoking_cessation_2" },
+    { no: "9.3", activity: "จำนวนผู้ที่สนใจเลิกสูบ", unit: "คน", category: "SMOKING_CESSATION", activityId: "smoking_cessation_3" },
+    { no: "9.4", activity: "จำนวนผู้ที่เลิกสูบได้", unit: "คน", category: "SMOKING_CESSATION", activityId: "smoking_cessation_4" },
+    { no: "9.5", activity: "จำนวนครั้งที่ประสานงานกับสถานบริการ", unit: "ครั้ง", category: "SMOKING_CESSATION", activityId: "smoking_cessation_5" },
+    // 10. การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)
+    { no: "10.", activity: "การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)", unit: "", isMainCategory: true, category: "FAMILY_VOLUNTEER" },
+    { no: "10.1", activity: "จำนวนอาสาสมัครประจำครอบครัว (อสค.) ในพื้นที่", unit: "คน", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_1" },
+    { no: "10.2", activity: "จำนวนครั้งที่ให้ความรู้แก่ อสค.", unit: "ครั้ง", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_2" },
+    { no: "10.3", activity: "จำนวนครัวเรือนที่ อสค. ดูแล", unit: "ครัวเรือน", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_3" },
+    { no: "10.4", activity: "จำนวนครั้งที่ อสค. รายงานข้อมูล", unit: "ครั้ง", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_4" },
+    // 11. การเข้าร่วมทีมหมอครอบครัว
+    { no: "11.", activity: "การเข้าร่วมทีมหมอครอบครัว", unit: "", isMainCategory: true, category: "FAMILY_DOCTOR" },
+    { no: "11.1", activity: "จำนวนครั้งที่เข้าร่วมทีมหมอครอบครัว", unit: "ครั้ง", category: "FAMILY_DOCTOR", activityId: "family_doctor_1" },
+    { no: "11.2", activity: "จำนวนครัวเรือนที่ร่วมดูแล", unit: "ครัวเรือน", category: "FAMILY_DOCTOR", activityId: "family_doctor_2" },
+    { no: "11.3", activity: "จำนวนผู้ที่ได้รับการคัดกรอง", unit: "คน", category: "FAMILY_DOCTOR", activityId: "family_doctor_3" },
+    { no: "11.4", activity: "จำนวนครั้งที่ประสานงานกับทีมหมอครอบครัว", unit: "ครั้ง", category: "FAMILY_DOCTOR", activityId: "family_doctor_4" },
+    // 12. งานอื่น ๆ ตามสภาพปัญหาชุมชน
+    { no: "12.", activity: "งานอื่น ๆ ตามสภาพปัญหาชุมชน", unit: "", isMainCategory: true, category: "OTHER" },
+    { no: "12.1", activity: "จำนวนกิจกรรมอื่นๆ ที่ทำในชุมชน", unit: "ครั้ง", category: "OTHER", activityId: "other_work_1" },
+    { no: "12.2", activity: "จำนวนครั้งที่ทำกิจกรรมอื่นๆ", unit: "ครั้ง", category: "OTHER", activityId: "other_work_2" },
+    { no: "12.3", activity: "จำนวนผู้ที่ได้รับบริการจากกิจกรรมอื่นๆ", unit: "คน", category: "OTHER", activityId: "other_work_3" },
+    { no: "12.4", activity: "จำนวนครั้งที่ประสานงานกับหน่วยงานอื่น", unit: "ครั้ง", category: "OTHER", activityId: "other_work_4" },
+  ], []);
+
+  // โครงสร้างข้อมูลหัวข้อกิจกรรมตามเอกสาร PDF - แบบรายงานผลการปฏิบัติงานของ อสม. (67 จังหวัด)
   const ACTIVITY_STRUCTURE = React.useMemo(() => [
     // 1. การส่งเสริมสุขภาพ
     {
@@ -363,16 +574,18 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     }
   ], []);
 
-  // ดึงข้อมูล note จาก other_activity_1
+  // ดึงข้อมูล note จาก activity_id ที่ถูกต้อง (กรุงเทพ: smoking_cessation_1, 67 จังหวัด: other_activity_1)
   const smokeData = React.useMemo(() => {
-    const otherActivity1 = activityData.find(item => item.activity_id === "other_activity_1");
+    // เลือก activity_id ตามประเภท
+    const smokeActivityId = isBangkok ? "smoking_cessation_1" : "other_activity_1";
+    const smokeActivity = activityData.find(item => item.activity_id === smokeActivityId);
 
-    if (!otherActivity1) {
+    if (!smokeActivity) {
       return [];
     }
 
     // ลองทั้ง notes และ note
-    const noteField = otherActivity1.notes || otherActivity1.note;
+    const noteField = smokeActivity.notes || smokeActivity.note;
 
     if (!noteField) {
       return [];
@@ -385,33 +598,78 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       console.error("❌ Error parsing note data:", error);
       return [];
     }
-  }, [activityData]);
+  }, [activityData, isBangkok]);
 
   // แปลงข้อมูลจาก API โดยใช้โครงสร้างจากเอกสาร และดึงเฉพาะจำนวนจาก API
   const transformedData = React.useMemo(() => {
+    // เลือกโครงสร้างตามประเภท (กรุงเทพ หรือ 67 จังหวัด)
+    const currentStructure = isBangkok ? ACTIVITY_STRUCTURE_BANGKOK : ACTIVITY_STRUCTURE;
+
     // สร้าง Map จากข้อมูล API เพื่อหา value ตาม activityId
     const activityValueMap = new Map();
+
     activityData.forEach((item) => {
+      // ทั้งกรุงเทพและ 67 จังหวัด ใช้ activity_id ตรงๆ (API ส่งมาถูกต้องแล้ว)
       activityValueMap.set(item.activity_id, item.value || 0);
     });
 
-    // นับจำนวนจาก smokeData สำหรับ 9.1
+    console.log("📊 [OSM1 Detail] Activity value map:", {
+      isBangkok,
+      map: Object.fromEntries(activityValueMap)
+    });
+
+    // Log เพื่อดู activity IDs ที่มีใน API
+    const apiActivityIds = Array.from(activityValueMap.keys());
+    const expectedIds = isBangkok
+      ? ACTIVITY_STRUCTURE_BANGKOK.map(i => i.activityId).filter(Boolean)
+      : ACTIVITY_STRUCTURE.map(i => i.activityId).filter(Boolean);
+
+    // หา IDs ที่ match และไม่ match
+    const matchedIds = apiActivityIds.filter(id => expectedIds.includes(id));
+    const unmatchedIds = apiActivityIds.filter(id => !expectedIds.includes(id));
+
+    console.log("🔧 [OSM1 Detail] Activity mapping:", {
+      isBangkok,
+      apiActivityIds,
+      expectedIds,
+      matchedIds,
+      unmatchedIds,
+      matchedCount: matchedIds.length,
+      unmatchedCount: unmatchedIds.length,
+      activityValueMap: Object.fromEntries(activityValueMap)
+    });
+
+    // นับจำนวนจาก smokeData
     const smokeCount = smokeData.length;
 
     // ใช้โครงสร้างจากเอกสาร และ map ค่าจาก API
-    const result = ACTIVITY_STRUCTURE.map((item) => {
+    const result = currentStructure.map((item) => {
       let resultValue = "";
 
-      // กรณีพิเศษสำหรับ other_activity_1 และ other_activity_2
-      if (item.activityId === "other_activity_1") {
-        // ข้อ 9.1 แสดงจำนวนที่นับจาก notes (smokeData.length)
-        resultValue = smokeCount;
-      } else if (item.activityId === "other_activity_2") {
-        // ข้อ 9.2 แสดงค่า value จาก other_activity_1
-        resultValue = activityValueMap.get("other_activity_1") || 0;
-      } else if (item.activityId) {
-        // กรณีปกติ
-        resultValue = activityValueMap.get(item.activityId) || 0;
+      if (isBangkok) {
+        // กรณีพิเศษสำหรับกรุงเทพ - smoking_cessation_1 และ smoking_cessation_2
+        if (item.activityId === "smoking_cessation_1") {
+          // ข้อ 9.1 แสดงจำนวนที่นับจาก notes ถ้ามี, ถ้าไม่มีให้ใช้ค่าจาก value
+          resultValue = smokeCount > 0 ? smokeCount : (activityValueMap.get("smoking_cessation_1") || 0);
+        } else if (item.activityId === "smoking_cessation_2") {
+          // ข้อ 9.2 - กรุงเทพไม่มีข้อมูลนี้ใน 67 จังหวัด API
+          resultValue = activityValueMap.get("smoking_cessation_2") || 0;
+        } else if (item.activityId) {
+          // กรณีปกติ
+          resultValue = activityValueMap.get(item.activityId) || 0;
+        }
+      } else {
+        // กรณีพิเศษสำหรับ 67 จังหวัด - other_activity_1 และ other_activity_2
+        if (item.activityId === "other_activity_1") {
+          // ข้อ 9.1 แสดงจำนวนที่นับจาก notes ถ้ามี, ถ้าไม่มีให้ใช้ค่าจาก value
+          resultValue = smokeCount > 0 ? smokeCount : (activityValueMap.get("other_activity_1") || 0);
+        } else if (item.activityId === "other_activity_2") {
+          // ข้อ 9.2 แสดงค่า value จาก other_activity_1
+          resultValue = activityValueMap.get("other_activity_1") || 0;
+        } else if (item.activityId) {
+          // กรณีปกติ
+          resultValue = activityValueMap.get(item.activityId) || 0;
+        }
       }
 
       return {
@@ -421,11 +679,12 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         result: resultValue,
         isMainCategory: item.isMainCategory || false,
         activityId: item.activityId,
+        category: item.category, // เพิ่ม category สำหรับกรุงเทพ
       };
     });
 
     return result;
-  }, [activityData, ACTIVITY_STRUCTURE, smokeData]);
+  }, [activityData, ACTIVITY_STRUCTURE, ACTIVITY_STRUCTURE_BANGKOK, smokeData, isBangkok]);
 
   // แสดงข้อมูลตามโครงสร้างเอกสารเสมอ (ไม่ว่า API จะมีข้อมูลหรือไม่)
   const displayData = transformedData;
@@ -466,7 +725,9 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       // Header - Title
       doc.setFontSize(16);
       doc.setFont("Sarabun", "bold");
-      doc.text("แบบรายงานการปฏิบัติงานของ อสม.", 105, 18, { align: "center" });
+      // เลือก title ตามประเภท (กรุงเทพ หรือ 67 จังหวัด)
+      const reportTitle = isBangkok ? "แบบรายงานผลการปฏิบัติงานของ อสม. (กรุงเทพมหานคร)" : "แบบรายงานการปฏิบัติงานของ อสม.";
+      doc.text(reportTitle, 105, 18, { align: "center" });
 
       doc.setFontSize(16);
       doc.setFont("Sarabun", "bold");
@@ -608,8 +869,9 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         currentY += rowHeight;
         rowCount++;
 
-        // แสดงรายละเอียดสำหรับ Activity 9.1 (other_activity_1)
-        if (row.activityId === "other_activity_1" && smokeData.length > 0) {
+        // แสดงรายละเอียดสำหรับ Activity 9.1 (67 จังหวัด: other_activity_1, กรุงเทพ: smoking_cessation_1)
+        const smokeActivityId = isBangkok ? "smoking_cessation_1" : "other_activity_1";
+        if (row.activityId === smokeActivityId && smokeData.length > 0) {
           // เพิ่มระยะห่าง
           currentY += 2;
 
@@ -726,7 +988,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
             {/* Report Info - Center aligned */}
             <div className="text-center mb-6">
               <h2 className="font-bold text-black text-base mb-2">
-                แบบรายงานการปฏิบัติงานของ อสม.
+                {isBangkok ? "แบบรายงานผลการปฏิบัติงานของ อสม. (กรุงเทพมหานคร)" : "แบบรายงานการปฏิบัติงานของ อสม."}
               </h2>
               {date && <p className="text-black text-sm mb-1">วันที่: {date}</p>}
               <p className="text-black text-sm">ชื่อ-นามสกุล: {name}</p>
@@ -833,8 +1095,8 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
                       </div>
                     </div>
 
-                    {/* แสดงรายละเอียดข้อมูลสำหรับ Activity 9.1 - แสดงเป็นแถวเดียว */}
-                    {row.activityId === "other_activity_1" && smokeData.length > 0 && (
+                    {/* แสดงรายละเอียดข้อมูลสำหรับ Activity 9.1 (67 จังหวัด) หรือ 9.1 (กรุงเทพ) - แสดงเป็นแถวเดียว */}
+                    {((!isBangkok && row.activityId === "other_activity_1") || (isBangkok && row.activityId === "smoking_cessation_1")) && smokeData.length > 0 && (
                       <div className="px-3 py-3 border-b border-gray-200">
                         <div className="pl-16">
                           {smokeData.map((item, index) => {
