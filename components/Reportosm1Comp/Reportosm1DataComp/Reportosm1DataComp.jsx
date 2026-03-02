@@ -738,7 +738,7 @@ const Reportosm1DataComp = () => {
     fetchHealthServices();
   }, [province, district, subdistrict]);
 
-  // Fetch data from API
+  // Fetch data from API (2 sources: 76 provinces + Bangkok)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -747,16 +747,23 @@ const Reportosm1DataComp = () => {
         const queryString = new URLSearchParams({
           skip: 0,
           limit: 1000,
-          // ไม่ส่ง location filters (zone, province, district, subdistrict) ไป backend
-          // ให้ frontend กรองเองจาก location_data_resolved
         }).toString();
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`
-        );
-        const data = await response.json();
+        // 🔥 ดึงข้อมูลจาก 2 API: 76 จังหวัด + กรุงเทพ
+        const [provincesRes, bangkokRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`),
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1-bangkok/submissionsall?${queryString}`),
+        ]);
+
+        const provincesData = await provincesRes.json();
+        const bangkokData = await bangkokRes.json();
+
+        // Merge ข้อมูลจาก 2 sources
+        const data = [...provincesData, ...bangkokData];
 
         console.log("📥 [OSM1] Reports from backend:", {
+          provinces: provincesData.length,
+          bangkok: bangkokData.length,
           totalReports: data.length,
         });
 

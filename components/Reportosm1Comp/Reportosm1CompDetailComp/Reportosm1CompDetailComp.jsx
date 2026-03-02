@@ -65,15 +65,15 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
     checkBangkok();
   }, [reportData]);
-    console.log("=== Debug Export Filename ===");
-    console.log("reportData:", reportData);
-    console.log("reportData.rawData:", reportData?.rawData);
-    console.log("reportData.rawData?.first_name:", reportData?.rawData?.first_name);
-    console.log("reportData.rawData?.osm_code:", reportData?.rawData?.osm_code);
-    console.log("firstName:", firstName);
-    console.log("osmCode:", osmCode);
-    console.log("============================");
-  }, [reportData, externalUserId, fiscalYear, firstName, osmCode]);
+
+  console.log("=== Debug Export Filename ===");
+  console.log("reportData:", reportData);
+  console.log("reportData.rawData:", reportData?.rawData);
+  console.log("reportData.rawData?.first_name:", reportData?.rawData?.first_name);
+  console.log("reportData.rawData?.osm_code:", reportData?.rawData?.osm_code);
+  console.log("firstName:", firstName);
+  console.log("osmCode:", osmCode);
+  console.log("============================");
 
   // Fetch activity data from API
   useEffect(() => {
@@ -600,6 +600,25 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     }
   }, [activityData, isBangkok]);
 
+  // ดึงข้อมูล notes สำหรับหมวด 12 (กรุงเทพ - OTHER)
+  const category12Notes = React.useMemo(() => {
+    if (!isBangkok) return {};
+
+    // ดึง notes จาก activity ในหมวด OTHER
+    const notesMap = {};
+    const category12ActivityIds = ["other_work_1", "other_work_2", "other_work_3", "other_work_4"];
+
+    category12ActivityIds.forEach(activityId => {
+      const activity = activityData.find(item => item.activity_id === activityId);
+      if (activity && (activity.notes || activity.note)) {
+        notesMap[activityId] = activity.notes || activity.note;
+      }
+    });
+
+    console.log("📝 [OSM1 Detail] Category 12 notes:", notesMap);
+    return notesMap;
+  }, [activityData, isBangkok]);
+
   // แปลงข้อมูลจาก API โดยใช้โครงสร้างจากเอกสาร และดึงเฉพาะจำนวนจาก API
   const transformedData = React.useMemo(() => {
     // เลือกโครงสร้างตามประเภท (กรุงเทพ หรือ 67 จังหวัด)
@@ -643,12 +662,19 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     const smokeCount = smokeData.length;
 
     // ใช้โครงสร้างจากเอกสาร และ map ค่าจาก API
-    const result = currentStructure.map((item) => {
+    let result = currentStructure.map((item) => {
       let resultValue = "";
+      let notesText = ""; // เก็บข้อความ notes สำหรับหมวด 12
 
       if (isBangkok) {
+        // กรณีพิเศษสำหรับกรุงเทพ - หมวด 12 (OTHER) แสดง notes แทนค่า
+        if (item.category === "OTHER" && item.activityId) {
+          // หมวด 12 แสดง notes text แทนค่า value
+          notesText = category12Notes[item.activityId] || "";
+          resultValue = ""; // ไม่แสดงค่า value
+        }
         // กรณีพิเศษสำหรับกรุงเทพ - smoking_cessation_1 และ smoking_cessation_2
-        if (item.activityId === "smoking_cessation_1") {
+        else if (item.activityId === "smoking_cessation_1") {
           // ข้อ 9.1 แสดงจำนวนที่นับจาก notes ถ้ามี, ถ้าไม่มีให้ใช้ค่าจาก value
           resultValue = smokeCount > 0 ? smokeCount : (activityValueMap.get("smoking_cessation_1") || 0);
         } else if (item.activityId === "smoking_cessation_2") {
@@ -680,11 +706,41 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         isMainCategory: item.isMainCategory || false,
         activityId: item.activityId,
         category: item.category, // เพิ่ม category สำหรับกรุงเทพ
+        notesText: notesText, // เพิ่ม notes text สำหรับหมวด 12
       };
     });
 
+    // 🔥 สำหรับกรุงเทพ: เอา sub-items 12.1-12.4 ออก แสดงแค่หัวข้อหลัก 12 และ notes
+    if (isBangkok) {
+      // หา main category ของ OTHER และรวม notes ทั้งหมด
+      const otherCategoryNotes = Object.values(category12Notes).join("\n");
+
+      result = result.filter((item) => {
+        // เก็บ main category ของ OTHER (12.)
+        if (item.category === "OTHER" && item.isMainCategory) {
+          return true;
+        }
+        // เอา sub-items ของ OTHER ออก (12.1, 12.2, 12.3, 12.4)
+        if (item.category === "OTHER" && !item.isMainCategory) {
+          return false;
+        }
+        return true;
+      });
+
+      // เพิ่ม notes ให้กับ main category ของ OTHER
+      result = result.map((item) => {
+        if (item.category === "OTHER" && item.isMainCategory) {
+          return {
+            ...item,
+            notesText: otherCategoryNotes,
+          };
+        }
+        return item;
+      });
+    }
+
     return result;
-  }, [activityData, ACTIVITY_STRUCTURE, ACTIVITY_STRUCTURE_BANGKOK, smokeData, isBangkok]);
+  }, [activityData, ACTIVITY_STRUCTURE, ACTIVITY_STRUCTURE_BANGKOK, smokeData, isBangkok, category12Notes]);
 
   // แสดงข้อมูลตามโครงสร้างเอกสารเสมอ (ไม่ว่า API จะมีข้อมูลหรือไม่)
   const displayData = transformedData;
@@ -868,6 +924,52 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
         currentY += rowHeight;
         rowCount++;
+
+        // แสดง notes text สำหรับหมวด 12 (กรุงเทพ - OTHER)
+        if (isBangkok && row.category === "OTHER" && row.notesText) {
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(9);
+
+          // แบ่งข้อความ notes ออกเป็นหลายบรรทัด
+          const notesLines = doc.splitTextToSize(row.notesText, colWidths.activity + colWidths.unit + colWidths.result - 5);
+
+          notesLines.forEach((line, lineIdx) => {
+            // ตรวจสอบว่าเต็มหน้าหรือไม่
+            if (rowCount >= maxRowsPerPage) {
+              doc.addPage();
+              addWatermark(doc);
+              currentY = 25;
+              rowCount = 0;
+
+              // วาด header ใหม่
+              doc.setFont("Sarabun", "bold");
+              doc.setFontSize(12);
+
+              let headerX = startX;
+              doc.text("ลำดับ", headerX, currentY);
+              headerX += colWidths.no;
+
+              doc.text("กิจกรรมการปฏิบัติงาน", headerX, currentY);
+              headerX += colWidths.activity;
+
+              doc.text("หน่วยนับ", headerX + 5, currentY);
+              headerX += colWidths.unit;
+
+              doc.text("ผลงาน", headerX + 3, currentY);
+
+              currentY += 8;
+              doc.setFont("Sarabun", "normal");
+              doc.setFontSize(9);
+            }
+
+            doc.text(line, startX + colWidths.no, currentY);
+            currentY += 4;
+            rowCount++;
+          });
+
+          // เพิ่มระยะห่างหลัง notes
+          currentY += 2;
+        }
 
         // แสดงรายละเอียดสำหรับ Activity 9.1 (67 จังหวัด: other_activity_1, กรุงเทพ: smoking_cessation_1)
         const smokeActivityId = isBangkok ? "smoking_cessation_1" : "other_activity_1";
@@ -1094,6 +1196,15 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
                         {row.result !== "" && row.result !== undefined && row.result !== 0 ? row.result : ""}
                       </div>
                     </div>
+
+                    {/* แสดง notes text สำหรับหมวด 12 (กรุงเทพ - OTHER) */}
+                    {isBangkok && row.category === "OTHER" && row.notesText && (
+                      <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+                        <div className="pl-16 text-sm text-gray-700 whitespace-pre-wrap">
+                          {row.notesText}
+                        </div>
+                      </div>
+                    )}
 
                     {/* แสดงรายละเอียดข้อมูลสำหรับ Activity 9.1 (67 จังหวัด) หรือ 9.1 (กรุงเทพ) - แสดงเป็นแถวเดียว */}
                     {((!isBangkok && row.activityId === "other_activity_1") || (isBangkok && row.activityId === "smoking_cessation_1")) && smokeData.length > 0 && (
