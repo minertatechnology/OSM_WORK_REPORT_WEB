@@ -810,8 +810,8 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       };
 
       // วาดตาราง Header (ไม่มีกรอบ)
-      doc.setFont("Sarabun", "bold");
-      doc.setFontSize(12);
+      doc.setFont("Sarabun", "normal");
+      doc.setFontSize(10);
 
       let currentX = startX;
 
@@ -832,13 +832,41 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
       // วาดข้อมูลในตาราง
       doc.setFont("Sarabun", "normal");
-      doc.setFontSize(10);
+      doc.setFontSize(9);
 
       let currentY = startY + 5;
       const maxRowsPerPage = 38;
       let rowCount = 0;
 
       displayData.forEach((row) => {
+        // ตัดหน้าใหม่สำหรับข้อ 8. การเข้าร่วมกับทีมหมอครอบครัว (67 จังหวัด)
+        if (row.activityId === "doctor_family" && row.isMainCategory) {
+          doc.addPage();
+          addWatermark(doc);
+          currentY = 25;
+          rowCount = 0;
+
+          // วาด header ใหม่ (ไม่มีกรอบ)
+          doc.setFont("Sarabun", "bold");
+          doc.setFontSize(12);
+
+          let headerX = startX;
+          doc.text("ลำดับ", headerX, currentY);
+          headerX += colWidths.no;
+
+          doc.text("กิจกรรมการปฏิบัติงาน", headerX, currentY);
+          headerX += colWidths.activity;
+
+          doc.text("หน่วยนับ", headerX + 5, currentY);
+          headerX += colWidths.unit;
+
+          doc.text("จำนวน", headerX + 3, currentY);
+
+          currentY += 8;
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(9);
+        }
+
         // ถ้าเต็มหน้าให้สร้างหน้าใหม่
         if (rowCount >= maxRowsPerPage) {
           doc.addPage();
@@ -864,18 +892,47 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
           currentY += 8;
           doc.setFont("Sarabun", "normal");
-          doc.setFontSize(10);
+          doc.setFontSize(9);
         }
 
         let dataX = startX;
 
-        // กำหนด font ตามประเภทแถว
+        // กำหนดระดับของแถว
+        const isSubItem = row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-");
+        const isLevel2 = row.no === "-";
+        const isLevel3 = row.no && row.no.startsWith("(");
+        const isEmptyNo = row.no === "";
+
+        // กำหนดสีพื้นหลังสำหรับ main category (ไม่มีสี ไม่มีเส้น)
         if (row.isMainCategory) {
-          doc.setFont("Sarabun", "bold");
-          doc.setFontSize(14);
+          // ไม่มีพื้นหลังและเส้น - แค่เว้นวรรค
+        } else if (isLevel2) {
+          // วาดพื้นหลังสีเทาอ่อนสำหรับ level 2 (-)
+          doc.setFillColor(248, 248, 248);
+          doc.rect(startX, currentY - 4, colWidths.no + colWidths.activity + colWidths.unit + colWidths.result, 6, 'F');
+        }
+
+        // กำหนด font ตามประเภทแถว - ทุกแถวใช้ขนาดเท่ากัน
+        if (row.isMainCategory) {
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30); // สีดำ
+        } else if (isSubItem) {
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30);
+        } else if (isLevel2 || isLevel3) {
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30);
+        } else if (isEmptyNo) {
+          doc.setFont("Sarabun", "italic");
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30);
         } else {
           doc.setFont("Sarabun", "normal");
-          doc.setFontSize(10);
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30);
         }
 
         // กำหนด indent เฉพาะตัวเลขลำดับ (ตรงตามหน้าหลัก)
@@ -884,16 +941,16 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         if (row.isMainCategory) {
           // หมวดหมู่หลัก (1., 2., 3., ...) - ไม่ indent
           noIndent = 0;
-        } else if (row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-")) {
-          // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...) - indent 4mm (ml-16 ~ 16px ~ 4mm)
+        } else if (isSubItem) {
+          // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...) - indent 4mm
           noIndent = 4;
-        } else if (row.no === "-") {
-          // หัวข้อย่อยระดับ 2 (-) - indent 8mm (ml-32 ~ 32px ~ 8mm)
-          noIndent = 8;
-        } else if (row.no && row.no.startsWith("(")) {
-          // หัวข้อย่อยระดับ 3 ((1), (2), (3)) - indent 6mm (ml-24 ~ 24px ~ 6mm)
+        } else if (isLevel2) {
+          // หัวข้อย่อยระดับ 2 (-) - indent 10mm
+          noIndent = 10;
+        } else if (isLevel3) {
+          // หัวข้อย่อยระดับ 3 ((1), (2), (3)) - indent 6mm
           noIndent = 6;
-        } else if (row.no === "") {
+        } else if (isEmptyNo) {
           // หัวข้อคำอธิบายพิเศษ (ไม่มีเลขลำดับ) - indent 4mm
           noIndent = 4;
         }
@@ -909,20 +966,29 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         doc.text(actParts[0], dataX, currentY);
         dataX += colWidths.activity;
 
-        // หน่วยนับ (ไม่มีกรอบ)
+        // หน่วยนับ
         doc.setFont("Sarabun", "normal");
-        doc.setFontSize(10);
+        doc.setFontSize(9);
+        doc.setTextColor(30, 30, 30);
         if (row.unit) {
           doc.text(row.unit, dataX + 8, currentY);
         }
         dataX += colWidths.unit;
 
-        // ผลงาน (ไม่มีกรอบ)
+        // ผลงาน
         if (row.result !== "" && row.result !== undefined && row.result !== 0) {
           doc.text(String(row.result), dataX + 5, currentY);
         }
 
-        currentY += rowHeight;
+        // รีเซ็ตสีกลับเป็นสีดำ
+        doc.setTextColor(0, 0, 0);
+
+        // ปรับระยะห่างตามระดับ
+        if (row.isMainCategory) {
+          currentY += rowHeight + 2;
+        } else {
+          currentY += rowHeight;
+        }
         rowCount++;
 
         // แสดง notes text สำหรับหมวด 12 (กรุงเทพ - OTHER)
@@ -1134,72 +1200,68 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
               </div>
             ) : (
               displayData.map((row, idx) => {
-                // กำหนด indent สำหรับลำดับและกิจกรรม
-                let noIndent = "";
-                let activityIndent = "";
-
-                if (row.isMainCategory) {
-                  // หมวดหมู่หลัก (1., 2., 3., ...)
-                  noIndent = "pl-0";
-                  activityIndent = "";
-                } else if (row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-")) {
-                  // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...)
-                  noIndent = "pl-4";
-                  activityIndent = "";
-                } else if (row.no === "-") {
-                  // หัวข้อย่อยระดับ 2 (-)
-                  noIndent = "pl-8";
-                  activityIndent = "";
-                } else if (row.no && row.no.startsWith("(")) {
-                  // หัวข้อย่อยระดับ 3 ((1), (2), (3))
-                  noIndent = "pl-6";
-                  activityIndent = "";
-                } else if (row.no === "") {
-                  // หัวข้อคำอธิบายพิเศษ
-                  noIndent = "pl-4";
-                  activityIndent = "";
-                }
-
-                // กำหนดขนาดตัวอักษร
+                // กำหนดระดับของแถว
                 const isSubItem = row.no && (row.no.includes(".") && !row.no.startsWith("(") && row.no !== "-");
                 const isLevel2 = row.no === "-";
                 const isLevel3 = row.no && row.no.startsWith("(");
                 const isEmptyNo = row.no === "";
 
-                let fontSize = "";
-                let noFontSize = "";
+                // กำหนด class สำหรับแต่ละระดับ
+                let rowClass = "";
+                let noClass = "";
+                let activityClass = "";
 
                 if (row.isMainCategory) {
-                  fontSize = "text-base";
-                  noFontSize = "text-lg";
-                } else if (isSubItem || isLevel2 || isLevel3 || isEmptyNo) {
-                  fontSize = "text-sm";
-                  noFontSize = "text-sm";
+                  // หมวดหมู่หลัก (1., 2., 3., ...)
+                  rowClass = "bg-white py-2";
+                  noClass = "text-right pr-3 text-base text-gray-800";
+                  activityClass = "text-base text-gray-800";
+                } else if (isSubItem) {
+                  // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...)
+                  rowClass = "bg-white border-b border-gray-100 py-2";
+                  noClass = "text-right pr-3 font-semibold text-sm text-gray-800";
+                  activityClass = "text-sm text-gray-800";
+                } else if (isLevel2) {
+                  // หัวข้อย่อยระดับ 2 (-) - พื้นหลังสีเทาอ่อน
+                  rowClass = "bg-gray-50 border-b border-gray-100 py-1.5";
+                  noClass = "text-center font-normal text-sm text-gray-800 pl-4";
+                  activityClass = "text-sm text-gray-800 pl-2";
+                } else if (isLevel3) {
+                  // หัวข้อย่อยระดับ 3 ((1), (2), (3))
+                  rowClass = "bg-gray-50 border-b border-gray-100 py-1.5";
+                  noClass = "text-right pr-3 font-normal text-sm text-gray-800 pl-4";
+                  activityClass = "text-sm text-gray-800 pl-4";
+                } else if (isEmptyNo) {
+                  // หัวข้อคำอธิบายพิเศษ - พื้นหลังสีฟ้าอ่อน
+                  rowClass = "bg-blue-50 border-b border-blue-100 py-2";
+                  noClass = "text-center text-sm text-blue-400";
+                  activityClass = "text-sm text-blue-700 italic";
                 } else {
-                  fontSize = "text-sm";
-                  noFontSize = "text-sm";
+                  rowClass = "bg-white border-b border-gray-100 py-1.5";
+                  noClass = "text-right pr-3 text-sm text-gray-800";
+                  activityClass = "text-sm text-gray-800";
                 }
 
                 return (
                   <React.Fragment key={idx}>
-                    <div className={`flex px-3 border-b border-gray-100 hover:bg-gray-50 ${row.isMainCategory ? "py-2" : "py-1.5"}`}>
-                      <div className={`w-16 flex-shrink-0 ${noIndent} ${row.isMainCategory ? "font-bold" : ""} ${noFontSize} text-black`}>
+                    <div className={`flex px-3 ${rowClass}`}>
+                      <div className={`w-16 flex-shrink-0 ${noClass}`}>
                         {row.no}
                       </div>
-                      <div className={`flex-1 ${row.isMainCategory ? "font-bold" : ""} ${fontSize} text-black ${activityIndent}`}>
+                      <div className={`flex-1 ${activityClass}`}>
                         {row.activity}
                       </div>
-                      <div className={`w-24 text-center flex-shrink-0 ${row.isMainCategory ? "font-bold" : ""} ${fontSize} text-black`}>
+                      <div className={`w-24 text-center flex-shrink-0 text-gray-800 text-sm`}>
                         {row.unit}
                       </div>
-                      <div className={`w-20 text-center flex-shrink-0 ${row.isMainCategory ? "font-bold" : ""} ${fontSize} text-black`}>
+                      <div className={`w-20 text-center flex-shrink-0 text-gray-800 text-sm`}>
                         {row.result !== "" && row.result !== undefined && row.result !== 0 ? row.result : ""}
                       </div>
                     </div>
 
                     {/* แสดง notes text สำหรับหมวด 12 (กรุงเทพ - OTHER) */}
                     {isBangkok && row.category === "OTHER" && row.notesText && (
-                      <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+                      <div className="px-3 py-2 border-b border-gray-200 bg-amber-50">
                         <div className="pl-16 text-sm text-gray-700 whitespace-pre-wrap">
                           {row.notesText}
                         </div>
@@ -1208,12 +1270,12 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
                     {/* แสดงรายละเอียดข้อมูลสำหรับ Activity 9.1 (67 จังหวัด) หรือ 9.1 (กรุงเทพ) - แสดงเป็นแถวเดียว */}
                     {((!isBangkok && row.activityId === "other_activity_1") || (isBangkok && row.activityId === "smoking_cessation_1")) && smokeData.length > 0 && (
-                      <div className="px-3 py-3 border-b border-gray-200">
+                      <div className="px-3 py-3 border-b border-gray-200 bg-green-50">
                         <div className="pl-16">
                           {smokeData.map((item, index) => {
                             const status = item["สถานะการสูบบุหรี่"] === "smoke" ? "สูบ" : "ไม่สูบ";
                             return (
-                              <div key={index} className="text-xs text-gray-600 mb-1.5">
+                              <div key={index} className="text-xs text-gray-600 mb-1.5 bg-white px-2 py-1 rounded">
                                 <span className="font-medium">ลำดับ:</span> {index + 1}, <span className="font-medium">ชื่อ:</span> {item["ชื่อ"] || "-"}, <span className="font-medium">เบอร์โทรศัพท์:</span> {item["เบอร์โทรศัพท์"] || "-"}, <span className="font-medium">บ้านเลขที่:</span> {item["บ้านเลขที่"] || "-"}, <span className="font-medium">สถานะ:</span> {status}
                               </div>
                             );
