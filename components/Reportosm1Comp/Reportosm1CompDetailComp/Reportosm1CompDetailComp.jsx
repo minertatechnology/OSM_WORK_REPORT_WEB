@@ -839,6 +839,34 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       let rowCount = 0;
 
       displayData.forEach((row) => {
+        // ตัดหน้าใหม่สำหรับข้อ 7. การเฝ้าระวัง ป้องกัน และควบคุมโรค (กรุงเทพ)
+        if (row.category === "DISEASE_CONTROL" && row.isMainCategory && isBangkok) {
+          doc.addPage();
+          addWatermark(doc);
+          currentY = 25;
+          rowCount = 0;
+
+          // วาด header ใหม่ (ไม่มีกรอบ)
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(10);
+
+          let headerX = startX;
+          doc.text("ลำดับ", headerX, currentY);
+          headerX += colWidths.no;
+
+          doc.text("กิจกรรมการปฏิบัติงาน", headerX, currentY);
+          headerX += colWidths.activity;
+
+          doc.text("หน่วยนับ", headerX + 5, currentY);
+          headerX += colWidths.unit;
+
+          doc.text("จำนวน", headerX + 3, currentY);
+
+          currentY += 8;
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(9);
+        }
+
         // ตัดหน้าใหม่สำหรับข้อ 8. การเข้าร่วมกับทีมหมอครอบครัว (67 จังหวัด)
         if (row.activityId === "doctor_family" && row.isMainCategory) {
           doc.addPage();
@@ -847,8 +875,8 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
           rowCount = 0;
 
           // วาด header ใหม่ (ไม่มีกรอบ)
-          doc.setFont("Sarabun", "bold");
-          doc.setFontSize(12);
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(10);
 
           let headerX = startX;
           doc.text("ลำดับ", headerX, currentY);
@@ -875,8 +903,8 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
           rowCount = 0;
 
           // วาด header ใหม่ (ไม่มีกรอบ)
-          doc.setFont("Sarabun", "bold");
-          doc.setFontSize(12);
+          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(10);
 
           let headerX = startX;
           doc.text("ลำดับ", headerX, currentY);
@@ -915,7 +943,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         // กำหนด font ตามประเภทแถว - ทุกแถวใช้ขนาดเท่ากัน
         if (row.isMainCategory) {
           doc.setFont("Sarabun", "normal");
-          doc.setFontSize(9);
+          doc.setFontSize(11);
           doc.setTextColor(30, 30, 30); // สีดำ
         } else if (isSubItem) {
           doc.setFont("Sarabun", "normal");
@@ -1008,8 +1036,8 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
               rowCount = 0;
 
               // วาด header ใหม่
-              doc.setFont("Sarabun", "bold");
-              doc.setFontSize(12);
+              doc.setFont("Sarabun", "normal");
+              doc.setFontSize(10);
 
               let headerX = startX;
               doc.text("ลำดับ", headerX, currentY);
@@ -1052,8 +1080,8 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
               rowCount = 0;
 
               // วาด header ใหม่
-              doc.setFont("Sarabun", "bold");
-              doc.setFontSize(12);
+              doc.setFont("Sarabun", "normal");
+              doc.setFontSize(10);
 
               let headerX = startX;
               doc.text("ลำดับ", headerX, currentY);
@@ -1214,13 +1242,13 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
                 if (row.isMainCategory) {
                   // หมวดหมู่หลัก (1., 2., 3., ...)
                   rowClass = "bg-white py-2";
-                  noClass = "text-right pr-3 text-base text-gray-800";
-                  activityClass = "text-base text-gray-800";
+                  noClass = "text-right pr-3 text-lg font-semibold text-gray-800";
+                  activityClass = "text-lg font-semibold text-gray-800";
                 } else if (isSubItem) {
                   // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...)
                   rowClass = "bg-white border-b border-gray-100 py-2";
-                  noClass = "text-right pr-3 font-semibold text-sm text-gray-800";
-                  activityClass = "text-sm text-gray-800";
+                  noClass = "text-right pr-3 font-semibold text-sm text-gray-800 pl-4";
+                  activityClass = "text-sm text-gray-800 pl-4";
                 } else if (isLevel2) {
                   // หัวข้อย่อยระดับ 2 (-) - พื้นหลังสีเทาอ่อน
                   rowClass = "bg-gray-50 border-b border-gray-100 py-1.5";
