@@ -475,26 +475,26 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       activityId: "family_doc"
     },
     {
-      no: "",
+      no: "6.1",
       activity: "ติดตามให้คำแนะนำ อสค. ในการดูแล อาหาร/ออกกำลังกาย/วิธีปฏิบัติ การดูแล การพยาบาล / การส่งต่อ ผู้ป่วยในครัวเรือน",
       unit: "",
       isMainCategory: false,
       activityId: null
     },
     {
-      no: "(1)",
+      no: "-",
       activity: "กลุ่มผู้สูงอายุ ที่มีปัญหา ติดบ้านติดเตียง",
       unit: "คน",
       activityId: "family_doc_1"
     },
     {
-      no: "(2)",
+      no: "-",
       activity: "กลุ่มผู้ป่วยโรคไม่ติดต่อเรื้อรัง",
       unit: "คน",
       activityId: "family_doc_2"
     },
     {
-      no: "(3)",
+      no: "-",
       activity: "กลุ่มผู้ป่วยที่มีปัญหาโรคไต",
       unit: "คน",
       activityId: "family_doc_3"
@@ -508,13 +508,13 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       activityId: "statistics"
     },
     {
-      no: "(1)",
+      no: "7.1",
       activity: "ให้ความรู้พื้นฐานการใช้ยาปฎิชีวนะ หรือข้อควรระวังการซื้อยากินเองสำหรับโรคหวัด/ท้องเสีย และการใช้สมุนไพรที่เสี่ยงต่อการผสมสาร สเตียรอยด์",
       unit: "ครอบครัว",
       activityId: "statistics_1"
     },
     {
-      no: "(2)",
+      no: "7.2",
       activity: "เฝ้าระวังและให้คำแนะนำการบริโภคผลิตภัณฑ์สุขภาพ และร่วมสำรวจร้านชำในชุมชน เพื่อปลอดยาปฏิชีวนะ ยาชุด",
       unit: "ครั้ง",
       activityId: "statistics_2"
@@ -528,26 +528,26 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       activityId: "doctor_family"
     },
     {
-      no: "-",
+      no: "8.1",
       activity: "ร่วมเป็นทีมหมอครอบครัว ในการช่วยเหลือ ดูแลผู้ป่วย และครอบครัวในชุมชน",
       unit: "ครั้ง",
       activityId: "doctor_family_1"
     },
     {
-      no: "",
+      no: "8.2",
       activity: "กรณีเข้าร่วมทีมหมอครอบครัว อสม. ให้ความช่วยเหลือในเรื่องใด/กี่ครอบครัว",
       unit: "",
       isMainCategory: false,
       activityId: null
     },
     {
-      no: "(1)",
+      no: "-",
       activity: "ช่วยปรับปรุงที่อยู่อาศัย และสิ่งแวดล้อมให้เอื้อต่อการดูแล การพยาบาล",
       unit: "ครอบครัว",
       activityId: "doctor_family_2"
     },
     {
-      no: "(2)",
+      no: "-",
       activity: "เสริมพลังและกำลังใจ และเทคนิคการดูแล การพยาบาลตามปัญหาสุขภาพ ทำให้ผู้ป่วยมีกำลังใจในการดำรงชีวิต",
       unit: "ครอบครัว",
       activityId: "doctor_family_3"
@@ -760,11 +760,11 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       const addWatermark = (doc) => {
         const watermarkImage = "/Smart_Osm_Plus.png";
         const imgWidth = 150;
-        const imgHeight = 150;
+        const imgHeight = 100;
 
         // Portrait: 210x297
         const centerX = 220 / 2;
-        const centerY = 360 / 2;
+        const centerY = 300 / 2;
 
         const x = centerX - (imgWidth / 2);
         const y = centerY - (imgHeight / 2);
@@ -828,7 +828,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       currentX += colWidths.unit;
 
       // ผลงาน
-      doc.text("ผลงาน", currentX + 3, startY);
+      doc.text("จำนวน", currentX + 3, startY);
 
       // วาดข้อมูลในตาราง
       doc.setFont("Sarabun", "normal");
@@ -860,7 +860,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
           doc.text("หน่วยนับ", headerX + 5, currentY);
           headerX += colWidths.unit;
 
-          doc.text("ผลงาน", headerX + 3, currentY);
+          doc.text("จำนวน", headerX + 3, currentY);
 
           currentY += 8;
           doc.setFont("Sarabun", "normal");
@@ -888,8 +888,8 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
           // หัวข้อย่อยระดับ 1 (1.1, 1.2, 2.1, ...) - indent 4mm (ml-16 ~ 16px ~ 4mm)
           noIndent = 4;
         } else if (row.no === "-") {
-          // หัวข้อย่อยระดับ 2 (-) - indent 6mm (ml-24 ~ 24px ~ 6mm)
-          noIndent = 6;
+          // หัวข้อย่อยระดับ 2 (-) - indent 8mm (ml-32 ~ 32px ~ 8mm)
+          noIndent = 8;
         } else if (row.no && row.no.startsWith("(")) {
           // หัวข้อย่อยระดับ 3 ((1), (2), (3)) - indent 6mm (ml-24 ~ 24px ~ 6mm)
           noIndent = 6;
@@ -955,7 +955,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
               doc.text("หน่วยนับ", headerX + 5, currentY);
               headerX += colWidths.unit;
 
-              doc.text("ผลงาน", headerX + 3, currentY);
+              doc.text("จำนวน", headerX + 3, currentY);
 
               currentY += 8;
               doc.setFont("Sarabun", "normal");
@@ -999,7 +999,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
               doc.text("หน่วยนับ", headerX + 5, currentY);
               headerX += colWidths.unit;
 
-              doc.text("ผลงาน", headerX + 3, currentY);
+              doc.text("จำนวน", headerX + 3, currentY);
 
               currentY += 8;
               doc.setFont("Sarabun", "normal");
@@ -1040,7 +1040,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
                   doc.text("หน่วยนับ", headerX + 5, currentY);
                   headerX += colWidths.unit;
 
-                  doc.text("ผลงาน", headerX + 3, currentY);
+                  doc.text("จำนวน", headerX + 3, currentY);
 
                   currentY += 8;
                   doc.setFont("Sarabun", "normal");
@@ -1119,7 +1119,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
                 หน่วยนับ
               </div>
               <div className="w-20 font-bold text-center text-black text-sm flex-shrink-0">
-                ผลงาน
+                จำนวน
               </div>
             </div>
           </div>
@@ -1148,7 +1148,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
                   activityIndent = "";
                 } else if (row.no === "-") {
                   // หัวข้อย่อยระดับ 2 (-)
-                  noIndent = "pl-6";
+                  noIndent = "pl-8";
                   activityIndent = "";
                 } else if (row.no && row.no.startsWith("(")) {
                   // หัวข้อย่อยระดับ 3 ((1), (2), (3))
