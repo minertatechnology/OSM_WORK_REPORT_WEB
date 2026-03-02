@@ -779,6 +779,9 @@ const Reportosm1DataComp = () => {
             ? `${userData.prefix_name_th || ""}${userData.first_name || ""} ${userData.last_name || ""}`.trim()
             : item.external_user_id || "ไม่ระบุชื่อ";
 
+          // ดึง province_id จาก OSM batch API (สำคัญสุด - ใช้ตัดสินใจว่าเป็นกรุงเทพหรือไม่)
+          const osmProvinceId = userData?.province_id || null;
+
           // สร้าง user_location จาก location_data_resolved (ใช้สำหรับกรองพื้นที่)
           const userLocation = {
             province_id: locationResolved.province_id,
@@ -800,6 +803,8 @@ const Reportosm1DataComp = () => {
               fullName: fullName,
               locationResolved: locationResolved,
               userLocation: userLocation,
+              osmProvinceId: osmProvinceId,
+              userData: userData,
             });
           }
 
@@ -807,6 +812,7 @@ const Reportosm1DataComp = () => {
             ...item,
             userName: fullName,
             user_location: userLocation,
+            osm_province_id: osmProvinceId, // เก็บ province_id จาก OSM batch API
           };
         });
 
