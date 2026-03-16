@@ -953,7 +953,8 @@ const PregnantReportComp = () => {
           }
         });
         const yearsList = Array.from(yearsSet).sort((a, b) => b - a); // เรียงจากมากไปน้อย
-        setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear.toString()]);
+        const fallbackYear = currentBuddhistYear || (new Date().getFullYear() + 543);
+        setAvailableYears(yearsList.length > 0 ? yearsList : [fallbackYear.toString()]);
 
         // 2. รวมข้อมูลตาม external_user_id
         const aggregated = aggregateByAssessor(evaluations);
@@ -1054,8 +1055,10 @@ const PregnantReportComp = () => {
         setUserDataMap(newUserDataMap);
       } catch (error) {
         console.error("Failed to fetch pregnant women data:", error);
-        // ถ้า error ใช้ mock data แทน
-        setPregnantData(ALL_ROWS);
+        // ถ้า error ให้ set เป็น empty array เพื่อแสดง "ไม่พบข้อมูล"
+        setPregnantData([]);
+        setAllEvaluations([]);
+        setAggregatedData([]);
       } finally {
         setIsLoadingData(false);
         setIsLoadingUsers(false);
@@ -1106,8 +1109,8 @@ const PregnantReportComp = () => {
     return userData?.name || fallbackName || "กำลังโหลด...";
   };
 
-  // ใช้ข้อมูลจาก API หรือ fallback เป็น mock data
-  const dataSource = pregnantData.length > 0 ? pregnantData : ALL_ROWS;
+  // ใช้ข้อมูลจาก API เท่านั้น - ถ้าไม่มีข้อมูลจะแสดง "ไม่พบข้อมูล"
+  const dataSource = pregnantData;
 
   // เลือกรายการเดือนตามประเภทปี
   const monthOptions = useMemo(() => {
@@ -1245,8 +1248,7 @@ const PregnantReportComp = () => {
 
   // ถ้ามี detailId ให้แสดงหน้ารายละเอียด
   if (detailId) {
-    const selectedRow = pregnantData.find((row) => row.index === Number(detailId)) ||
-                        ALL_ROWS.find((row) => row.index === Number(detailId));
+    const selectedRow = pregnantData.find((row) => row.index === Number(detailId));
 
     // หาข้อมูล evaluations ของ user นี้
     const userEvaluations = allEvaluations.filter(
@@ -1317,13 +1319,13 @@ const PregnantReportComp = () => {
                 </div>
               </div>
             </div>
-            <button
+            {/* <button
               className="flex items-center gap-2 px-6 py-3 bg-white text-[#7e32e2] font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
-              onClick={() => setModalOpen(true)}
+              onClick={() => setxModalOpen(true)}
             >
               <Download size={20} />
               ดาวน์โหลดเอกสาร
-            </button>
+            </button> */}
           </div>
         </div>
       </div>

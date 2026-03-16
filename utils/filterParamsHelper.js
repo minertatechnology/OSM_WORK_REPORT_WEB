@@ -133,10 +133,19 @@ export const addDateFilters = (params = {}, year = "", month = "", yearType = "c
     const gregorianYear = buddhistYear - 543;
     const monthNum = parseInt(month);
 
-    // For fiscal year, adjust the year if month is Oct-Dec (months 10-12)
+    // For fiscal year:
+    // - Fiscal year 2569 = Oct 2025 - Sep 2026 (ends in Buddhist year 2569)
+    // - Months Oct-Dec (10-12) belong to Gregorian year = gregorianYear - 1
+    // - Months Jan-Sep (1-9) belong to Gregorian year = gregorianYear
     let adjustedYear = gregorianYear;
-    if (yearType === "fiscal" && monthNum >= 10) {
-      adjustedYear = gregorianYear - 1;
+    if (yearType === "fiscal") {
+      if (monthNum >= 10) {
+        // Oct-Dec: use gregorianYear - 1
+        adjustedYear = gregorianYear - 1;
+      } else {
+        // Jan-Sep: use gregorianYear as-is
+        adjustedYear = gregorianYear;
+      }
     }
 
     const startDate = new Date(adjustedYear, monthNum - 1, 1);
@@ -148,11 +157,22 @@ export const addDateFilters = (params = {}, year = "", month = "", yearType = "c
     const buddhistYear = parseInt(year);
     const gregorianYear = buddhistYear - 543;
 
-    const startDate = new Date(gregorianYear, 0, 1);
-    const endDate = new Date(gregorianYear, 11, 31, 23, 59, 59);
+    if (yearType === "fiscal") {
+      // Fiscal year: Oct 1 of previous Gregorian year to Sep 30 of current Gregorian year
+      // Fiscal year 2569 = Oct 1, 2025 to Sep 30, 2026 (ends in Buddhist year 2569)
+      const startDate = new Date(gregorianYear - 1, 9, 1); // Oct 1 of previous year
+      const endDate = new Date(gregorianYear, 8, 30, 23, 59, 59); // Sep 30 of current year
 
-    result.start_date = startDate.toISOString();
-    result.end_date = endDate.toISOString();
+      result.start_date = startDate.toISOString();
+      result.end_date = endDate.toISOString();
+    } else {
+      // Calendar year: Jan 1 to Dec 31
+      const startDate = new Date(gregorianYear, 0, 1);
+      const endDate = new Date(gregorianYear, 11, 31, 23, 59, 59);
+
+      result.start_date = startDate.toISOString();
+      result.end_date = endDate.toISOString();
+    }
   }
 
   return result;
