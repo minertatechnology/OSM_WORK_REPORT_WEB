@@ -92,15 +92,16 @@ export default function UserPermissionProvider({ children }) {
           const userRoles = [role];
 
           // Extract scope from permission_scope.codes
+          // Fallback: ลองหาชื่อจากหลายที่ เพราะ API อาจคืนค่าในตำแหน่งต่างกัน
           const codes = permissionScope?.codes || {};
           const userScope = {
             zone: codes.health_area_id || '',
             province: codes.province_id || '',
-            province_name_th: codes.province_name_th || '',
+            province_name_th: codes.province_name_th || data.province_name || data.province_name_th || '',
             district: codes.district_id || '',
-            district_name_th: codes.district_name_th || '',
+            district_name_th: codes.district_name_th || data.district_name || data.district_name_th || '',
             subdistrict: codes.subdistrict_id || '',
-            subdistrict_name_th: codes.subdistrict_name_th || '',
+            subdistrict_name_th: codes.subdistrict_name_th || data.subdistrict_name || data.subdistrict_name_th || '',
             unit: data.service_unit?.code || '',
           };
 

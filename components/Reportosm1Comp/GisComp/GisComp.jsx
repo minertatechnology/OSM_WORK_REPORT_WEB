@@ -211,6 +211,7 @@ const GisComp = () => {
 
   // Refs for permission initialization tracking
   const permissionInitializedRef = useRef(false);
+  const provinceInitializedRef = useRef(false);
   const districtInitializedRef = useRef(false);
   const subdistrictInitializedRef = useRef(false);
   const isInitializingFromPermissionRef = useRef(false);
@@ -951,13 +952,14 @@ const GisComp = () => {
     }
 
     // Clear available lists for unlocked values
-    if (!isLocked('province')) {
+    // ถ้า zone ถูก lock ให้เก็บ availableProvincesInRegion ไว้ เพื่อให้ dropdown จังหวัดใช้งานได้
+    if (!isLocked('zone')) {
       setAvailableProvincesInRegion([]);
     }
-    if (!isLocked('district')) {
+    if (!isLocked('province')) {
       setAvailableDistricts([]);
     }
-    if (!isLocked('subdistrict')) {
+    if (!isLocked('district')) {
       setAvailableSubdistricts([]);
     }
 
@@ -1171,6 +1173,13 @@ const GisComp = () => {
     // Wait for provinces to be loaded
     if (Object.keys(provinceCodeByName).length === 0) return;
 
+    const initialFilters = getInitialFilters();
+
+    // ตรวจสอบว่า scope มีข้อมูลที่จำเป็นสำหรับ locked fields หรือยัง
+    // ถ้ายังไม่มี ให้รอรอบถัดไป (อย่า set permissionInitializedRef.current = true)
+    if (isLocked('zone') && !initialFilters.zone) return;
+    if (isLocked('province') && !initialFilters.province_name_th && !permissionUser?.province_name && !permissionUser?.province_name_th) return;
+
     const needsDistrictInit = isLocked('district');
     const needsSubdistrictInit = isLocked('subdistrict');
 
@@ -1181,8 +1190,6 @@ const GisComp = () => {
 
     permissionInitializedRef.current = true;
 
-    const initialFilters = getInitialFilters();
-
     // Set health region (zone) if locked
     if (isLocked('zone') && initialFilters.zone) {
       const zoneNumber = parseInt(String(initialFilters.zone).replace(/\D/g, ''));
@@ -1191,16 +1198,44 @@ const GisComp = () => {
       }
     }
 
-    // Set province if locked - use initialFilters.province_name_th
-    if (isLocked('province') && initialFilters.province_name_th) {
-      setSelectedProvince(initialFilters.province_name_th);
-    }
-
     // Set year to current fiscal year
     if (!selectedYear) {
       setSelectedYear(String(getCurrentFiscalYear()));
     }
-  }, [permissionLoading, scope, getInitialFilters, isLocked, provinceCodeByName, selectedYear]);
+  }, [permissionLoading, scope, getInitialFilters, isLocked, provinceCodeByName, selectedYear, permissionUser]);
+
+  // Province initialization - wait for provinces in region to load then set from permission
+  useEffect(() => {
+    if (permissionLoading || !permissionUser) return;
+    if (provinceInitializedRef.current) return;
+    if (!isLocked('province')) return;
+    // ต้องรอให้ availableProvincesInRegion ถูกโหลดก่อน (กรณีที่ zone ถูก lock)
+    if (isLocked('zone') && availableProvincesInRegion.length === 0) return;
+    // หรือรอให้ availableProvinces ถูกโหลด (กรณีที่ zone ไม่ถูก lock)
+    if (!isLocked('zone') && availableProvinces.length === 0) return;
+
+    const provinceName = permissionUser?.province_name ||
+                         permissionUser?.province_name_th ||
+                         getInitialFilters().province_name_th;
+    if (provinceName) {
+      // หา province ในรายการที่มี
+      const provinceList = isLocked('zone') ? availableProvincesInRegion : availableProvinces;
+      const matchedProvince = provinceList.find(p => {
+        const normalizedAvailable = p.replace(/^จังหวัด/, '').trim();
+        const normalizedTarget = provinceName.replace(/^จังหวัด/, '').trim();
+        return normalizedAvailable === normalizedTarget || p === provinceName;
+      });
+
+      if (matchedProvince) {
+        provinceInitializedRef.current = true;
+        setSelectedProvince(matchedProvince);
+      } else if (provinceList.includes(provinceName)) {
+        // ถ้าชื่อตรงกันทุกประการ
+        provinceInitializedRef.current = true;
+        setSelectedProvince(provinceName);
+      }
+    }
+  }, [permissionLoading, permissionUser, availableProvincesInRegion, availableProvinces, isLocked, getInitialFilters]);
 
   // District initialization - wait for districts to load then set from permission
   useEffect(() => {
