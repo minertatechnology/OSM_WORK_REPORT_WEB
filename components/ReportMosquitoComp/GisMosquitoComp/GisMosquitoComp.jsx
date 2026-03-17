@@ -1100,70 +1100,9 @@ const GisMosquitoComp = () => {
   ]);
 
   const clearFilter = useCallback(() => {
-    const initialFilters = getInitialFilters();
-
-    // ล้างการเลือกทั้งหมด แต่ preserve locked values
-    setSelectedYearType("fiscal");
-    setSelectedYear("");
-    setSelectedMonth("");
-    setSelectedWeek("");
-
-    // ✅ Restore locked values after clearing
-    // Zone (เขตสุขภาพ)
-    if (isLocked('zone') && initialFilters.zone) {
-      const zoneNumber = parseInt(String(initialFilters.zone).replace(/\D/g, ''));
-      if (zoneNumber) {
-        setSelectedHealthRegion(`เขตสุขภาพที่ ${zoneNumber}`);
-      } else {
-        setSelectedHealthRegion("");
-      }
-    } else {
-      setSelectedHealthRegion("");
-    }
-
-    // Province (จังหวัด)
-    if (isLocked('province') && initialFilters.province_name_th) {
-      setSelectedProvince(initialFilters.province_name_th);
-    } else {
-      setSelectedProvince("");
-    }
-
-    // District (อำเภอ)
-    if (isLocked('district') && initialFilters.district_name_th) {
-      setSelectedDistrict(initialFilters.district_name_th);
-    } else {
-      setSelectedDistrict("");
-    }
-
-    // Subdistrict (ตำบล)
-    if (isLocked('subdistrict') && initialFilters.subdistrict_name_th) {
-      setSelectedSubdistrict(initialFilters.subdistrict_name_th);
-    } else {
-      setSelectedSubdistrict("");
-    }
-
-    // Clear available lists for unlocked values
-    // ถ้า zone ถูก lock ให้เก็บ availableProvincesInRegion ไว้ เพื่อให้ dropdown จังหวัดใช้งานได้
-    if (!isLocked('zone')) {
-      setAvailableProvincesInRegion([]);
-    }
-    if (!isLocked('province')) {
-      setAvailableDistricts([]);
-    }
-    if (!isLocked('district')) {
-      setAvailableSubdistricts([]);
-    }
-
-    setDistrictCodeByName({});
-
-    clearAllLayers();
-
-    if (map) {
-      map.setView([13.7563, 100.5018], 6);
-    }
-
-    updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
-  }, [clearAllLayers, updateStatus, map, isLocked, getInitialFilters]);
+    // รีเฟรชหน้าเพื่อรีเซ็ตเป็นค่าเริ่มต้น
+    window.location.reload();
+  }, []);
 
   const onHealthRegionSelection = useCallback(async () => {
     if (selectedHealthRegion) {

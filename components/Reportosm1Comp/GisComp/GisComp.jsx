@@ -909,72 +909,9 @@ const GisComp = () => {
   ]);
 
   const clearFilter = useCallback(() => {
-    const initialFilters = getInitialFilters();
-
-    // ล้างการเลือกทั้งหมด แต่ preserve locked values
-    setSelectedYearType("fiscal");
-    setSelectedYear("");
-    setSelectedMonth("");
-    setSelectedWeek("");
-
-    // ✅ Restore locked values after clearing
-    // Zone (เขตสุขภาพ)
-    if (isLocked('zone') && initialFilters.zone) {
-      const zoneNumber = parseInt(String(initialFilters.zone).replace(/\D/g, ''));
-      if (zoneNumber) {
-        setSelectedHealthRegion(`เขตสุขภาพที่ ${zoneNumber}`);
-      } else {
-        setSelectedHealthRegion("");
-      }
-    } else {
-      setSelectedHealthRegion("");
-    }
-
-    // Province (จังหวัด)
-    if (isLocked('province') && initialFilters.province_name_th) {
-      setSelectedProvince(initialFilters.province_name_th);
-    } else {
-      setSelectedProvince("");
-    }
-
-    // District (อำเภอ)
-    if (isLocked('district') && initialFilters.district_name_th) {
-      setSelectedDistrict(initialFilters.district_name_th);
-    } else {
-      setSelectedDistrict("");
-    }
-
-    // Subdistrict (ตำบล)
-    if (isLocked('subdistrict') && initialFilters.subdistrict_name_th) {
-      setSelectedSubdistrict(initialFilters.subdistrict_name_th);
-    } else {
-      setSelectedSubdistrict("");
-    }
-
-    // Clear available lists for unlocked values
-    // ถ้า zone ถูก lock ให้เก็บ availableProvincesInRegion ไว้ เพื่อให้ dropdown จังหวัดใช้งานได้
-    if (!isLocked('zone')) {
-      setAvailableProvincesInRegion([]);
-    }
-    if (!isLocked('province')) {
-      setAvailableDistricts([]);
-    }
-    if (!isLocked('district')) {
-      setAvailableSubdistricts([]);
-    }
-
-    setDistrictCodeByName({});
-
-    // ล้าง layers บนแผนที่
-    clearAllLayers();
-
-    // ซูมกลับไปที่ตำแหน่งเริ่มต้น (ประเทศไทย)
-    if (map) {
-      map.setView([13.7563, 100.5018], 6); // ตำแหน่งกลางประเทศไทย, zoom level 6
-    }
-
-    updateStatus("ค้นหาพื้นที่เพื่อเริ่มต้น", "info");
-  }, [clearAllLayers, updateStatus, map, isLocked, getInitialFilters]);
+    // รีเฟรชหน้าเพื่อรีเซ็ตเป็นค่าเริ่มต้น
+    window.location.reload();
+  }, []);
 
   // Health Region handlers
   const onHealthRegionSelection = useCallback(async () => {
@@ -1372,6 +1309,84 @@ const GisComp = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableProvinces, selectedHealthRegion, selectedProvince, selectedDistrict, selectedSubdistrict]);
+
+  // Load only provinces in the selected health region
+  useEffect(() => {
+    // Only load when health region is selected and provinces in region are available
+    if (!selectedHealthRegion || availableProvincesInRegion.length === 0) return;
+
+    // Don't load if deeper filters are active (province/district/subdistrict)
+    if (selectedProvince || selectedDistrict || selectedSubdistrict) return;
+
+    let mounted = true;
+
+    const loadProvincesInRegion = async () => {
+      try {
+        setIsLoading(true);
+        clearAllLayers();
+
+        updateStatus(`กำลังโหลดแผนที่${selectedHealthRegion}...`, "info");
+
+        // Load combined GeoJSON file and filter by province names
+        const response = await fetch('/geojson-thailand-provinces.json');
+        if (!response.ok) {
+          throw new Error('Failed to load map data');
+        }
+
+        const geoJsonData = await response.json();
+
+        if (!mounted) return;
+
+        // Filter features to only include provinces in the selected health region
+        const regionProvinceSet = new Set(
+          availableProvincesInRegion.map(name => normalizeAreaKey(name, "province"))
+        );
+
+        const filteredFeatures = geoJsonData.features.filter(feature => {
+          const provinceName = feature.properties?.province_name ||
+                               feature.properties?.name ||
+                               feature.properties?.PROV_NAMT ||
+                               feature.properties?.PROVINCE;
+          if (!provinceName) return false;
+          return regionProvinceSet.has(normalizeAreaKey(provinceName, "province"));
+        });
+
+        if (filteredFeatures.length > 0) {
+          const filteredGeoJSON = {
+            type: "FeatureCollection",
+            features: filteredFeatures,
+          };
+          await loadAndDisplayKML(filteredGeoJSON, "province");
+
+          updateStatus(
+            `โหลดแผนที่${selectedHealthRegion}สำเร็จ: ${filteredFeatures.length} จังหวัด`,
+            "success"
+          );
+
+          // Fit map to the loaded region's provinces
+          setTimeout(() => {
+            fitToData();
+          }, 500);
+        }
+      } catch (error) {
+        console.error("Error loading provinces in region:", error);
+        if (mounted) {
+          updateStatus(`ข้อผิดพลาดในการโหลดแผนที่: ${error}`, "error");
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadProvincesInRegion();
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedHealthRegion, availableProvincesInRegion, selectedProvince, selectedDistrict, selectedSubdistrict]);
 
   // Log filter selections for debugging
   // Fetch weekly analytics details for the selected period
