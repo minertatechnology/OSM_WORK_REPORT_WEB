@@ -46,8 +46,7 @@ import { getOsmByHealthService } from "@services/lookupService";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 import jsPDF from "jspdf";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import * as XLSX from "xlsx-js-style";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import { getHealthAreaNameWithFallback } from "@utils/healthZoneHelper";
@@ -438,165 +437,111 @@ function exportUserListPDF(data) {
   doc.save(`User_${currentYear}.pdf`);
 }
 
-// Export Excel function - แสดงเฉพาะคอลัมน์ที่แสดงในตาราง (ใช้ HTML Table สำหรับเส้นขอบ)
+// Export Excel function - ใช้ xlsx library สำหรับสร้างไฟล์ Excel ที่ถูกต้อง
 function exportUserListExcel(data) {
-  // สร้าง HTML Table ที่มีเส้นขอบ
-  let tableHtml = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-      <meta charset="UTF-8">
-      <!--[if gte mso 9]>
-      <xml>
-        <x:ExcelWorkbook>
-          <x:ExcelWorksheets>
-            <x:ExcelWorksheet>
-              <x:Name>รายชื่อผู้ใช้งาน</x:Name>
-              <x:WorksheetOptions>
-                <x:DisplayGridlines/>
-              </x:WorksheetOptions>
-            </x:ExcelWorksheet>
-          </x:ExcelWorksheets>
-        </x:ExcelWorkbook>
-      </xml>
-      <![endif]-->
-      <style>
-        table { border-collapse: collapse; }
-        th, td { border: 1px solid #000000; padding: 8px; }
-        th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
-        .center { text-align: center; }
-      </style>
-    </head>
-    <body>
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 50px;">ลำดับ</th>
-            <th style="width: 200px;">ชื่อ-นามสกุล</th>
-            <th style="width: 150px;">เลขประจำตัวประชาชน</th>
-            <th style="width: 120px;">ระดับตำแหน่ง</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
+  // สร้าง worksheet data
+  const wsData = [
+    ["ลำดับ", "ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", "ระดับตำแหน่ง"],
+  ];
 
   data.forEach((row, idx) => {
     const maskedCid = maskCID(row.cid, false);
-    tableHtml += `
-          <tr>
-            <td class="center">${idx + 1}</td>
-            <td>${row.name || "-"}</td>
-            <td class="center">${maskedCid}</td>
-            <td class="center">${row.position || "-"}</td>
-          </tr>
-    `;
+    wsData.push([
+      idx + 1,
+      row.name || "-",
+      maskedCid,
+      row.position || "-",
+    ]);
   });
 
-  tableHtml += `
-        </tbody>
-      </table>
-    </body>
-    </html>
-  `;
+  // สร้าง workbook และ worksheet
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  const blob = new Blob([tableHtml], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
-  // Save Excel - Format: User_{year}.xlsx
+  // ตั้งค่าความกว้างคอลัมน์
+  ws["!cols"] = [
+    { wch: 8 },   // ลำดับ
+    { wch: 30 },  // ชื่อ-นามสกุล
+    { wch: 20 },  // เลขประจำตัวประชาชน
+    { wch: 20 },  // ระดับตำแหน่ง
+  ];
+
+  // กำหนด style สำหรับ borders
+  const borderStyle = {
+    top: { style: "thin", color: { rgb: "000000" } },
+    bottom: { style: "thin", color: { rgb: "000000" } },
+    left: { style: "thin", color: { rgb: "000000" } },
+    right: { style: "thin", color: { rgb: "000000" } },
+  };
+
+  // Header style - พื้นหลังสีม่วงอ่อน ตัวหนา
+  const headerStyle = {
+    border: borderStyle,
+    fill: { fgColor: { rgb: "E8D5F9" } },
+    font: { bold: true, sz: 11 },
+    alignment: { horizontal: "center", vertical: "center" },
+  };
+
+  // Data cell style - มี borders
+  const dataStyle = {
+    border: borderStyle,
+    alignment: { vertical: "center" },
+  };
+
+  // Data cell style สำหรับคอลัมน์ที่ต้องง center
+  const dataCenterStyle = {
+    border: borderStyle,
+    alignment: { horizontal: "center", vertical: "center" },
+  };
+
+  // ใส่ style ให้ทุก cell
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+      if (!ws[cellAddress]) continue;
+
+      if (R === 0) {
+        // Header row
+        ws[cellAddress].s = headerStyle;
+      } else {
+        // Data rows - คอลัมน์ 0, 2, 3 center, คอลัมน์ 1 left
+        if (C === 1) {
+          ws[cellAddress].s = dataStyle;
+        } else {
+          ws[cellAddress].s = dataCenterStyle;
+        }
+      }
+    }
+  }
+
+  // เพิ่ม worksheet เข้า workbook
+  XLSX.utils.book_append_sheet(wb, ws, "รายชื่อผู้ใช้งาน");
+
+  // บันทึกไฟล์ Excel
   const currentYear = new Date().getFullYear();
-  saveAs(blob, `User_${currentYear}.xlsx`);
+  XLSX.writeFile(wb, `User_${currentYear}.xlsx`);
 }
 
 // Download Modal
-function DownloadModal({ open, onClose, totalItems, filters }) {
+function DownloadModal({ open, onClose, totalItems, filters, filteredUsers }) {
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
 
-  // ฟังก์ชันดึงข้อมูลทั้งหมดสำหรับ export (ดึงทีละ 100 รายการ + ดึงข้อมูลเต็มจาก OAuth2)
-  const fetchAllUsersForExport = async () => {
-    const token = getAuthToken();
-    if (!token) {
-      throw new Error("No authentication token found");
+  // ใช้ filteredUsers ที่ส่งมาจากหน้าหลักแทนการดึงข้อมูลใหม่
+  // เพราะการกรองใน Frontend และ API ให้ผลลัพธ์ต่างกัน
+  const prepareDataForExport = () => {
+    if (!filteredUsers || filteredUsers.length === 0) {
+      return [];
     }
 
-    const perPage = 100; // API จำกัดไม่เกิน 100
-    let allUsers = [];
-    let currentPage = 1;
-    let hasMore = true;
-
-    // ดึงข้อมูลทีละหน้าจนกว่าจะครบ
-    while (hasMore) {
-      const response = await getUsersList({
-        page: currentPage,
-        per_page: perPage,
-        keyword: filters?.keyword || "",
-        is_active: filters?.tab === "active" ? true : false,
-        province_code: filters?.province || "",
-        district_code: filters?.district || "",
-        subdistrict_code: filters?.subdistrict || "",
-        token: token
-      });
-
-      allUsers = [...allUsers, ...response.users];
-
-      // ตรวจสอบว่ายังมีข้อมูลอีกหรือไม่
-      if (response.users.length < perPage || allUsers.length >= response.total) {
-        hasMore = false;
-      } else {
-        currentPage++;
-      }
-    }
-
-    // ดึงข้อมูลเต็มจาก OAuth2 API ด้วย batch API
-    const externalUserIds = allUsers
-      .map(user => user.external_user_id)
-      .filter(id => id);
-
-    const batchUsersMap = externalUserIds.length > 0 ? await getUsersBatch(externalUserIds) : {};
-
-    // รวมข้อมูลจาก user list และ batch OAuth2
-    const usersForExport = allUsers.map(user => {
-      if (!user.external_user_id) {
-        return {
-          name: "ไม่ระบุชื่อ",
-          cid: user.citizen_id || "-",
-          position: user.user_type || "ไม่ระบุตำแหน่ง",
-          status: user.is_active ? "active" : "deleted",
-        };
-      }
-
-      const oauthData = batchUsersMap[user.external_user_id];
-
-      // ถ้าไม่มีข้อมูลจาก batch API ให้ fallback ไปใช้ข้อมูลจาก user API
-      if (!oauthData) {
-        const prefix = user.prefix || "";
-        const firstName = user.first_name || "";
-        const lastName = user.last_name || "";
-        const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
-
-        return {
-          name: fullName,
-          cid: user.citizen_id || "-",
-          position: user.user_type || "ไม่ระบุตำแหน่ง",
-          status: user.is_active ? "active" : "deleted",
-        };
-      }
-
-      // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
-      const prefix = oauthData?.prefix_name_th || user.prefix || "";
-      const firstName = oauthData?.first_name || user.first_name || "";
-      const lastName = oauthData?.last_name || user.last_name || "";
-      const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
-
-      return {
-        name: fullName,
-        cid: oauthData?.citizen_id || user.citizen_id || "-",
-        position: oauthData?.position_level || oauthData?.permission_level || user.user_type || "ไม่ระบุตำแหน่ง",
-        status: user.is_active ? "active" : "deleted",
-      };
-    });
-
-    return usersForExport;
+    return filteredUsers.map(user => ({
+      name: user.name || "ไม่ระบุชื่อ",
+      cid: user.cid || "-",
+      position: user.position || "ไม่ระบุตำแหน่ง",
+      status: user.status || "active",
+    }));
   };
 
   const handleExportPDF = async () => {
@@ -621,7 +566,8 @@ function DownloadModal({ open, onClose, totalItems, filters }) {
         },
       });
 
-      const allUsers = await fetchAllUsersForExport();
+      // ใช้ filteredUsers ที่ส่งมาจากหน้าหลักแทนการเรียก API
+      const allUsers = prepareDataForExport();
       Swal.close();
       exportUserListPDF(allUsers);
     } catch (error) {
@@ -659,7 +605,8 @@ function DownloadModal({ open, onClose, totalItems, filters }) {
         },
       });
 
-      const allUsers = await fetchAllUsersForExport();
+      // ใช้ filteredUsers ที่ส่งมาจากหน้าหลักแทนการเรียก API
+      const allUsers = prepareDataForExport();
       Swal.close();
       exportUserListExcel(allUsers);
     } catch (error) {
@@ -948,8 +895,6 @@ const UserListComp = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(null); // สำหรับแสดง progress กรณีดึงข้อมูลเยอะๆ
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บ OSM ตามหน่วยบริการ
 
   // CID visibility state - track which rows show full CID
@@ -1392,16 +1337,11 @@ const UserListComp = () => {
         }
 
         setUsers(successfulUsers);
-        // ใช้จำนวน users ที่กรองแล้ว เพราะเรากรองใน frontend
-        setTotalItems(successfulUsers.length);
-        setTotalPages(Math.ceil(successfulUsers.length / itemsPerPage) || 1);
       } catch (error) {
         console.error("Error fetching users:", error);
 
         // Clear users on error
         setUsers([]);
-        setTotalItems(0);
-        setTotalPages(1);
 
         // Show appropriate error message
         let errorMessage = "ไม่สามารถดึงข้อมูลผู้ใช้งานได้ กรุณาลองใหม่อีกครั้ง";
@@ -1438,7 +1378,7 @@ const UserListComp = () => {
   }, []);
 
   // กรองผู้ใช้และทำ frontend pagination
-  const { displayUsers, filteredTotalItems, filteredTotalPages } = useMemo(() => {
+  const { displayUsers, filteredUsers, filteredTotalItems, filteredTotalPages } = useMemo(() => {
     let filtered = users;
 
     if (!isCountryLevel()) {
@@ -1454,7 +1394,7 @@ const UserListComp = () => {
     const paginatedUsers = filtered.slice(startIndex, endIndex);
 
     const filteredPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-    return { displayUsers: paginatedUsers, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages };
+    return { displayUsers: paginatedUsers, filteredUsers: filtered, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages };
   }, [users, isCountryLevel, currentPage, itemsPerPage]);
 
   const handleRestoreUser = () => {
@@ -1546,7 +1486,8 @@ const UserListComp = () => {
       <DownloadModal
         open={downloadModalOpen}
         onClose={() => setDownloadModalOpen(false)}
-        totalItems={totalItems}
+        totalItems={filteredTotalItems}
+        filteredUsers={filteredUsers}
         filters={{
           keyword,
           tab,

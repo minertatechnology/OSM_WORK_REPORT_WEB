@@ -9,6 +9,7 @@ export const getUsersList = async ({
   province_code = '',
   district_code = '',
   subdistrict_code = '',
+  health_service_code = '',
   token // ไม่ต้องใช้แล้ว เพราะ apiSmartOsm จัดการให้
 }) => {
   try {
@@ -22,6 +23,7 @@ export const getUsersList = async ({
     if (province_code) params.province_code = province_code;
     if (district_code) params.district_code = district_code;
     if (subdistrict_code) params.subdistrict_code = subdistrict_code;
+    if (health_service_code) params.health_service_code = health_service_code;
 
     const response = await apiSmartOsm.get('/auth/users', { params });
     return response.data;
