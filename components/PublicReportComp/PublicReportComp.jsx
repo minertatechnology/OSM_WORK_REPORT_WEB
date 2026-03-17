@@ -508,30 +508,14 @@ const PublicReportComp = () => {
   // Permission hooks
   const { user, scope, isLocked, getInitialFilters, loading: permissionLoading } = useUserPermission();
 
-  // Filter states - initialize with permission-based filters if user is logged in
-  const initialFilters = useMemo(() => {
-    if (user && !permissionLoading) {
-      return getInitialFilters();
-    }
-    return {
-      zone: "",
-      province: "",
-      province_name_th: "",
-      district: "",
-      district_name_th: "",
-      subdistrict: "",
-      subdistrict_name_th: "",
-      service: "",
-    };
-  }, [user, permissionLoading, getInitialFilters]);
-
+  // Filter states - initialize with empty values (permission filters will be applied via useEffect for locked fields only)
   const [fiscalYear, setFiscalYear] = useState(String(new Date().getFullYear() + 543));
   const [month, setMonth] = useState("");
-  const [zone, setZone] = useState(initialFilters.zone);
-  const [province, setProvince] = useState(initialFilters.province);
-  const [district, setDistrict] = useState(initialFilters.district);
-  const [subdistrict, setSubdistrict] = useState(initialFilters.subdistrict);
-  const [service, setService] = useState(initialFilters.service);
+  const [zone, setZone] = useState("");
+  const [province, setProvince] = useState("");
+  const [district, setDistrict] = useState("");
+  const [subdistrict, setSubdistrict] = useState("");
+  const [service, setService] = useState("");
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -568,19 +552,16 @@ const PublicReportComp = () => {
   // Check if user is logged in
   const isLoggedIn = user && !permissionLoading;
 
-  // Sync filter states with user permissions when they are loaded
+  // Sync only locked zone from permissions (other fields are not auto-selected)
+  // For "all" tab: sync only zone if locked
+  // For "bangkok" tab: zone is fixed to BANGKOK
   useEffect(() => {
-    if (user && !permissionLoading) {
+    if (user && !permissionLoading && activeTab === "all") {
       const filters = getInitialFilters();
-      // Only set filters if they haven't been manually changed by user
-      // For logged in users, apply permission-based filters
-      if (filters.zone && zone === "") setZone(filters.zone);
-      if (filters.province && province === "") setProvince(filters.province);
-      if (filters.district && district === "") setDistrict(filters.district);
-      if (filters.subdistrict && subdistrict === "") setSubdistrict(filters.subdistrict);
-      if (filters.service && service === "") setService(filters.service);
+      // Only sync zone for "all" tab - other fields user can select freely
+      if (filters.zone && isLocked('zone')) setZone(filters.zone);
     }
-  }, [user, permissionLoading]);
+  }, [user, permissionLoading, activeTab]);
 
   // Helper to get location label based on current level
   const getLocationLabel = () => {
@@ -1094,12 +1075,12 @@ const PublicReportComp = () => {
       setService("");
     } else {
       // For village health volunteers, reset all filters
-      // Only reset filters that are not locked
+      // Only zone is locked by permission, others can be reset freely
       if (!isLoggedIn || !isLocked('zone')) setZone("");
-      if (!isLoggedIn || !isLocked('province')) setProvince("");
-      if (!isLoggedIn || !isLocked('district')) setDistrict("");
-      if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
-      if (!isLoggedIn || !isLocked('service')) setService("");
+      setProvince("");
+      setDistrict("");
+      setSubdistrict("");
+      setService("");
     }
   };
 
@@ -1252,15 +1233,15 @@ const PublicReportComp = () => {
         <button
           onClick={() => {
             setActiveTab("all");
-            // Reset to show all provinces except Bangkok - clear all location filters
-            setZone("");
+            // Clear only zone if it's locked, always clear other fields
+            if (!isLoggedIn || !isLocked('zone')) setZone("");
             setProvince("");
             setDistrict("");
             setSubdistrict("");
             setService("");
           }}
           className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all duration-200 ${
-            activeTab === "all" && !zone && !province
+            activeTab === "all"
               ? "bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white shadow-lg"
               : "bg-white border-2 border-purple-200 text-[#7e32e2] hover:bg-purple-50 hover:border-purple-300"
           }`}
@@ -1273,7 +1254,7 @@ const PublicReportComp = () => {
             setActiveTab("bangkok");
             // Lock to Bangkok zone and province for proactive health volunteers
             setZone(BANGKOK_ZONE);
-            setProvince(BANGKOK_PROVINCE_CODE); // Set province to Bangkok to show districts
+            setProvince(BANGKOK_PROVINCE_CODE);
             setDistrict("");
             setSubdistrict("");
             setService("");
@@ -1314,11 +1295,11 @@ const PublicReportComp = () => {
             value={zone}
             onChange={(e) => {
               setZone(e.target.value);
-              // Clear child values only if they are not locked
-              if (!isLoggedIn || !isLocked('province')) setProvince("");
-              if (!isLoggedIn || !isLocked('district')) setDistrict("");
-              if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
-              if (!isLoggedIn || !isLocked('service')) setService("");
+              // Clear child values when zone changes
+              setProvince("");
+              setDistrict("");
+              setSubdistrict("");
+              setService("");
             }}
             options={Array.isArray(healthAreas)
               ? healthAreas
@@ -1326,7 +1307,7 @@ const PublicReportComp = () => {
                   .map(h => ({ label: h.name_th, value: h.code }))
               : []}
             icon={MapPin}
-            disabled={activeTab === "bangkok" || (isLoggedIn && isLocked('zone'))}
+            disabled={activeTab === "bangkok" || (activeTab === "all" && isLoggedIn && isLocked('zone'))}
           />
           <CustomSelect
             label="จังหวัด"
@@ -1334,16 +1315,16 @@ const PublicReportComp = () => {
             value={province}
             onChange={(e) => {
               setProvince(e.target.value);
-              // Clear child values only if they are not locked
-              if (!isLoggedIn || !isLocked('district')) setDistrict("");
-              if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
-              if (!isLoggedIn || !isLocked('service')) setService("");
+              // Clear child values when province changes
+              setDistrict("");
+              setSubdistrict("");
+              setService("");
             }}
             options={(provinces || [])
               .filter(p => activeTab === "all" ? (p.name_th !== "กรุงเทพมหานคร" && !p.name_th?.includes("กรุงเทพ")) : true) // Hide Bangkok for "all" tab
               .map((p) => ({ label: p.name_th, value: p.code }))}
             icon={Building2}
-            disabled={isLoggedIn && isLocked('province')}
+            disabled={activeTab === "bangkok" || !zone}
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
@@ -1353,13 +1334,13 @@ const PublicReportComp = () => {
             value={district}
             onChange={(e) => {
               setDistrict(e.target.value);
-              // Clear child values only if they are not locked
-              if (!isLoggedIn || !isLocked('subdistrict')) setSubdistrict("");
-              if (!isLoggedIn || !isLocked('service')) setService("");
+              // Clear child values when district changes
+              setSubdistrict("");
+              setService("");
             }}
             options={(districts || []).map((d) => ({ label: d.name_th, value: d.code }))}
             icon={Building2}
-            disabled={(isLoggedIn && isLocked('district')) || !province}
+            disabled={!province}
           />
           <CustomSelect
             label="ตำบล"
@@ -1367,12 +1348,12 @@ const PublicReportComp = () => {
             value={subdistrict}
             onChange={(e) => {
               setSubdistrict(e.target.value);
-              // Clear child values only if they are not locked
-              if (!isLoggedIn || !isLocked('service')) setService("");
+              // Clear child values when subdistrict changes
+              setService("");
             }}
             options={(subdistricts || []).map((s) => ({ label: s.name_th, value: s.code }))}
             icon={Home}
-            disabled={(isLoggedIn && isLocked('subdistrict')) || !district}
+            disabled={!district}
           />
           <CustomSelect
             label="หน่วยบริการ"
@@ -1384,7 +1365,7 @@ const PublicReportComp = () => {
               value: String(s.id || s.code || "")
             }))}
             icon={Building2}
-            disabled={(isLoggedIn && isLocked('service')) || !subdistrict}
+            disabled={!subdistrict}
           />
         </div>
         <div className="flex gap-3 mt-4">
