@@ -70,41 +70,49 @@ export const usePermissionFilters = (options = {}) => {
     loadHealthAreas();
   }, []);
 
-  // Load provinces when zone changes
+  // Load provinces - runs on mount AND when zone changes
+  // ✅ IMPORTANT: Also loads when permission data is ready (for locked provinces)
   useEffect(() => {
     const loadProvinces = async () => {
       try {
         // ✅ Special case: If province is locked, load ALL provinces
         // This handles cases where the user's province is not in their assigned health area
-        // (e.g., API data inconsistency: health_area_id doesn't match province_id)
         const isProvinceLocked = isLocked('province');
+
+        console.log('📍 [usePermissionFilters] Loading provinces:', {
+          zone,
+          isProvinceLocked,
+          lockLevel,
+        });
 
         if (!zone) {
           // ไม่ได้เลือกเขต - โหลดจังหวัดทั้งหมด
+          console.log('📍 Loading ALL provinces (no zone selected)');
           const data = await getProvinces({ limit: 100 });
+          console.log('📍 Loaded provinces:', data?.length, 'first 3:', data?.slice(0, 3));
           setProvinces(data || []);
         } else if (isProvinceLocked) {
           // ✅ Province is locked - load ALL provinces (don't filter by zone)
           // This ensures the locked province is always available
+          console.log('📍 Loading ALL provinces (province is locked)');
           const data = await getProvinces({ limit: 100 });
+          console.log('📍 Loaded provinces:', data?.length, 'first 3:', data?.slice(0, 3));
           setProvinces(data || []);
         } else {
           // เลือกเขตแล้วและ province ไม่ได้ lock - ใช้ข้อมูลจาก HEALTHZONE_PROVINCES
-          // แปลง zone code (เช่น "HA1", "HA12") เป็นเลขเขต (1, 12)
+          console.log('📍 Loading provinces filtered by zone:', zone);
           const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
 
-          // หาข้อมูลเขตจาก HEALTHZONE_PROVINCES
           const zoneData = HEALTHZONE_PROVINCES.find(z => z.zone === zoneNumber);
 
           if (zoneData && zoneData.provinces) {
-            // ดึงชื่อจังหวัดที่อยู่ในเขตนี้
             const provinceNamesInZone = zoneData.provinces.map(p => p.trim());
 
-            // โหลดจังหวัดทั้งหมด แล้วกรองเอาเฉพาะที่อยู่ในเขต
             const allProvinces = await getProvinces({ limit: 100 });
             const filteredProvinces = allProvinces.filter(p =>
               provinceNamesInZone.includes(p.name_th?.trim())
             );
+            console.log('📍 Filtered provinces by zone:', filteredProvinces?.length);
             setProvinces(filteredProvinces);
           } else {
             setProvinces([]);
@@ -116,7 +124,7 @@ export const usePermissionFilters = (options = {}) => {
       }
     };
     loadProvinces();
-  }, [zone, healthAreas, isLocked]);
+  }, [zone, healthAreas, isLocked, lockLevel]);
 
   // Load districts when province changes
   useEffect(() => {
@@ -195,91 +203,177 @@ export const usePermissionFilters = (options = {}) => {
     loadHealthServices();
   }, [province, district, subdistrict]);
 
-  // ✅ Initialize zone first (triggers loading of provinces)
+  // ✅ Initialize ALL locked values based on permission level
+  // This effect handles the cascading initialization of location filters
   useEffect(() => {
-    if (!permissionLoading && scope) {
-      // ⚠️ ถ้าเป็นสิทธิ์สูงสุด (สบส) ไม่ต้อง set ค่าเริ่มต้น ให้เลือกเอง
-      if (lockLevel === 'none') {
-        return;
-      }
+    if (permissionLoading || !scope) return;
 
-      const initialFilters = getInitialFilters();
-
-      // Set zone first - this will trigger the provinces loading effect
-      if (initialFilters.zone) {
-        setZone(initialFilters.zone);
-      }
+    // ⚠️ ถ้าเป็นสิทธิ์สูงสุด (สบส) ไม่ต้อง set ค่าเริ่มต้น ให้เลือกเอง
+    if (lockLevel === 'none') {
+      setInitialValuesSet(true);
+      return;
     }
-  }, [permissionLoading, scope, lockLevel, getInitialFilters]);
 
-  // ✅ Initialize province/district/subdistrict AFTER location data is loaded
-  // This ensures the dropdown can find the correct option to display
-  useEffect(() => {
-    if (!permissionLoading && scope) {
-      if (lockLevel === 'none' || lockLevel === 'zone') {
-        setInitialValuesSet(true);
-        return;
-      }
+    const initialFilters = getInitialFilters();
 
-      const initialFilters = getInitialFilters();
+    console.log('🔐 [usePermissionFilters] Initializing filters:', {
+      lockLevel,
+      initialFilters,
+      hasProvinces: provinces.length,
+      hasDistricts: districts.length,
+      hasSubdistricts: subdistricts.length,
+      currentZone: zone,
+      currentProvince: province,
+      currentDistrict: district,
+    });
 
-      // ✅ Set locked values only when needed:
-      // 1. First time (!initialValuesSet)
-      // 2. After zone change (when the value is empty)
-      const shouldSetProvince = initialFilters.province &&
-        provinces.length > 0 &&
-        !province;
+    // ✅ Zone: Always set for non-country levels (if not already set)
+    if (initialFilters.zone && !zone) {
+      console.log('🔐 Setting zone:', initialFilters.zone);
+      setZone(initialFilters.zone);
+    }
 
-      const shouldSetDistrict = initialFilters.district &&
-        districts.length > 0 &&
-        !district;
+    // ✅ Province: Set for province/district/subdistrict/service levels
+    // Only after provinces are loaded AND province is locked AND not already set
+    if (['province', 'district', 'subdistrict', 'service'].includes(lockLevel)) {
+      console.log('🔐 Province check:', {
+        hasInitialProvince: !!initialFilters.province,
+        provincesLoaded: provinces.length,
+        currentProvince: province,
+        initialProvince: initialFilters.province,
+        initialProvinceName: initialFilters.province_name_th,
+      });
 
-      const shouldSetSubdistrict = initialFilters.subdistrict &&
-        subdistricts.length > 0 &&
-        !subdistrict;
+      if (initialFilters.province && provinces.length > 0 && !province) {
+        console.log('🔐 Attempting to match province. Initial province:', initialFilters.province);
+        console.log('🔐 Sample provinces data:', provinces.slice(0, 3).map(p => ({
+          code: p.code,
+          id: p.id,
+          name_th: p.name_th,
+        })));
 
-      // Set province after provinces are loaded
-      if (shouldSetProvince) {
         // Try to find matching province by code or id
-        const matchingProvince = provinces.find(p =>
-          String(p.code || p.id) === String(initialFilters.province) ||
-          String(p.code || p.id) === String(initialFilters.province_id)
-        );
+        const matchingProvince = provinces.find(p => {
+          const provinceCode = String(p.code || p.id || p.province_code || '');
+          const targetCode = String(initialFilters.province);
+          console.log('🔐 Comparing:', provinceCode, '===', targetCode, '?', provinceCode === targetCode);
+          return provinceCode === targetCode;
+        });
 
         if (matchingProvince) {
-          const provinceCode = String(matchingProvince.code || matchingProvince.id);
+          const provinceCode = String(matchingProvince.code || matchingProvince.id || matchingProvince.province_code);
+          console.log('🔐 ✅ Setting province:', provinceCode, 'from match:', matchingProvince);
           setProvince(provinceCode);
         } else {
-          // If not found, try to match by name
+          // If not found by code, try to match by name
+          console.log('🔐 Province not found by code, trying name match...');
           const nameMatch = provinces.find(p =>
             p.name_th === initialFilters.province_name_th ||
             p.name === initialFilters.province_name_th
           );
           if (nameMatch) {
-            setProvince(String(nameMatch.code || nameMatch.id));
+            const provinceCode = String(nameMatch.code || nameMatch.id || nameMatch.province_code);
+            console.log('🔐 ✅ Setting province by name:', provinceCode, 'from match:', nameMatch);
+            setProvince(provinceCode);
+          } else {
+            console.warn('🔐 ❌ Province not found in loaded data:', {
+              searchCode: initialFilters.province,
+              searchName: initialFilters.province_name_th,
+              availableProvinces: provinces.slice(0, 5),
+            });
+          }
+        }
+      } else if (!initialFilters.province) {
+        console.warn('🔐 ⚠️ No initial province in filters');
+      } else if (provinces.length === 0) {
+        console.warn('🔐 ⚠️ Provinces not loaded yet (length = 0)');
+      } else if (province) {
+        console.log('🔐 Province already set:', province);
+      }
+    }
+
+    // ✅ District: Set for district/subdistrict/service levels
+    // Only after districts are loaded AND district is locked AND not already set
+    if (['district', 'subdistrict', 'service'].includes(lockLevel)) {
+      if (initialFilters.district && districts.length > 0 && !district) {
+        // Try to find matching district by code or id
+        const matchingDistrict = districts.find(d =>
+          String(d.code || d.id || d.district_code) === String(initialFilters.district)
+        );
+
+        if (matchingDistrict) {
+          const districtCode = String(matchingDistrict.code || matchingDistrict.id || matchingDistrict.district_code);
+          console.log('🔐 Setting district:', districtCode, 'from match:', matchingDistrict);
+          setDistrict(districtCode);
+        } else {
+          // If not found by code, try to match by name
+          const nameMatch = districts.find(d =>
+            d.name_th === initialFilters.district_name_th ||
+            d.name === initialFilters.district_name_th
+          );
+          if (nameMatch) {
+            const districtCode = String(nameMatch.code || nameMatch.id || nameMatch.district_code);
+            console.log('🔐 Setting district by name:', districtCode, 'from match:', nameMatch);
+            setDistrict(districtCode);
+          } else {
+            console.warn('🔐 District not found in loaded data:', {
+              searchCode: initialFilters.district,
+              searchName: initialFilters.district_name_th,
+              availableDistricts: districts.slice(0, 5),
+            });
           }
         }
       }
+    }
 
-      // Set district after districts are loaded
-      if (shouldSetDistrict) {
-        setDistrict(initialFilters.district);
+    // ✅ Subdistrict: Set for subdistrict/service levels
+    if (['subdistrict', 'service'].includes(lockLevel)) {
+      if (initialFilters.subdistrict && subdistricts.length > 0 && !subdistrict) {
+        const matchingSubdistrict = subdistricts.find(s =>
+          String(s.code || s.id || s.subdistrict_code) === String(initialFilters.subdistrict)
+        );
+
+        if (matchingSubdistrict) {
+          const subdistrictCode = String(matchingSubdistrict.code || matchingSubdistrict.id || matchingSubdistrict.subdistrict_code);
+          console.log('🔐 Setting subdistrict:', subdistrictCode);
+          setSubdistrict(subdistrictCode);
+        } else {
+          const nameMatch = subdistricts.find(s =>
+            s.name_th === initialFilters.subdistrict_name_th ||
+            s.name === initialFilters.subdistrict_name_th
+          );
+          if (nameMatch) {
+            const subdistrictCode = String(nameMatch.code || nameMatch.id || nameMatch.subdistrict_code);
+            console.log('🔐 Setting subdistrict by name:', subdistrictCode);
+            setSubdistrict(subdistrictCode);
+          }
+        }
       }
+    }
 
-      // Set subdistrict after subdistricts are loaded
-      if (shouldSetSubdistrict) {
-        setSubdistrict(initialFilters.subdistrict);
-      }
-
-      // Set service independently (only set once, not dependent on location loading)
-      if (initialFilters.service && !initialValuesSet) {
+    // ✅ Service: Set for service level only
+    if (lockLevel === 'service') {
+      if (initialFilters.service && !service && !initialValuesSet) {
+        console.log('🔐 Setting service:', initialFilters.service);
         setService(initialFilters.service);
       }
+    }
 
-      // ✅ Mark that initial values have been set
+    // Mark initialization as complete once all locked values are set
+    const allLockedValuesSet = (() => {
+      if (lockLevel === 'zone') return zone !== '';
+      if (lockLevel === 'province') return zone !== '' && province !== '';
+      if (lockLevel === 'district') return zone !== '' && province !== '' && district !== '';
+      if (lockLevel === 'subdistrict') return zone !== '' && province !== '' && district !== '' && subdistrict !== '';
+      if (lockLevel === 'service') return zone !== '' && province !== '' && district !== '' && subdistrict !== '' && service !== '';
+      return true;
+    })();
+
+    if (allLockedValuesSet) {
+      console.log('🔐 All locked values set for level:', lockLevel);
       setInitialValuesSet(true);
     }
-  }, [permissionLoading, scope, lockLevel, getInitialFilters, provinces, districts, subdistricts, initialValuesSet, province, district, subdistrict]);
+  }, [permissionLoading, scope, lockLevel, getInitialFilters, provinces, districts, subdistricts, zone, province, district, subdistrict, service, initialValuesSet]);
 
   // Notify parent of filter changes
   useEffect(() => {
