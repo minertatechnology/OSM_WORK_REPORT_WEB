@@ -80,12 +80,12 @@ const YEAR_TYPES = [
 // ประเภทรายงานทั้ง 7 ประเภท
 const REPORT_TYPES = [
   { type: "health_record", name: "แบบบันทึกสุขภาพ อสม.", icon: FileText },
-  { type: "mosquito_larvae", name: "รายงานน้ำยุงรายบ้าน", icon: FileText },
-  { type: "ncds", name: "คัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)", icon: Activity },
-  { type: "elderly_screening", name: "คัดกรองผู้สูงอายุ", icon: UserCheck },
+  { type: "mosquito_larvae", name: "รายงานน้ำยุงลาย", icon: FileText },
+  { type: "ncds", name: "อสม. ต่อสู้โรคไม่ติดต่อเรื้อรัง (NCDs)", icon: Activity },
+  { type: "elderly_screening", name: "แบบคัดกรองผู้สูงอายุในชุมชน", icon: UserCheck },
   {
     type: "pregnant_women",
-    name: "ติดตามหญิงตั้งครรภ์/หลังคลอด",
+    name: "แบบบติดตามการได้รับยาเม็ดเสริมไอโอดีน",
     icon: FileCheck,
   },
   { type: "count_carbs", name: "อสม. ชวนนับคาร์บ", icon: FileText },
@@ -926,12 +926,13 @@ const DashboardSobos = () => {
         // Override ตาม lockLevel (permission level ของ user)
         if (lockLevel === "none") {
           // country (กรม) - สิทธิ์สูงสุด
+          // ✅ map แสดงเขตสุขภาพ, ตารางแสดงจังหวัดทั้งหมด เรียงตามเขตก่อน แล้วเรียงตามรหัสจังหวัด
           mapLevel = "zone";
           tableLevel = "province";
         } else if (lockLevel === "zone") {
-          // area (เขต)
+          // area (เขต) - ✅ ตารางแสดงจังหวัดในเขต เรียงตามรหัสจังหวัด
           mapLevel = "province";
-          tableLevel = "district";
+          tableLevel = "province";
         } else if (lockLevel === "province") {
           // province (จังหวัด)
           mapLevel = "district";
@@ -1198,11 +1199,14 @@ const DashboardSobos = () => {
       // สร้าง table_items จาก lookup (เหมือนกันแต่ใช้ tableLevel)
       let tableItems = [];
       if (tableLevel === "zone") {
+        console.log("🔍 [DEBUG-ZONE] healthAreasRef.current:", JSON.stringify(healthAreasRef.current.map(a => ({ name_th: a.name_th, code: a.code }))));
         tableItems = healthAreasRef.current.map((area) => ({
           name_th: area.name_th,
           name: area.name_th,
+          code: area.code, // ✅ เพิ่ม code เพื่อใช้ในการเรียงลำดับ
           total_reports: 0,
         }));
+        console.log("🔍 [DEBUG-ZONE] tableItems BEFORE sort:", JSON.stringify(tableItems.slice(0, 5).map(t => ({ name_th: t.name_th, code: t.code }))));
       } else if (tableLevel === "province") {
         // ✅ กรองจังหวัดตาม zone ที่เลือก (ถ้ามี)
         let filteredProvinces = provincesRef.current;
@@ -1230,6 +1234,7 @@ const DashboardSobos = () => {
           return {
             name_th: p.name_th,
             name: p.name_th,
+            code: p.code || p.id, // ✅ เพิ่ม code เพื่อใช้ในการเรียงลำดับ
             total_reports: 0,
             province_name: p.name_th,
             zone_name: zoneData ? zoneData.zoneName : "-",
@@ -1251,6 +1256,7 @@ const DashboardSobos = () => {
         tableItems = filteredDistricts.map((d) => ({
           name_th: d.name_th,
           name: d.name_th,
+          code: d.code || d.id, // ✅ เพิ่ม code เพื่อใช้ในการเรียงลำดับ
           total_reports: 0,
           province_name: d.province_name_th || "-",
         }));
@@ -1283,6 +1289,7 @@ const DashboardSobos = () => {
           return {
             name_th: s.name_th,
             name: s.name_th,
+            code: s.code || s.id, // ✅ เพิ่ม code เพื่อใช้ในการเรียงลำดับ
             total_reports: 0,
             province_name:
               distInfo.province_name_th || s.province_name_th || "-",
@@ -1453,6 +1460,71 @@ const DashboardSobos = () => {
         item.total_reports = itemKey ? tableReportCountMap[itemKey] || 0 : 0;
       });
 
+      // ✅ เรียงลำดับ tableItems ตามรหัส (code/id) ตามระดับสิทธิ์
+      // กรม (สบส.) → เรียงตามรหัสเขต (1, 2, 3, ..., 13)
+      // เขต → เรียงตามรหัสจังหวัด
+      // จังหวัด → เรียงตามรหัสอำเภอ
+      // อำเภอ → เรียงตามรหัสตำบล
+      // ตำบล → เรียงตามรหัสหน่วยบริการ
+      // หน่วยบริการ → เรียงตาม id อสม.
+      tableItems.sort((a, b) => {
+        // ✅ ใช้ code จาก item โดยตรง (ถ้ามี) ไม่ต้อง lookup ซ้ำ
+        const parseCode = (item) => {
+          if (item.code) {
+            return parseInt(String(item.code).replace(/\D/g, "")) || 9999;
+          }
+          if (item.id) {
+            return parseInt(String(item.id).replace(/\D/g, "")) || 9999;
+          }
+          return 9999;
+        };
+
+        // ✅ ดึงเลขเขตจาก zone_name เช่น "เขตสุขภาพที่ 1" → 1
+        const parseZoneNumber = (zoneName) => {
+          if (!zoneName) return 99;
+          const match = String(zoneName).match(/เขตสุขภาพที่\s*(\d+)/);
+          return match ? parseInt(match[1]) : 99;
+        };
+
+        let sortResult;
+        if (tableLevel === "zone") {
+          // ดึงเลขเขตจาก code เช่น "HA1" → 1 หรือ "1" → 1
+          const codeA = parseCode(a);
+          const codeB = parseCode(b);
+          sortResult = codeA - codeB;
+        } else if (tableLevel === "province") {
+          // ✅ สิทธิ์กรม: เรียงตามเขตก่อน แล้วเรียงตามรหัสจังหวัดในแต่ละเขต
+          const zoneA = parseZoneNumber(a.zone_name);
+          const zoneB = parseZoneNumber(b.zone_name);
+          if (zoneA !== zoneB) {
+            sortResult = zoneA - zoneB; // เรียงตามเขตก่อน
+          } else {
+            // ถ้าเขตเท่ากัน ให้เรียงตามรหัสจังหวัด
+            sortResult = parseCode(a) - parseCode(b);
+          }
+        } else if (tableLevel === "district") {
+          sortResult = parseCode(a) - parseCode(b);
+        } else if (tableLevel === "subdistrict") {
+          sortResult = parseCode(a) - parseCode(b);
+        } else if (tableLevel === "service") {
+          sortResult = parseCode(a) - parseCode(b);
+        } else if (tableLevel === "osm") {
+          sortResult = parseCode(a) - parseCode(b);
+        } else {
+          sortResult = 0;
+        }
+
+        return sortResult;
+
+        return codeA - codeB;
+      });
+
+      console.log("🔍 [DEBUG-ZONE] tableItems AFTER SORT:", JSON.stringify(tableItems.slice(0, 5).map(t => ({ name_th: t.name_th, code: t.code }))));
+      console.log("🔍 [DEBUG-ZONE] Sort verification - codes should be ascending:", tableItems.slice(0, 13).map(t => {
+        const match = String(t.code || "").match(/(\d+)/);
+        return match ? parseInt(match[1]) : 99;
+      }));
+
       console.log("🔍 [DEBUG] Before setProvinceSummary:", {
         mapLevel,
         tableLevel,
@@ -1465,7 +1537,8 @@ const DashboardSobos = () => {
       });
 
       console.log("🔍 [DEBUG] mapItems sample:", mapItems.slice(0, 3));
-      console.log("🔍 [DEBUG] tableItems sample:", tableItems.slice(0, 3));
+      console.log("🔍 [DEBUG] tableItems BEFORE SORT:", JSON.stringify(tableItems.slice(0, 5).map(t => ({ name_th: t.name_th, code: t.code }))));
+      console.log("🔍 [DEBUG] healthAreasRef sample:", JSON.stringify(healthAreasRef.current.slice(0, 5).map(a => ({ name_th: a.name_th, code: a.code }))));
 
       setProvinceSummary({
         map_level: mapLevel,

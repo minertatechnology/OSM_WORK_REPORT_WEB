@@ -84,7 +84,7 @@ export default function LoginPage() {
       setLoading(true);
       alertService.loading("กำลังเข้าสู่ระบบ...", "กรุณารอสักครู่");
 
-      // เรียก API login จริงที่ https://thaiphc2dev.minertatech.com/api/v1/auth/login/json
+      // เรียก API login จริงที่ https://api-thaiphc.hss.moph.go.th/api/v1/auth/login/json
       await loginUser({
         username,
         password,

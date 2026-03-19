@@ -532,20 +532,31 @@ const DashboardZone = () => {
   );
 
   // สร้างข้อมูลสำหรับ Pie/Legend/ตาราง แบบจังหวัดหรืออำเภอ
+  // ✅ เรียงลำดับจังหวัดตามรหัสจังหวัด
   const provinceChartData = useMemo(() => {
     const zoneObj = HEALTHZONE_PROVINCES.find((z) => z.zone === zoneNum);
     const zoneProvincesList = zoneObj
       ? zoneObj.provinces.map((prov) => prov.trim())
       : [];
-    return zoneProvincesList.map((province, index) => ({
-      province,
+
+    const data = zoneProvincesList.map((provinceName, index) => ({
+      province: provinceName,
       value: tableZone?.submitted ?? 0,
       color: ZONE_COLORS[index % ZONE_COLORS.length],
       submitted: tableZone?.submitted ?? 0,
       total: tableZone?.total ?? 0,
       percent: tableZone?.percent ?? 0,
     }));
-  }, [zoneNum, tableZone]);
+
+    // ✅ เรียงตามรหัสจังหวัด
+    return data.sort((a, b) => {
+      const provA = provinceData.find((p) => p.name_th === a.province);
+      const provB = provinceData.find((p) => p.name_th === b.province);
+      const codeA = parseInt(provA?.code || provA?.id) || 9999;
+      const codeB = parseInt(provB?.code || provB?.id) || 9999;
+      return codeA - codeB;
+    });
+  }, [zoneNum, tableZone, provinceData]);
 
   const chartSummaryValue = useMemo(() => {
     return provinceChartData
@@ -554,11 +565,20 @@ const DashboardZone = () => {
   }, [provinceChartData]);
 
   // สร้างข้อมูล summaryTableData: ถ้าเลือกจังหวัดจะแสดงอำเภอ
+  // ✅ เรียงลำดับตามรหัส: เขต → เรียงตามรหัสจังหวัด, จังหวัด → เรียงตามรหัสอำเภอ
   const summaryTableData = useMemo(() => {
     if (province && provinceData.length) {
       const foundProv = provinceData.find((p) => p.name_th === province);
       if (!foundProv || !foundProv.amphure) return [];
-      return foundProv.amphure.map((am, index) => ({
+
+      // ✅ เรียงอำเภอตามรหัสก่อน map
+      const sortedAmphures = [...foundProv.amphure].sort((a, b) => {
+        const codeA = parseInt(a.code || a.id) || 9999;
+        const codeB = parseInt(b.code || b.id) || 9999;
+        return codeA - codeB;
+      });
+
+      return sortedAmphures.map((am, index) => ({
         province,
         district: am.name_th,
         total: tableZone?.total ?? 0,
@@ -567,22 +587,48 @@ const DashboardZone = () => {
         color: ZONE_COLORS[index % ZONE_COLORS.length],
       }));
     } else {
-      return provinceChartData;
+      // ✅ เรียงจังหวัดตามรหัสก่อน return
+      const sortedProvinceChartData = [...provinceChartData].sort((a, b) => {
+        const provA = provinceData.find((p) => p.name_th === a.province);
+        const provB = provinceData.find((p) => p.name_th === b.province);
+        const codeA = parseInt(provA?.code || provA?.id) || 9999;
+        const codeB = parseInt(provB?.code || provB?.id) || 9999;
+        return codeA - codeB;
+      });
+      return sortedProvinceChartData;
     }
   }, [province, provinceData, provinceChartData, tableZone]);
 
   // Legend: show districts if province selected, else provinces
+  // ✅ เรียงลำดับตามรหัสให้ตรงกับตาราง
   const legendData = useMemo(() => {
     if (province && provinceData.length) {
       const foundProv = provinceData.find((p) => p.name_th === province);
       if (!foundProv || !foundProv.amphure) return [];
-      return foundProv.amphure.map((am, index) => ({
+
+      // ✅ เรียงอำเภอตามรหัสก่อน map
+      const sortedAmphures = [...foundProv.amphure].sort((a, b) => {
+        const codeA = parseInt(a.code || a.id) || 9999;
+        const codeB = parseInt(b.code || b.id) || 9999;
+        return codeA - codeB;
+      });
+
+      return sortedAmphures.map((am, index) => ({
         name: am.name_th,
         value: am.name_th,
         color: ZONE_COLORS[index % ZONE_COLORS.length],
       }));
     } else {
-      return provinceChartData.map((item) => ({
+      // ✅ เรียงจังหวัดตามรหัสก่อน return
+      const sortedChartData = [...provinceChartData].sort((a, b) => {
+        const provA = provinceData.find((p) => p.name_th === a.province);
+        const provB = provinceData.find((p) => p.name_th === b.province);
+        const codeA = parseInt(provA?.code || provA?.id) || 9999;
+        const codeB = parseInt(provB?.code || provB?.id) || 9999;
+        return codeA - codeB;
+      });
+
+      return sortedChartData.map((item) => ({
         name: item.province,
         color: item.color,
         value: item.value,

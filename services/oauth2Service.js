@@ -4,12 +4,12 @@ import { getAuthToken } from "../utils/tokenHelper";
 /**
  * OAuth2 Service
  * จัดการ API calls สำหรับดึงข้อมูลผู้ใช้จาก Third-party OAuth2
- * API Base URL: https://thaiphc2dev.minertatech.com/api/v1
+ * API Base URL: https://api-thaiphc.hss.moph.go.th/api/v1
  */
 
 // สร้าง axios instance สำหรับ OAuth2 API
 const oauth2Api = axios.create({
-  baseURL: "https://thaiphc2dev.minertatech.com/api/v1",
+  baseURL: "https://api-thaiphc.hss.moph.go.th/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
@@ -54,7 +54,7 @@ export const getUserByExternalId = async (externalUserId) => {
   }
 
   try {
-    // เรียก API: https://thaiphc2dev.minertatech.com/api/v1/osm/{external_user_id}
+    // เรียก API: https://api-thaiphc.hss.moph.go.th/api/v1/osm/{external_user_id}
     const response = await oauth2Api.get(`/osm/${externalUserId}`);
 
     // ตรวจสอบว่า response มีข้อมูลหรือไม่
