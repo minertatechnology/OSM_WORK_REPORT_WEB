@@ -1052,9 +1052,11 @@ function OsmDetailModal({ open, onClose, data }) {
 
 const OsmThaiPHCComp = () => {
   // State
+  const currentYear = new Date().getFullYear() + 543;
+  const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("06");
+  const [year, setYear] = useState(String(currentYear));
+  const [month, setMonth] = useState(currentMonth);
   const [zone, setZone] = useState("");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
@@ -1544,6 +1546,7 @@ const OsmThaiPHCComp = () => {
               options={YEARS}
               placeholder="เลือกปี"
               icon={Calendar}
+              clearable={false}
             />
             <CustomSelect
               label="เดือน"
@@ -1552,6 +1555,7 @@ const OsmThaiPHCComp = () => {
               options={MONTHS}
               placeholder="เลือกเดือน"
               icon={Calendar}
+              clearable={false}
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">

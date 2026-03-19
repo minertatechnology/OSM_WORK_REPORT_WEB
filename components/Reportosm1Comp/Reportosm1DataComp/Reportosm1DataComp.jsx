@@ -37,6 +37,7 @@ import {
   parseThaiDate,
   isInMonth,
   getDisplayYearForFiscalMonth,
+  getCurrentMonth,
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
@@ -672,6 +673,7 @@ const Reportosm1DataComp = () => {
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
+    defaultMonth: getCurrentMonth(),
   });
 
   // เลือกรายการเดือนตามประเภทปี
@@ -1044,11 +1046,11 @@ const Reportosm1DataComp = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <CustomSelect
             label="ประเภทปี"
-            placeholder="เลือกประเภทปี"
             value={yearType}
             onChange={(e) => setYearType(e.target.value)}
             options={YEAR_TYPES}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label={yearType === "fiscal" ? "ปี" : "ปี"}
@@ -1057,6 +1059,7 @@ const Reportosm1DataComp = () => {
             onChange={(e) => setYear(e.target.value)}
             options={YEARS}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label="เดือน"
@@ -1065,6 +1068,7 @@ const Reportosm1DataComp = () => {
             onChange={(e) => setMonth(e.target.value)}
             options={monthOptions}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label="เขตสุขภาพ"

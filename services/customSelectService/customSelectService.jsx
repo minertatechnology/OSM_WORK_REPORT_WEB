@@ -12,6 +12,7 @@ import { ChevronDown, X } from "lucide-react";
  * @param {string} props.placeholder - Placeholder text when no value selected
  * @param {React.Component} props.icon - Lucide icon component to display
  * @param {boolean} props.disabled - Whether the select is disabled
+ * @param {boolean} props.clearable - Whether to show clear button (default: true)
  * @param {string} props.className - Additional CSS classes for the container
  */
 function CustomSelect({
@@ -22,6 +23,7 @@ function CustomSelect({
   placeholder,
   icon: Icon,
   disabled,
+  clearable = true,
   className = "",
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -179,7 +181,7 @@ function CustomSelect({
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {value && !disabled && (
+          {value && !disabled && clearable && (
             <button
               type="button"
               onClick={handleClear}

@@ -14,6 +14,7 @@ import {
 } from "@services/lookupService";
 import {
   getCurrentFiscalYear,
+  getCurrentMonth,
   isInFiscalYear,
   isInCalendarYear,
   isInMonth,
@@ -224,8 +225,8 @@ const GisComp = () => {
 
   // States for year and month selection
   const [selectedYearType, setSelectedYearType] = useState("fiscal"); // fiscal = ปีงบประมาณ, calendar = รายปี
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState(String(getCurrentFiscalYear()));
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [selectedWeek, setSelectedWeek] = useState("");
 
   const [weeklyDetails, setWeeklyDetails] = useState(null);
@@ -301,7 +302,6 @@ const GisComp = () => {
 
   const currentBuddhistYear = new Date().getFullYear() + 543;
   const yearOptions = [
-    { value: "0", label: "ทุกปี" },
     ...Array.from({ length: 15 }, (_, index) => {
       const year = currentBuddhistYear - index;
       // แสดงผลเป็น ปีงบประมาณ (เช่น 2568) หรือ รายปี (เช่น 2568)
@@ -314,7 +314,6 @@ const GisComp = () => {
 
   // เดือน options สำหรับปีปฏิทิน (เริ่มต้นที่มกราคม)
   const calendarMonths = [
-    { value: "0", label: "ทุกเดือน" },
     { value: "01", label: "มกราคม" },
     { value: "02", label: "กุมภาพันธ์" },
     { value: "03", label: "มีนาคม" },
@@ -331,7 +330,6 @@ const GisComp = () => {
 
   // เดือน options สำหรับปีงบประมาณ (เริ่มต้นที่ตุลาคม)
   const fiscalMonths = [
-    { value: "0", label: "ทุกเดือน" },
     { value: "10", label: "ตุลาคม" },
     { value: "11", label: "พฤศจิกายน" },
     { value: "12", label: "ธันวาคม" },
@@ -350,7 +348,6 @@ const GisComp = () => {
   const monthOptions = selectedYearType === "fiscal" ? fiscalMonths : calendarMonths;
 
   const weekOptions = [
-    { value: "0", label: "ทุกสัปดาห์" },
     { value: "1", label: "สัปดาห์ที่ 1 (1-7)" },
     { value: "2", label: "สัปดาห์ที่ 2 (8-14)" },
     { value: "3", label: "สัปดาห์ที่ 3 (15-21)" },
@@ -1626,6 +1623,7 @@ const GisComp = () => {
                       options={yearTypeOptions}
                       value={selectedYearType}
                       onChange={(e) => setSelectedYearType(e.target.value)}
+                      clearable={false}
                     />
                   </div>
                   <div className={styles.formGroup}>
@@ -1636,6 +1634,7 @@ const GisComp = () => {
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(e.target.value)}
                       placeholder="-- เลือกปี --"
+                      clearable={false}
                     />
                   </div>
                 </div>
@@ -1648,6 +1647,7 @@ const GisComp = () => {
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(e.target.value)}
                       placeholder="-- เลือกเดือน --"
+                      clearable={false}
                     />
                   </div>
                   <div className={styles.formGroup}>

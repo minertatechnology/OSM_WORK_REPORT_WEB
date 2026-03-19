@@ -452,8 +452,10 @@ const getUserZone = (user) => {
 
 const DashboardZone = () => {
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("");
-  const [month, setMonth] = useState("");
+  const currentYear = String(new Date().getFullYear() + 543);
+  const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+  const [year, setYear] = useState(currentYear);
+  const [month, setMonth] = useState(currentMonth);
   const [week, setWeek] = useState("");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
@@ -677,6 +679,7 @@ const DashboardZone = () => {
               onChange={(e) => setYear(e.target.value)}
               placeholder="เลือกปี"
               name="year"
+              clearable={false}
             />
           </div>
           <div>
@@ -689,6 +692,7 @@ const DashboardZone = () => {
               onChange={(e) => setMonth(e.target.value)}
               placeholder="เลือกเดือน"
               name="month"
+              clearable={false}
             />
           </div>
           <div>

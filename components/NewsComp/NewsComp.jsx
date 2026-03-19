@@ -26,6 +26,7 @@ import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 import {
   getCurrentFiscalYear,
+  getCurrentMonth,
   generateFiscalYearOptions,
   isInFiscalYear,
   isInCalendarYear,
@@ -292,6 +293,7 @@ const NewsCompContent = () => {
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
+    defaultMonth: getCurrentMonth(),
   });
 
   const [week, setWeek] = useState("");
@@ -501,7 +503,7 @@ const NewsCompContent = () => {
 
   // ล้างข้อมูลค้นหา
   const resetAll = () => {
-    handleReset(String(currentFiscalYear), "fiscal");
+    handleReset();
     setWeek("");
     setFilteredNews(rawNewsList);
   };
@@ -732,6 +734,7 @@ const NewsCompContent = () => {
               options={YEARS}
               placeholder="-- เลือกปี --"
               icon={Calendar}
+              clearable={false}
             />
 
             {/* Month */}
@@ -742,6 +745,7 @@ const NewsCompContent = () => {
               options={monthOptions}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
+              clearable={false}
             />
 
             {/* Week */}

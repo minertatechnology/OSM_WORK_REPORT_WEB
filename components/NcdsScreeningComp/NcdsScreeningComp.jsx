@@ -30,6 +30,7 @@ import { getOsmByHealthService } from "@services/lookupService";
 import {
   getCurrentFiscalYear,
   getCurrentCalendarYear,
+  getCurrentMonth,
   generateFiscalYearOptions,
   isInFiscalYear,
   isInCalendarYear,
@@ -725,6 +726,7 @@ const NcdsScreeningComp = () => {
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
+    defaultMonth: getCurrentMonth(),
   });
 
   const [searchType, setSearchType] = useState("year");
@@ -926,7 +928,7 @@ const NcdsScreeningComp = () => {
   );
 
   const handleClear = () => {
-    handleReset(String(currentFiscalYear), "fiscal");
+    handleReset();
     setWeek("สัปดาห์ 4 (23/6/68-27/6/68)");
     setKeyword("");
     setPage(1);
@@ -1014,11 +1016,11 @@ const NcdsScreeningComp = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <CustomSelect
             label="ประเภทปี"
-            placeholder="เลือกประเภทปี"
             value={yearType}
             onChange={(e) => setYearType(e.target.value)}
             options={YEAR_TYPES}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label={yearType === "fiscal" ? "ปี" : "ปี"}
@@ -1027,6 +1029,7 @@ const NcdsScreeningComp = () => {
             onChange={(e) => setYear(e.target.value)}
             options={generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear)}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label="เดือน"
@@ -1035,6 +1038,7 @@ const NcdsScreeningComp = () => {
             options={monthOptions}
             placeholder="-- เลือกเดือน --"
             icon={Calendar}
+            clearable={false}
           />
         </div>
 

@@ -168,6 +168,16 @@ export const getCurrentCalendarYear = () => {
 };
 
 /**
+ * ดึงเดือนปัจจุบัน
+ *
+ * @returns {string} - เดือนปัจจุบัน (01-12)
+ */
+export const getCurrentMonth = () => {
+  const now = new Date();
+  return String(now.getMonth() + 1).padStart(2, '0');
+};
+
+/**
  * ฟอร์แมตวันที่เป็น ISO string (YYYY-MM-DD)
  */
 const formatDateToISO = (date) => {
@@ -402,6 +412,7 @@ export default {
   generateCalendarYearOptions,
   getCurrentFiscalYear,
   getCurrentCalendarYear,
+  getCurrentMonth,
   filterByFiscalYear,
   filterByCalendarYear,
   parseThaiDate,

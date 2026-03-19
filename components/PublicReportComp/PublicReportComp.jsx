@@ -510,7 +510,7 @@ const PublicReportComp = () => {
 
   // Filter states - initialize with empty values (permission filters will be applied via useEffect for locked fields only)
   const [fiscalYear, setFiscalYear] = useState(String(new Date().getFullYear() + 543));
-  const [month, setMonth] = useState("");
+  const [month, setMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [zone, setZone] = useState("");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
@@ -1516,6 +1516,7 @@ const PublicReportComp = () => {
             onChange={(e) => setFiscalYear(e.target.value)}
             options={generateYearOptions()}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label="เดือน"
@@ -1524,6 +1525,7 @@ const PublicReportComp = () => {
             onChange={(e) => setMonth(e.target.value)}
             options={FISCAL_MONTH_OPTIONS}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label="เขตสุขภาพ"

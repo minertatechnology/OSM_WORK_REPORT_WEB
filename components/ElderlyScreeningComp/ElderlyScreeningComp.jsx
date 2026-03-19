@@ -36,6 +36,7 @@ import oauth2Service from "@services/oauth2Service";
 import {
   getCurrentFiscalYear,
   getCurrentCalendarYear,
+  getCurrentMonth,
   generateFiscalYearOptions,
   isInFiscalYear,
   isInCalendarYear,
@@ -758,6 +759,7 @@ const ElderlyScreeningComp = () => {
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
+    defaultMonth: getCurrentMonth(),
   });
 
   const [week, setWeek] = useState("สัปดาห์ 4 (23/6/68-27/6/68)");
@@ -1158,11 +1160,11 @@ const ElderlyScreeningComp = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
           <CustomSelect
             label="ประเภทปี"
-            placeholder="เลือกประเภทปี"
             value={yearType}
             onChange={(e) => setYearType(e.target.value)}
             options={YEAR_TYPES}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label={yearType === "fiscal" ? "ปี" : "ปี"}
@@ -1171,6 +1173,7 @@ const ElderlyScreeningComp = () => {
             onChange={(e) => setYear(e.target.value)}
             options={YEARS}
             icon={Calendar}
+            clearable={false}
           />
           <CustomSelect
             label="เดือน"
@@ -1179,6 +1182,7 @@ const ElderlyScreeningComp = () => {
             options={monthOptions}
             placeholder="-- เลือกเดือน --"
             icon={Calendar}
+            clearable={false}
           />
           {/* <CustomSelect
             label="สัปดาห์"

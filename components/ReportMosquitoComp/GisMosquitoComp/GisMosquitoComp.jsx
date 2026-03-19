@@ -14,6 +14,7 @@ import {
 } from "@services/lookupService";
 import {
   getCurrentFiscalYear,
+  getCurrentMonth,
   isInFiscalYear,
   isInCalendarYear,
   isInMonth,
@@ -421,8 +422,8 @@ const GisMosquitoComp = () => {
 
   // States for year, month and week selection
   const [selectedYearType, setSelectedYearType] = useState("fiscal"); // fiscal = ปีงบประมาณ, calendar = รายปี
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState(String(getCurrentFiscalYear()));
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [selectedWeek, setSelectedWeek] = useState("");
 
   const [weeklyDetails, setWeeklyDetails] = useState(null);
@@ -513,7 +514,6 @@ const GisMosquitoComp = () => {
 
   const currentBuddhistYear = new Date().getFullYear() + 543;
   const yearOptions = [
-    { value: "0", label: "ทุกปี" },
     ...Array.from({ length: 15 }, (_, index) => {
       const year = currentBuddhistYear - index;
       // แสดงผลเป็น ปีงบประมาณ (เช่น 2568) หรือ รายปี (เช่น 2568)
@@ -526,7 +526,6 @@ const GisMosquitoComp = () => {
 
   // เดือน options สำหรับปีปฏิทิน (เริ่มต้นที่มกราคม)
   const calendarMonths = [
-    { value: "0", label: "ทุกเดือน" },
     { value: "01", label: "มกราคม" },
     { value: "02", label: "กุมภาพันธ์" },
     { value: "03", label: "มีนาคม" },
@@ -543,7 +542,6 @@ const GisMosquitoComp = () => {
 
   // เดือน options สำหรับปีงบประมาณ (เริ่มต้นที่ตุลาคม)
   const fiscalMonths = [
-    { value: "0", label: "ทุกเดือน" },
     { value: "10", label: "ตุลาคม" },
     { value: "11", label: "พฤศจิกายน" },
     { value: "12", label: "ธันวาคม" },
@@ -562,7 +560,6 @@ const GisMosquitoComp = () => {
   const monthOptions = selectedYearType === "fiscal" ? fiscalMonths : calendarMonths;
 
   const weekOptions = [
-    { value: "0", label: "ทุกสัปดาห์" },
     { value: "1", label: "สัปดาห์ที่ 1 (1-7)" },
     { value: "2", label: "สัปดาห์ที่ 2 (8-14)" },
     { value: "3", label: "สัปดาห์ที่ 3 (15-21)" },
@@ -1742,6 +1739,7 @@ const GisMosquitoComp = () => {
                       options={yearTypeOptions}
                       value={selectedYearType}
                       onChange={(e) => setSelectedYearType(e.target.value)}
+                      clearable={false}
                     />
                   </div>
                   <div className={styles.formGroup}>
@@ -1752,6 +1750,7 @@ const GisMosquitoComp = () => {
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(e.target.value)}
                       placeholder="-- เลือกปี --"
+                      clearable={false}
                     />
                   </div>
                 </div>
@@ -1764,6 +1763,7 @@ const GisMosquitoComp = () => {
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(e.target.value)}
                       placeholder="-- เลือกเดือน --"
+                      clearable={false}
                     />
                   </div>
                   <div className={styles.formGroup}>

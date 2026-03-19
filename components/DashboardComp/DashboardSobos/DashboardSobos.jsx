@@ -36,6 +36,7 @@ import { useUserPermission } from "@context/UserPermissionProvider";
 import {
   getCurrentFiscalYear,
   generateFiscalYearOptions,
+  getCurrentMonth,
 } from "@utils/fiscalYearHelper";
 
 // เดือน options (ปกติ - เริ่มต้นเดือนมกราคม)
@@ -525,6 +526,7 @@ const DashboardSobos = () => {
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
+    defaultMonth: getCurrentMonth(),
   });
 
   // ✅ ใช้ refs เพื่อเก็บค่าล่าสุดของ lookup data
@@ -571,7 +573,7 @@ const DashboardSobos = () => {
 
   // ล้างข้อมูลการค้นหา
   const handleClear = () => {
-    handleReset(String(currentFiscalYear), "fiscal");
+    handleReset();
     setSelectedReportType("");
   };
 
@@ -1873,11 +1875,11 @@ const DashboardSobos = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <CustomSelect
               label="ประเภทปี"
-              placeholder="เลือกประเภทปี"
               value={yearType}
               onChange={(e) => setYearType(e.target.value)}
               options={YEAR_TYPES}
               icon={Calendar}
+              clearable={false}
             />
             <CustomSelect
               label={yearType === "fiscal" ? "ปี" : "ปี"}
@@ -1886,6 +1888,7 @@ const DashboardSobos = () => {
               onChange={(e) => setYear(e.target.value)}
               options={YEARS}
               icon={Calendar}
+              clearable={false}
             />
             <CustomSelect
               label="เดือน"
@@ -1894,6 +1897,7 @@ const DashboardSobos = () => {
               options={monthOptions}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
+              clearable={false}
             />
           </div>
 

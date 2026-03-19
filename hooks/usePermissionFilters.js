@@ -12,7 +12,7 @@ import { HEALTHZONE_PROVINCES } from '@utils/healthzone-province-data';
 
 /**
  * Hook สำหรับจัดการ filters ที่มี permission control
- * @param {Object} options - { onFilterChange, defaultYear, defaultYearType, includeWeek }
+ * @param {Object} options - { onFilterChange, defaultYear, defaultYearType, defaultMonth, includeWeek }
  * @returns {Object}
  */
 export const usePermissionFilters = (options = {}) => {
@@ -26,11 +26,11 @@ export const usePermissionFilters = (options = {}) => {
     loading: permissionLoading,
   } = useUserPermission();
 
-  const { defaultYear = '', defaultYearType = 'fiscal', includeWeek = false } = options;
+  const { defaultYear = '', defaultYearType = 'fiscal', defaultMonth = '', includeWeek = false } = options;
 
   const [yearType, setYearType] = useState(defaultYearType);
   const [year, setYear] = useState(defaultYear);
-  const [month, setMonth] = useState('');
+  const [month, setMonth] = useState(defaultMonth);
   const [week, setWeek] = useState('');
   const [zone, setZone] = useState('');
   const [province, setProvince] = useState('');
@@ -463,11 +463,12 @@ export const usePermissionFilters = (options = {}) => {
 
   /**
    * Reset all filters - respecting locked fields
+   * Reset year/month to current values from options
    */
-  const handleReset = useCallback((defaultYear = '', defaultYearType = 'fiscal') => {
+  const handleReset = useCallback(() => {
     setYearType(defaultYearType);
     setYear(defaultYear);
-    setMonth('');
+    setMonth(defaultMonth);
     setWeek('');
     setKeyword('');
     setVillage('');
@@ -486,7 +487,7 @@ export const usePermissionFilters = (options = {}) => {
     if (isLocked('district') && initialFilters.district) setDistrict(initialFilters.district);
     if (isLocked('subdistrict') && initialFilters.subdistrict) setSubdistrict(initialFilters.subdistrict);
     if (isLocked('service') && initialFilters.service) setService(initialFilters.service);
-  }, [canClearFilter, isLocked, getInitialFilters]);
+  }, [defaultYearType, defaultYear, defaultMonth, canClearFilter, isLocked, getInitialFilters]);
 
   /**
    * ✅ ตรวจสอบว่าควร disable dropdown หรือไม่ (cascading logic)

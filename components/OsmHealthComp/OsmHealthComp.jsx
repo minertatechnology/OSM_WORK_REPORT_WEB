@@ -28,6 +28,7 @@ import {
   isInCalendarYear,
   parseThaiDate,
   isInMonth,
+  getCurrentMonth,
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
@@ -382,7 +383,11 @@ const OsmHealthComp = () => {
     isDistrictDisabled,
     isSubdistrictDisabled,
     isServiceDisabled,
-  } = usePermissionFilters({ currentFiscalYear });
+  } = usePermissionFilters({
+    defaultYear: String(currentFiscalYear),
+    defaultYearType: "fiscal",
+    defaultMonth: getCurrentMonth(),
+  });
 
   // Data state
   const [healthRecords, setHealthRecords] = useState([]);
@@ -632,7 +637,7 @@ const OsmHealthComp = () => {
 
   // Reset filters
   const resetFilters = () => {
-    handleReset(String(currentFiscalYear), "fiscal");
+    handleReset();
     setCurrentPage(1);
   };
 
@@ -980,11 +985,11 @@ const OsmHealthComp = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
             <CustomSelect
               label="ประเภทปี"
-              placeholder="เลือกประเภทปี"
               value={yearType}
               onChange={(e) => setYearType(e.target.value)}
               options={YEAR_TYPES}
               icon={Calendar}
+              clearable={false}
             />
             <CustomSelect
               label={yearType === "fiscal" ? "ปี" : "ปี"}
@@ -993,6 +998,7 @@ const OsmHealthComp = () => {
               onChange={(e) => setYear(e.target.value)}
               options={YEARS}
               icon={Calendar}
+              clearable={false}
             />
             <CustomSelect
               label="เดือน"
@@ -1001,6 +1007,7 @@ const OsmHealthComp = () => {
               options={monthOptions}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
+              clearable={false}
             />
           </div>
 

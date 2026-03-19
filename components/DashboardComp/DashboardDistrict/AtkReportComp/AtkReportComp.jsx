@@ -223,8 +223,10 @@ function PaginationWithPerPage({
 
 const AtkReportComp = () => {
   const [searchType, setSearchType] = useState("year");
-  const [year, setYear] = useState("2568");
-  const [month, setMonth] = useState("มิถุนายน");
+  const currentYear = String(new Date().getFullYear() + 543);
+  const currentMonthIndex = new Date().getMonth();
+  const [year, setYear] = useState(currentYear);
+  const [month, setMonth] = useState(months[currentMonthIndex]);
   const [zone, setZone] = useState("");
   const [province, setProvince] = useState("");
   const [amphur, setAmphur] = useState("");
@@ -264,8 +266,8 @@ const AtkReportComp = () => {
   // Reset all filters
   const resetFilters = () => {
     setSearchType("year");
-    setYear("2568");
-    setMonth("มิถุนายน");
+    setYear(currentYear);
+    setMonth(months[currentMonthIndex]);
     setZone("");
     setProvince("");
     setAmphur("");
@@ -422,6 +424,7 @@ const AtkReportComp = () => {
               options={years.map((y) => ({ label: y, value: y }))}
               placeholder="-- เลือกปี --"
               icon={Calendar}
+              clearable={false}
             />
             <CustomSelect
               label="เดือน"
@@ -430,6 +433,7 @@ const AtkReportComp = () => {
               options={months.map((m) => ({ label: m, value: m }))}
               placeholder="-- เลือกเดือน --"
               icon={Calendar}
+              clearable={false}
             />
           </div>
 
