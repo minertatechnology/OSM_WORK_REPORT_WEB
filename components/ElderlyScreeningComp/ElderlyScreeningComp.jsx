@@ -28,6 +28,7 @@ import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import ElderlyScreeningDetail from "./ElderlyScreeningDetail/ElderlyScreeningDetail";
 import elderlyScreeningService from "@services/elderlyScreeningService";
+import { getUniqueUsersCount } from "@services/analyticsService";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 import { getOsmByHealthService } from "@services/lookupService";

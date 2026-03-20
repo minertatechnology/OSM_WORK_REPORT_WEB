@@ -17,6 +17,7 @@ import {
   Heart,
   RotateCcw,
   FileText,
+  Users,
 } from "lucide-react";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import jsPDF from "jspdf";
@@ -26,6 +27,8 @@ import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import NcdsScreeningDetail from "./NcdsScreeningDetail/NcdsScreeningDetail";
 import { getOsmByHealthService } from "@services/lookupService";
+import { getUniqueUsersCount } from "@services/analyticsService";
+import { getUsersCount } from "@services/analyticsService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
