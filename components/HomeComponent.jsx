@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Eye, EyeOff, Lock, User2, X } from "lucide-react";
 import alertService from "@services/alertService/alertService";
 import { loginUser, fetchUserInfo } from "@pages/api/login/login";
-// Thai ID Modal
+// ThaiD Modal
 function ThaiIdModal({ open, onClose }) {
   if (!open) return null;
   return (
@@ -21,7 +21,7 @@ function ThaiIdModal({ open, onClose }) {
         </button>
         <div className="mb-2 mt-2">
           <div className="font-bold text-lg text-[#7e32e2]">
-            เข้าสู่ระบบด้วย Thai ID
+            เข้าสู่ระบบด้วย ThaiD
           </div>
           <div className="text-[#7e32e2] text-sm font-medium mb-4">
             ระบบ Smart อสม.
@@ -30,7 +30,7 @@ function ThaiIdModal({ open, onClose }) {
         <div className="flex items-center justify-center mb-3">
           <Image
             src="/thaiid-qr.png"
-            alt="Thai ID QR"
+            alt="ThaiD QR"
             width={180}
             height={180}
             className="rounded-lg border border-gray-200 shadow"
@@ -65,6 +65,22 @@ export default function LoginPage() {
     setPassword("password");
     // userType is already set to "officer" by default, no need to set it
   }
+
+  // ThaiD Login - Redirect to backend OAuth
+  const handleThaiDLogin = () => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const clientId = process.env.NEXT_PUBLIC_CLIENT_ID;
+    const callbackUrl = `${window.location.origin}/thaid/callback`;
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      user_type: "officer",
+      redirect_uri: callbackUrl,
+    });
+
+    // Redirect to backend /thaid/authorize endpoint
+    window.location.href = `${apiBase}/thaid/authorize?${params}`;
+  };
 
   function validate() {
     let err = { username: "", password: "" };
@@ -310,16 +326,16 @@ export default function LoginPage() {
                 type="button"
                 disabled={loading}
                 className="w-full h-11 rounded-md border border-[#7e32e2] text-[#7e32e2] hover:bg-[#7e32e2]/5 flex items-center justify-center space-x-2 font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#7e32e2] disabled:opacity-60"
-                onClick={() => setShowThaiId(true)}
+                onClick={handleThaiDLogin}
               >
                 <Image
                   src="/thaiidlogo.png"
-                  alt="Thai ID Logo"
+                  alt="ThaiD Logo"
                   width={26}
                   height={26}
                   className="w-6 h-6 object-contain"
                 />
-                <span>Thai ID</span>
+                <span>ThaiD</span>
               </button>
               {/* DEV: Auto Fill Button */}
               {process.env.NEXT_PUBLIC_ENV_MODE === 'development' && (
@@ -346,7 +362,7 @@ export default function LoginPage() {
           style={{ objectFit: "cover", objectPosition: "center" }}
         />
       </div>
-      {/* Thai ID Modal */}
+      {/* ThaiD Modal */}
       <ThaiIdModal open={showThaiId} onClose={() => setShowThaiId(false)} />
     </div>
   );
