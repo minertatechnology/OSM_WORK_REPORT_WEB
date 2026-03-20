@@ -934,21 +934,21 @@ const DashboardSobos = () => {
           mapLevel = "province";
           tableLevel = "province";
         } else if (lockLevel === "province") {
-          // province (จังหวัด)
+          // province (จังหวัด) - ตารางแสดงอำเภอ
           mapLevel = "district";
-          tableLevel = "subdistrict";
+          tableLevel = "district";
         } else if (lockLevel === "district") {
-          // district (อำเภอ)
+          // district (อำเภอ) - ตารางแสดงตำบล
           mapLevel = "subdistrict";
-          tableLevel = "service";
+          tableLevel = "subdistrict";
         } else if (lockLevel === "subdistrict") {
-          // subdistrict (ตำบล)
+          // subdistrict (ตำบล) - ตารางแสดงหน่วยบริการ
           mapLevel = "service";
-          tableLevel = "osm";
+          tableLevel = "service";
         } else if (lockLevel === "service") {
-          // service (หน่วยบริการ)
-          mapLevel = "osm";
-          tableLevel = "osm";
+          // service (หน่วยบริการ/รพ.สต.) - ✅ ตารางแสดงหน่วยบริการของตัวเอง
+          mapLevel = "service";
+          tableLevel = "service";
         }
       }
 
@@ -2230,15 +2230,19 @@ const DashboardSobos = () => {
                           percent: total > 0 ? (actualValue / total * 100) : 0
                         };
                       })}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#e0d0f0" />
                       <XAxis
                         dataKey="name"
-                        angle={chartPieData.length > 8 ? -45 : 0}
-                        textAnchor={chartPieData.length > 8 ? "end" : "middle"}
-                        height={chartPieData.length > 8 ? 80 : 60}
-                        tick={{ fill: "#7e32e2", fontSize: 12, fontWeight: 600 }}
+                        textAnchor="end"
+                        height={80}
+                        tick={{
+                          fill: "#7e32e2",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          angle: -45
+                        }}
                         interval={0}
                       />
                       <YAxis
