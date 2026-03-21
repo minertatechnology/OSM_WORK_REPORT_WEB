@@ -274,9 +274,9 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: MR_{year}.pdf
+  // Save PDF - Format: Mosquito_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`MR_${currentYear}.pdf`);
+  doc.save(`Mosquito_${currentYear}.pdf`);
 }
 
 function exportDistrictPDF(data) {
@@ -371,9 +371,9 @@ function exportDistrictPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: MR_{year}.pdf
+  // Save PDF - Format: Mosquito_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`MR_${currentYear}.pdf`);
+  doc.save(`Mosquito_${currentYear}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -451,9 +451,9 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: MR_{year}.pdf
+  // Save PDF - Format: Mosquito_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`MR_${currentYear}.pdf`);
+  doc.save(`Mosquito_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, title = "รายงานลูกน้ำยุงลาย") {
@@ -474,9 +474,9 @@ function exportToExcel(data, title = "รายงานลูกน้ำยุ
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  // Save Excel - Format: MR_{year}.xlsx
+  // Save Excel - Format: Mosquito_{year}.xlsx
   const currentYear = new Date().getFullYear();
-  saveAs(blob, `MR_${currentYear}.xlsx`);
+  saveAs(blob, `Mosquito_${currentYear}.xlsx`);
 }
 
 function DetailModal({ open, onClose, data = [] }) {

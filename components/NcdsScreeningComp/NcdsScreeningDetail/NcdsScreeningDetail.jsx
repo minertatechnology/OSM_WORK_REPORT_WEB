@@ -339,10 +339,10 @@ const NcdsScreeningDetail = ({ reportData }) => {
         });
       }
 
-      // บันทึกไฟล์ - Format: NCDs{osm_code}_{year}.pdf หรือ NCDs{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
+      // บันทึกไฟล์ - Format: NCD{osm_code}_{year}.pdf หรือ NCD{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
       const currentYear = new Date().getFullYear();
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
-      doc.save(`NCDs${osmCode}_${currentYear}.pdf`);
+      doc.save(`NCD${osmCode}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -491,10 +491,10 @@ const NcdsScreeningDetail = ({ reportData }) => {
 
       XLSX.utils.book_append_sheet(wb, ws, "รายงานคัดกรอง NCDs");
 
-      // สร้างชื่อไฟล์ - Format: NCDs{osm_code}_{year}.xlsx หรือ NCDs{first_name}_{year}.xlsx (ถ้าไม่มี osm_code)
+      // สร้างชื่อไฟล์ - Format: NCD{osm_code}_{year}.xlsx หรือ NCD{first_name}_{year}.xlsx (ถ้าไม่มี osm_code)
       const currentYear = new Date().getFullYear();
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
-      XLSX.writeFile(wb, `NCDs${osmCode}_${currentYear}.xlsx`);
+      XLSX.writeFile(wb, `NCD${osmCode}_${currentYear}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");

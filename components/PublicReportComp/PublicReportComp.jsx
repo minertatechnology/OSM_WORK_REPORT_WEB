@@ -497,9 +497,9 @@ const exportToExcel = (data, filters, locationLabel) => {
 
   XLSX.utils.book_append_sheet(wb, ws, "รายงาน อสม.1");
 
-  // Generate filename - Format: PB_{year}.xlsx
+  // Generate filename - Format: OSMWork_{year}.xlsx
   const currentYear = new Date().getFullYear();
-  const filename = `PB_${currentYear}.xlsx`;
+  const filename = `OSMWork_${currentYear}.xlsx`;
 
   XLSX.writeFile(wb, filename);
 };

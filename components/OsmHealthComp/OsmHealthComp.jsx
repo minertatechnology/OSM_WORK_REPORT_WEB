@@ -868,9 +868,9 @@ const OsmHealthComp = () => {
       ];
       ws["!cols"] = colWidths;
 
-      // สร้างชื่อไฟล์ - Format: HP_{year}.xlsx
+      // สร้างชื่อไฟล์ - Format: Health_{year}.xlsx
       const currentYear = new Date().getFullYear();
-      const fileName = `HP_${currentYear}.xlsx`;
+      const fileName = `Health_${currentYear}.xlsx`;
 
       // ดาวน์โหลดไฟล์
       XLSX.writeFile(wb, fileName);

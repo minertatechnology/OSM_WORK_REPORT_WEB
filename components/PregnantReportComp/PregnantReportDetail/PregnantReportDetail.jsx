@@ -283,7 +283,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       console.log("🔍 Excel Export - first_name:", rawData?.first_name);
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
       console.log("🔍 Excel Export - osmCode:", osmCode);
-      XLSX.writeFile(wb, `PR${osmCode}_${currentYear}.xlsx`);
+      XLSX.writeFile(wb, `Iodine${osmCode}_${currentYear}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");
@@ -522,7 +522,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       console.log("🔍 PDF Export - first_name:", rawData?.first_name);
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
       console.log("🔍 PDF Export - osmCode:", osmCode);
-      doc.save(`PR${osmCode}_${currentYear}.pdf`);
+      doc.save(`Iodine${osmCode}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");

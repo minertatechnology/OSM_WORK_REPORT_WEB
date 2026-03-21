@@ -172,9 +172,9 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: NCDs_{year}.pdf
+  // Save PDF - Format: NCD_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`NCDs_${currentYear}.pdf`);
+  doc.save(`NCD_${currentYear}.pdf`);
 }
 
 function exportOverviewPDF(data) {
@@ -255,9 +255,9 @@ function exportOverviewPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: NCDs_{year}.pdf
+  // Save PDF - Format: NCD_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`NCDs_${currentYear}.pdf`);
+  doc.save(`NCD_${currentYear}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -331,9 +331,9 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: NCDs_{year}.pdf
+  // Save PDF - Format: NCD_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`NCDs_${currentYear}.pdf`);
+  doc.save(`NCD_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {
@@ -354,9 +354,9 @@ function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  // Save Excel - Format: NCDs_{year}.xlsx
+  // Save Excel - Format: NCD_{year}.xlsx
   const currentYear = new Date().getFullYear();
-  saveAs(blob, `NCDs_${currentYear}.xlsx`);
+  saveAs(blob, `NCD_${currentYear}.xlsx`);
 }
 
 // Modal component styled like the image (for both download and detail)

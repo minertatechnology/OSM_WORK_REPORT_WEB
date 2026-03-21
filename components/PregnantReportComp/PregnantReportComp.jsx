@@ -263,9 +263,9 @@ function exportSummaryPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: PR_{year}.pdf
+  // Save PDF - Format: Iodine_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`PR_${currentYear}.pdf`);
+  doc.save(`Iodine_${currentYear}.pdf`);
 }
 
 // 2. สรุปภาพรวมรายงานในพื้นที่
@@ -362,9 +362,9 @@ function exportOverviewPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: PR_{year}.pdf
+  // Save PDF - Format: Iodine_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`PR_${currentYear}.pdf`);
+  doc.save(`Iodine_${currentYear}.pdf`);
 }
 
 // 3. อสม. ที่ยังไม่ส่งรายงาน
@@ -450,9 +450,9 @@ function exportNotSubmittedPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: PR_{year}.pdf
+  // Save PDF - Format: Iodine_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`PR_${currentYear}.pdf`);
+  doc.save(`Iodine_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, userDataMap, title = "การติดตามการได้รับยาเม็ดเสริมไอโอดีน") {
@@ -488,9 +488,9 @@ function exportToExcel(data, userDataMap, title = "การติดตาม�
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  // Save Excel - Format: PR_{year}.xlsx
+  // Save Excel - Format: Iodine_{year}.xlsx
   const currentYear = new Date().getFullYear();
-  saveAs(blob, `PR_${currentYear}.xlsx`);
+  saveAs(blob, `Iodine_${currentYear}.xlsx`);
 }
 
 // Modal component styled like the image (for both download and detail)

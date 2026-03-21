@@ -171,9 +171,9 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: ES_{year}.pdf
+  // Save PDF - Format: Elderly_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`ES_${currentYear}.pdf`);
+  doc.save(`Elderly_${currentYear}.pdf`);
 }
 
 function exportOverviewPDF(data) {
@@ -257,9 +257,9 @@ function exportOverviewPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: ES_{year}.pdf
+  // Save PDF - Format: Elderly_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`ES_${currentYear}.pdf`);
+  doc.save(`Elderly_${currentYear}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -342,9 +342,9 @@ function exportNotSubmittedPDF(data) {
     });
   }
 
-  // Save PDF - Format: ES_{year}.pdf
+  // Save PDF - Format: Elderly_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`ES_${currentYear}.pdf`);
+  doc.save(`Elderly_${currentYear}.pdf`);
 }
 
 function exportToExcel(data, title = "รายงานคัดกรองผู้สูงอายุ") {
@@ -366,9 +366,9 @@ function exportToExcel(data, title = "รายงานคัดกรองผ
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  // Save Excel - Format: ES_{year}.xlsx
+  // Save Excel - Format: Elderly_{year}.xlsx
   const currentYear = new Date().getFullYear();
-  saveAs(blob, `ES_${currentYear}.xlsx`);
+  saveAs(blob, `Elderly_${currentYear}.xlsx`);
 }
 
 // Modal component styled like the image (for both download and detail)
