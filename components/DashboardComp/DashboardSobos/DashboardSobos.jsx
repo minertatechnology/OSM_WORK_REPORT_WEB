@@ -1574,43 +1574,49 @@ const DashboardSobos = () => {
     getInitialFilters,
   ]);
 
-  // ค้นหาอัตโนมัติเมื่อ filter เปลี่ยน
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // ✅ Track whether initial data has been loaded (ป้องกันการยิง API ซ้ำ)
+  const hasInitialLoadedRef = useRef(false);
 
-  // ✅ Track whether we've successfully loaded data with lookup data ready
-  const hasLoadedWithLookupDataRef = useRef(false);
-  const isInitialLoadRef = useRef(true);
+  // ค้นหาอัตโนมัติเมื่อ filter เปลี่ยน - ✅ แต่ต้องรอให้ permission พร้อมก่อน
+  useEffect(() => {
+    // ✅ รอให้ lockLevel พร้อม (ไม่ใช่ undefined) ก่อนยิง API
+    // ป้องกันการยิง API แบบไม่มี filter ก่อน
+    if (lockLevel === undefined) {
+      console.log("⏳ [DEBUG] Waiting for permission (lockLevel) to be ready...");
+      return;
+    }
+
+    // ✅ รอให้ lookup data พร้อม
+    const isLookupDataReady = healthAreas.length > 0 || provinces.length > 0;
+    if (!isLookupDataReady) {
+      console.log("⏳ [DEBUG] Waiting for lookup data to be ready...");
+      return;
+    }
+
+    // ✅ ป้องกันการยิงซ้ำใน initial load
+    if (hasInitialLoadedRef.current) {
+      console.log("⏭️ [DEBUG] Already loaded, skipping duplicate fetch");
+      return;
+    }
+
+    console.log("🚀 [DEBUG] All conditions ready, fetching data with filters:", {
+      lockLevel,
+      healthAreas: healthAreas.length,
+      provinces: provinces.length
+    });
+
+    hasInitialLoadedRef.current = true;
+    fetchData();
+  }, [fetchData, lockLevel, healthAreas.length, provinces.length]);
+
+  // ✅ ลบ useEffect ซ้ำออก - ไม่ต้องมี useEffect ที่ยิง fetchData อีกครั้ง
 
   // Update flag when we get valid data
   useEffect(() => {
     if (provinceSummary && provinceSummary.map_items && provinceSummary.map_items.length > 0) {
-      hasLoadedWithLookupDataRef.current = true;
+      hasInitialLoadedRef.current = true;
     }
   }, [provinceSummary]);
-
-  // ✅ ค้นหาอีกครั้งเมื่อ lookup data โหลดเสร็จ (แก้ปัญหา race condition)
-  // เฝ้าดู healthAreas และ provinces โดยตรง
-  useEffect(() => {
-    const isLookupDataReady = healthAreas.length > 0 && provinces.length > 0;
-    const hasValidData = provinceSummary && provinceSummary.map_items && provinceSummary.map_items.length > 0;
-
-    // Trigger when:
-    // 1. Lookup data is ready
-    // 2. Not currently loading
-    // 3. Either initial load OR we have empty data
-    if (isLookupDataReady && !loading && !hasValidData) {
-      console.log("🔄 [DEBUG] Lookup data ready, triggering fetchData", {
-        healthAreas_count: healthAreas.length,
-        provinces_count: provinces.length,
-        isInitialLoad: isInitialLoadRef.current,
-        hasValidData
-      });
-      isInitialLoadRef.current = false;
-      fetchData();
-    }
-  }, [healthAreas, provinces, loading, provinceSummary, fetchData]);
 
   // กดค้นหา (เผื่อผู้ใช้ต้องการกดค้นหาเอง)
   const handleSearch = useCallback(() => {
