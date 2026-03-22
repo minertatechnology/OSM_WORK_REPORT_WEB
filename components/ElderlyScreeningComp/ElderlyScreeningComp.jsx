@@ -838,8 +838,7 @@ const ElderlyScreeningComp = () => {
       const data = await elderlyScreeningService.getAll(dateFilters);
 
       if (data.length === 0) {
-        console.warn("Empty data received from API");
-        setError("ไม่พบข้อมูลในระบบ กรุณาตรวจสอบ token หรือติดต่อผู้ดูแลระบบ");
+        // ไม่พบข้อมูลที่ตรงกับเงื่อนไข - ไม่ใช่ error ของระบบ
         setRecords([]);
         setAggregatedData([]);
         return;

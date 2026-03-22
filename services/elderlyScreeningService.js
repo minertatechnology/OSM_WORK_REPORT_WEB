@@ -60,6 +60,8 @@ export const getAllElderlyScreenings = async ({
     // Parse ข้อมูลจากหลายรูปแบบที่เป็นไปได้
     if (Array.isArray(response.data)) {
       return response.data;
+    } else if (response.data?.items && Array.isArray(response.data.items)) {
+      return response.data.items;
     } else if (response.data?.data && Array.isArray(response.data.data)) {
       return response.data.data;
     } else if (response.data?.results && Array.isArray(response.data.results)) {
