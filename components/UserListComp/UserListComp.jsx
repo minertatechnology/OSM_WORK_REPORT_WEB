@@ -949,7 +949,8 @@ const UserListComp = () => {
             const response = await getUsersList({
               page: page,
               per_page: perPage,
-              keyword: keyword,
+              // ❌ เอา keyword ออก - จะกรองใน frontend แทน (เพื่อให้ค้นหาได้ทั้งชื่อและเลขบัตรประชาชน)
+              // keyword: keyword,
               is_active: tab === "active" ? true : false,
               // ❌ เอา filter พื้นที่ออก - จะกรองใน frontend แทน
               // province_code: province || "",
@@ -1364,7 +1365,7 @@ const UserListComp = () => {
     };
 
     fetchUsers();
-  }, [itemsPerPage, keyword, tab, zone, province, district, subdistrict, service, isCountryLevel]);
+  }, [itemsPerPage, tab, zone, province, district, subdistrict, service, isCountryLevel]);
 
   // Auto-refresh online status ทุก 30 วินาที
   const [, forceUpdate] = useState({});
@@ -1383,8 +1384,35 @@ const UserListComp = () => {
 
     if (!isCountryLevel()) {
       // สิทธิ์อื่นๆ: แสดงทุกคนยกเว้น "เจ้าหน้าที่" และ "ไม่ระบุชื่อ"
-      filtered = users.filter(user => {
+      filtered = filtered.filter(user => {
         return user.position !== "เจ้าหน้าที่" && user.name !== "ไม่ระบุชื่อ";
+      });
+    }
+
+    // กรองด้วย keyword (ชื่อหรือเลขประจำตัวประชาชน)
+    if (keyword && keyword.trim()) {
+      const searchTerm = keyword.trim();
+      const searchTermNoSpace = searchTerm.replace(/\s/g, ""); // เอา space ออก
+      filtered = filtered.filter(user => {
+        // ค้นหาด้วยชื่อเต็ม (ไม่สนใจ space)
+        const fullNameNoSpace = (user.name || "").replace(/\s/g, "");
+        const nameMatch = fullNameNoSpace.includes(searchTermNoSpace) ||
+                         (user.name && user.name.includes(searchTerm));
+
+        // ค้นหาด้วยชื่อจริง
+        const firstNameMatch = user.first_name &&
+          (user.first_name.includes(searchTerm) || user.first_name.replace(/\s/g, "").includes(searchTermNoSpace));
+
+        // ค้นหาด้วยนามสกุล
+        const lastNameMatch = user.last_name &&
+          (user.last_name.includes(searchTerm) || user.last_name.replace(/\s/g, "").includes(searchTermNoSpace));
+
+        // ค้นหาด้วยเลขประจำตัวประชาชน (ทั้งแบบมีขีดและไม่มีขีด)
+        const cidRaw = (user.cid || "").replace(/[^0-9]/g, ""); // เอาเฉพาะตัวเลข
+        const searchRaw = searchTerm.replace(/[^0-9]/g, ""); // เอาเฉพาะตัวเลขจากคำค้นหา
+        const cidMatch = searchRaw && cidRaw.includes(searchRaw);
+
+        return nameMatch || firstNameMatch || lastNameMatch || cidMatch;
       });
     }
 
@@ -1395,7 +1423,7 @@ const UserListComp = () => {
 
     const filteredPages = Math.ceil(filtered.length / itemsPerPage) || 1;
     return { displayUsers: paginatedUsers, filteredUsers: filtered, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages };
-  }, [users, isCountryLevel, currentPage, itemsPerPage]);
+  }, [users, isCountryLevel, currentPage, itemsPerPage, keyword]);
 
   const handleRestoreUser = () => {
     if (!selectedUser) return;
@@ -1649,7 +1677,7 @@ const UserListComp = () => {
                   setKeyword(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="พิมพ์คำค้นหาชื่อหรือเลขประจำตัวประชาชน..."
+                placeholder="พิมพ์คำค้นหาชื่อหรือเลขประจำตัวประชาชน"
                 className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
               />
             </div>
