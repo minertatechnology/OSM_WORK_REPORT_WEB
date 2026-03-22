@@ -370,6 +370,7 @@ export const getDisplayYearForFiscalMonth = (fiscalYear, monthValue) => {
 
 /**
  * สร้างรายการสัปดาห์สำหรับเดือนที่เลือก
+ * แสดงเฉพาะสัปดาห์ที่ผ่านไปแล้วหรือกำลังดำเนินอยู่เท่านั้น
  *
  * @param {number} year - ปี (พ.ศ.)
  * @param {number} month - เดือน (1-12)
@@ -389,17 +390,44 @@ export const generateWeekOptionsForMonth = (year, month) => {
   const yearAD = year - 543;
   const monthIndex = month - 1; // แปลงเป็น 0-indexed
 
-  // หาวันสุดท้ายของเดือน
-  const lastDay = new Date(yearAD, monthIndex + 1, 0).getDate();
+  // วันปัจจุบัน
+  const now = new Date();
+  const currentYearAD = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-indexed
+  const currentDay = now.getDate();
 
-  const weeks = [
+  // คำนวณสัปดาห์ปัจจุบัน (1-4)
+  let currentWeek = 1;
+  if (currentDay <= 7) currentWeek = 1;
+  else if (currentDay <= 14) currentWeek = 2;
+  else if (currentDay <= 21) currentWeek = 3;
+  else currentWeek = 4;
+
+  // ตรวจสอบว่าเดือน/ปีที่เลือกเป็นเดือนปัจจุบันหรือไม่
+  const isCurrentMonth = (yearAD === currentYearAD && monthIndex === currentMonth);
+
+  // ตรวจสอบว่าเป็นเดือนในอดีตหรือไม่
+  const isPastMonth = (yearAD < currentYearAD) || (yearAD === currentYearAD && monthIndex < currentMonth);
+
+  const allWeeks = [
     { label: "สัปดาห์ 1", value: "1" },
     { label: "สัปดาห์ 2", value: "2" },
     { label: "สัปดาห์ 3", value: "3" },
-    { label: `สัปดาห์ 4`, value: "4" },
+    { label: "สัปดาห์ 4", value: "4" },
   ];
 
-  return weeks;
+  // ถ้าเป็นเดือนในอดีต แสดงทุกสัปดาห์
+  if (isPastMonth) {
+    return allWeeks;
+  }
+
+  // ถ้าเป็นเดือนปัจจุบัน แสดงเฉพาะสัปดาห์ที่ผ่านไปแล้วหรือกำลังดำเนินอยู่
+  if (isCurrentMonth) {
+    return allWeeks.slice(0, currentWeek);
+  }
+
+  // ถ้าเป็นเดือนในอนาคต ไม่แสดงสัปดาห์ใดๆ
+  return [];
 };
 
 export default {
