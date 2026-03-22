@@ -29,6 +29,7 @@ import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import ElderlyScreeningDetail from "./ElderlyScreeningDetail/ElderlyScreeningDetail";
 import elderlyScreeningService from "@services/elderlyScreeningService";
 import { getUniqueUsersCount } from "@services/analyticsService";
+import { getUsersCount } from "@services/analyticsService";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ComponentLoadingSpinner } from "@components/shared/LoadingSpinner";
 import { getOsmByHealthService } from "@services/lookupService";
@@ -721,6 +722,7 @@ const ElderlyScreeningComp = () => {
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
+  const [uniqueUserCount, setUniqueUserCount] = useState(0); // จำนวน อสม. ที่ส่งรายงาน
 
   const currentFiscalYear = getCurrentFiscalYear();
   const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
@@ -906,6 +908,23 @@ const ElderlyScreeningComp = () => {
     // รอให้ component mount เสร็จก่อนถึงจะ hydrate
     setHydrated(true);
   }, []);
+
+  // ดึงจำนวน Unique Users
+  useEffect(() => {
+    const fetchUniqueUsers = async () => {
+      try {
+        const result = await getUniqueUsersCount({
+          menu_type: "elderly_screening",
+          year: year ? parseInt(year) : undefined,
+        });
+        setUniqueUserCount(result?.unique_users || result?.count || 0);
+      } catch (error) {
+        console.error("Error fetching unique users count:", error);
+        setUniqueUserCount(0);
+      }
+    };
+    fetchUniqueUsers();
+  }, [year]);
 
   useEffect(() => {
     // อ่าน detailId ทันทีเมื่อ searchParams เปลี่ยน (ไม่ต้องรอ hydrated)
@@ -1153,6 +1172,21 @@ const ElderlyScreeningComp = () => {
                 <Download size={18} className="inline mr-2" /> ดาวน์โหลดรายงาน
               </button>
             </div> */}
+          </div>
+        </div>
+      </div>
+
+      {/* Unique User Count Display */}
+      <div className="bg-gradient-to-r from-purple-500 to-violet-600 rounded-2xl p-4 mb-6 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-xl">
+            <Users size={24} className="text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="text-white/80 text-sm">จำนวน อสม. ที่ส่งรายงานคัดกรองผู้สูงอายุ (รายปี)</div>
+            <div className="text-2xl font-bold text-white">
+              {uniqueUserCount.toLocaleString("th-TH")} <span className="text-sm font-normal text-white/70">คน</span>
+            </div>
           </div>
         </div>
       </div>

@@ -30,6 +30,7 @@ import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 import PregnantReportDetail from "./PregnantReportDetail/PregnantReportDetail";
 import { getAllPregnantWomenEvaluations, aggregateByAssessor } from "@services/pregnantWomenService";
 import { getOsmByHealthService } from "@services/lookupService";
+import { getUniqueUsersCount } from "@services/analyticsService";
 import oauth2Service from "@services/oauth2Service";
 // Lookup services now handled by usePermissionFilters hook
 import {
@@ -907,6 +908,9 @@ const PregnantReportComp = () => {
   // State สำหรับเปิด/ปิดการแสดงเลขบัตรประชาชน
   const [visibleCitizenIds, setVisibleCitizenIds] = useState(new Set());
 
+  // State สำหรับเก็บจำนวน Unique Users
+  const [uniqueUserCount, setUniqueUserCount] = useState(0);
+
   // Set ปีเริ่มต้นหลัง currentBuddhistYear โหลดเสร็จ
   useEffect(() => {
     if (currentBuddhistYear && !year) {
@@ -921,6 +925,23 @@ const PregnantReportComp = () => {
 
   // State สำหรับเก็บ OSM data ตามหน่วยบริการ
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
+
+  // ดึงจำนวน Unique Users
+  useEffect(() => {
+    const fetchUniqueUsers = async () => {
+      try {
+        const result = await getUniqueUsersCount({
+          menu_type: "pregnant_women",
+          year: year ? parseInt(year) : undefined,
+        });
+        setUniqueUserCount(result?.unique_users || result?.count || 0);
+      } catch (error) {
+        console.error("Error fetching unique users count:", error);
+        setUniqueUserCount(0);
+      }
+    };
+    fetchUniqueUsers();
+  }, [year]);
 
   // เก็บค่า date filters ล่าสุดเพื่อเช็คว่าเปลี่ยนหรือไม่
   const prevDateFiltersRef = useRef({ start_date: null, end_date: null });
@@ -1328,6 +1349,21 @@ const PregnantReportComp = () => {
               <Download size={20} />
               ดาวน์โหลดเอกสาร
             </button> */}
+          </div>
+        </div>
+      </div>
+
+      {/* Unique User Count Display */}
+      <div className="bg-gradient-to-r from-purple-500 to-violet-600 rounded-2xl p-4 mb-6 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-xl">
+            <Users size={24} className="text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="text-white/80 text-sm">จำนวน อสม. ที่ส่งรายงาน (รายปี)</div>
+            <div className="text-2xl font-bold text-white">
+              {uniqueUserCount.toLocaleString("th-TH")} <span className="text-sm font-normal text-white/70">คน</span>
+            </div>
           </div>
         </div>
       </div>

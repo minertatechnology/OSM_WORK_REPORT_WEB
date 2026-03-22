@@ -1,9 +1,30 @@
-import React, { useState } from "react";
-import { FileDown, Save, Printer } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { FileDown, Save, Printer, Users } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { getUniqueUsersCount } from "@services/analyticsService";
 
 const Reportosm1Comp = () => {
+  const [uniqueUserCount, setUniqueUserCount] = useState(0);
+
+  // ดึงจำนวน Unique Users
+  useEffect(() => {
+    const fetchUniqueUsers = async () => {
+      try {
+        const result = await getUniqueUsersCount({
+          menu_type: "report_osm1",
+          year: new Date().getFullYear() + 543,
+          month: new Date().getMonth() + 1,
+        });
+        setUniqueUserCount(result?.unique_users || result?.count || 0);
+      } catch (error) {
+        console.error("Error fetching unique users count:", error);
+        setUniqueUserCount(0);
+      }
+    };
+    fetchUniqueUsers();
+  }, []);
+
   const [reportData, setReportData] = useState({
     month: "ธันวาคม",
     year: "2569",
@@ -174,6 +195,21 @@ const Reportosm1Comp = () => {
             <Save className="w-6 h-6" />
             แบบรายงานผลการปฏิบัติงานของ อสม. ปีงบประมาณ 2569
           </h1>
+        </div>
+
+        {/* Unique User Count Display */}
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 mx-6 mt-4 rounded-xl p-4 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <Users size={24} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="text-white/80 text-sm">จำนวน อสม. ที่ส่งรายงาน อสม.1 (รายเดือน)</div>
+              <div className="text-2xl font-bold text-white">
+                {uniqueUserCount.toLocaleString("th-TH")} <span className="text-sm font-normal text-white/70">คน</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="p-6">
