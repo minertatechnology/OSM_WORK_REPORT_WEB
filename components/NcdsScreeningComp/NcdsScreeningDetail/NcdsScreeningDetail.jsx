@@ -85,9 +85,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
       // ตั้งค่าตาราง
       const startX = 12;
       const startY = 28;
-      const rowHeight = 11;
-      const headerHeight = 18;
-      const ROWS_PER_PAGE = 9;
+      const rowHeight = 14;      // เพิ่มจาก 11 เป็น 14
+      const headerHeight = 22;   // เพิ่มจาก 18 เป็น 22
+      const ROWS_PER_PAGE = 8;   // ลดจาก 9 เป็น 8 เนื่องจากแถวสูงขึ้น
 
       // Column widths - 18 columns total (เพิ่มคอลัมน์ จำนวนครั้งที่)
       // รวมทั้งหมด = 273mm (เหลือ margin ซ้ายขวา 12mm ต้นท้าย)
@@ -150,7 +150,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
       // ฟังก์ชันวาด header ตาราง
       const drawTableHeader = (currentY) => {
         doc.setFont("Sarabun", "bold");
-        doc.setFontSize(7.5);
+        doc.setFontSize(9);
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.3);
 
@@ -158,8 +158,8 @@ const NcdsScreeningDetail = ({ reportData }) => {
         for (let i = 0; i < headers.length; i++) {
           doc.rect(currentX, currentY, colWidths[i], headerHeight);
           const lines = headers[i].split('\n');
-          const lineHeight = 2.5;
-          const startLineY = currentY + (headerHeight - (lines.length - 1) * lineHeight) / 2 + 1.5;
+          const lineHeight = 3.5;  // เพิ่มจาก 2.5 เป็น 3.5 สำหรับ font 9pt
+          const startLineY = currentY + (headerHeight - (lines.length - 1) * lineHeight) / 2 + 2;
           lines.forEach((line, lineIdx) => {
             doc.text(line, currentX + colWidths[i] / 2, startLineY + lineIdx * lineHeight, { align: "center" });
           });
@@ -170,8 +170,8 @@ const NcdsScreeningDetail = ({ reportData }) => {
 
       // ฟังก์ชันวาดแถวข้อมูล
       const drawDataRow = (currentY, rowIndex, rowData, rowName, count) => {
-        doc.setFont("Sarabun", "normal");
-        doc.setFontSize(7);
+        doc.setFont("Sarabun", "bold");
+        doc.setFontSize(9);
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.3);
 
@@ -180,13 +180,13 @@ const NcdsScreeningDetail = ({ reportData }) => {
         // ลำดับ
         doc.rect(currentX, currentY, colWidths[0], rowHeight);
         doc.setFont("Sarabun", "bold");
-        doc.text(String(rowIndex), currentX + colWidths[0] / 2, currentY + 5.5, { align: "center" });
+        doc.text(String(rowIndex), currentX + colWidths[0] / 2, currentY + 6.5, { align: "center" });
         currentX += colWidths[0];
 
         // จำนวนครั้งที่
         doc.rect(currentX, currentY, colWidths[1], rowHeight);
-        doc.setFont("Sarabun", "normal");
-        doc.text(String(count), currentX + colWidths[1] / 2, currentY + 5.5, { align: "center" });
+        doc.setFont("Sarabun", "bold");
+        doc.text(String(count), currentX + colWidths[1] / 2, currentY + 6.5, { align: "center" });
         currentX += colWidths[1];
 
         // รายชื่อ - แบ่งชื่อยาวเป็นหลายบรรทัด
@@ -205,9 +205,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
           nameLines.push(rowName);
         }
 
-        const nameLineHeight = 2.8;
+        const nameLineHeight = 3.5;  // เพิ่มจาก 2.8 เป็น 3.5
         const nameTotalHeight = nameLines.length * nameLineHeight;
-        const nameStartY = currentY + (rowHeight - nameTotalHeight) / 2 + nameLineHeight / 2 + 1;
+        const nameStartY = currentY + (rowHeight - nameTotalHeight) / 2 + nameLineHeight / 2 + 1.5;
 
         nameLines.forEach((line, idx) => {
           doc.text(line, currentX + colWidths[2] / 2, nameStartY + idx * nameLineHeight, { align: "center" });
@@ -221,9 +221,9 @@ const NcdsScreeningDetail = ({ reportData }) => {
 
           // แบ่งข้อความเป็นหลายบรรทัดถ้ายาวเกิน
           const textLines = splitThaiText(rowData[i], colWidths[i + 3] - 1);
-          const lineHeight = 2.5;
+          const lineHeight = 3.5;  // เพิ่มจาก 2.5 เป็น 3.5
           const totalHeight = textLines.length * lineHeight;
-          const textStartY = currentY + (rowHeight - totalHeight) / 2 + lineHeight / 2 + 1;
+          const textStartY = currentY + (rowHeight - totalHeight) / 2 + lineHeight / 2 + 1.5;
 
           textLines.forEach((line, lineIdx) => {
             doc.text(line, currentX + colWidths[i + 3] / 2, textStartY + lineIdx * lineHeight, { align: "center" });
@@ -279,10 +279,15 @@ const NcdsScreeningDetail = ({ reportData }) => {
 
         // แสดงวันที่ถ้ามี
         if (date) {
-          doc.setFontSize(8);
-          doc.setFont("Sarabun", "normal");
+          doc.setFontSize(12);
+          doc.setFont("Sarabun", "bold");
           doc.text(`วันที่: ${date}`, 148.5, 16, { align: "center" });
         }
+
+        // แสดงชื่อเจ้าหน้าที่ผู้ตรวจ
+        doc.setFontSize(12);
+        doc.setFont("Sarabun", "bold");
+        doc.text(`เจ้าหน้าที่ผู้ตรวจ: ${name}`, 148.5, 22, { align: "center" });
 
         // แสดงหมายเลขหน้า
         // doc.setFontSize(10);
@@ -395,7 +400,24 @@ const NcdsScreeningDetail = ({ reportData }) => {
         dietSodiumResult.level_th || "-"
       ];
 
+      // Thai date format
+      const thaiDate = new Date().toLocaleDateString("th-TH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      // Header rows with title, date, and officer name
+      const numCols = headers.length;
+      const headerRows = [
+        ["แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)", ...Array(numCols - 1).fill(null)],
+        [`วันที่: ${date || thaiDate}`, ...Array(numCols - 1).fill(null)],
+        [`เจ้าหน้าที่ผู้ตรวจ: ${name}`, ...Array(numCols - 1).fill(null)],
+        [...Array(numCols).fill(null)], // Empty row
+      ];
+
       const wsData = [
+        ...headerRows,
         headers,
         [1, countByCitizenId, name, ...rowData]
       ];
@@ -434,16 +456,26 @@ const NcdsScreeningDetail = ({ reportData }) => {
       };
 
       // ตั้งค่าความกว้างคอลัมน์
-      const numCols = wsData[0].length;
       ws['!cols'] = [];
       for (let i = 0; i < numCols; i++) {
         ws['!cols'].push({ wpx: calculateColumnWidth(i) });
       }
 
-      // ตั้งค่าความสูงแถว
+      // ตั้งค่าความสูงแถว - รวม header rows (4 rows) + column header + data row
       ws['!rows'] = [
-        { hpx: 35 },  // Header row
-        { hpx: 30 },  // Data row
+        { hpx: 25 },  // Row 0: Title
+        { hpx: 20 },  // Row 1: Date
+        { hpx: 20 },  // Row 2: Officer name
+        { hpx: 10 },  // Row 3: Empty row
+        { hpx: 35 },  // Row 4: Column headers
+        { hpx: 30 },  // Row 5: Data row
+      ];
+
+      // Cell merging for header rows
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } },  // Title row
+        { s: { r: 1, c: 0 }, e: { r: 1, c: numCols - 1 } },  // Date row
+        { s: { r: 2, c: 0 }, e: { r: 2, c: numCols - 1 } },  // Officer name row
       ];
 
       // เพิ่ม borders และ styles
@@ -455,6 +487,24 @@ const NcdsScreeningDetail = ({ reportData }) => {
             ws[cellAddress] = { v: "" };
           }
 
+          // Header rows (0-3): Title, Date, Officer name, Empty - no borders
+          if (R <= 3) {
+            ws[cellAddress].s = {
+              alignment: {
+                vertical: "center",
+                horizontal: "center",
+                wrapText: true
+              },
+              font: {
+                name: "Tahoma",
+                sz: R === 0 ? 14 : 11,
+                bold: R === 0
+              }
+            };
+            continue;
+          }
+
+          // Column header row (row 4) and data rows (row 5+)
           const cellStyle = {
             border: {
               top: { style: "thin", color: { rgb: "FF000000" } },
@@ -475,15 +525,15 @@ const NcdsScreeningDetail = ({ reportData }) => {
 
           ws[cellAddress].s = cellStyle;
 
-          // Header row: ทำให้ตัวหนาและเพิ่มสีพื้นหลัง
-          if (R === 0) {
+          // Column header row (row 4): ทำให้ตัวหนาและเพิ่มสีพื้นหลัง
+          if (R === 4) {
             ws[cellAddress].s.font.bold = true;
             ws[cellAddress].s.font.sz = 9;
             ws[cellAddress].s.fill = { fgColor: { rgb: "E8F4F8" } };
           }
 
-          // Data row: รายชื่อ - จัดซ้าย
-          if (R === 1 && C === 1) {
+          // Data row: รายชื่อ - จัดซ้าย (row 5, column 2)
+          if (R === 5 && C === 2) {
             ws[cellAddress].s.alignment.horizontal = "left";
           }
         }
@@ -545,7 +595,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
               แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)
             </h2>
             {date && <p className="text-gray-600 text-sm mb-1">วันที่: {date}</p>}
-            <p className="text-gray-700 font-medium text-base">{name}</p>
+            <p className="text-gray-700 font-medium text-base">เจ้าหน้าที่ผู้ตรวจ: {name}</p>
           </div>
 
           {/* Export Buttons - Right top - Hide in PDF */}

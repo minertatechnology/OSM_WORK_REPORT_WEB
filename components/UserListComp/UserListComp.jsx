@@ -886,7 +886,6 @@ const UserListComp = () => {
 
   const [keyword, setKeyword] = useState("");
   const [tab, setTab] = useState("active");
-  const [onlineFilter, setOnlineFilter] = useState("online"); // "online", "offline"
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [modalOpen, setModalOpen] = useState(false);
@@ -1427,21 +1426,27 @@ const UserListComp = () => {
       });
     }
 
-    // กรองตามสถานะ online/offline (default = online)
-    if (onlineFilter === "online") {
-      filtered = filtered.filter(user => isUserOnline(user));
-    } else {
-      filtered = filtered.filter(user => !isUserOnline(user));
-    }
-
-    // คำนวณสถิติจาก filtered users
+    // คำนวณสถิติจาก filtered users ทั้งหมด (ก่อนกรอง online)
+    // Officers = เจ้าหน้าที่ (position contains "เจ้าหน้าที่" or permission_level is officer-type)
+    // OSM = อสม. (not officer)
     const stats = {
       total: filtered.length,
       online: filtered.filter(user => isUserOnline(user)).length,
       offline: filtered.filter(user => user.status === "active" && !isUserOnline(user)).length,
-      officers: filtered.filter(user => user.position === "เจ้าหน้าที่").length,
-      osm: filtered.filter(user => user.position !== "เจ้าหน้าที่" && user.name !== "ไม่ระบุชื่อ").length,
+      officers: filtered.filter(user => {
+        const pos = (user.position || "").toLowerCase();
+        return pos.includes("เจ้าหน้าที่") || pos.includes("officer") || user.permission_level === "officer";
+      }).length,
+      osm: filtered.filter(user => {
+        const pos = (user.position || "").toLowerCase();
+        const isOfficer = pos.includes("เจ้าหน้าที่") || pos.includes("officer") || user.permission_level === "officer";
+        // OSM = not officer (includes unknown names)
+        return !isOfficer;
+      }).length,
     };
+
+    // กรองเฉพาะ online สำหรับแสดงในตาราง
+    filtered = filtered.filter(user => isUserOnline(user));
 
     // Frontend pagination: slice ตาม currentPage และ itemsPerPage
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1450,7 +1455,7 @@ const UserListComp = () => {
 
     const filteredPages = Math.ceil(filtered.length / itemsPerPage) || 1;
     return { displayUsers: paginatedUsers, filteredUsers: filtered, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages, statistics: stats };
-  }, [users, isCountryLevel, currentPage, itemsPerPage, keyword, onlineFilter]);
+  }, [users, isCountryLevel, currentPage, itemsPerPage, keyword]);
 
   const handleRestoreUser = () => {
     if (!selectedUser) return;
@@ -1708,24 +1713,6 @@ const UserListComp = () => {
                 className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
               />
             </div>
-            {/* Online Status Filter */}
-            <div className="relative w-full sm:w-auto">
-              <select
-                value={onlineFilter}
-                onChange={(e) => {
-                  setOnlineFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="appearance-none w-full sm:w-40 h-12 px-4 pr-10 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200 cursor-pointer"
-              >
-                <option value="online">🟢 ออนไลน์</option>
-                <option value="offline">🟡 ออฟไลน์</option>
-              </select>
-              <ChevronDown
-                size={20}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7e32e2] pointer-events-none"
-              />
-            </div>
             <button
               className="flex items-center justify-center gap-2 px-6 py-3 h-12 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 whitespace-nowrap w-full sm:w-auto"
               onClick={() => setCurrentPage(1)}
@@ -1837,7 +1824,7 @@ const UserListComp = () => {
                   ลำดับ
                 </th>
                 <th className="py-4 px-4 font-semibold text-left text-white">
-                  รายชื่อ ({filteredTotalItems} รายการ)
+                  ผู้ใช้งานออนไลน์ ({filteredTotalItems} รายการ)
                 </th>
                 <th className="py-4 px-4 font-semibold text-center text-white">
                   เลขประจำตัวประชาชน
