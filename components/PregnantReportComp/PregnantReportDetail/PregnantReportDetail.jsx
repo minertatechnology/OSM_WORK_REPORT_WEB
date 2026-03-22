@@ -65,8 +65,25 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       // สร้าง workbook และ worksheet
       const wb = XLSX.utils.book_new();
 
-      // Header Row 1 - Main headers (2 rows)
-      const wsData = [
+      // Format date with Buddhist year
+      const now = new Date();
+      const buddhistYear = now.getFullYear() + 543;
+      const thaiDate = now.toLocaleDateString("th-TH", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }).replace(now.getFullYear().toString(), buddhistYear.toString());
+
+      // Header rows before table (all must have 10 columns)
+      const headerRows = [
+        ["การติดตามการได้รับยาเม็ดเสริมไอโอดีน", null, null, null, null, null, null, null, null, null],
+        [`วันที่: ${date || thaiDate}`, null, null, null, null, null, null, null, null, null],
+        [`เจ้าหน้าที่ผู้ตรวจ: ${name}`, null, null, null, null, null, null, null, null, null],
+        [null, null, null, null, null, null, null, null, null, null], // Empty row before table header
+      ];
+
+      // Table headers (2 rows)
+      const tableHeaders = [
         // Row 1: Main headers
         [
           "ลำดับ",
@@ -92,34 +109,47 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
           null,
           null,
           null
-        ],
-        // Data rows
-        ...tableData.map((row, idx) => [
-          idx + 1,
-          row.name,
-          row.pregnant_0_12 ? "✓" : "-",
-          row.pregnant_13_24 ? "✓" : "-",
-          row.pregnant_25_plus ? "✓" : "-",
-          row.postpartum_0_12 ? "✓" : "-",
-          row.postpartum_13_24 ? "✓" : "-",
-          getMedicineStatus(row.q1_received_medicine),
-          getFrequencyLabel(row.q2_frequency),
-          row.q3_reason || "-"
-        ])
+        ]
       ];
+
+      // Data rows
+      const dataRows = tableData.map((row, idx) => [
+        idx + 1,
+        row.name,
+        row.pregnant_0_12 ? "✓" : "-",
+        row.pregnant_13_24 ? "✓" : "-",
+        row.pregnant_25_plus ? "✓" : "-",
+        row.postpartum_0_12 ? "✓" : "-",
+        row.postpartum_13_24 ? "✓" : "-",
+        getMedicineStatus(row.q1_received_medicine),
+        getFrequencyLabel(row.q2_frequency),
+        row.q3_reason || "-"
+      ]);
+
+      // Combine all rows
+      const wsData = [...headerRows, ...tableHeaders, ...dataRows];
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
+      // Calculate row offsets (headerRows = 4 rows)
+      const headerOffset = headerRows.length;
+
       // สร้าง merged cells (เหมือน table rowspan/colspan)
       ws['!merges'] = [
-        // Row 1 merges
-        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // ลำดับ (rowspan 2)
-        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // รายชื่อ (rowspan 2)
-        { s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }, // หญิงตั้งครรภ์ (colspan 3)
-        { s: { r: 0, c: 5 }, e: { r: 0, c: 6 } }, // หญิงหลังคลอด (colspan 2)
-        { s: { r: 0, c: 7 }, e: { r: 1, c: 7 } }, // รับยา (rowspan 2)
-        { s: { r: 0, c: 8 }, e: { r: 1, c: 8 } }, // จำนวนวัน (rowspan 2)
-        { s: { r: 0, c: 9 }, e: { r: 1, c: 9 } }, // สาเหตุ (rowspan 2)
+        // Title row merge (A1:J1)
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+        // Date row merge (A2:J2)
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
+        // Name row merge (A3:J3)
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 9 } },
+        // Table header merges (offset by headerRows.length)
+        { s: { r: headerOffset + 0, c: 0 }, e: { r: headerOffset + 1, c: 0 } }, // ลำดับ (rowspan 2)
+        { s: { r: headerOffset + 0, c: 1 }, e: { r: headerOffset + 1, c: 1 } }, // รายชื่อ (rowspan 2)
+        { s: { r: headerOffset + 0, c: 2 }, e: { r: headerOffset + 0, c: 4 } }, // หญิงตั้งครรภ์ (colspan 3)
+        { s: { r: headerOffset + 0, c: 5 }, e: { r: headerOffset + 0, c: 6 } }, // หญิงหลังคลอด (colspan 2)
+        { s: { r: headerOffset + 0, c: 7 }, e: { r: headerOffset + 1, c: 7 } }, // รับยา (rowspan 2)
+        { s: { r: headerOffset + 0, c: 8 }, e: { r: headerOffset + 1, c: 8 } }, // จำนวนวัน (rowspan 2)
+        { s: { r: headerOffset + 0, c: 9 }, e: { r: headerOffset + 1, c: 9 } }, // สาเหตุ (rowspan 2)
       ];
 
       // คำนวณความกว้างคอลัมน์อัตโนมัติตามความยาวข้อความ
@@ -170,13 +200,21 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       }
 
       // ตั้งค่าความสูงแถว
-      const totalRows = tableData.length + 2; // +2 for headers
+      const totalRows = wsData.length;
       ws['!rows'] = [];
       for (let i = 0; i < totalRows; i++) {
         if (i === 0) {
-          ws['!rows'].push({ hpx: 25 });  // Header row 1
+          ws['!rows'].push({ hpx: 35 });  // Title row
         } else if (i === 1) {
-          ws['!rows'].push({ hpx: 50 });  // Header row 2
+          ws['!rows'].push({ hpx: 25 });  // Date row
+        } else if (i === 2) {
+          ws['!rows'].push({ hpx: 25 });  // Name row
+        } else if (i === 3) {
+          ws['!rows'].push({ hpx: 10 });  // Empty row
+        } else if (i === headerOffset) {
+          ws['!rows'].push({ hpx: 25 });  // Table Header row 1
+        } else if (i === headerOffset + 1) {
+          ws['!rows'].push({ hpx: 50 });  // Table Header row 2
         } else {
           ws['!rows'].push({ hpx: 30 });  // Data rows
         }
@@ -220,57 +258,71 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
             }
           };
 
-          // สร้าง borders - พิจารณา merged cells
-          const borders = {
-            top: { style: "thin", color: { rgb: "FF000000" } },
-            left: { style: "thin", color: { rgb: "FF000000" } },
-            bottom: { style: "thin", color: { rgb: "FF000000" } },
-            right: { style: "thin", color: { rgb: "FF000000" } }
-          };
+          // Title row (row 0): Bold, larger font, no border
+          if (R === 0) {
+            cellStyle.border = {};
+            cellStyle.font.bold = true;
+            cellStyle.font.sz = 16;
+          }
+          // Date row (row 1): Normal, no border
+          else if (R === 1) {
+            cellStyle.border = {};
+            cellStyle.font.sz = 12;
+          }
+          // Name row (row 2): Bold, no border
+          else if (R === 2) {
+            cellStyle.border = {};
+            cellStyle.font.bold = true;
+            cellStyle.font.sz = 12;
+          }
+          // Empty row (row 3): no border
+          else if (R === 3) {
+            cellStyle.border = {};
+          }
+          // Table section - add borders
+          else {
+            const borders = {
+              top: { style: "thin", color: { rgb: "FF000000" } },
+              left: { style: "thin", color: { rgb: "FF000000" } },
+              bottom: { style: "thin", color: { rgb: "FF000000" } },
+              right: { style: "thin", color: { rgb: "FF000000" } }
+            };
 
-          // ถ้าเป็น merged cell - ลบ inner borders เฉพาะด้านที่ merge
-          if (merge) {
-            // Cell ที่อยู่ด้านในของ merged region (ไม่ใช่ top-left)
-            if (R !== merge.s.r || C !== merge.s.c) {
-              // ไม่ต้องใส่ border เลยสำหรับ cells ที่ถูก merge เข้าด้วยกัน
-              borders.top = null;
-              borders.left = null;
-              borders.bottom = null;
-              borders.right = null;
+            // ถ้าเป็น merged cell - ลบ inner borders เฉพาะด้านที่ merge
+            if (merge) {
+              if (R !== merge.s.r || C !== merge.s.c) {
+                borders.top = null;
+                borders.left = null;
+                borders.bottom = null;
+                borders.right = null;
+              }
+            }
+
+            const filteredBorders = {};
+            for (const [key, value] of Object.entries(borders)) {
+              if (value !== null) filteredBorders[key] = value;
+            }
+            cellStyle.border = filteredBorders;
+
+            // Header rows (table): bold + background
+            if (R < headerOffset + 2) {
+              cellStyle.font.bold = true;
+              cellStyle.font.sz = 10;
+              cellStyle.fill = { fgColor: { rgb: "E8F4F8" } };
+            }
+
+            // Data rows: จัดรูปแบบ
+            if (R >= headerOffset + 2) {
+              if (C === 0) {
+                cellStyle.font.bold = true;
+              }
+              if (C === 1 || C === 9) {
+                cellStyle.alignment.horizontal = "left";
+              }
             }
           }
 
-          // Filter ออก null values
-          const filteredBorders = {};
-          for (const [key, value] of Object.entries(borders)) {
-            if (value !== null) filteredBorders[key] = value;
-          }
-
-          cellStyle.border = filteredBorders;
           ws[cellAddress].s = cellStyle;
-
-          // Header rows: ทำให้ตัวหนาและเพิ่มสีพื้นหลัง
-          if (R <= 1) {
-            ws[cellAddress].s.font.bold = true;
-            ws[cellAddress].s.font.sz = 10;
-            ws[cellAddress].s.fill = { fgColor: { rgb: "E8F4F8" } };
-          }
-
-          // Data rows: จัดรูปแบบ
-          if (R >= 2) {
-            // คอลัมน์แรก (ลำดับ) - ตัวหนา
-            if (C === 0) {
-              ws[cellAddress].s.font.bold = true;
-            }
-            // คอลัมน์ 2 (รายชื่อ) - จัดซ้าย
-            if (C === 1) {
-              ws[cellAddress].s.alignment.horizontal = "left";
-            }
-            // คอลัมน์สุดท้าย (สาเหตุ) - จัดซ้าย
-            if (C === 9) {
-              ws[cellAddress].s.alignment.horizontal = "left";
-            }
-          }
         }
       }
 
@@ -283,7 +335,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       console.log("🔍 Excel Export - first_name:", rawData?.first_name);
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
       console.log("🔍 Excel Export - osmCode:", osmCode);
-      XLSX.writeFile(wb, `Iodine${osmCode}_${currentYear}.xlsx`);
+      XLSX.writeFile(wb, `Iodine_${osmCode}_${currentYear}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");
@@ -490,7 +542,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         if (date) {
           doc.text(`วันที่: ${date}`, 105, 22, { align: "center" });
         }
-        doc.text(name, 105, date ? 28 : 22, { align: "center" });
+        doc.text(`เจ้าหน้าที่ผู้ตรวจ: ${name}`, 105, date ? 28 : 22, { align: "center" });
 
         // แสดงหมายเลขหน้า
         // doc.setFontSize(10);
@@ -522,7 +574,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       console.log("🔍 PDF Export - first_name:", rawData?.first_name);
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
       console.log("🔍 PDF Export - osmCode:", osmCode);
-      doc.save(`Iodine${osmCode}_${currentYear}.pdf`);
+      doc.save(`Iodine_${osmCode}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -573,7 +625,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
               การติดตามการได้รับยาเม็ดเสริมไอโอดีน
             </h2>
             {date && <p className="text-gray-600 text-sm mb-1">วันที่: {date}</p>}
-            <p className="text-gray-700 font-medium text-base">{name}</p>
+            <p className="text-gray-700 font-medium text-base">เจ้าหน้าที่ผู้ตรวจ: {name}</p>
             <p className="text-gray-600 text-sm mt-2">จำนวนทั้งหมด: {new Set(tableData.map(row => row.name)).size} คน</p>
           </div>
 

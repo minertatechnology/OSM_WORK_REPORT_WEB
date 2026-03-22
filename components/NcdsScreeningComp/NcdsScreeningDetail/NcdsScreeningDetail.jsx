@@ -342,7 +342,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
       // บันทึกไฟล์ - Format: NCD{osm_code}_{year}.pdf หรือ NCD{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
       const currentYear = new Date().getFullYear();
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
-      doc.save(`NCD${osmCode}_${currentYear}.pdf`);
+      doc.save(`NCD_${osmCode}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -494,7 +494,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
       // สร้างชื่อไฟล์ - Format: NCD{osm_code}_{year}.xlsx หรือ NCD{first_name}_{year}.xlsx (ถ้าไม่มี osm_code)
       const currentYear = new Date().getFullYear();
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
-      XLSX.writeFile(wb, `NCD${osmCode}_${currentYear}.xlsx`);
+      XLSX.writeFile(wb, `NCD_${osmCode}_${currentYear}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");

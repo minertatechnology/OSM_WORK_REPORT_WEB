@@ -174,7 +174,7 @@ function isInHealthZone(provinceId, healthZone) {
 
 // Export functions
 // 1. สรุปจำนวนการส่งรายงาน
-function exportSummaryPDF(data, userDataMap) {
+function exportSummaryPDF(data, userDataMap, exporterName = "") {
   const doc = new jsPDF();
 
   // Add Thai font
@@ -264,13 +264,16 @@ function exportSummaryPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Iodine_{year}.pdf
+  // Save PDF - Format: Iodine_{name}_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`Iodine_${currentYear}.pdf`);
+  const fileName = exporterName
+    ? `Iodine_${exporterName}_${currentYear}.pdf`
+    : `Iodine_${currentYear}.pdf`;
+  doc.save(fileName);
 }
 
 // 2. สรุปภาพรวมรายงานในพื้นที่
-function exportOverviewPDF(data, userDataMap) {
+function exportOverviewPDF(data, userDataMap, exporterName = "") {
   const doc = new jsPDF();
 
   // Add Thai font
@@ -363,13 +366,16 @@ function exportOverviewPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Iodine_{year}.pdf
+  // Save PDF - Format: Iodine_{name}_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`Iodine_${currentYear}.pdf`);
+  const fileName = exporterName
+    ? `Iodine_${exporterName}_${currentYear}.pdf`
+    : `Iodine_${currentYear}.pdf`;
+  doc.save(fileName);
 }
 
 // 3. อสม. ที่ยังไม่ส่งรายงาน
-function exportNotSubmittedPDF(data, userDataMap) {
+function exportNotSubmittedPDF(data, userDataMap, exporterName = "") {
   const doc = new jsPDF();
 
   // Add Thai font
@@ -451,26 +457,48 @@ function exportNotSubmittedPDF(data, userDataMap) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Iodine_{year}.pdf
+  // Save PDF - Format: Iodine_{name}_{year}.pdf
   const currentYear = new Date().getFullYear();
-  doc.save(`Iodine_${currentYear}.pdf`);
+  const fileName = exporterName
+    ? `Iodine_${exporterName}_${currentYear}.pdf`
+    : `Iodine_${currentYear}.pdf`;
+  doc.save(fileName);
 }
 
-function exportToExcel(data, userDataMap, title = "การติดตามการได้รับยาเม็ดเสริมไอโอดีน") {
-  // Prepare data for Excel
-  const excelData = data.map((row, idx) => {
+function exportToExcel(data, userDataMap, title = "การติดตามการได้รับยาเม็ดเสริมไอโอดีน", exporterName = "") {
+  // Format date with Buddhist year
+  const now = new Date();
+  const buddhistYear = now.getFullYear() + 543;
+  const thaiDate = now.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  }).replace(now.getFullYear().toString(), buddhistYear.toString());
+
+  // Prepare header rows
+  const headerRows = [
+    [title],
+    [`วันที่: ${thaiDate}`],
+    exporterName ? [`${exporterName}`] : [],
+    [], // Empty row before table header
+    ["ลำดับ", "ชื่อ-นามสกุล", "วันที่ส่ง", "จำนวนหญิงตั้งครรภ์"], // Table header
+  ];
+
+  // Prepare data rows
+  const dataRows = data.map((row, idx) => {
     const userData = userDataMap?.get(row.external_user_id);
     const displayName = userData?.name || row.name || "ไม่ระบุชื่อ";
-    return {
-      ลำดับ: idx + 1,
-      "ชื่อ-นามสกุล": displayName,
-      วันที่ส่ง: row.date,
-      จำนวนหญิงตั้งครรภ์: row.amount,
-    };
+    return [idx + 1, displayName, row.date, row.amount];
   });
 
-  // Create worksheet
-  const ws = XLSX.utils.json_to_sheet(excelData);
+  // Combine header and data
+  const allRows = [...headerRows, ...dataRows];
+
+  // Create worksheet from all rows
+  const ws = XLSX.utils.aoa_to_sheet(allRows);
+
+  // Merge cells for title row (A1:D1)
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
 
   // Set column widths
   ws["!cols"] = [
@@ -489,24 +517,27 @@ function exportToExcel(data, userDataMap, title = "การติดตาม�
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  // Save Excel - Format: Iodine_{year}.xlsx
+  // Save Excel - Format: Iodine_{name}_{year}.xlsx
   const currentYear = new Date().getFullYear();
-  saveAs(blob, `Iodine_${currentYear}.xlsx`);
+  const fileName = exporterName
+    ? `Iodine_${exporterName}_${currentYear}.xlsx`
+    : `Iodine_${currentYear}.xlsx`;
+  saveAs(blob, fileName);
 }
 
 // Modal component styled like the image (for both download and detail)
-function DetailModal({ open, onClose, data = [], userDataMap = new Map() }) {
+function DetailModal({ open, onClose, data = [], userDataMap = new Map(), exporterName = "" }) {
   if (!open) return null;
 
   const handleExportSummaryPDF = () => {
     if (data.length > 0) {
-      exportSummaryPDF(data, userDataMap);
+      exportSummaryPDF(data, userDataMap, exporterName);
     }
   };
 
   const handleExportOverviewPDF = () => {
     if (data.length > 0) {
-      exportOverviewPDF(data, userDataMap);
+      exportOverviewPDF(data, userDataMap, exporterName);
     }
   };
 
@@ -514,19 +545,19 @@ function DetailModal({ open, onClose, data = [], userDataMap = new Map() }) {
     // Use ALL_ROWS instead of data to get all records including notSubmitted
     const allData = ALL_ROWS;
     if (allData.length > 0) {
-      exportNotSubmittedPDF(allData, userDataMap);
+      exportNotSubmittedPDF(allData, userDataMap, exporterName);
     }
   };
 
   const handleExportSummaryExcel = () => {
     if (data.length > 0) {
-      exportToExcel(data, userDataMap, "สรุปจำนวนการส่งรายงาน");
+      exportToExcel(data, userDataMap, "สรุปจำนวนการส่งรายงาน", exporterName);
     }
   };
 
   const handleExportOverviewExcel = () => {
     if (data.length > 0) {
-      exportToExcel(data, userDataMap, "สรุปภาพรวมรายงานในพื้นที่");
+      exportToExcel(data, userDataMap, "สรุปภาพรวมรายงานในพื้นที่", exporterName);
     }
   };
 
@@ -536,7 +567,7 @@ function DetailModal({ open, onClose, data = [], userDataMap = new Map() }) {
       (row) => row.status === "notSubmitted"
     );
     if (notSubmittedData.length > 0) {
-      exportToExcel(notSubmittedData, userDataMap, "อสม. ที่ยังไม่ส่งรายงาน");
+      exportToExcel(notSubmittedData, userDataMap, "อสม. ที่ยังไม่ส่งรายงาน", exporterName);
     }
   };
 
@@ -828,7 +859,7 @@ const PregnantReportComp = () => {
   }, [searchParams]);
 
   // Use permission-based filters
-  const { isLocked, lockLevel, getInitialFilters } = useUserPermission();
+  const { isLocked, lockLevel, getInitialFilters, user } = useUserPermission();
   const {
     yearType,
     year,
@@ -1317,6 +1348,7 @@ const PregnantReportComp = () => {
         onClose={() => setModalOpen(false)}
         data={filteredRows}
         userDataMap={userDataMap}
+        exporterName={user?.name || user?.display_name || ""}
       />
 
       {/* Header Section with Gradient */}
@@ -1354,7 +1386,7 @@ const PregnantReportComp = () => {
       </div>
 
       {/* Unique User Count Display */}
-      <div className="bg-gradient-to-r from-purple-500 to-violet-600 rounded-2xl p-4 mb-6 shadow-lg">
+      {/* <div className="bg-gradient-to-r from-purple-500 to-violet-600 rounded-2xl p-4 mb-6 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white/20 rounded-xl">
             <Users size={24} className="text-white" />
@@ -1366,7 +1398,7 @@ const PregnantReportComp = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Search Form */}
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] p-6 mb-6">

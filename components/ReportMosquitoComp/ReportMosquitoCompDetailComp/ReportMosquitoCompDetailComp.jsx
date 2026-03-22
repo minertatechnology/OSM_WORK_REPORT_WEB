@@ -555,7 +555,7 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
       // บันทึกไฟล์ - Format: Mosquito{osm_code}_{year}.pdf หรือ Mosquito_{year}.pdf (ถ้าไม่มี osm_code)
       const currentYear = new Date().getFullYear();
       const code = osmCode || "";
-      doc.save(`Mosquito${code}_${currentYear}.pdf`);
+      doc.save(`Mosquito_${code}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");

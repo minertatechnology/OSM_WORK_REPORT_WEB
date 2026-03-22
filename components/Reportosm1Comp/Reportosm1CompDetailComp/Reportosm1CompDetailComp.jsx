@@ -1156,7 +1156,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
       // บันทึกไฟล์ - Format: OSM1{osm_code}_{year}.pdf หรือ OSM1_{year}.pdf (ถ้าไม่มี osm_code)
       const currentYear = new Date().getFullYear();
       const code = osmCode || "";
-      doc.save(`OSM1${code}_${currentYear}.pdf`);
+      doc.save(`OSM1_${code}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");

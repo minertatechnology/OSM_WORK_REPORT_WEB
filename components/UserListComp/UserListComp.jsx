@@ -886,6 +886,7 @@ const UserListComp = () => {
 
   const [keyword, setKeyword] = useState("");
   const [tab, setTab] = useState("active");
+  const [onlineFilter, setOnlineFilter] = useState("online"); // "online", "offline"
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [modalOpen, setModalOpen] = useState(false);
@@ -1378,8 +1379,18 @@ const UserListComp = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Helper function to check if user is online
+  const isUserOnline = (user) => {
+    if (user.status !== "active") return false;
+    const lastActiveAt = user.last_active_at ? new Date(user.last_active_at) : null;
+    if (!lastActiveAt) return false;
+    const now = new Date();
+    const minutesSinceActive = (now.getTime() - lastActiveAt.getTime()) / (1000 * 60);
+    return minutesSinceActive <= 5;
+  };
+
   // กรองผู้ใช้และทำ frontend pagination
-  const { displayUsers, filteredUsers, filteredTotalItems, filteredTotalPages } = useMemo(() => {
+  const { displayUsers, filteredUsers, filteredTotalItems, filteredTotalPages, statistics } = useMemo(() => {
     let filtered = users;
 
     if (!isCountryLevel()) {
@@ -1416,14 +1427,30 @@ const UserListComp = () => {
       });
     }
 
+    // กรองตามสถานะ online/offline (default = online)
+    if (onlineFilter === "online") {
+      filtered = filtered.filter(user => isUserOnline(user));
+    } else {
+      filtered = filtered.filter(user => !isUserOnline(user));
+    }
+
+    // คำนวณสถิติจาก filtered users
+    const stats = {
+      total: filtered.length,
+      online: filtered.filter(user => isUserOnline(user)).length,
+      offline: filtered.filter(user => user.status === "active" && !isUserOnline(user)).length,
+      officers: filtered.filter(user => user.position === "เจ้าหน้าที่").length,
+      osm: filtered.filter(user => user.position !== "เจ้าหน้าที่" && user.name !== "ไม่ระบุชื่อ").length,
+    };
+
     // Frontend pagination: slice ตาม currentPage และ itemsPerPage
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginatedUsers = filtered.slice(startIndex, endIndex);
 
     const filteredPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-    return { displayUsers: paginatedUsers, filteredUsers: filtered, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages };
-  }, [users, isCountryLevel, currentPage, itemsPerPage, keyword]);
+    return { displayUsers: paginatedUsers, filteredUsers: filtered, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages, statistics: stats };
+  }, [users, isCountryLevel, currentPage, itemsPerPage, keyword, onlineFilter]);
 
   const handleRestoreUser = () => {
     if (!selectedUser) return;
@@ -1681,6 +1708,24 @@ const UserListComp = () => {
                 className="w-full h-12 pl-12 pr-4 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium placeholder:text-gray-400 focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200"
               />
             </div>
+            {/* Online Status Filter */}
+            <div className="relative w-full sm:w-auto">
+              <select
+                value={onlineFilter}
+                onChange={(e) => {
+                  setOnlineFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="appearance-none w-full sm:w-40 h-12 px-4 pr-10 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50/50 to-violet-50/50 text-gray-700 font-medium focus:border-[#7e32e2] focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all duration-200 cursor-pointer"
+              >
+                <option value="online">🟢 ออนไลน์</option>
+                <option value="offline">🟡 ออฟไลน์</option>
+              </select>
+              <ChevronDown
+                size={20}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7e32e2] pointer-events-none"
+              />
+            </div>
             <button
               className="flex items-center justify-center gap-2 px-6 py-3 h-12 bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 whitespace-nowrap w-full sm:w-auto"
               onClick={() => setCurrentPage(1)}
@@ -1688,6 +1733,80 @@ const UserListComp = () => {
               <Search size={20} />
               ค้นหา
             </button>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+          {/* Total */}
+          <div className="bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <Users size={24} className="text-white" />
+              </div>
+              <div>
+                <div className="text-white/80 text-sm">ทั้งหมด</div>
+                <div className="text-2xl font-bold text-white">
+                  {statistics?.total?.toLocaleString("th-TH") || 0}
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Online */}
+          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <UserCheck size={24} className="text-white" />
+              </div>
+              <div>
+                <div className="text-white/80 text-sm">ออนไลน์</div>
+                <div className="text-2xl font-bold text-white">
+                  {statistics?.online?.toLocaleString("th-TH") || 0}
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Offline */}
+          <div className="bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <User size={24} className="text-white" />
+              </div>
+              <div>
+                <div className="text-white/80 text-sm">ออฟไลน์</div>
+                <div className="text-2xl font-bold text-white">
+                  {statistics?.offline?.toLocaleString("th-TH") || 0}
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Officers */}
+          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <Briefcase size={24} className="text-white" />
+              </div>
+              <div>
+                <div className="text-white/80 text-sm">เจ้าหน้าที่</div>
+                <div className="text-2xl font-bold text-white">
+                  {statistics?.officers?.toLocaleString("th-TH") || 0}
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* OSM */}
+          <div className="bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <Heart size={24} className="text-white" />
+              </div>
+              <div>
+                <div className="text-white/80 text-sm">อสม.</div>
+                <div className="text-2xl font-bold text-white">
+                  {statistics?.osm?.toLocaleString("th-TH") || 0}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
