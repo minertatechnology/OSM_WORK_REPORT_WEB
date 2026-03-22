@@ -745,6 +745,7 @@ const NcdsScreeningComp = () => {
   const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
+  const [uniqueUserCount, setUniqueUserCount] = useState(0); // จำนวน อสม. ที่ส่งรายงาน
 
   // Note: Location data loading is handled by usePermissionFilters hook
   // Note: usePermissionFilters already sets the default year, so no need for separate initialization
@@ -797,6 +798,24 @@ const NcdsScreeningComp = () => {
 
     fetchData();
   }, [service]); // เฉพาะ service เท่านั้นที่ต้องดึงข้อมูลใหม่ (ไม่ใช้ currentBuddhistYear เพราะ API ไม่ได้กรองตามปี)
+
+  // ดึงจำนวน Unique Users
+  useEffect(() => {
+    const fetchUniqueUsers = async () => {
+      try {
+        const result = await getUniqueUsersCount({
+          menu_type: "ncds",
+          year: year ? parseInt(year) : undefined,
+          month: month ? parseInt(month) : undefined,
+        });
+        setUniqueUserCount(result?.unique_users || result?.count || 0);
+      } catch (error) {
+        console.error("Error fetching unique users count:", error);
+        setUniqueUserCount(0);
+      }
+    };
+    fetchUniqueUsers();
+  }, [year, month]);
 
   // Note: Location data loading is now handled by usePermissionFilters hook
 
@@ -995,6 +1014,21 @@ const NcdsScreeningComp = () => {
                 <Download size={18} className="inline mr-2" /> รายละเอียดเอกสาร
               </button>
             </div> */}
+          </div>
+        </div>
+      </div>
+
+      {/* Unique User Count Display */}
+      <div className="bg-gradient-to-r from-purple-500 to-violet-600 rounded-2xl p-4 mb-6 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-xl">
+            <Users size={24} className="text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="text-white/80 text-sm">จำนวน อสม. ที่ส่งรายงาน (รายปี)</div>
+            <div className="text-2xl font-bold text-white">
+              {loading ? "..." : uniqueUserCount.toLocaleString("th-TH")} <span className="text-sm font-normal text-white/70">คน</span>
+            </div>
           </div>
         </div>
       </div>

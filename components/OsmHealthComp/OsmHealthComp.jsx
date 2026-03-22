@@ -18,6 +18,7 @@ import {
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getHealthRecords } from "@services/healthRecordService";
 import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
+import { getUniqueUsersCount } from "@services/analyticsService";
 import { getOsmByHealthService } from "@services/lookupService";
 import oauth2Service from "@services/oauth2Service";
 import * as XLSX from "xlsx";
@@ -392,6 +393,7 @@ const OsmHealthComp = () => {
   // Data state
   const [healthRecords, setHealthRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [uniqueUserCount, setUniqueUserCount] = useState(0);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -461,6 +463,23 @@ const OsmHealthComp = () => {
     fetchHealthRecords();
   }, [year, month, yearType]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน (ใช้ค่า stable แทน apiParams)
   // eslint-disable-next-line react-hooks/exhaustive-deps
+
+  // ดึงจำนวน Unique Users
+  useEffect(() => {
+    const fetchUniqueUsers = async () => {
+      try {
+        const result = await getUniqueUsersCount({
+          menu_type: "health_record",
+          year: year ? parseInt(year) : undefined,
+        });
+        setUniqueUserCount(result?.unique_users || result?.count || 0);
+      } catch (error) {
+        console.error("Error fetching unique users count:", error);
+        setUniqueUserCount(0);
+      }
+    };
+    fetchUniqueUsers();
+  }, [year]);
 
   // Fetch OSM data when service is selected
   useEffect(() => {
@@ -966,13 +985,13 @@ const OsmHealthComp = () => {
           </div>
           <div className="bg-white rounded-2xl p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-violet-100 to-purple-100 rounded-xl">
-                <Calendar className="w-6 h-6 text-violet-600" />
+              <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl">
+                <Users className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">เดือนปัจจุบัน</p>
-                <p className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                  {month}
+                <p className="text-sm text-gray-500">จำนวน อสม. ที่ส่งรายงาน (รายปี)</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {isLoading ? "..." : uniqueUserCount.toLocaleString("th-TH")} <span className="text-sm font-normal text-gray-500">คน</span>
                 </p>
               </div>
             </div>
