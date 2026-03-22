@@ -18,10 +18,9 @@ import {
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { getHealthRecords } from "@services/healthRecordService";
 import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
-import { getUniqueUsersCount } from "@services/analyticsService";
 import { getOsmByHealthService } from "@services/lookupService";
 import oauth2Service from "@services/oauth2Service";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx-js-style";
 import {
   getCurrentFiscalYear,
   generateFiscalYearOptions,
@@ -393,7 +392,6 @@ const OsmHealthComp = () => {
   // Data state
   const [healthRecords, setHealthRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [uniqueUserCount, setUniqueUserCount] = useState(0);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -464,22 +462,6 @@ const OsmHealthComp = () => {
   }, [year, month, yearType]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน (ใช้ค่า stable แทน apiParams)
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
-  // ดึงจำนวน Unique Users
-  useEffect(() => {
-    const fetchUniqueUsers = async () => {
-      try {
-        const result = await getUniqueUsersCount({
-          menu_type: "health_record",
-          year: year ? parseInt(year) : undefined,
-        });
-        setUniqueUserCount(result?.unique_users || result?.count || 0);
-      } catch (error) {
-        console.error("Error fetching unique users count:", error);
-        setUniqueUserCount(0);
-      }
-    };
-    fetchUniqueUsers();
-  }, [year]);
 
   // Fetch OSM data when service is selected
   useEffect(() => {
@@ -843,10 +825,91 @@ const OsmHealthComp = () => {
         };
         });
 
-      // สร้าง workbook และ worksheet
-      const ws = XLSX.utils.json_to_sheet(excelData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "ผลตรวจสุขภาพ");
+      // สร้างหัวข้อรายงาน
+      const monthName = month ? (MONTHS.find(m => m.value === month)?.label || "") : "";
+      const yearDisplay = year ? (yearType === "fiscal" ? `ปีงบประมาณ ${year}` : `ปี ${parseInt(year) + 543}`) : "";
+      const titleText = "ผลตรวจสุขภาพ อสม.";
+      const subtitleText = `${monthName ? `เดือน${monthName} ` : ""}${yearDisplay}`;
+
+      // เพิ่มแถวหัวข้อ
+      const titleRow = [titleText];
+      const subtitleRow = [subtitleText];
+
+      // สร้าง array สำหรับ xlsx_add_json พร้อมหัวข้อ
+      const wsData = [
+        titleRow,
+        subtitleRow,
+        Object.keys(excelData[0] || {}),
+        ...excelData.map(row => Object.values(row))
+      ];
+
+      // สร้าง worksheet ใหม่พร้อมหัวข้อ
+      const newWs = XLSX.utils.aoa_to_sheet(wsData);
+
+      // ผสานเซลล์สำหรับหัวข้อ (merge cells สำหรับ title และ subtitle)
+      const numCols = Object.keys(excelData[0] || {}).length;
+      if (numCols > 0) {
+        newWs["!merges"] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } },  // merge แถวแรกทั้งหมด (title)
+          { s: { r: 1, c: 0 }, e: { r: 1, c: numCols - 1 } }   // merge แถวที่สองทั้งหมด (subtitle)
+        ];
+      }
+
+      // เพิ่ม borders ให้ทุกเซลล์
+      const range = XLSX.utils.decode_range(newWs["!ref"] || "A1");
+      const borderStyle = {
+        top: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+        right: { style: "thin" }
+      };
+
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!newWs[cellAddress]) {
+            newWs[cellAddress] = { v: "" };
+          }
+          if (!newWs[cellAddress].s) {
+            newWs[cellAddress].s = {};
+          }
+          newWs[cellAddress].s.border = borderStyle;
+
+          // จัดรูปแบบหัวข้อหลัก (แถวแรก)
+          if (R === 0) {
+            newWs[cellAddress].s = {
+              ...newWs[cellAddress].s,
+              font: { bold: true, sz: 16 },
+              alignment: { horizontal: "center", vertical: "center" }
+            };
+          }
+
+          // จัดรูปแบบหัวข้อรอง - เดือน/ปี (แถวที่ 2)
+          if (R === 1) {
+            newWs[cellAddress].s = {
+              ...newWs[cellAddress].s,
+              font: { bold: true, sz: 12 },
+              alignment: { horizontal: "center", vertical: "center" }
+            };
+          }
+
+          // จัดรูปแบบหัวคอลัมน์ (แถวที่ 3)
+          if (R === 2) {
+            newWs[cellAddress].s = {
+              ...newWs[cellAddress].s,
+              font: { bold: true, sz: 11 },
+              alignment: { horizontal: "center", vertical: "center", wrapText: true }
+            };
+          }
+        }
+      }
+
+      // ตั้งความสูงของแถวหัวข้อ
+      newWs["!rows"] = [
+        { hpt: 30 },  // แถวหัวข้อหลัก
+        { hpt: 22 },  // แถวหัวข้อรอง (เดือน/ปี)
+        { hpt: 25 },  // แถวหัวคอลัมน์
+      ];
 
       // ตั้งความกว้างของคอลัมน์
       const colWidths = [
@@ -885,11 +948,15 @@ const OsmHealthComp = () => {
         { wch: 18 },  // วันที่บันทึก
         { wch: 18 },  // วันที่สร้าง
       ];
-      ws["!cols"] = colWidths;
+      newWs["!cols"] = colWidths;
 
-      // สร้างชื่อไฟล์ - Format: Health_{year}.xlsx
-      const currentYear = new Date().getFullYear();
-      const fileName = `Health_${currentYear}.xlsx`;
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, newWs, "ผลตรวจสุขภาพ");
+
+      // สร้างชื่อไฟล์ - Format: Health_{month}_{year}.xlsx
+      const fileName = monthName
+        ? `Health_${monthName}_${year || new Date().getFullYear()}.xlsx`
+        : `Health_${year || new Date().getFullYear()}.xlsx`;
 
       // ดาวน์โหลดไฟล์
       XLSX.writeFile(wb, fileName);
@@ -897,41 +964,6 @@ const OsmHealthComp = () => {
     } catch (error) {
       console.error("Failed to export Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้างไฟล์ Excel กรุณาลองใหม่อีกครั้ง");
-    }
-  };
-
-  // Handle download PDF for all filtered records
-  const handleDownloadAllPDF = async () => {
-    try {
-      if (filteredRecords.length === 0) {
-        alert("ไม่มีข้อมูลที่จะดาวน์โหลด");
-        return;
-      }
-
-      setOpen(false);
-
-      // แสดงข้อความแจ้งเตือน
-      const confirmDownload = window.confirm(
-        `คุณต้องการดาวน์โหลด PDF ทั้งหมด ${filteredRecords.length} ไฟล์ใช่หรือไม่?\n\nไฟล์จะถูกดาวน์โหลดทีละไฟล์`
-      );
-
-      if (!confirmDownload) return;
-
-      // ดาวน์โหลด PDF ทีละไฟล์
-      for (let i = 0; i < filteredRecords.length; i++) {
-        const record = filteredRecords[i];
-        await exportHealthRecordToPDF(record);
-
-        // หน่วงเวลาเล็กน้อยระหว่างการดาวน์โหลดแต่ละไฟล์
-        if (i < filteredRecords.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-
-      alert(`ดาวน์โหลด PDF เสร็จสิ้น (${filteredRecords.length} ไฟล์)`);
-    } catch (error) {
-      console.error("Failed to export all PDFs:", error);
-      alert("เกิดข้อผิดพลาดในการสร้าง PDF กรุณาลองใหม่อีกครั้ง");
     }
   };
 
@@ -956,7 +988,7 @@ const OsmHealthComp = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div className="bg-white rounded-2xl p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-gradient-to-br from-purple-100 to-violet-100 rounded-xl">
@@ -979,19 +1011,6 @@ const OsmHealthComp = () => {
                 <p className="text-sm text-gray-500">ข้อมูลทั้งหมด</p>
                 <p className="text-2xl font-bold text-green-600">
                   {isLoading ? "..." : healthRecords.length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-md border border-purple-100 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">จำนวน อสม. ที่ส่งรายงาน (รายปี)</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {isLoading ? "..." : uniqueUserCount.toLocaleString("th-TH")} <span className="text-sm font-normal text-gray-500">คน</span>
                 </p>
               </div>
             </div>
@@ -1140,19 +1159,6 @@ const OsmHealthComp = () => {
                       className="w-6 h-6"
                     />
                     ดาวน์โหลดเอกสาร Excel
-                  </button>
-                  <button
-                    className="flex items-center w-full px-4 py-3 gap-3 text-gray-700 hover:bg-purple-50 transition font-medium"
-                    onClick={handleDownloadAllPDF}
-                  >
-                    <Image
-                      src="/pdf.png"
-                      alt="PDF icon"
-                      width={24}
-                      height={24}
-                      className="w-6 h-6"
-                    />
-                    ดาวน์โหลดเอกสาร PDF
                   </button>
                 </div>
               )}
