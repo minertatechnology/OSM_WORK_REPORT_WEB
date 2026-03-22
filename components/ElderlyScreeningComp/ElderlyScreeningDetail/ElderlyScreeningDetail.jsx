@@ -158,28 +158,25 @@ const ElderlyScreeningDetail = ({
       doc.setFont("Sarabun", "bold");
       doc.text("รายงานผลการประเมินสุขภาพผู้สูงอายุในชุมชน", 148, 12, { align: "center" });
 
-      doc.setFontSize(10);
-      doc.setFont("Sarabun", "normal");
+      doc.setFontSize(12);
+      doc.setFont("Sarabun", "bold");
       doc.text(`ผู้ประเมิน: ${assessorName || "ไม่ระบุชื่อ"}`, 148, 18, { align: "center" });
       // doc.text(`นายทะเบียน อสม.`, 148, 23, { align: "center" });
 
-      // Define table columns - total width should be ~287mm (297mm - 10mm margins)
-      // ลำดับ(10) + ชื่อ(50) + อยู่ร่วม(20) + เพศ(10) + อายุ(10) = 100mm
-      // แบบคัดกรอง 12 คอลัมน์ = 180mm (12 x 15mm)
-      // Total = 280mm
+      // Define table columns - total width should fit A4 landscape (297mm)
+      // ลดความกว้างให้พอดีกับหน้ากระดาษ
 
-      const colWidth = 10;  // ลำดับ (เพิ่มจาก 8 เป็น 10)
-      const nameWidth = 50; // ชื่อ-นามสกุล (เพิ่มจาก 45 เป็น 50)
-      const livingWidth = 20; // อยู่ร่วม (เพิ่มจาก 17 เป็น 20)
-      const genderWidth = 10; // เพศ (เพิ่มจาก 8 เป็น 10)
-      const ageWidth = 10; // อายุ (เพิ่มจาก 8 เป็น 10)
-      const assessWidth = 13; // แต่ละคอลัมน์แบบคัดกรอง (ลดจาก 14 เป็น 13 เพื่อให้พอดีกับหน้ากระดาษ)
-      const sumbynumWidth = 15; // คอลัมน์จำนวนครั้งที่
-      const resultWidth = 16; // คอลัมน์ผลการประเมิน (ลดจาก 18 เป็น 16)
+      const colWidth = 10;  // ลำดับ
+      const nameWidth = 48; // ชื่อ-นามสกุล
+      const livingWidth = 18; // อยู่ร่วม
+      const genderWidth = 10; // เพศ
+      const ageWidth = 10; // อายุ
+      const assessWidth = 12; // แต่ละคอลัมน์แบบคัดกรอง
+      const sumbynumWidth = 14; // คอลัมน์จำนวนครั้งที่
+      const resultWidth = 16; // คอลัมน์ผลการประเมิน
 
-      // คำนวณความกว้างรวมของตาราง (เป้าหมาย 287mm เพื่อ margin 5mm ทั้งสองข้าง)
+      // คำนวณความกว้างรวมของตาราง: 10+48+18+10+10+(12*12)+14+16 = 270mm
       const totalTableWidth = colWidth + nameWidth + livingWidth + genderWidth + ageWidth + (assessWidth * 12) + sumbynumWidth + resultWidth;
-      // Total = 10 + 50 + 20 + 10 + 10 + (13 * 12) + 15 + 16 = 100 + 156 + 15 + 16 = 287mm
 
       const householdColumns = [
         { key: "living_arrangement", label: "ผู้สูงอายุ\nอยู่ร่วม", width: livingWidth },
@@ -198,7 +195,7 @@ const ElderlyScreeningDetail = ({
         { key: "hearing_result", label: "การ\nได้ยิน", width: assessWidth, domain: "hearing" },
         { key: "depression", label: "ภาวะ\nซึมเศร้า", width: assessWidth, domain: "depression" },
         { key: "urinary_incontinence", label: "กลั้น\nปัสสาวะ", width: assessWidth, domain: "urinary" },
-        { key: "adl_status", label: "กิจวัตรประจำวัน", width: assessWidth, domain: "adl" },
+        { key: "adl_status", label: "กิจวัตร\nประจำวัน", width: assessWidth, domain: "adl" },
         { key: "oral", label: "ช่องปาก", width: assessWidth, domain: "oral" },
       ];
 
@@ -209,44 +206,45 @@ const ElderlyScreeningDetail = ({
       let currentY = startY;
 
       const drawHeaders = (yPos) => {
-        doc.setFontSize(8.5);
         doc.setFont("Sarabun", "bold");
+        doc.setFontSize(9);  // เปลี่ยนเป็น 9
         let currentX = startX;
 
-        const headerHeight = 14; // ลดความสูง header ให้สมดุลกับ rowHeight
+        const headerHeight = 17; // เพิ่มจาก 14 เป็น 17
 
         // ========== Row 1: Main Headers ==========
         // ลำดับ (rowSpan=2)
         doc.rect(currentX, yPos, colWidth, headerHeight * 2);
-        doc.text("ลำดับ", currentX + colWidth / 2, yPos + 9, { align: "center" });
+        doc.text("ลำดับ", currentX + colWidth / 2, yPos + 11, { align: "center" });
         currentX += colWidth;
 
         // ชื่อ-นามสกุล (rowSpan=2)
         doc.rect(currentX, yPos, nameWidth, headerHeight * 2);
-        doc.text("ชื่อ-นามสกุล", currentX + nameWidth / 2, yPos + 9, { align: "center" });
+        doc.text("ชื่อ-นามสกุล", currentX + nameWidth / 2, yPos + 11, { align: "center" });
         currentX += nameWidth;
 
         // ข้อมูลเชิงสังคม (colSpan=3)
         const householdHeaderWidth = livingWidth + genderWidth + ageWidth;
         doc.rect(currentX, yPos, householdHeaderWidth, headerHeight);
-        doc.text("ข้อมูลเชิงสังคม", currentX + householdHeaderWidth / 2, yPos + 9, { align: "center" });
+        doc.text("ข้อมูลเชิงสังคม", currentX + householdHeaderWidth / 2, yPos + 11, { align: "center" });
         currentX += householdHeaderWidth;
 
         // แบบคัดกรองสุขภาพผู้สูงอายุ (colSpan=12)
         const assessHeaderWidth = assessWidth * 12;
         doc.rect(currentX, yPos, assessHeaderWidth, headerHeight);
-        doc.text("แบบคัดกรองสุขภาพผู้สูงอายุ", currentX + assessHeaderWidth / 2, yPos + 9, { align: "center" });
+        doc.text("แบบคัดกรองสุขภาพผู้สูงอายุ", currentX + assessHeaderWidth / 2, yPos + 11, { align: "center" });
         currentX += assessHeaderWidth;
 
         // จำนวนครั้งที่ (rowSpan=2)
         doc.rect(currentX, yPos, sumbynumWidth, headerHeight * 2);
-        doc.text("จำนวน\nครั้งที่", currentX + sumbynumWidth / 2, yPos + 9, { align: "center" });
+        doc.text("จำนวน", currentX + sumbynumWidth / 2, yPos + 9, { align: "center" });
+        doc.text("ครั้งที่", currentX + sumbynumWidth / 2, yPos + 13, { align: "center" });
         currentX += sumbynumWidth;
 
         // ผลการประเมิน (rowSpan=2)
         doc.rect(currentX, yPos, resultWidth, headerHeight * 2);
-        doc.text("ผลการ", currentX + resultWidth / 2, yPos + 9 - 2.5, { align: "center" });
-        doc.text("ประเมิน", currentX + resultWidth / 2, yPos + 9 + 2.5, { align: "center" });
+        doc.text("ผลการ", currentX + resultWidth / 2, yPos + 9, { align: "center" });
+        doc.text("ประเมิน", currentX + resultWidth / 2, yPos + 13, { align: "center" });
 
         // ========== Row 2: Sub Headers ==========
         let row2Y = yPos + headerHeight;
@@ -257,10 +255,10 @@ const ElderlyScreeningDetail = ({
           doc.rect(currentX, row2Y, col.width, headerHeight);
           const lines = col.label.split('\n');
           if (lines.length === 2) {
-            doc.text(lines[0], currentX + col.width / 2, row2Y + 6, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, row2Y + 10.5, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 7, { align: "center" });
+            doc.text(lines[1], currentX + col.width / 2, row2Y + 12, { align: "center" });
           } else {
-            doc.text(col.label, currentX + col.width / 2, row2Y + 9, { align: "center" });
+            doc.text(col.label, currentX + col.width / 2, row2Y + 11, { align: "center" });
           }
           currentX += col.width;
         });
@@ -271,25 +269,14 @@ const ElderlyScreeningDetail = ({
           const lines = col.label.split('\n');
 
           if (lines.length === 1) {
-            doc.text(lines[0], currentX + col.width / 2, row2Y + 9, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 11, { align: "center" });
           } else if (lines.length === 2) {
-            doc.text(lines[0], currentX + col.width / 2, row2Y + 6, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, row2Y + 10.5, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 7, { align: "center" });
+            doc.text(lines[1], currentX + col.width / 2, row2Y + 12, { align: "center" });
           } else if (lines.length === 3) {
-            doc.text(lines[0], currentX + col.width / 2, row2Y + 4.5, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, row2Y + 8, { align: "center" });
-            doc.text(lines[2], currentX + col.width / 2, row2Y + 11.5, { align: "center" });
-          } else if (lines.length === 4) {
-            doc.text(lines[0], currentX + col.width / 2, row2Y + 3.5, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, row2Y + 6, { align: "center" });
-            doc.text(lines[2], currentX + col.width / 2, row2Y + 8.5, { align: "center" });
-            doc.text(lines[3], currentX + col.width / 2, row2Y + 11, { align: "center" });
-          } else if (lines.length >= 5) {
-            doc.text(lines[0], currentX + col.width / 2, row2Y + 3, { align: "center" });
-            doc.text(lines[1], currentX + col.width / 2, row2Y + 5.5, { align: "center" });
-            doc.text(lines[2], currentX + col.width / 2, row2Y + 8, { align: "center" });
-            doc.text(lines[3], currentX + col.width / 2, row2Y + 10.5, { align: "center" });
-            doc.text(lines[4], currentX + col.width / 2, row2Y + 13, { align: "center" });
+            doc.text(lines[0], currentX + col.width / 2, row2Y + 5, { align: "center" });
+            doc.text(lines[1], currentX + col.width / 2, row2Y + 9, { align: "center" });
+            doc.text(lines[2], currentX + col.width / 2, row2Y + 13, { align: "center" });
           }
           currentX += col.width;
         });
@@ -302,27 +289,27 @@ const ElderlyScreeningDetail = ({
       currentY += headerHeight;
 
       // Draw table rows
-      doc.setFont("Sarabun", "normal");
-      doc.setFontSize(6.5);
+      doc.setFont("Sarabun", "bold");
+      doc.setFontSize(9);  // เปลี่ยนเป็น bold ขนาด 9
 
       elderlyList.forEach((elderly, idx) => {
         // Check if need new page
-        if (currentY > 175) {
+        if (currentY > 170) {
           doc.addPage();
           addWatermark(doc);
           currentY = 10;
           const newHeaderHeight = drawHeaders(currentY);
           currentY += newHeaderHeight;
-          doc.setFont("Sarabun", "normal");
-          doc.setFontSize(6.5);
+          doc.setFont("Sarabun", "bold");
+          doc.setFontSize(9);
         }
 
         let currentX = startX;
-        const rowHeight = 9; // ใช้ rowHeight ที่เท่ากับ NcdsScreeningDetail
+        const rowHeight = 11; // เพิ่มจาก 9 เป็น 11
 
         // ลำดับ
         doc.rect(currentX, currentY, colWidth, rowHeight);
-        doc.text(String(idx + 1), currentX + colWidth / 2, currentY + 5.5, { align: "center" });
+        doc.text(String(idx + 1), currentX + colWidth / 2, currentY + 6.5, { align: "center" });
         currentX += colWidth;
 
         // ชื่อ-นามสกุล
@@ -333,13 +320,13 @@ const ElderlyScreeningDetail = ({
         doc.rect(currentX, currentY, nameWidth, rowHeight);
         // แสดงชื่อ, เลขบัตร และที่อยู่ในคอลัมน์เดียวกัน
         if (locationText) {
-          doc.text(nameWithId, currentX + 1, currentY + 4);
-          doc.setFontSize(5.5);
-          doc.text(locationText, currentX + 1, currentY + 7.5);
-          doc.setFontSize(6.5);
+          doc.text(nameWithId, currentX + 1, currentY + 5);
+          doc.setFontSize(7);
+          doc.text(locationText, currentX + 1, currentY + 9);
+          doc.setFontSize(9);
         } else {
           const nameLines = doc.splitTextToSize(nameWithId, nameWidth - 2);
-          doc.text(nameLines[0] || nameWithId, currentX + 1, currentY + 5.5);
+          doc.text(nameLines[0] || nameWithId, currentX + 1, currentY + 6.5);
         }
         currentX += nameWidth;
 
@@ -363,7 +350,7 @@ const ElderlyScreeningDetail = ({
             displayValue = formatValue(elderly[col.key], col.key);
           }
           const lines = doc.splitTextToSize(String(displayValue), col.width - 1);
-          doc.text(lines[0] || displayValue, currentX + col.width / 2, currentY + 5.5, { align: "center" });
+          doc.text(lines[0] || displayValue, currentX + col.width / 2, currentY + 6.5, { align: "center" });
           currentX += col.width;
         });
 
@@ -377,20 +364,20 @@ const ElderlyScreeningDetail = ({
             : formatValue(elderly[col.key], col.key);
 
           const lines = doc.splitTextToSize(String(value), col.width - 1);
-          doc.text(lines[0] || value, currentX + col.width / 2, currentY + 5.5, { align: "center" });
+          doc.text(lines[0] || value, currentX + col.width / 2, currentY + 6.5, { align: "center" });
           currentX += col.width;
         });
 
         // จำนวนครั้งที่
         doc.rect(currentX, currentY, sumbynumWidth, rowHeight);
         const sumbynum = elderly.sumbynum || elderly.sum_by_num || 1;
-        doc.text(String(sumbynum), currentX + sumbynumWidth / 2, currentY + 5.5, { align: "center" });
+        doc.text(String(sumbynum), currentX + sumbynumWidth / 2, currentY + 6.5, { align: "center" });
         currentX += sumbynumWidth;
 
         // ผลการประเมิน
         doc.rect(currentX, currentY, resultWidth, rowHeight);
         const overallResult = getOverallResult(elderly);
-        doc.text(overallResult, currentX + resultWidth / 2, currentY + 5.5, { align: "center" });
+        doc.text(overallResult, currentX + resultWidth / 2, currentY + 6.5, { align: "center" });
 
         currentY += rowHeight;
       });
@@ -478,7 +465,17 @@ const ElderlyScreeningDetail = ({
         "ผลการประเมิน"
       ];
 
+      const numCols = 19;
+
+      // Header rows before table
+      const headerRows = [
+        ["รายงานผลการประเมินสุขภาพผู้สูงอายุในชุมชน", ...Array(numCols - 1).fill(null)],
+        [`ผู้ประเมิน: ${assessorName || "ไม่ระบุชื่อ"}`, ...Array(numCols - 1).fill(null)],
+        [...Array(numCols).fill(null)], // Empty row
+      ];
+
       const wsData = [
+        ...headerRows,
         // Row 1: Main headers (row index 0 in Excel)
         [
           "ลำดับ",                                // 0
@@ -541,18 +538,23 @@ const ElderlyScreeningDetail = ({
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
       // ตั้งค่า range ของ worksheet ให้ครบ 19 columns (A-S)
-      const totalRows = elderlyList.length + 2; // header rows + data rows
+      // 3 header rows (title, evaluator, empty) + 2 table header rows + data rows
+      const headerOffset = 3; // header rows before table
+      const totalRows = elderlyList.length + headerOffset + 2;
       ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalRows - 1, c: 18 } });
 
       // สร้าง merged cells
       ws['!merges'] = [
-        // Row 1 merges
-        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // ลำดับ
-        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // ชื่อ-นามสกุล
-        { s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }, // ข้อมูลเชิงสังคม
-        { s: { r: 0, c: 5 }, e: { r: 0, c: 16 } }, // แบบคัดกรอง
-        { s: { r: 0, c: 17 }, e: { r: 1, c: 17 } }, // จำนวนครั้งที่
-        { s: { r: 0, c: 18 }, e: { r: 1, c: 18 } }, // ผลการประเมิน
+        // Header rows (title, evaluator, empty)
+        { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }, // Title row
+        { s: { r: 1, c: 0 }, e: { r: 1, c: numCols - 1 } }, // Evaluator row
+        // Table header merges (offset by headerOffset)
+        { s: { r: headerOffset + 0, c: 0 }, e: { r: headerOffset + 1, c: 0 } }, // ลำดับ
+        { s: { r: headerOffset + 0, c: 1 }, e: { r: headerOffset + 1, c: 1 } }, // ชื่อ-นามสกุล
+        { s: { r: headerOffset + 0, c: 2 }, e: { r: headerOffset + 0, c: 4 } }, // ข้อมูลเชิงสังคม
+        { s: { r: headerOffset + 0, c: 5 }, e: { r: headerOffset + 0, c: 16 } }, // แบบคัดกรอง
+        { s: { r: headerOffset + 0, c: 17 }, e: { r: headerOffset + 1, c: 17 } }, // จำนวนครั้งที่
+        { s: { r: headerOffset + 0, c: 18 }, e: { r: headerOffset + 1, c: 18 } }, // ผลการประเมิน
       ];
 
       // คำนวณความกว้างคอลัมน์
@@ -578,22 +580,27 @@ const ElderlyScreeningDetail = ({
         { min: 80, max: 100 },   // 18: ผลการประเมิน
       ];
 
-      const numCols = 19;
       ws['!cols'] = [];
       for (let i = 0; i < numCols; i++) {
         const setting = colSettings[i] || { min: 70, max: 100 };
         ws['!cols'].push({ wpx: setting.min });
       }
 
-      // ตั้งค่าความสูงแถว (เพิ่มความสูงสำหรับ data rows เพื่อรองรับ 2 บรรทัด)
+      // ตั้งค่าความสูงแถว
       ws['!rows'] = [];
       for (let i = 0; i < totalRows; i++) {
         if (i === 0) {
-          ws['!rows'].push({ hpx: 30 });
+          ws['!rows'].push({ hpx: 35 });  // Title row
         } else if (i === 1) {
-          ws['!rows'].push({ hpx: 60 });
+          ws['!rows'].push({ hpx: 25 });  // Evaluator row
+        } else if (i === 2) {
+          ws['!rows'].push({ hpx: 10 });  // Empty row
+        } else if (i === headerOffset) {
+          ws['!rows'].push({ hpx: 30 });  // Table header row 1
+        } else if (i === headerOffset + 1) {
+          ws['!rows'].push({ hpx: 60 });  // Table header row 2
         } else {
-          ws['!rows'].push({ hpx: 40 }); // เพิ่มจาก 25 เป็น 40 เพื่อรองรับ 2 บรรทัด
+          ws['!rows'].push({ hpx: 40 });  // Data rows
         }
       }
 
@@ -619,6 +626,23 @@ const ElderlyScreeningDetail = ({
           }
 
           const merge = getMergeInfo(R, C);
+
+          // Header rows (0-2): Title, Evaluator, Empty - no borders
+          if (R <= 2) {
+            ws[cellAddress].s = {
+              alignment: {
+                vertical: "center",
+                horizontal: "center",
+                wrapText: true
+              },
+              font: {
+                name: "Tahoma",
+                sz: R === 0 ? 14 : 11,
+                bold: R === 0
+              }
+            };
+            continue;
+          }
 
           const cellStyle = {
             alignment: {
@@ -656,20 +680,20 @@ const ElderlyScreeningDetail = ({
           cellStyle.border = filteredBorders;
           ws[cellAddress].s = cellStyle;
 
-          // Header rows
-          if (R <= 1) {
+          // Table header rows (3-4)
+          if (R >= headerOffset && R <= headerOffset + 1) {
             ws[cellAddress].s.font.bold = true;
             ws[cellAddress].s.font.sz = 9;
             ws[cellAddress].s.fill = { fgColor: { rgb: "E8F4F8" } };
           }
 
           // Data rows - ชื่อ-นามสกุล จัดซ้าย
-          if (R >= 2 && C === 1) {
+          if (R >= headerOffset + 2 && C === 1) {
             ws[cellAddress].s.alignment.horizontal = "left";
           }
 
           // สีสำหรับผลการประเมิน
-          if (R >= 2) {
+          if (R >= headerOffset + 2) {
             const cellValue = ws[cellAddress].v;
             if (cellValue === "เสี่ยง") {
               ws[cellAddress].s.font.color = { rgb: "FF0000" };
