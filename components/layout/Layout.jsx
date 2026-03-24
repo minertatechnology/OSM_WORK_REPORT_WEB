@@ -71,7 +71,7 @@ const UserPosition = React.memo(({ isMobile }) => {
     roleName = "กรมสนับสนุนบริการสุขภาพ";
     // ไม่แสดงพื้นที่
   } else if (role === "เขต") {
-    roleName = "เขตสนับสนุนบริการสุขภาพ";
+    roleName = "ศูนย์สนับสนุนบริการสุขภาพ";
     location = serviceUnitName || "";
   } else if (role === "จังหวัด") {
     roleName = "สำนักงานสาธารณสุขจังหวัด";

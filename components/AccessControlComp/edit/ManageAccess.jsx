@@ -24,7 +24,7 @@ function getRoleOptions(positions) {
 
   // กำหนดลำดับการจัดเรียงและชื่อที่ต้องการแสดง
   const orderConfig = [
-    { key: 'zone', contains: ['เขตสุขภาพ'], newName: 'ศูนย์บริการสนับสนุนสุขภาพ' },
+    { key: 'zone', contains: ['เขตสุขภาพ'], newName: 'ศูนย์สนับสนุนบริการสุขภาพ' },
     { key: 'province', contains: ['จังหวัด'], newName: 'สำนักงานสาธารณสุขจังหวัด' },
     { key: 'district', contains: ['อำเภอ'], newName: 'สำนักงานสาธารณสุขอำเภอ' },
     { key: 'hospital', contains: ['รพ.สต.', 'โรงพยาบาลส่งเสริมสุขภาพตำบล'], newName: 'หน่วยบริการสุขภาพ' },
