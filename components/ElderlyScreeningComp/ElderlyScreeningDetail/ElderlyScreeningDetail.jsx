@@ -160,7 +160,7 @@ const ElderlyScreeningDetail = ({
 
       doc.setFontSize(12);
       doc.setFont("Sarabun", "bold");
-      doc.text(`ผู้ประเมิน: ${assessorName || "ไม่ระบุชื่อ"}`, 148, 18, { align: "center" });
+      doc.text(`ผู้คัดกรอง: ${assessorName || "ไม่ระบุชื่อ"}`, 148, 18, { align: "center" });
       // doc.text(`นายทะเบียน อสม.`, 148, 23, { align: "center" });
 
       // Define table columns - total width should fit A4 landscape (297mm)
@@ -474,7 +474,7 @@ const ElderlyScreeningDetail = ({
       // Header rows before table
       const headerRows = [
         ["รายงานผลการประเมินสุขภาพผู้สูงอายุในชุมชน", ...Array(numCols - 1).fill(null)],
-        [`ผู้ประเมิน: ${assessorName || "ไม่ระบุชื่อ"}`, ...Array(numCols - 1).fill(null)],
+        [`ผู้คัดกรอง: ${assessorName || "ไม่ระบุชื่อ"}`, ...Array(numCols - 1).fill(null)],
         [...Array(numCols).fill(null)], // Empty row
       ];
 
@@ -748,7 +748,7 @@ const ElderlyScreeningDetail = ({
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">รายงานผลการประเมินสุขภาพผู้สูงอายุในชุมชน</h1>
                 <p className="text-white/95 text-sm mt-1">
-                  ผู้ประเมิน: <span className="font-bold">{assessorName || "ไม่ระบุชื่อ"}</span>
+                  ผู้คัดกรอง: <span className="font-bold">{assessorName || "ไม่ระบุชื่อ"}</span>
                 </p>
                 <p className="text-white/95 text-sm">
                   จำนวนทั้งหมด: <span className="font-bold">{elderlyCount}</span> คน

@@ -995,7 +995,7 @@ const OsmHealthComp = () => {
                 <Users className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">จำนวนผู้ตรวจทั้งหมด</p>
+                <p className="text-sm text-gray-500">จำนวนผู้ตรวจทั้งหมดรายเดือน</p>
                 <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
                   {isLoading ? "..." : filteredRecords.length}
                 </p>
@@ -1008,7 +1008,7 @@ const OsmHealthComp = () => {
                 <Heart className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">ข้อมูลทั้งหมด</p>
+                <p className="text-sm text-gray-500">ข้อมูลทั้งหมดรายปี</p>
                 <p className="text-2xl font-bold text-green-600">
                   {isLoading ? "..." : healthRecords.length}
                 </p>

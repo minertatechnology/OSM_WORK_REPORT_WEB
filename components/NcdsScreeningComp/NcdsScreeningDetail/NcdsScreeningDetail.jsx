@@ -287,7 +287,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
         // แสดงชื่อเจ้าหน้าที่ผู้ตรวจ
         doc.setFontSize(12);
         doc.setFont("Sarabun", "bold");
-        doc.text(`เจ้าหน้าที่ผู้ตรวจ: ${name}`, 148.5, 22, { align: "center" });
+        doc.text(`ผู้คัดกรอง: ${name}`, 148.5, 22, { align: "center" });
 
         // แสดงหมายเลขหน้า
         // doc.setFontSize(10);
@@ -416,7 +416,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
       const headerRows = [
         ["แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)", ...Array(numCols - 1).fill(null)],
         [`วันที่: ${date || thaiDate}`, ...Array(numCols - 1).fill(null)],
-        [`เจ้าหน้าที่ผู้ตรวจ: ${name}`, ...Array(numCols - 1).fill(null)],
+        [`ผู้คัดกรอง: ${name}`, ...Array(numCols - 1).fill(null)],
         [...Array(numCols).fill(null)], // Empty row
       ];
 
@@ -603,7 +603,7 @@ const NcdsScreeningDetail = ({ reportData }) => {
               แบบรายงานการคัดกรองโรคไม่ติดต่อเรื้อรัง (NCDs)
             </h2>
             {date && <p className="text-gray-600 text-sm mb-1">วันที่: {date}</p>}
-            <p className="text-gray-700 font-medium text-base">เจ้าหน้าที่ผู้ตรวจ: {name}</p>
+            <p className="text-gray-700 font-medium text-base">ผู้คัดกรอง: {name}</p>
           </div>
 
           {/* Export Buttons - Right top - Hide in PDF */}

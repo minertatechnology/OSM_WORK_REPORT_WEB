@@ -78,7 +78,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       const headerRows = [
         ["การติดตามการได้รับยาเม็ดเสริมไอโอดีน", null, null, null, null, null, null, null, null, null],
         [`วันที่: ${date || thaiDate}`, null, null, null, null, null, null, null, null, null],
-        [`เจ้าหน้าที่ผู้ตรวจ: ${name}`, null, null, null, null, null, null, null, null, null],
+        [`ผู้คัดกรอง: ${name}`, null, null, null, null, null, null, null, null, null],
         [null, null, null, null, null, null, null, null, null, null], // Empty row before table header
       ];
 
@@ -549,7 +549,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         if (date) {
           doc.text(`วันที่: ${date}`, 105, 22, { align: "center" });
         }
-        doc.text(`เจ้าหน้าที่ผู้ตรวจ: ${name}`, 105, date ? 28 : 22, { align: "center" });
+        doc.text(`ผู้คัดกรอง: ${name}`, 105, date ? 28 : 22, { align: "center" });
 
         // แสดงหมายเลขหน้า
         // doc.setFontSize(10);
@@ -636,7 +636,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
               การติดตามการได้รับยาเม็ดเสริมไอโอดีน
             </h2>
             {date && <p className="text-gray-600 text-sm mb-1">วันที่: {date}</p>}
-            <p className="text-gray-700 font-medium text-base">เจ้าหน้าที่ผู้ตรวจ: {name}</p>
+            <p className="text-gray-700 font-medium text-base">ผู้คัดกรอง: {name}</p>
             <p className="text-gray-600 text-sm mt-2">จำนวนทั้งหมด: {new Set(tableData.map(row => row.name)).size} คน</p>
           </div>
 
