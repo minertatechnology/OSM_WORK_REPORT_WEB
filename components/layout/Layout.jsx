@@ -49,7 +49,7 @@ const MENU_ICON_MAP = {
 
 // Component สำหรับแสดง role และ location ตาม permission level
 const UserPosition = React.memo(({ isMobile }) => {
-  const { roles, scope, user, loading } = useUserPermission();
+  const { roles, user, loading } = useUserPermission();
   const isClient = useIsClient();
 
   // รอให้โหลดเสร็จและอยู่ที่ฝั่ง client
@@ -65,42 +65,26 @@ const UserPosition = React.memo(({ isMobile }) => {
   // กำหนดพื้นที่ (บรรทัดที่ 3)
   let location = "";
 
-  const provinceName = scope?.province_name_th || user?.province_name || user?.province_name_th || "";
-  const districtName = scope?.district_name_th || user?.district_name || user?.district_name_th || "";
-  const subdistrictName = scope?.subdistrict_name_th || user?.subdistrict_name || user?.subdistrict_name_th || "";
-  const zoneCode = scope?.zone || user?.health_area_code || "";
-  const unitName = user?.service_unit?.name || scope?.unit || "";
+  const serviceUnitName = user?.service_unit?.name_th || user?.service_unit?.name || "";
 
   if (role === "กรม") {
     roleName = "กรมสนับสนุนบริการสุขภาพ";
     // ไม่แสดงพื้นที่
   } else if (role === "เขต") {
     roleName = "เขตสนับสนุนบริการสุขภาพ";
-    location = zoneCode ? `เขตที่ ${zoneCode}` : "";
+    location = serviceUnitName || "";
   } else if (role === "จังหวัด") {
     roleName = "สำนักงานสาธารณสุขจังหวัด";
-    location = provinceName ? `จังหวัด${provinceName}` : "";
+    location = serviceUnitName || "";
   } else if (role === "อำเภอ") {
     roleName = "สำนักงานสาธารณสุขอำเภอ";
-    if (provinceName && districtName) {
-      location = `จังหวัด${provinceName} อำเภอ${districtName}`;
-    } else if (districtName) {
-      location = `อำเภอ${districtName}`;
-    }
+    location = serviceUnitName || "";
   } else if (role === "ตำบล") {
-    roleName = "ตำบล";
-    if (provinceName && districtName && subdistrictName) {
-      location = `จังหวัด${provinceName} อำเภอ${districtName} ตำบล${subdistrictName}`;
-    } else if (subdistrictName) {
-      location = `ตำบล${subdistrictName}`;
-    }
+    roleName = "หน่วยบริการสุขภาพ";
+    location = serviceUnitName || "";
   } else if (role === "รพสต.") {
     roleName = "หน่วยบริการสุขภาพ";
-    if (provinceName && districtName && subdistrictName && unitName) {
-      location = `จังหวัด${provinceName} อำเภอ${districtName} ตำบล${subdistrictName} ${unitName}`;
-    } else if (unitName) {
-      location = unitName;
-    }
+    location = serviceUnitName || "";
   } else {
     roleName = role;
   }
