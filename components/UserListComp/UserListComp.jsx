@@ -433,9 +433,13 @@ function exportUserListPDF(data) {
     rowCountOnPage++;
   });
 
-  // Save PDF - Format: User_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`User_${currentYear}.pdf`);
+  // Save PDF - Format: User_{DD-MM-YYYY}.pdf
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
+  doc.save(`User_${dateStr}.pdf`);
 }
 
 // Export Excel function - ใช้ xlsx library สำหรับสร้างไฟล์ Excel ที่ถูกต้อง
@@ -519,9 +523,13 @@ function exportUserListExcel(data) {
   // เพิ่ม worksheet เข้า workbook
   XLSX.utils.book_append_sheet(wb, ws, "รายชื่อผู้ใช้งาน");
 
-  // บันทึกไฟล์ Excel
-  const currentYear = new Date().getFullYear();
-  XLSX.writeFile(wb, `User_${currentYear}.xlsx`);
+  // บันทึกไฟล์ Excel - Format: User_{DD-MM-YYYY}.xlsx
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
+  XLSX.writeFile(wb, `User_${dateStr}.xlsx`);
 }
 
 // Download Modal

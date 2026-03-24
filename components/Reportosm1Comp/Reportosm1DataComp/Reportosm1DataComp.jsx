@@ -153,9 +153,13 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: OSM1_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`OSM1_${currentYear}.pdf`);
+  // Save PDF - Format: OSM1_{DD-MM-YYYY}.pdf
+  const nowOSM1 = new Date();
+  const dayOSM1 = String(nowOSM1.getDate()).padStart(2, '0');
+  const monthOSM1 = String(nowOSM1.getMonth() + 1).padStart(2, '0');
+  const yearOSM1 = nowOSM1.getFullYear();
+  const dateStrOSM1 = `${dayOSM1}-${monthOSM1}-${yearOSM1}`;
+  doc.save(`OSM1_${dateStrOSM1}.pdf`);
 }
 
 function exportDistrictPDF(data) {
@@ -249,9 +253,13 @@ function exportDistrictPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: OSM1_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`OSM1_${currentYear}.pdf`);
+  // Save PDF - Format: OSM1_{DD-MM-YYYY}.pdf
+  const nowOSM1 = new Date();
+  const dayOSM1 = String(nowOSM1.getDate()).padStart(2, '0');
+  const monthOSM1 = String(nowOSM1.getMonth() + 1).padStart(2, '0');
+  const yearOSM1 = nowOSM1.getFullYear();
+  const dateStrOSM1 = `${dayOSM1}-${monthOSM1}-${yearOSM1}`;
+  doc.save(`OSM1_${dateStrOSM1}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -328,9 +336,13 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: OSM1_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`OSM1_${currentYear}.pdf`);
+  // Save PDF - Format: OSM1_{DD-MM-YYYY}.pdf
+  const nowOSM1 = new Date();
+  const dayOSM1 = String(nowOSM1.getDate()).padStart(2, '0');
+  const monthOSM1 = String(nowOSM1.getMonth() + 1).padStart(2, '0');
+  const yearOSM1 = nowOSM1.getFullYear();
+  const dateStrOSM1 = `${dayOSM1}-${monthOSM1}-${yearOSM1}`;
+  doc.save(`OSM1_${dateStrOSM1}.pdf`);
 }
 
 function exportToExcel(data, title = "รายงาน อสม.1") {

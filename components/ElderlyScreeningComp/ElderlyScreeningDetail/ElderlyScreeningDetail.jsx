@@ -382,10 +382,14 @@ const ElderlyScreeningDetail = ({
         currentY += rowHeight;
       });
 
-      // Save PDF - Format: Elderly{osm_code}_{year}.pdf หรือ Elderly{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // Save PDF - Format: Elderly{osm_code}_{DD-MM-YYYY}.pdf
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const dateStr = `${day}-${month}-${year}`;
       const code = osmCode || reportData?.first_name || "";
-      doc.save(`Elderly_${code}_${currentYear}.pdf`);
+      doc.save(`Elderly_${code}_${dateStr}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -708,10 +712,14 @@ const ElderlyScreeningDetail = ({
 
       XLSX.utils.book_append_sheet(wb, ws, "รายงานคัดกรองผู้สูงอายุ");
 
-      // Save Excel - Format: Elderly{osm_code}_{year}.xlsx
-      const currentYear = new Date().getFullYear();
-      const code = osmCode || "";
-      XLSX.writeFile(wb, `Elderly_${code}_${currentYear}.xlsx`);
+      // Save Excel - Format: Elderly{osm_code}_{DD-MM-YYYY}.xlsx
+      const nowExcel = new Date();
+      const dayExcel = String(nowExcel.getDate()).padStart(2, '0');
+      const monthExcel = String(nowExcel.getMonth() + 1).padStart(2, '0');
+      const yearExcel = nowExcel.getFullYear();
+      const dateStrExcel = `${dayExcel}-${monthExcel}-${yearExcel}`;
+      const codeExcel = osmCode || "";
+      XLSX.writeFile(wb, `Elderly_${codeExcel}_${dateStrExcel}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");

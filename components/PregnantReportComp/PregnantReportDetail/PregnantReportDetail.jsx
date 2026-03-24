@@ -328,14 +328,18 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
 
       XLSX.utils.book_append_sheet(wb, ws, "รายงานการได้รับยาเสริมไอโอดีน");
 
-      // สร้างชื่อไฟล์ - Format: PR{osm_code}_{year}.xlsx หรือ PR{first_name}_{year}.xlsx (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // สร้างชื่อไฟล์ - Format: PR{osm_code}_{DD-MM-YYYY}.xlsx
+      const nowExcel = new Date();
+      const dayExcel = String(nowExcel.getDate()).padStart(2, '0');
+      const monthExcel = String(nowExcel.getMonth() + 1).padStart(2, '0');
+      const yearExcel = nowExcel.getFullYear();
+      const dateStrExcel = `${dayExcel}-${monthExcel}-${yearExcel}`;
       const rawData = reportData?.rawData || {};
       console.log("🔍 Excel Export - rawData:", rawData);
       console.log("🔍 Excel Export - first_name:", rawData?.first_name);
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
       console.log("🔍 Excel Export - osmCode:", osmCode);
-      XLSX.writeFile(wb, `Iodine_${osmCode}_${currentYear}.xlsx`);
+      XLSX.writeFile(wb, `Iodine_${osmCode}_${dateStrExcel}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");
@@ -570,14 +574,18 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         });
       }
 
-      // บันทึกไฟล์ - Format: PR{osm_code}_{year}.pdf หรือ PR{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // บันทึกไฟล์ - Format: PR{osm_code}_{DD-MM-YYYY}.pdf
+      const nowPDF = new Date();
+      const dayPDF = String(nowPDF.getDate()).padStart(2, '0');
+      const monthPDF = String(nowPDF.getMonth() + 1).padStart(2, '0');
+      const yearPDF = nowPDF.getFullYear();
+      const dateStrPDF = `${dayPDF}-${monthPDF}-${yearPDF}`;
       const rawData = reportData?.rawData || {};
       console.log("🔍 PDF Export - rawData:", rawData);
       console.log("🔍 PDF Export - first_name:", rawData?.first_name);
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
       console.log("🔍 PDF Export - osmCode:", osmCode);
-      doc.save(`Iodine_${osmCode}_${currentYear}.pdf`);
+      doc.save(`Iodine_${osmCode}_${dateStrPDF}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");

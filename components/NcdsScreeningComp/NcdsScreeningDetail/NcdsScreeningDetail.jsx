@@ -344,10 +344,14 @@ const NcdsScreeningDetail = ({ reportData }) => {
         });
       }
 
-      // บันทึกไฟล์ - Format: NCD{osm_code}_{year}.pdf หรือ NCD{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // บันทึกไฟล์ - Format: NCD{osm_code}_{DD-MM-YYYY}.pdf
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const dateStr = `${day}-${month}-${year}`;
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
-      doc.save(`NCD_${osmCode}_${currentYear}.pdf`);
+      doc.save(`NCD_${osmCode}_${dateStr}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -541,10 +545,14 @@ const NcdsScreeningDetail = ({ reportData }) => {
 
       XLSX.utils.book_append_sheet(wb, ws, "รายงานคัดกรอง NCDs");
 
-      // สร้างชื่อไฟล์ - Format: NCD{osm_code}_{year}.xlsx หรือ NCD{first_name}_{year}.xlsx (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // สร้างชื่อไฟล์ - Format: NCD{osm_code}_{DD-MM-YYYY}.xlsx
+      const nowExcel = new Date();
+      const dayExcel = String(nowExcel.getDate()).padStart(2, '0');
+      const monthExcel = String(nowExcel.getMonth() + 1).padStart(2, '0');
+      const yearExcel = nowExcel.getFullYear();
+      const dateStrExcel = `${dayExcel}-${monthExcel}-${yearExcel}`;
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
-      XLSX.writeFile(wb, `NCD_${osmCode}_${currentYear}.xlsx`);
+      XLSX.writeFile(wb, `NCD_${osmCode}_${dateStrExcel}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");

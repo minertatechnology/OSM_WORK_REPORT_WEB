@@ -591,9 +591,13 @@ const ReportMosquitoCompDetailComp = ({ reportData }) => {
       drawIndoorSummaryRow(currentY);
 
       // บันทึกไฟล์
-      const currentYear = new Date().getFullYear();
+      const nowMosquito = new Date();
+      const dayMosquito = String(nowMosquito.getDate()).padStart(2, '0');
+      const monthMosquito = String(nowMosquito.getMonth() + 1).padStart(2, '0');
+      const yearMosquito = nowMosquito.getFullYear();
+      const dateStrMosquito = `${dayMosquito}-${monthMosquito}-${yearMosquito}`;
       const code = osmCode || "";
-      doc.save(`Mosquito_${code}_${currentYear}.pdf`);
+      doc.save(`Mosquito_${code}_${dateStrMosquito}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
