@@ -362,7 +362,7 @@ const GisComp = () => {
   // Convert arrays to options format for CustomSelect
   const healthRegionOptions = getHealthRegionsList().map((region) => ({
     value: region,
-    label: region,
+    label: region.replace(/\s*\d+/g, ''),
   }));
 
   const provinceOptions = (
@@ -1877,13 +1877,6 @@ const GisComp = () => {
                             })()}
                           </svg>
                           <div className={styles.donutCenter}>
-                            <div className={styles.donutValue}>
-                              {displayData.reduce(
-                                (sum, item) => sum + item.value,
-                                0
-                              )}
-                            </div>
-                            <div className={styles.donutLabel}>รวม</div>
                           </div>
                         </div>
                       </div>
@@ -1900,9 +1893,6 @@ const GisComp = () => {
                                 }}
                               ></div>
                               {item.name}
-                            </div>
-                            <div className={styles.provinceValue}>
-                              {item.value}
                             </div>
                           </div>
                         ))}
