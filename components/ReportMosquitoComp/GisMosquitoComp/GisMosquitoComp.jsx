@@ -6,6 +6,7 @@ import { useHealthRegions } from "../../../composables/useHealthRegions.js";
 import { useLoading } from "../../../context/LoadingProvider";
 import { useUserPermission } from "@context/UserPermissionProvider";
 import reportsAnalyticsService from "@services/reportsAnalyticsService";
+import { fetchMosquitoLarvaeReports } from "@services/mosquitoLarvaeService/mosquitoLarvaeService";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import {
   getProvinces,
@@ -19,7 +20,9 @@ import {
   isInCalendarYear,
   isInMonth,
   isInWeekOfMonth,
+  parseThaiDate,
 } from "@utils/fiscalYearHelper";
+import { formatThaiDate } from "@utils/dateFormatter";
 import styles from "../../Reportosm1Comp/GisComp/GisComp.module.css";
 
 const normalizeLookupValue = (value) => {
@@ -116,21 +119,24 @@ const normalizeAreaFileName = (value, level) => {
 
 const getReportProvinceName = (report) =>
   normalizeAreaName(
-    report?.province_name_th ||
+    report?.user_location?.province_name_th ||
+      report?.province_name_th ||
       report?.location_data?.region ||
       report?.location_data?.province
   );
 
 const getReportDistrictName = (report) =>
   normalizeAreaName(
-    report?.district_name_th ||
+    report?.user_location?.district_name_th ||
+      report?.district_name_th ||
       report?.location_data?.city ||
       report?.location_data?.district
   );
 
 const getReportSubdistrictName = (report) =>
   normalizeAreaName(
-    report?.subdistrict_name_th ||
+    report?.user_location?.subdistrict_name_th ||
+      report?.subdistrict_name_th ||
       report?.location_data?.district ||
       report?.location_data?.sublocality
   );
@@ -152,6 +158,43 @@ const getReportsFromWeeklyDetails = (data) => {
   }
 
   return [];
+};
+
+// Helper function to parse container data from report
+// รองรับทั้ง containers object, notes object, และ notes เป็น JSON string
+const getContainerData = (report) => {
+  // ถ้ามี containers โดยตรง
+  if (report?.containers && typeof report.containers === 'object') {
+    return report.containers;
+  }
+
+  // ถ้ามี notes
+  if (report?.notes) {
+    // ถ้า notes เป็น object อยู่แล้ว
+    if (typeof report.notes === 'object') {
+      return report.notes;
+    }
+
+    // ถ้า notes เป็น string ให้ parse เป็น JSON
+    if (typeof report.notes === 'string') {
+      try {
+        const trimmed = report.notes.trim();
+        if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+            (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+          const parsed = JSON.parse(trimmed);
+          // ถ้า parsed เป็น array ให้ return เลย (บางกรณี notes เป็น array)
+          if (Array.isArray(parsed)) {
+            return { inside: parsed, outside: [] };
+          }
+          return parsed;
+        }
+      } catch (e) {
+        // parse ไม่สำเร็จ ให้ return empty
+      }
+    }
+  }
+
+  return { inside: [], outside: [] };
 };
 
 // ฟังก์ชันสร้างสีจากค่า HI
@@ -201,7 +244,7 @@ const calculateHIByArea = (data, getAreaName, availableAreas = [], level = "prov
     let housesSurveyed = reportsInArea.length;
 
     reportsInArea.forEach((report) => {
-      const containerData = report?.containers || report?.notes || { inside: [], outside: [] };
+      const containerData = getContainerData(report);
       const insideContainers = Array.isArray(containerData.inside) ? containerData.inside : [];
       const outsideContainers = Array.isArray(containerData.outside) ? containerData.outside : [];
 
@@ -265,15 +308,15 @@ const calculateHICI = (data) => {
   let containersWithLarvae = 0;
 
   reports.forEach((report) => {
-    // ข้ามรายงานที่ไม่มีข้อมูล containers
-    if (!report?.containers && !report?.notes) {
-      return;
-    }
-
-    // รองรับทั้ง containers และ notes (โครงสร้างเดิม)
-    const containerData = report?.containers || report?.notes || { inside: [], outside: [] };
+    // ใช้ getContainerData เพื่อ parse container data
+    const containerData = getContainerData(report);
     const insideContainers = Array.isArray(containerData.inside) ? containerData.inside : [];
     const outsideContainers = Array.isArray(containerData.outside) ? containerData.outside : [];
+
+    // ถ้าไม่มีข้อมูลเลย ให้ข้าม
+    if (insideContainers.length === 0 && outsideContainers.length === 0) {
+      return;
+    }
 
     let houseHasLarvae = false;
     let houseContainersSurveyed = 0;
@@ -467,14 +510,14 @@ const GisMosquitoComp = () => {
 
     const hi = hiByArea?.[normalizedKey];
     if (hi === undefined) {
-      return "#9CA3AF"; // สีเทา - ไม่มีข้อมูล
+      return "#9CA3AF"; 
     }
     if (hi < 1) {
-      return "#198754"; // 🟢 เขียวเข้ม - ปลอดภัย (HI < 1%)
+      return "#198754"; 
     } else if (hi < 10) {
-      return "#f59e0b"; // 🟡 เหลืองเข้ม - เฝ้าระวัง (1% <= HI < 10%)
+      return "#f59e0b"; 
     } else {
-      return "#dc2626"; // 🔴 แดงเข้ม - เสี่ยงสูง (HI >= 10%)
+      return "#dc2626"; 
     }
   };
 
@@ -669,8 +712,9 @@ const GisMosquitoComp = () => {
       })
     );
 
-    // Count reports by area
-    const counts = new Map();
+    // Count UNIQUE USERS (external_user_id) by area - same as Data component
+    // ใช้ Set เพื่อเก็บ user_id ที่ไม่ซ้ำในแต่ละพื้นที่
+    const userSetsByArea = new Map();
     filteredReports.forEach((report) => {
       const name = getAreaName(report);
       const key =
@@ -688,13 +732,18 @@ const GisMosquitoComp = () => {
           break;
         }
       }
-      counts.set(displayName, (counts.get(displayName) || 0) + 1);
+      // เก็บ unique user_id ใน Set
+      const userId = report.external_user_id || report.user_id || 'unknown';
+      if (!userSetsByArea.has(displayName)) {
+        userSetsByArea.set(displayName, new Set());
+      }
+      userSetsByArea.get(displayName).add(userId);
     });
 
-    // Map all areas in areaList to display data (show 0 for areas with no reports)
+    // Map all areas in areaList to display data (show 0 for areas with no users)
     const data = areaList.map((name) => ({
       name,
-      value: counts.get(name) || 0,
+      value: userSetsByArea.get(name)?.size || 0,
     }));
 
     return data; // Don't filter - show all areas including those with 0 value
@@ -1548,18 +1597,27 @@ const GisMosquitoComp = () => {
     const fetchWeeklyDetails = async () => {
       try {
         setIsDataLoading(true);
-        // ดึงข้อมูลทั้งหมด (ส่ง 0 เพื่อไม่ให้ server filter)
-        const { data } = await reportsAnalyticsService.getWeeklyMosquitoDetails({
-          year: "0",
-          month: "0",
-          week: "0",
-          signal: controller.signal,
+
+        // 🔥 ใช้ API เดียวกับ Data component: fetchMosquitoLarvaeReports
+        const reports = await fetchMosquitoLarvaeReports({
+          skip: 0,
+          limit: 1000,
         });
 
-        // กรองข้อมูล client-side เหมือน ReportMosquitoCompDataComp.jsx
-        const reports = getReportsFromWeeklyDetails(data);
+        // 🔥 กรองข้อมูล client-side เหมือน Data component (ใช้ report_date และ parseThaiDate)
         const filteredReports = reports.filter((report) => {
-          const reportDate = new Date(report.created_at);
+          // แปลง report_date เป็น Thai date string แล้ว parse กลับ
+          const thaiDateString = report.report_date
+            ? new Date(report.report_date).toLocaleDateString("th-TH", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : null;
+
+          const reportDate = parseThaiDate(thaiDateString);
+
+          if (!reportDate) return false;
 
           // กรองตามปี (ปีงบประมาณ หรือ รายปี)
           if (selectedYear && selectedYear !== "0") {
@@ -1584,14 +1642,31 @@ const GisMosquitoComp = () => {
           return true;
         });
 
+        // 🔥 Enrich ข้อมูลด้วย location_data_resolved
+        const enrichedReports = filteredReports.map((report) => {
+          const locationResolved = report.location_data_resolved || {};
+          const userLocation = {
+            province_name_th: locationResolved.province,
+            district_name_th: locationResolved.district,
+            subdistrict_name_th: locationResolved.subdistrict,
+          };
+
+          return {
+            ...report,
+            user_location: userLocation,
+          };
+        });
+
         // สร้าง data object ใหม่จาก reports ที่กรองแล้ว
         const filteredData = {
-          ...data,
-          mosquito_larvae_reports: filteredReports
+          mosquito_larvae_reports: enrichedReports,
+          summary: {}, // API ใหม่ไม่มี summary
         };
 
         setWeeklyDetails(filteredData);
-        setMonthlyReportData(normalizeMonthlyReportDataFromAnalytics(filteredData));
+        // นับ unique users แทน reports (ให้ตรงกับ Data component)
+        const uniqueUserIds = new Set(enrichedReports.map(r => r.external_user_id || r.user_id || 'unknown'));
+        setMonthlyReportData({ total: uniqueUserIds.size, items: [] });
         // คำนวณ HI/CI จากข้อมูลที่กรองแล้ว
         setHiciData(calculateHICI(filteredData));
       } catch (error) {
@@ -1900,7 +1975,7 @@ const GisMosquitoComp = () => {
                     </>
                   ) : displayData.length > 0 ? (
                     <>
-                      {/* Donut Chart */}
+                      {/* Donut Chart - Full Circle with HI Color */}
                       <div className={styles.donutChart}>
                         <div className={styles.donutContainer}>
                           <svg
@@ -1914,53 +1989,13 @@ const GisMosquitoComp = () => {
                               cy="21"
                               r="15.91549430918"
                               fill="transparent"
-                              stroke="#f1f5f9"
+                              stroke={
+                                hiciData.hi < 1 ? "#28a745" :
+                                hiciData.hi < 10 ? "#ffc107" : "#dc3545"
+                              }
                               strokeWidth="3"
                             ></circle>
-                            {(() => {
-                              const total = displayData.reduce(
-                                (sum, item) => sum + item.value,
-                                0
-                              );
-                              // Skip rendering if total is 0 to avoid NaN
-                              if (total === 0) return null;
-
-                              let offset = 25;
-                              return displayData.map((item) => {
-                                const percentage = (item.value / total) * 100;
-                                const strokeDasharray = `${percentage} ${
-                                  100 - percentage
-                                }`;
-                                const color = getHIColorForDisplay(item.name);
-                                const currentOffset = offset;
-                                offset = (offset - percentage) % 100;
-
-                                return (
-                                  <circle
-                                    key={item.name}
-                                    cx="21"
-                                    cy="21"
-                                    r="15.91549430918"
-                                    fill="transparent"
-                                    stroke={color}
-                                    strokeWidth="3"
-                                    strokeDasharray={strokeDasharray}
-                                    strokeDashoffset={currentOffset}
-                                    className={styles.donutSegment}
-                                  />
-                                );
-                              });
-                            })()}
                           </svg>
-                          <div className={styles.donutCenter}>
-                            <div className={styles.donutValue}>
-                              {displayData.reduce(
-                                (sum, item) => sum + item.value,
-                                0
-                              )}
-                            </div>
-                            <div className={styles.donutLabel}>รวม</div>
-                          </div>
                         </div>
                       </div>
 

@@ -18,6 +18,8 @@ import {
   isInFiscalYear,
   isInCalendarYear,
   isInMonth,
+  isInWeekOfMonth,
+  parseThaiDate,
 } from "@utils/fiscalYearHelper";
 import styles from "./GisComp.module.css";
 
@@ -115,21 +117,24 @@ const normalizeAreaFileName = (value, level) => {
 
 const getReportProvinceName = (report) =>
   normalizeAreaName(
-    report?.province_name_th ||
+    report?.user_location?.province_name_th ||
+      report?.province_name_th ||
       report?.location_data?.region ||
       report?.location_data?.province
   );
 
 const getReportDistrictName = (report) =>
   normalizeAreaName(
-    report?.district_name_th ||
+    report?.user_location?.district_name_th ||
+      report?.district_name_th ||
       report?.location_data?.city ||
       report?.location_data?.district
   );
 
 const getReportSubdistrictName = (report) =>
   normalizeAreaName(
-    report?.subdistrict_name_th ||
+    report?.user_location?.subdistrict_name_th ||
+      report?.subdistrict_name_th ||
       report?.location_data?.district ||
       report?.location_data?.sublocality
   );
@@ -1387,6 +1392,7 @@ const GisComp = () => {
 
   // Log filter selections for debugging
   // Fetch weekly analytics details for the selected period
+  // 🔥 แก้ไข: ใช้ API เดียวกับ Data component เพื่อให้ข้อมูลตรงกัน
   useEffect(() => {
     // อนุญาตให้ fetch ข้อมูลได้เมื่อเลือกอย่างน้อย 1 ตัวเลือก (ปี, เดือน, หรือสัปดาห์)
     if (!selectedYear && !selectedMonth && !selectedWeek) {
@@ -1409,20 +1415,42 @@ const GisComp = () => {
     const fetchWeeklyDetails = async () => {
       try {
         setIsDataLoading(true);
-        // ดึงข้อมูลทั้งหมด (ส่ง 0 เพื่อไม่ให้ server filter)
-        const { data } = await reportsAnalyticsService.getWeeklyOsm1Details({
-          year: "0",
-          month: "0",
-          week: "0",
-          signal: controller.signal,
-        });
 
-        // ดึง reports จาก response
-        const reports = data?.report_osm1_reports || [];
+        // 🔥 ดึงข้อมูลจาก 2 API: 76 จังหวัด + กรุงเทพ (เหมือน Data component)
+        const queryString = new URLSearchParams({
+          skip: 0,
+          limit: 1000,
+        }).toString();
 
-        // กรองข้อมูล client-side เหมือน GisMosquitoComp
+        const [provincesRes, bangkokRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`, {
+            signal: controller.signal,
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1-bangkok/submissionsall?${queryString}`, {
+            signal: controller.signal,
+          }),
+        ]);
+
+        const provincesData = await provincesRes.json();
+        const bangkokData = await bangkokRes.json();
+
+        // Merge ข้อมูลจาก 2 sources
+        const reports = [...provincesData, ...bangkokData];
+
+        // 🔥 กรองข้อมูล client-side เหมือน Data component (ใช้ submitted_at และ parseThaiDate)
         const filteredReports = reports.filter((report) => {
-          const reportDate = new Date(report.created_at);
+          // แปลง submitted_at เป็น Thai date string แล้ว parse กลับ
+          const thaiDateString = report.submitted_at
+            ? new Date(report.submitted_at).toLocaleDateString("th-TH", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : null;
+
+          const reportDate = parseThaiDate(thaiDateString);
+
+          if (!reportDate) return false;
 
           // กรองตามปี (ปีงบประมาณ หรือ รายปี)
           if (selectedYear && selectedYear !== "0") {
@@ -1441,18 +1469,31 @@ const GisComp = () => {
 
           // กรองตามสัปดาห์ (ต้องมีการเลือกเดือนก่อน)
           if (selectedWeek && selectedWeek !== "0" && selectedMonth && selectedMonth !== "0") {
-            const weekOfMonth = Math.ceil(new Date(reportDate).getDate() / 7);
-            if (weekOfMonth !== parseInt(selectedWeek)) return false;
+            if (!isInWeekOfMonth(reportDate, selectedWeek)) return false;
           }
 
           return true;
         });
 
-        // สร้าง data object ใหม่จาก reports ที่กรองแล้ว และอัพเดท total ให้ตรงกับจำนวนที่กรอง
+        // 🔥 Enrich ข้อมูลด้วย location_data_resolved
+        const enrichedReports = filteredReports.map((item) => {
+          const locationResolved = item.location_data_resolved || {};
+          const userLocation = {
+            province_name_th: locationResolved.province,
+            district_name_th: locationResolved.district,
+            subdistrict_name_th: locationResolved.subdistrict,
+          };
+
+          return {
+            ...item,
+            user_location: userLocation,
+          };
+        });
+
+        // สร้าง data object ใหม่จาก reports ที่กรองแล้ว
         const filteredData = {
-          ...data,
-          report_osm1_reports: filteredReports,
-          total: filteredReports.length  // อัพเดท total ให้ตรงกับจำนวน reports ที่กรองแล้ว
+          report_osm1_reports: enrichedReports,
+          total: enrichedReports.length,
         };
 
         setWeeklyDetails(filteredData);
