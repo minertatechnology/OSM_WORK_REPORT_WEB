@@ -18,6 +18,7 @@ import {
 import { useLoading } from "@context/LoadingProvider";
 import { useSessionStorage } from "@hooks/useSessionStorage";
 import { useIsClient } from "@hooks/useIsClient";
+import { useUserPermission } from "@context/UserPermissionProvider";
 
 const PRIMARY = "#6E28B7";
 
@@ -46,41 +47,84 @@ const MENU_ICON_MAP = {
   การขนส่งของรางวัล: <Gift className="w-5 h-5" />,
 };
 
-const getUserInfoFromSession = () => {
-  if (typeof window === "undefined") return {};
-  try {
-    const data = sessionStorage.getItem("userInfo");
-    if (!data) return {};
-    const parsed = JSON.parse(data);
-    return parsed || {};
-  } catch {
-    return {};
-  }
-};
-
-// Component สำหรับแสดง position_name_th โดยตรงจาก sessionStorage
+// Component สำหรับแสดง role และ location ตาม permission level
 const UserPosition = React.memo(({ isMobile }) => {
-  const [userInfo, , isLoaded] = useSessionStorage("userInfo", {});
+  const { roles, scope, user, loading } = useUserPermission();
   const isClient = useIsClient();
 
   // รอให้โหลดเสร็จและอยู่ที่ฝั่ง client
-  if (!isClient || !isLoaded) {
+  if (!isClient || loading) {
     return null;
   }
 
-  const position = userInfo?.user?.position_name_th || "";
+  const role = roles?.[0] || "";
+  if (!role) return null;
 
-  if (!position) return null;
+  // กำหนดชื่อสิทธิ (บรรทัดที่ 2)
+  let roleName = "";
+  // กำหนดพื้นที่ (บรรทัดที่ 3)
+  let location = "";
+
+  const provinceName = scope?.province_name_th || user?.province_name || user?.province_name_th || "";
+  const districtName = scope?.district_name_th || user?.district_name || user?.district_name_th || "";
+  const subdistrictName = scope?.subdistrict_name_th || user?.subdistrict_name || user?.subdistrict_name_th || "";
+  const zoneCode = scope?.zone || user?.health_area_code || "";
+  const unitName = user?.service_unit?.name || scope?.unit || "";
+
+  if (role === "กรม") {
+    roleName = "กรมสนับสนุนบริการสุขภาพ";
+    // ไม่แสดงพื้นที่
+  } else if (role === "เขต") {
+    roleName = "เขตสนับสนุนบริการสุขภาพ";
+    location = zoneCode ? `เขตที่ ${zoneCode}` : "";
+  } else if (role === "จังหวัด") {
+    roleName = "สำนักงานสาธารณสุขจังหวัด";
+    location = provinceName ? `จังหวัด${provinceName}` : "";
+  } else if (role === "อำเภอ") {
+    roleName = "สำนักงานสาธารณสุขอำเภอ";
+    if (provinceName && districtName) {
+      location = `จังหวัด${provinceName} อำเภอ${districtName}`;
+    } else if (districtName) {
+      location = `อำเภอ${districtName}`;
+    }
+  } else if (role === "ตำบล") {
+    roleName = "ตำบล";
+    if (provinceName && districtName && subdistrictName) {
+      location = `จังหวัด${provinceName} อำเภอ${districtName} ตำบล${subdistrictName}`;
+    } else if (subdistrictName) {
+      location = `ตำบล${subdistrictName}`;
+    }
+  } else if (role === "รพสต.") {
+    roleName = "หน่วยบริการสุขภาพ";
+    if (provinceName && districtName && subdistrictName && unitName) {
+      location = `จังหวัด${provinceName} อำเภอ${districtName} ตำบล${subdistrictName} ${unitName}`;
+    } else if (unitName) {
+      location = unitName;
+    }
+  } else {
+    roleName = role;
+  }
 
   return (
-    <div
-      className={`${
-        isMobile ? "text-[10px]" : "text-[11px]"
-      } font-medium`}
-      style={{ color: PRIMARY }}
-    >
-      {position}
-    </div>
+    <>
+      <div
+        className={`${
+          isMobile ? "text-[10px]" : "text-[11px]"
+        } font-medium`}
+        style={{ color: PRIMARY }}
+      >
+        {roleName}
+      </div>
+      {location && (
+        <div
+          className={`${
+            isMobile ? "text-[9px]" : "text-[10px]"
+          } text-gray-500`}
+        >
+          {location}
+        </div>
+      )}
+    </>
   );
 });
 UserPosition.displayName = 'UserPosition';

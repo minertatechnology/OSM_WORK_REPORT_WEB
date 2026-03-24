@@ -633,7 +633,7 @@ export default function NewsAddPopup({
           textAlign: "left",
           letterSpacing: "0.5px"
         }}>
-          {mode === "add" ? "เพิ่มข่าวสาร" : "รายละเอียดข่าวสาร"}
+          {mode === "add" ? "เพิ่มแจ้งเตือน" : "รายละเอียดแจ้งเตือน"}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 18px", marginBottom: 0 }}>
           {/* เขตสุขภาพ */}
@@ -879,7 +879,7 @@ export default function NewsAddPopup({
                   cursor: !isCanSubmit() ? "not-allowed" : "pointer"
                 }}
               >
-                เพิ่มข่าวสาร
+                เพิ่มแจ้งเตือน
               </ButtonService>
             </>
           ) : (

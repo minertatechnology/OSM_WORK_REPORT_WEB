@@ -85,7 +85,7 @@ const REPORT_TYPES = [
   { type: "elderly_screening", name: "แบบคัดกรองผู้สูงอายุในชุมชน", icon: UserCheck },
   {
     type: "pregnant_women",
-    name: "แบบบติดตามการได้รับยาเม็ดเสริมไอโอดีน",
+    name: "แบบติดตามการได้รับยาเม็ดเสริมไอโอดีน",
     icon: FileCheck,
   },
   { type: "count_carbs", name: "อสม. ชวนนับคาร์บ", icon: FileText },
