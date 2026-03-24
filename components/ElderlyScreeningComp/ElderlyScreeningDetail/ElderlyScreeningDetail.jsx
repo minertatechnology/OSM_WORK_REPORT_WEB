@@ -160,7 +160,7 @@ const ElderlyScreeningDetail = ({
 
       doc.setFontSize(12);
       doc.setFont("Sarabun", "bold");
-      doc.text(`ผู้ประเมิน: ${assessorName || "ไม่ระบุชื่อ"}`, 148, 18, { align: "center" });
+      doc.text(`ผู้คัดกรอง: ${assessorName || "ไม่ระบุชื่อ"}`, 148, 18, { align: "center" });
       // doc.text(`นายทะเบียน อสม.`, 148, 23, { align: "center" });
 
       // Define table columns - total width should fit A4 landscape (297mm)
@@ -382,10 +382,14 @@ const ElderlyScreeningDetail = ({
         currentY += rowHeight;
       });
 
-      // Save PDF - Format: Elderly{osm_code}_{year}.pdf หรือ Elderly{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // Save PDF - Format: Elderly{osm_code}_{DD-MM-YYYY}.pdf
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const dateStr = `${day}-${month}-${year}`;
       const code = osmCode || reportData?.first_name || "";
-      doc.save(`Elderly_${code}_${currentYear}.pdf`);
+      doc.save(`Elderly_${code}_${dateStr}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -470,7 +474,7 @@ const ElderlyScreeningDetail = ({
       // Header rows before table
       const headerRows = [
         ["รายงานผลการประเมินสุขภาพผู้สูงอายุในชุมชน", ...Array(numCols - 1).fill(null)],
-        [`ผู้ประเมิน: ${assessorName || "ไม่ระบุชื่อ"}`, ...Array(numCols - 1).fill(null)],
+        [`ผู้คัดกรอง: ${assessorName || "ไม่ระบุชื่อ"}`, ...Array(numCols - 1).fill(null)],
         [...Array(numCols).fill(null)], // Empty row
       ];
 
@@ -708,10 +712,14 @@ const ElderlyScreeningDetail = ({
 
       XLSX.utils.book_append_sheet(wb, ws, "รายงานคัดกรองผู้สูงอายุ");
 
-      // Save Excel - Format: Elderly{osm_code}_{year}.xlsx
-      const currentYear = new Date().getFullYear();
-      const code = osmCode || "";
-      XLSX.writeFile(wb, `Elderly_${code}_${currentYear}.xlsx`);
+      // Save Excel - Format: Elderly{osm_code}_{DD-MM-YYYY}.xlsx
+      const nowExcel = new Date();
+      const dayExcel = String(nowExcel.getDate()).padStart(2, '0');
+      const monthExcel = String(nowExcel.getMonth() + 1).padStart(2, '0');
+      const yearExcel = nowExcel.getFullYear();
+      const dateStrExcel = `${dayExcel}-${monthExcel}-${yearExcel}`;
+      const codeExcel = osmCode || "";
+      XLSX.writeFile(wb, `Elderly_${codeExcel}_${dateStrExcel}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");
@@ -740,7 +748,7 @@ const ElderlyScreeningDetail = ({
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">รายงานผลการประเมินสุขภาพผู้สูงอายุในชุมชน</h1>
                 <p className="text-white/95 text-sm mt-1">
-                  ผู้ประเมิน: <span className="font-bold">{assessorName || "ไม่ระบุชื่อ"}</span>
+                  ผู้คัดกรอง: <span className="font-bold">{assessorName || "ไม่ระบุชื่อ"}</span>
                 </p>
                 <p className="text-white/95 text-sm">
                   จำนวนทั้งหมด: <span className="font-bold">{elderlyCount}</span> คน

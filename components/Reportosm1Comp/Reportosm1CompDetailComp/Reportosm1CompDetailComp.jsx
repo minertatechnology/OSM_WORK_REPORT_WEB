@@ -1153,10 +1153,14 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         }
       });
 
-      // บันทึกไฟล์ - Format: OSM1{osm_code}_{year}.pdf หรือ OSM1_{year}.pdf (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // บันทึกไฟล์ - Format: OSM1{osm_code}_{DD-MM-YYYY}.pdf
+      const nowOSM1Detail = new Date();
+      const dayOSM1Detail = String(nowOSM1Detail.getDate()).padStart(2, '0');
+      const monthOSM1Detail = String(nowOSM1Detail.getMonth() + 1).padStart(2, '0');
+      const yearOSM1Detail = nowOSM1Detail.getFullYear();
+      const dateStrOSM1Detail = `${dayOSM1Detail}-${monthOSM1Detail}-${yearOSM1Detail}`;
       const code = osmCode || "";
-      doc.save(`OSM1_${code}_${currentYear}.pdf`);
+      doc.save(`OSM1_${code}_${dateStrOSM1Detail}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");

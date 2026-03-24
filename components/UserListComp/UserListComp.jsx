@@ -27,15 +27,16 @@ import {
   RotateCcw,
   Loader2,
   Mail,
-  Heart,
   Droplet,
-  Briefcase,
   GraduationCap,
-  UserCheck,
   Smartphone,
   CalendarCheck,
   CreditCard,
   Phone,
+  Wifi,
+  Moon,
+  Shield,
+  HeartPulse,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import CustomSelect from "@services/customSelectService/customSelectService";
@@ -432,9 +433,13 @@ function exportUserListPDF(data) {
     rowCountOnPage++;
   });
 
-  // Save PDF - Format: User_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`User_${currentYear}.pdf`);
+  // Save PDF - Format: User_{DD-MM-YYYY}.pdf
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
+  doc.save(`User_${dateStr}.pdf`);
 }
 
 // Export Excel function - ใช้ xlsx library สำหรับสร้างไฟล์ Excel ที่ถูกต้อง
@@ -518,9 +523,13 @@ function exportUserListExcel(data) {
   // เพิ่ม worksheet เข้า workbook
   XLSX.utils.book_append_sheet(wb, ws, "รายชื่อผู้ใช้งาน");
 
-  // บันทึกไฟล์ Excel
-  const currentYear = new Date().getFullYear();
-  XLSX.writeFile(wb, `User_${currentYear}.xlsx`);
+  // บันทึกไฟล์ Excel - Format: User_{DD-MM-YYYY}.xlsx
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
+  XLSX.writeFile(wb, `User_${dateStr}.xlsx`);
 }
 
 // Download Modal
@@ -861,7 +870,7 @@ function Pagination({
 
 const UserListComp = () => {
   // Use permission-based filters
-  const { isLocked, isCountryLevel, getInitialFilters } = useUserPermission();
+  const { isLocked, isCountryLevel, getInitialFilters, user: currentUser, scope } = useUserPermission();
   const {
     zone,
     province,
@@ -1443,6 +1452,13 @@ const UserListComp = () => {
         // OSM = not officer (includes unknown names)
         return !isOfficer;
       }).length,
+      // OSM กรุงเทพ (province_id === "10" และไม่ใช่ officer)
+      osmBangkok: filtered.filter(user => {
+        const pos = (user.position || "").toLowerCase();
+        const isOfficer = pos.includes("เจ้าหน้าที่") || pos.includes("officer") || user.permission_level === "officer";
+        const isBangkok = String(user.province_id || "") === "10";
+        return !isOfficer && isBangkok;
+      }).length,
     };
 
     // กรองเฉพาะ online สำหรับแสดงในตาราง
@@ -1743,7 +1759,7 @@ const UserListComp = () => {
           <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 shadow-lg">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-xl">
-                <UserCheck size={24} className="text-white" />
+                <Wifi size={24} className="text-white" />
               </div>
               <div>
                 <div className="text-white/80 text-sm">ออนไลน์</div>
@@ -1757,7 +1773,7 @@ const UserListComp = () => {
           <div className="bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl p-4 shadow-lg">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-xl">
-                <User size={24} className="text-white" />
+                <Moon size={24} className="text-white" />
               </div>
               <div>
                 <div className="text-white/80 text-sm">ออฟไลน์</div>
@@ -1767,25 +1783,27 @@ const UserListComp = () => {
               </div>
             </div>
           </div>
-          {/* Officers */}
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl p-4 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-xl">
-                <Briefcase size={24} className="text-white" />
-              </div>
-              <div>
-                <div className="text-white/80 text-sm">เจ้าหน้าที่</div>
-                <div className="text-2xl font-bold text-white">
-                  {statistics?.officers?.toLocaleString("th-TH") || 0}
+          {/* Officers - แสดงเฉพาะสิทธิกรม */}
+          {isCountryLevel() && (
+            <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl p-4 shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <Shield size={24} className="text-white" />
+                </div>
+                <div>
+                  <div className="text-white/80 text-sm">เจ้าหน้าที่</div>
+                  <div className="text-2xl font-bold text-white">
+                    {statistics?.officers?.toLocaleString("th-TH") || 0}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
           {/* OSM */}
           <div className="bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl p-4 shadow-lg">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-xl">
-                <Heart size={24} className="text-white" />
+                <HeartPulse size={24} className="text-white" />
               </div>
               <div>
                 <div className="text-white/80 text-sm">อสม.</div>
@@ -1795,6 +1813,22 @@ const UserListComp = () => {
               </div>
             </div>
           </div>
+          {/* OSM กรุงเทพ - แสดงเฉพาะสิทธิกรม หรือ user ที่อยู่ในกรุงเทพ */}
+          {(isCountryLevel() || scope?.province === "10") && (
+            <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl p-4 shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <Landmark size={24} className="text-white" />
+                </div>
+                <div>
+                  <div className="text-white/80 text-sm">อสม. กรุงเทพ</div>
+                  <div className="text-2xl font-bold text-white">
+                    {statistics?.osmBangkok?.toLocaleString("th-TH") || 0}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Loading Progress Indicator */}

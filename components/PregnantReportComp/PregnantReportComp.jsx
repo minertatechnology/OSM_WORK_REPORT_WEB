@@ -264,11 +264,15 @@ function exportSummaryPDF(data, userDataMap, exporterName = "") {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Iodine_{name}_{year}.pdf
-  const currentYear = new Date().getFullYear();
+  // Save PDF - Format: Iodine_{name}_{DD-MM-YYYY}.pdf
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
   const fileName = exporterName
-    ? `Iodine_${exporterName}_${currentYear}.pdf`
-    : `Iodine_${currentYear}.pdf`;
+    ? `Iodine_${exporterName}_${dateStr}.pdf`
+    : `Iodine_${dateStr}.pdf`;
   doc.save(fileName);
 }
 
@@ -366,11 +370,15 @@ function exportOverviewPDF(data, userDataMap, exporterName = "") {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Iodine_{name}_{year}.pdf
-  const currentYear = new Date().getFullYear();
+  // Save PDF - Format: Iodine_{name}_{DD-MM-YYYY}.pdf
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
   const fileName = exporterName
-    ? `Iodine_${exporterName}_${currentYear}.pdf`
-    : `Iodine_${currentYear}.pdf`;
+    ? `Iodine_${exporterName}_${dateStr}.pdf`
+    : `Iodine_${dateStr}.pdf`;
   doc.save(fileName);
 }
 
@@ -457,11 +465,15 @@ function exportNotSubmittedPDF(data, userDataMap, exporterName = "") {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Iodine_{name}_{year}.pdf
-  const currentYear = new Date().getFullYear();
+  // Save PDF - Format: Iodine_{name}_{DD-MM-YYYY}.pdf
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
   const fileName = exporterName
-    ? `Iodine_${exporterName}_${currentYear}.pdf`
-    : `Iodine_${currentYear}.pdf`;
+    ? `Iodine_${exporterName}_${dateStr}.pdf`
+    : `Iodine_${dateStr}.pdf`;
   doc.save(fileName);
 }
 
@@ -517,12 +529,16 @@ function exportToExcel(data, userDataMap, title = "การติดตาม�
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  // Save Excel - Format: Iodine_{name}_{year}.xlsx
-  const currentYear = new Date().getFullYear();
-  const fileName = exporterName
-    ? `Iodine_${exporterName}_${currentYear}.xlsx`
-    : `Iodine_${currentYear}.xlsx`;
-  saveAs(blob, fileName);
+  // Save Excel - Format: Iodine_{name}_{DD-MM-YYYY}.xlsx
+  const nowExcel = new Date();
+  const dayExcel = String(nowExcel.getDate()).padStart(2, '0');
+  const monthExcel = String(nowExcel.getMonth() + 1).padStart(2, '0');
+  const yearExcel = nowExcel.getFullYear();
+  const dateStrExcel = `${dayExcel}-${monthExcel}-${yearExcel}`;
+  const fileNameExcel = exporterName
+    ? `Iodine_${exporterName}_${dateStrExcel}.xlsx`
+    : `Iodine_${dateStrExcel}.xlsx`;
+  saveAs(blob, fileNameExcel);
 }
 
 // Modal component styled like the image (for both download and detail)

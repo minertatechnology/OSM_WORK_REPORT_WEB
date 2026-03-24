@@ -274,9 +274,13 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Mosquito_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`Mosquito_${currentYear}.pdf`);
+  // Save PDF - Format: Mosquito_{DD-MM-YYYY}.pdf
+  const nowMosquito = new Date();
+  const dayMosquito = String(nowMosquito.getDate()).padStart(2, '0');
+  const monthMosquito = String(nowMosquito.getMonth() + 1).padStart(2, '0');
+  const yearMosquito = nowMosquito.getFullYear();
+  const dateStrMosquito = `${dayMosquito}-${monthMosquito}-${yearMosquito}`;
+  doc.save(`Mosquito_${dateStrMosquito}.pdf`);
 }
 
 function exportDistrictPDF(data) {
@@ -371,9 +375,13 @@ function exportDistrictPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Mosquito_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`Mosquito_${currentYear}.pdf`);
+  // Save PDF - Format: Mosquito_{DD-MM-YYYY}.pdf
+  const nowMosquito = new Date();
+  const dayMosquito = String(nowMosquito.getDate()).padStart(2, '0');
+  const monthMosquito = String(nowMosquito.getMonth() + 1).padStart(2, '0');
+  const yearMosquito = nowMosquito.getFullYear();
+  const dateStrMosquito = `${dayMosquito}-${monthMosquito}-${yearMosquito}`;
+  doc.save(`Mosquito_${dateStrMosquito}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -451,9 +459,13 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: Mosquito_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`Mosquito_${currentYear}.pdf`);
+  // Save PDF - Format: Mosquito_{DD-MM-YYYY}.pdf
+  const nowMosquito = new Date();
+  const dayMosquito = String(nowMosquito.getDate()).padStart(2, '0');
+  const monthMosquito = String(nowMosquito.getMonth() + 1).padStart(2, '0');
+  const yearMosquito = nowMosquito.getFullYear();
+  const dateStrMosquito = `${dayMosquito}-${monthMosquito}-${yearMosquito}`;
+  doc.save(`Mosquito_${dateStrMosquito}.pdf`);
 }
 
 function exportToExcel(data, title = "รายงานลูกน้ำยุงลาย") {

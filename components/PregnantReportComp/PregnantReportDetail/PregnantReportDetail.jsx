@@ -78,7 +78,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
       const headerRows = [
         ["การติดตามการได้รับยาเม็ดเสริมไอโอดีน", null, null, null, null, null, null, null, null, null],
         [`วันที่: ${date || thaiDate}`, null, null, null, null, null, null, null, null, null],
-        [`เจ้าหน้าที่ผู้ตรวจ: ${name}`, null, null, null, null, null, null, null, null, null],
+        [`ผู้คัดกรอง: ${name}`, null, null, null, null, null, null, null, null, null],
         [null, null, null, null, null, null, null, null, null, null], // Empty row before table header
       ];
 
@@ -328,14 +328,18 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
 
       XLSX.utils.book_append_sheet(wb, ws, "รายงานการได้รับยาเสริมไอโอดีน");
 
-      // สร้างชื่อไฟล์ - Format: PR{osm_code}_{year}.xlsx หรือ PR{first_name}_{year}.xlsx (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // สร้างชื่อไฟล์ - Format: PR{osm_code}_{DD-MM-YYYY}.xlsx
+      const nowExcel = new Date();
+      const dayExcel = String(nowExcel.getDate()).padStart(2, '0');
+      const monthExcel = String(nowExcel.getMonth() + 1).padStart(2, '0');
+      const yearExcel = nowExcel.getFullYear();
+      const dateStrExcel = `${dayExcel}-${monthExcel}-${yearExcel}`;
       const rawData = reportData?.rawData || {};
       console.log("🔍 Excel Export - rawData:", rawData);
       console.log("🔍 Excel Export - first_name:", rawData?.first_name);
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
       console.log("🔍 Excel Export - osmCode:", osmCode);
-      XLSX.writeFile(wb, `Iodine_${osmCode}_${currentYear}.xlsx`);
+      XLSX.writeFile(wb, `Iodine_${osmCode}_${dateStrExcel}.xlsx`);
     } catch (error) {
       console.error("Error generating Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง Excel");
@@ -545,7 +549,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         if (date) {
           doc.text(`วันที่: ${date}`, 105, 22, { align: "center" });
         }
-        doc.text(`เจ้าหน้าที่ผู้ตรวจ: ${name}`, 105, date ? 28 : 22, { align: "center" });
+        doc.text(`ผู้คัดกรอง: ${name}`, 105, date ? 28 : 22, { align: "center" });
 
         // แสดงหมายเลขหน้า
         // doc.setFontSize(10);
@@ -570,14 +574,18 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
         });
       }
 
-      // บันทึกไฟล์ - Format: PR{osm_code}_{year}.pdf หรือ PR{first_name}_{year}.pdf (ถ้าไม่มี osm_code)
-      const currentYear = new Date().getFullYear();
+      // บันทึกไฟล์ - Format: PR{osm_code}_{DD-MM-YYYY}.pdf
+      const nowPDF = new Date();
+      const dayPDF = String(nowPDF.getDate()).padStart(2, '0');
+      const monthPDF = String(nowPDF.getMonth() + 1).padStart(2, '0');
+      const yearPDF = nowPDF.getFullYear();
+      const dateStrPDF = `${dayPDF}-${monthPDF}-${yearPDF}`;
       const rawData = reportData?.rawData || {};
       console.log("🔍 PDF Export - rawData:", rawData);
       console.log("🔍 PDF Export - first_name:", rawData?.first_name);
       const osmCode = rawData?.osm_code || rawData?.osmCode || rawData?.first_name || "";
       console.log("🔍 PDF Export - osmCode:", osmCode);
-      doc.save(`Iodine_${osmCode}_${currentYear}.pdf`);
+      doc.save(`Iodine_${osmCode}_${dateStrPDF}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -628,7 +636,7 @@ const PregnantReportDetail = ({ reportData, evaluations = [] }) => {
               การติดตามการได้รับยาเม็ดเสริมไอโอดีน
             </h2>
             {date && <p className="text-gray-600 text-sm mb-1">วันที่: {date}</p>}
-            <p className="text-gray-700 font-medium text-base">เจ้าหน้าที่ผู้ตรวจ: {name}</p>
+            <p className="text-gray-700 font-medium text-base">ผู้คัดกรอง: {name}</p>
             <p className="text-gray-600 text-sm mt-2">จำนวนทั้งหมด: {new Set(tableData.map(row => row.name)).size} คน</p>
           </div>
 

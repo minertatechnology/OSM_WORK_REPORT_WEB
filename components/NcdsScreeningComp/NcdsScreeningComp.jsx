@@ -172,9 +172,13 @@ function exportSummaryPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: NCD_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`NCD_${currentYear}.pdf`);
+  // Save PDF - Format: NCD_{DD-MM-YYYY}.pdf
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
+  doc.save(`NCD_${dateStr}.pdf`);
 }
 
 function exportOverviewPDF(data) {
@@ -255,9 +259,13 @@ function exportOverviewPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: NCD_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`NCD_${currentYear}.pdf`);
+  // Save PDF - Format: NCD_{DD-MM-YYYY}.pdf
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
+  doc.save(`NCD_${dateStr}.pdf`);
 }
 
 function exportNotSubmittedPDF(data) {
@@ -331,9 +339,13 @@ function exportNotSubmittedPDF(data) {
     yPos += rowHeight;
   });
 
-  // Save PDF - Format: NCD_{year}.pdf
-  const currentYear = new Date().getFullYear();
-  doc.save(`NCD_${currentYear}.pdf`);
+  // Save PDF - Format: NCD_{DD-MM-YYYY}.pdf
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}-${month}-${year}`;
+  doc.save(`NCD_${dateStr}.pdf`);
 }
 
 function exportToExcel(data, title = "��§ҹ�Ѵ��ͧ�ä NCDs") {

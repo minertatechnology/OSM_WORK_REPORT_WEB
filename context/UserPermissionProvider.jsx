@@ -77,13 +77,13 @@ export default function UserPermissionProvider({ children }) {
 
           // Map permission_scope.level to role
           const levelToRole = {
-            'country': 'สบส',
+            'country': 'กรม',
             'region': 'เขต',
             'area': 'เขต',
             'province': 'จังหวัด',
             'district': 'อำเภอ',
             'subdistrict': 'ตำบล',
-            'village': 'รพสต',
+            'village': 'รพสต.',
           };
 
           // ใช้ permission_scope.level สำหรับทั้ง OSM และ Officer

@@ -173,9 +173,13 @@ const Reportosm1Comp = () => {
       }
     });
 
-    // Save PDF - Format: OSM1_{year}.pdf
-    const currentYear = new Date().getFullYear();
-    doc.save(`OSM1_${currentYear}.pdf`);
+    // Save PDF - Format: OSM1_{DD-MM-YYYY}.pdf
+    const nowOSM1Comp = new Date();
+    const dayOSM1Comp = String(nowOSM1Comp.getDate()).padStart(2, '0');
+    const monthOSM1Comp = String(nowOSM1Comp.getMonth() + 1).padStart(2, '0');
+    const yearOSM1Comp = nowOSM1Comp.getFullYear();
+    const dateStrOSM1Comp = `${dayOSM1Comp}-${monthOSM1Comp}-${yearOSM1Comp}`;
+    doc.save(`OSM1_${dateStrOSM1Comp}.pdf`);
   };
 
   const handleSave = () => {
