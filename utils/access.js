@@ -1,5 +1,5 @@
 /** บทบาทที่อนุญาตให้เข้าได้ */
-export const ALLOWED_ROLES = ["สบส", "เขต", "จังหวัด", "อำเภอ", "ตำบล", "รพสต"];
+export const ALLOWED_ROLES = ["กรม", "สบส", "เขต", "จังหวัด", "อำเภอ", "ตำบล", "รพสต"];
 
 /** ลำดับฟิลด์ที่จะถูกล็อกตามระดับบทบาท */
 export const ORDER = ["zone", "province", "district", "subdistrict", "service"];
@@ -7,6 +7,7 @@ export const ORDER = ["zone", "province", "district", "subdistrict", "service"];
 /** แปลงบทบาท -> ระดับที่ต้องล็อกฟิลด์ */
 export const roleToLockLevel = (role) => {
   switch (role) {
+    case "กรม":   return "none";  // กรม = country level, no locks
     case "สบส":   return "none";
     case "เขต":   return "zone";
     case "จังหวัด": return "province";
@@ -33,6 +34,7 @@ const BASE_VIS = {
 };
 export const getVisibilityByRole = (role = "") => {
   switch (role) {
+    case "กรม":     return BASE_VIS;  // กรม = country level, see all
     case "เขต":     return { ...BASE_VIS, showMap: false, showHealthZone: false };
     case "จังหวัด":  return { ...BASE_VIS, showMap: false, showHealthZone: false, showProvince: false };
     case "อำเภอ":   return { ...BASE_VIS, showMap: false, showHealthZone: false, showProvince: false, showDistrict: false };

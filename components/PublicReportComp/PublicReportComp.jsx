@@ -91,6 +91,49 @@ const mapApiDataToTableRow = (apiData) => {
   return row;
 };
 
+/**
+ * Map API response data to Bangkok table row format
+ * Uses Bangkok-specific activity IDs and column mappings
+ * @param {Object} apiData - API response data object
+ * @returns {Object} - Mapped table row data for Bangkok
+ */
+const mapApiDataToBangkokRow = (apiData) => {
+  const row = {
+    // Basic info
+    quota: apiData.quota || 0,
+    reporters: apiData.total_reporters || 0,
+    percentage: apiData.reporting_rate || 0,
+  };
+
+  // Initialize all Bangkok columns with 0
+  Object.values(activityMapBangkok).forEach(colKey => {
+    row[colKey] = 0;
+  });
+
+  // Initialize notes field for other_work
+  row.ow_1_notes = "";
+
+  // Map activities from categories using Bangkok activity map
+  if (apiData.categories && Array.isArray(apiData.categories)) {
+    apiData.categories.forEach(category => {
+      if (category.activities && Array.isArray(category.activities)) {
+        category.activities.forEach(activity => {
+          const tableCol = activityMapBangkok[activity.activity_id];
+          if (tableCol) {
+            row[tableCol] = activity.value || 0;
+            // Capture notes for other_work_1
+            if (activity.activity_id === "other_work_1" && activity.notes) {
+              row.ow_1_notes = activity.notes;
+            }
+          }
+        });
+      }
+    });
+  }
+
+  return row;
+};
+
 // Generate year options (current fiscal year ± 2 years)
 const generateYearOptions = () => {
   const currentYear = new Date().getFullYear();
@@ -232,6 +275,221 @@ const TABLE_COLUMNS = [
     ],
   },
 ];
+
+// Bangkok Table Columns - อาสาสมัครสาธารณะสุขเชิงรุก (12 หมวด)
+const TABLE_COLUMNS_BANGKOK = [
+  { id: "no", label: "ลำดับ", rowspan: 3 },
+  { id: "province", label: "จังหวัด", rowspan: 3 },
+  // { id: "quota", label: "จำนวนโควต้า", rowspan: 3, unit: "คน" },  // ซ่อนไว้ชั่วคราว
+  { id: "reporters", label: "จำนวนผู้รายงาน อสม.1", rowspan: 3, unit: "คน" },
+  { id: "percentage", label: "ร้อยละ", rowspan: 3, unit: "คน" },
+  // 1. การดูแลหญิงตั้งครรภ์ (7 items)
+  {
+    id: "pregnant_women",
+    label: "การดูแลหญิงตั้งครรภ์",
+    colspan: 7,
+    subColumns: [
+      { id: "pw_1", label: "จำนวนหญิงตั้งครรภ์ในพื้นที่รับผิดชอบ", unit: "คน" },
+      { id: "pw_2", label: "ให้คำแนะนำหญิงตั้งครรภ์ในการปฏิบัติตัว", unit: "คน" },
+      { id: "pw_3", label: "ให้คำแนะนำหญิงตั้งครรภ์ในการปฏิบัติตัว", unit: "คน" },
+      { id: "pw_4", label: "จำนวนหญิงตั้งครรภ์ (รายใหม่) อายุมากกว่า ๒๐ ปี", unit: "คน" },
+      { id: "pw_5", label: "อายุต่ำกว่า ๒๐ ปี", unit: "คน" },
+      { id: "pw_6", label: "หญิงตั้งครรภ์รายใหม่ฝากครรภ์ครั้งแรกก่อนหรือเท่ากับ ๑๒ สัปดาห์", unit: "คน" },
+      { id: "pw_7", label: "ส่งต่อหญิงตั้งครรภ์ที่มีอาการผิดปกติไปยังสถานบริการสาธารณสุข", unit: "คน" },
+    ],
+  },
+  // 2. การดูแลหญิงหลังคลอด (2 items)
+  {
+    id: "postpartum_women",
+    label: "การดูแลหญิงหลังคลอด",
+    colspan: 2,
+    subColumns: [
+      { id: "ppw_1", label: "จำนวนหญิงหลังคลอดในพื้นที่รับผิดชอบ", unit: "คน" },
+      { id: "ppw_2", label: "เยี่ยมและให้คำแนะนำหญิงหลังคลอด", unit: "คน" },
+    ],
+  },
+  // 3. การดูแลเด็กแรกเกิด - ๖ ปี (6 items)
+  {
+    id: "children",
+    label: "การดูแลเด็กแรกเกิด - ๖ ปี",
+    colspan: 6,
+    subColumns: [
+      { id: "ch_1", label: "จำนวนเด็กแรกเกิด ๖ เดือน", unit: "คน" },
+      { id: "ch_2", label: "จำนวนเด็กแรกเกิด - ๖ ปี", unit: "คน" },
+      { id: "ch_3", label: "เลี้ยงลูกด้วยนมแม่อย่างเดียว (เด็กแรกเกิด - ๖ เดือน)", unit: "คน" },
+      { id: "ch_4", label: "ส่งเสริมการเล่านิทานให้เด็กแรกเกิด - ๖ ปี", unit: "คน" },
+      { id: "ch_5", label: "จำนวนเด็กแรกเกิด - ๖ ปี ที่มีพัฒนาการไม่สมวัย", unit: "คน" },
+      { id: "ch_6", label: "ให้คำแนะนำในการเลี้ยงดู", unit: "คน" },
+    ],
+  },
+  // 4. การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ (4 items)
+  {
+    id: "sexual_health",
+    label: "การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ",
+    colspan: 4,
+    subColumns: [
+      { id: "sh_1", label: "จำนวนครัวเรือนที่มีบุตรหลานเป็นวัยรุ่น (อายุ ๑๐ - ๑๙ ปี)", unit: "ครัวเรือน" },
+      { id: "sh_2", label: "จำนวนผู้ปกครองที่ดูแลบุตรหลานเป็นวัยรุ่น (อายุ ๑๐ - ๑๙ ปี)", unit: "คน" },
+      { id: "sh_3", label: "จำนวนวัยรุ่น (อายุ ๑๐ - ๑๙ ปี)", unit: "คน" },
+      { id: "sh_4", label: "จำนวนผู้ปกครองที่ อสส. แนะนำช่องทาง หรือสื่อในการสื่อสารสุขภาวะทางเพศ", unit: "คน" },
+    ],
+  },
+  // 5. การดูแลผู้สูงอายุ (7 items)
+  {
+    id: "elderly",
+    label: "การดูแลผู้สูงอายุ",
+    colspan: 7,
+    subColumns: [
+      { id: "el_1", label: "จำนวนผู้สูงอายุในพื้นที่รับผิดชอบ", unit: "คน" },
+      { id: "el_2", label: "ป่วยเป็นโรคไม่ติดต่อเรื้อรัง", unit: "คน" },
+      { id: "el_3", label: "จำนวนผู้สูงอายุ สุขภาพกลุ่มที่ ๑", unit: "คน" },
+      { id: "el_4", label: "จำนวนผู้สูงอายุ กลุ่มที่ ๒", unit: "คน" },
+      { id: "el_5", label: "จำนวนผู้สูงอายุ กลุ่มที่ ๓", unit: "คน" },
+      { id: "el_6", label: "เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพผู้สูงอายุ", unit: "คน" },
+      { id: "el_7", label: "เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพผู้สูงอายุ", unit: "ครั้ง" },
+    ],
+  },
+  // 6. การดูแลคนพิการ (6 items)
+  {
+    id: "disabled",
+    label: "การดูแลคนพิการ",
+    colspan: 6,
+    subColumns: [
+      { id: "dis_1", label: "จำนวนคนพิการในพื้นที่รับผิดชอบ", unit: "คน" },
+      { id: "dis_2", label: "เยี่ยมบ้านให้คำแนะนำเรื่องการดูแลสุขภาพคนพิการ", unit: "คน" },
+      { id: "dis_3", label: "เยี่ยมบ้านให้คำแนะนำเรื่องการดูแลสุขภาพคนพิการ", unit: "ครั้ง" },
+      { id: "dis_4", label: "ทำกิจกรรมให้การสนับสนุนคนพิการ", unit: "คน" },
+      { id: "dis_5", label: "ทำกิจกรรมให้การสนับสนุนคนพิการ", unit: "ครั้ง" },
+      { id: "dis_6", label: "จำนวนคนพิการรายใหม่ที่ได้รับการขึ้นทะเบียน", unit: "คน" },
+    ],
+  },
+  // 7. การเฝ้าระวัง ป้องกัน และควบคุมโรค (4 items)
+  {
+    id: "disease_control",
+    label: "การเฝ้าระวัง ป้องกัน และควบคุมโรค",
+    colspan: 4,
+    subColumns: [
+      { id: "dc_1", label: "เฝ้าระวัง ป้องกัน และควบคุมโรคไข้เลือดออก", unit: "ครัวเรือน" },
+      { id: "dc_2", label: "เฝ้าระวัง ป้องกัน และควบคุมโรคไข้หวัดใหญ่", unit: "ครัวเรือน" },
+      { id: "dc_3", label: "เฝ้าระวัง คัดกรอง และให้คำแนะนำกลุ่มเสี่ยงโรคไม่ติดต่อเรื้อรัง", unit: "คน" },
+      { id: "dc_4", label: "เฝ้าระวัง คัดกรอง และค้นหากลุ่มเสี่ยงด้านสุขภาพจิต", unit: "คน" },
+    ],
+  },
+  // 8. การฟื้นฟูสุขภาพ (1 item)
+  {
+    id: "rehabilitation",
+    label: "การฟื้นฟูสุขภาพ",
+    colspan: 1,
+    subColumns: [
+      { id: "rh_1", label: "เยี่ยมบ้าน ให้คำแนะนำการดูแลผู้ป่วยโรคไม่ติดต่อเรื้อรัง (ทุกกลุ่มอายุ)", unit: "ครั้ง" },
+    ],
+  },
+  // 9. การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ (2 items)
+  {
+    id: "smoking_cessation",
+    label: "การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ",
+    colspan: 2,
+    subColumns: [
+      { id: "sc_1", label: "เชิญชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบบุหรี่ จำนวน", unit: "คน" },
+      { id: "sc_2", label: "ผู้สูบบุหรี่/บุหรี่ไฟฟ้าที่เลิกสูบได้ (อย่างน้อย ๖ เดือน) จำนวน", unit: "คน" },
+    ],
+  },
+  // 10. การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.) (4 items: 10.1 + 3 sub-items)
+  {
+    id: "family_volunteer",
+    label: "การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)",
+    colspan: 4,
+    subColumns: [
+      { id: "fv_1", label: "จำนวน อสค. ที่ได้รับมอบหมายให้ดูแล", unit: "คน", rowspan: 2 },
+      { id: "fv_3", label: "(๑) กลุ่มผู้สูงอายุที่มีปัญหาติดบ้าน ติดเตียง", unit: "คน", rowspan: 2 },
+      { id: "fv_4", label: "(๒) กลุ่มผู้ป่วยโรคไม่ติดต่อเรื้อรัง", unit: "คน", rowspan: 2 },
+      { id: "fv_5", label: "(๓) กลุ่มที่มีปัญหาโรคไต", unit: "คน", rowspan: 2 },
+    ],
+  },
+  // 11. การเข้าร่วมทีมหมอครอบครัว (3 items)
+  {
+    id: "family_doctor",
+    label: "การเข้าร่วมทีมหมอครอบครัว",
+    colspan: 3,
+    subColumns: [
+      { id: "fd_1", label: "ร่วมเป็นทีมหมอครอบครัว ในการช่วยเหลือดูแลผู้ป่วย และครอบครัวในชุมชน", unit: "ครั้ง" },
+      { id: "fd_2", label: "ช่วยปรับปรุงที่อยู่อาศัย และสิ่งแวดล้อมให้เอื้อต่อการดูแล/การพยาบาล", unit: "ครัวเรือน" },
+      { id: "fd_3", label: "เสริมพลังและกำลังใจ และเทคนิคการดูแล การพยาบาลตามปัญหาสุขภาพ", unit: "ครัวเรือน" },
+    ],
+  },
+  // 12. งานอื่น ๆ ตามสภาพปัญหาชุมชน (1 item)
+  {
+    id: "other_work",
+    label: "งานอื่น ๆ ตามสภาพปัญหาชุมชน",
+    colspan: 1,
+    subColumns: [
+      { id: "ow_1", label: "จำนวนกิจกรรมอื่นๆ ที่ทำในชุมชน", unit: "ครั้ง" },
+    ],
+  },
+];
+
+// Bangkok activity ID to column ID mapping
+const activityMapBangkok = {
+  // 1. การดูแลหญิงตั้งครรภ์
+  "pregnant_women_1": "pw_1",
+  "pregnant_women_2": "pw_2",
+  "pregnant_women_3": "pw_3",
+  "pregnant_women_4": "pw_4",
+  "pregnant_women_5": "pw_5",
+  "pregnant_women_6": "pw_6",
+  "pregnant_women_7": "pw_7",
+  // 2. การดูแลหญิงหลังคลอด
+  "postpartum_women_1": "ppw_1",
+  "postpartum_women_2": "ppw_2",
+  // 3. การดูแลเด็กแรกเกิด - ๖ ปี
+  "children_1": "ch_1",
+  "children_2": "ch_2",
+  "children_3": "ch_3",
+  "children_4": "ch_4",
+  "children_5": "ch_5",
+  "children_6": "ch_6",
+  // 4. การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ
+  "sexual_health_1": "sh_1",
+  "sexual_health_2": "sh_2",
+  "sexual_health_3": "sh_3",
+  "sexual_health_4": "sh_4",
+  // 5. การดูแลผู้สูงอายุ
+  "elderly_1": "el_1",
+  "elderly_2": "el_2",
+  "elderly_3": "el_3",
+  "elderly_4": "el_4",
+  "elderly_5": "el_5",
+  "elderly_6": "el_6",
+  "elderly_7": "el_7",
+  // 6. การดูแลคนพิการ
+  "disabled_1": "dis_1",
+  "disabled_2": "dis_2",
+  "disabled_3": "dis_3",
+  "disabled_4": "dis_4",
+  "disabled_5": "dis_5",
+  "disabled_6": "dis_6",
+  // 7. การเฝ้าระวัง ป้องกัน และควบคุมโรค
+  "disease_control_1": "dc_1",
+  "disease_control_2": "dc_2",
+  "disease_control_3": "dc_3",
+  "disease_control_4": "dc_4",
+  // 8. การฟื้นฟูสุขภาพ
+  "rehabilitation_1": "rh_1",
+  // 9. การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ
+  "smoking_cessation_1": "sc_1",
+  "smoking_cessation_2": "sc_2",
+  // 10. การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)
+  "family_volunteer_1": "fv_1",
+  "family_volunteer_3": "fv_3",
+  "family_volunteer_4": "fv_4",
+  "family_volunteer_5": "fv_5",
+  // 11. การเข้าร่วมทีมหมอครอบครัว
+  "family_doctor_1": "fd_1",
+  "family_doctor_2": "fd_2",
+  "family_doctor_3": "fd_3",
+  // 12. งานอื่น ๆ ตามสภาพปัญหาชุมชน
+  "other_work_1": "ow_1",
+};
 
 // Export to Excel function using xlsx-js-style
 // Thai number conversion
@@ -504,6 +762,218 @@ const exportToExcel = (data, filters, locationLabel) => {
   XLSX.writeFile(wb, filename);
 };
 
+// Export Bangkok table to Excel - อาสาสมัครสาธารณะสุขเชิงรุก (12 หมวด)
+const exportToExcelBangkok = (data, filters, locationLabel) => {
+  const wb = XLSX.utils.book_new();
+
+  // Bangkok header structure - 12 categories
+  const firstRow = [
+    "ลำดับ",
+    locationLabel,
+    // "จำนวนโควต้า\n(คน)",  // ซ่อนไว้
+    "จำนวนผู้รายงาน อสม.1\n(คน)",
+    "ร้อยละ\n(คน)",
+    // 1. งานดูแลหญิงตั้งครรภ์ (7 cols)
+    "การดูแลหญิงตั้งครรภ์", "", "", "", "", "", "",
+    // 2. งานดูแลหญิงหลังคลอด (2 cols)
+    "การดูแลหญิงหลังคลอด", "",
+    // 3. งานเด็ก (6 cols)
+    "การดูแลเด็กแรกเกิด - ๖ ปี", "", "", "", "", "",
+    // 4. งานส่งเสริมสุขภาพทางเพศ (4 cols)
+    "การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ", "", "", "",
+    // 5. งานดูแลผู้สูงอายุ (7 cols)
+    "การดูแลผู้สูงอายุ", "", "", "", "", "", "",
+    // 6. งานดูแลคนพิการ (6 cols)
+    "การดูแลคนพิการ", "", "", "", "", "",
+    // 7. งานควบคุมโรค (4 cols)
+    "การเฝ้าระวัง ป้องกัน และควบคุมโรค", "", "", "",
+    // 8. งานฟื้นฟู (1 col)
+    "การฟื้นฟูสุขภาพ",
+    // 9. งานเลิกบุหรี่ (2 cols)
+    "การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ", "",
+    // 10. งานอสค. (4 cols)
+    "การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)", "", "", "",
+    // 11. งานหมอครอบครัว (3 cols)
+    "การเข้าร่วมทีมหมอครอบครัว", "", "",
+    // 12. งานอื่นๆ (1 col)
+    "งานอื่น ๆ ตามสภาพปัญหาชุมชน",
+  ];
+
+  const secondRow = [
+    "", "", "",
+    // 1. งานดูแลหญิงตั้งครรภ์
+    "จำนวนหญิงตั้งครรภ์ในพื้นที่รับผิดชอบ\n(คน)",
+    "ให้คำแนะนำหญิงตั้งครรภ์ในการปฏิบัติตัว\n(คน)",
+    "ให้คำแนะนำหญิงตั้งครรภ์ในการปฏิบัติตัว\n(คน)",
+    "จำนวนหญิงตั้งครรภ์ (รายใหม่) อายุมากกว่า ๒๐ ปี\n(คน)",
+    "อายุต่ำกว่า ๒๐ ปี\n(คน)",
+    "หญิงตั้งครรภ์รายใหม่ฝากครรภ์ครั้งแรกก่อนหรือเท่ากับ ๑๒ สัปดาห์\n(คน)",
+    "ส่งต่อหญิงตั้งครรภ์ที่มีอาการผิดปกติไปยังสถานบริการสาธารณสุข\n(คน)",
+    // 2. งานดูแลหญิงหลังคลอด
+    "จำนวนหญิงหลังคลอดในพื้นที่รับผิดชอบ\n(คน)",
+    "เยี่ยมและให้คำแนะนำหญิงหลังคลอด\n(คน)",
+    // 3. งานเด็ก
+    "จำนวนเด็กแรกเกิด - ๖ ปี ในพื้นที่รับผิดชอบ\n(คน)",
+    "คัดกรองและให้คำแนะนำผู้ดูแลเด็ก\n(คน)",
+    "ติดตามเด็กที่มีความเสี่ยง\n(คน)",
+    "ให้คำแนะนำเรื่องการเลี้ยงดูบุตรด้วยนมแม่\n(คน)",
+    "ให้คำแนะนำเรื่องการวางแผนครอบครัว\n(คน)",
+    "ส่งเสริมการพัฒนาการเด็ก\n(คน)",
+    // 4. งานส่งเสริมสุขภาพทางเพศ
+    "ให้คำแนะนำเรื่องการวางแผนครอบครัว\n(คน)",
+    "ให้คำแนะนำเรื่องการมีเพศสัมพันธ์อย่างปลอดภัย\n(คน)",
+    "ให้คำแนะนำเรื่องการป้องกันโรคติดต่อทางเพศสัมพันธ์\n(คน)",
+    "ส่งเสริมสุขภาพและพัฒนาการทางเพศ\n(คน)",
+    // 5. งานดูแลผู้สูงอายุ
+    "จำนวนผู้สูงอายุในพื้นที่รับผิดชอบ\n(คน)",
+    "ป่วยเป็นโรคไม่ติดต่อเรื้อรัง\n(คน)",
+    "จำนวนผู้สูงอายุ สุขภาพกลุ่มที่ ๑\n(คน)",
+    "จำนวนผู้สูงอายุ กลุ่มที่ ๒\n(คน)",
+    "จำนวนผู้สูงอายุ กลุ่มที่ ๓\n(คน)",
+    "เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพผู้สูงอายุ\n(คน)",
+    "เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพผู้สูงอายุ\n(ครั้ง)",
+    // 6. งานดูแลคนพิการ
+    "จำนวนคนพิการในพื้นที่รับผิดชอบ\n(คน)",
+    "เยี่ยมบ้านให้คำแนะนำเรื่องการดูแลสุขภาพคนพิการ\n(คน)",
+    "เยี่ยมบ้านให้คำแนะนำเรื่องการดูแลสุขภาพคนพิการ\n(ครั้ง)",
+    "ทำกิจกรรมให้การสนับสนุนคนพิการ\n(คน)",
+    "ทำกิจกรรมให้การสนับสนุนคนพิการ\n(ครั้ง)",
+    "จำนวนคนพิการรายใหม่ที่ได้รับการขึ้นทะเบียน\n(คน)",
+    // 7. งานควบคุมโรค
+    "เฝ้าระวัง ป้องกัน และควบคุมโรคไข้เลือดออก\n(ครัวเรือน)",
+    "เฝ้าระวัง ป้องกัน และควบคุมโรคไข้หวัดใหญ่\n(ครัวเรือน)",
+    "เฝ้าระวัง คัดกรอง และให้คำแนะนำกลุ่มเสี่ยงโรคไม่ติดต่อเรื้อรัง\n(คน)",
+    "เฝ้าระวัง คัดกรอง และค้นหากลุ่มเสี่ยงด้านสุขภาพจิต\n(คน)",
+    // 8. งานฟื้นฟู
+    "เยี่ยมบ้าน ให้คำแนะนำการดูแลผู้ป่วยโรคไม่ติดต่อเรื้อรัง (ทุกกลุ่มอายุ)\n(ครั้ง)",
+    // 9. งานเลิกบุหรี่
+    "เชิญชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบบุหรี่ จำนวน\n(คน)",
+    "ผู้สูบบุหรี่/บุหรี่ไฟฟ้าที่เลิกสูบได้ (อย่างน้อย ๖ เดือน) จำนวน\n(คน)",
+    // 10. งานอสค.
+    "จำนวน อสค. ที่ได้รับมอบหมายให้ดูแล\n(คน)",
+    "(๑) กลุ่มผู้สูงอายุที่มีปัญหาติดบ้าน ติดเตียง\n(คน)",
+    "(๒) กลุ่มผู้ป่วยโรคไม่ติดต่อเรื้อรัง\n(คน)",
+    "(๓) กลุ่มที่มีปัญหาโรคไต\n(คน)",
+    // 11. งานหมอครอบครัว
+    "ร่วมเป็นทีมหมอครอบครัว ในการช่วยเหลือดูแลผู้ป่วย และครอบครัวในชุมชน\n(ครั้ง)",
+    "ช่วยปรับปรุงที่อยู่อาศัย และสิ่งแวดล้อมให้เอื้อต่อการดูแล/การพยาบาล\n(ครัวเรือน)",
+    "เสริมพลังและกำลังใจ และเทคนิคการดูแล การพยาบาลตามปัญหาสุขภาพ\n(ครัวเรือน)",
+    // 12. งานอื่นๆ
+    "จำนวนกิจกรรมอื่นๆ ที่ทำในชุมชน\n(ครั้ง)",
+  ];
+
+  const headers = [firstRow, secondRow];
+
+  const locationKey = locationLabel === "หน่วยบริการ" ? "service" :
+                      locationLabel === "ตำบล" ? "subdistrict" :
+                      locationLabel === "อำเภอ" ? "district" : "province";
+
+  const dataRows = data.map((row, idx) => [
+    idx + 1,
+    row[locationKey] ?? "-",
+    row.reporters ?? "-",
+    row.percentage ?? "-",
+    // 1. งานดูแลหญิงตั้งครรภ์ (7 cols)
+    row.pw_1 ?? "-", row.pw_2 ?? "-", row.pw_3 ?? "-", row.pw_4 ?? "-",
+    row.pw_5 ?? "-", row.pw_6 ?? "-", row.pw_7 ?? "-",
+    // 2. งานดูแลหญิงหลังคลอด (2 cols)
+    row.ppw_1 ?? "-", row.ppw_2 ?? "-",
+    // 3. งานเด็ก (6 cols)
+    row.ch_1 ?? "-", row.ch_2 ?? "-", row.ch_3 ?? "-", row.ch_4 ?? "-",
+    row.ch_5 ?? "-", row.ch_6 ?? "-",
+    // 4. งานส่งเสริมสุขภาพทางเพศ (4 cols)
+    row.sh_1 ?? "-", row.sh_2 ?? "-", row.sh_3 ?? "-", row.sh_4 ?? "-",
+    // 5. งานดูแลผู้สูงอายุ (7 cols)
+    row.el_1 ?? "-", row.el_2 ?? "-", row.el_3 ?? "-", row.el_4 ?? "-",
+    row.el_5 ?? "-", row.el_6 ?? "-", row.el_7 ?? "-",
+    // 6. งานดูแลคนพิการ (6 cols)
+    row.dis_1 ?? "-", row.dis_2 ?? "-", row.dis_3 ?? "-", row.dis_4 ?? "-",
+    row.dis_5 ?? "-", row.dis_6 ?? "-",
+    // 7. งานควบคุมโรค (4 cols)
+    row.dc_1 ?? "-", row.dc_2 ?? "-", row.dc_3 ?? "-", row.dc_4 ?? "-",
+    // 8. งานฟื้นฟู (1 col)
+    row.rh_1 ?? "-",
+    // 9. งานเลิกบุหรี่ (2 cols)
+    row.sc_1 ?? "-", row.sc_2 ?? "-",
+    // 10. งานอสค. (4 cols)
+    row.fv_1 ?? "-", row.fv_3 ?? "-", row.fv_4 ?? "-", row.fv_5 ?? "-",
+    // 11. งานหมอครอบครัว (3 cols)
+    row.fd_1 ?? "-", row.fd_2 ?? "-", row.fd_3 ?? "-",
+    // 12. งานอื่นๆ (1 col)
+    row.ow_1 ?? "-",
+  ]);
+
+  const wsData = [...headers, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  const colWidths = [
+    { wch: 8 }, { wch: 25 }, { wch: 18 }, { wch: 12 },
+    ...Array(47).fill({ wch: 18 }),  // 47 activity columns
+  ];
+  ws["!cols"] = colWidths;
+
+  // Merges for Bangkok (3 base cols + 47 activity cols = 50 total)
+  const merges = [
+    { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } },  // ลำดับ
+    { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } },  // Location
+    { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } },  // Reporters
+    { s: { r: 0, c: 3 }, e: { r: 1, c: 3 } },  // Percentage
+    // Category headers
+    { s: { r: 0, c: 4 }, e: { r: 0, c: 10 } },   // 1. หญิงตั้งครรภ์ (7)
+    { s: { r: 0, c: 11 }, e: { r: 0, c: 12 } },  // 2. หญิงหลังคลอด (2)
+    { s: { r: 0, c: 13 }, e: { r: 0, c: 18 } },  // 3. เด็ก (6)
+    { s: { r: 0, c: 19 }, e: { r: 0, c: 22 } },  // 4. สุขภาพทางเพศ (4)
+    { s: { r: 0, c: 23 }, e: { r: 0, c: 29 } },  // 5. ผู้สูงอายุ (7)
+    { s: { r: 0, c: 30 }, e: { r: 0, c: 35 } },  // 6. คนพิการ (6)
+    { s: { r: 0, c: 36 }, e: { r: 0, c: 39 } },  // 7. ควบคุมโรค (4)
+    { s: { r: 0, c: 40 }, e: { r: 1, c: 40 } },  // 8. ฟื้นฟู (1)
+    { s: { r: 0, c: 41 }, e: { r: 0, c: 42 } },  // 9. เลิกบุหรี่ (2)
+    { s: { r: 0, c: 43 }, e: { r: 0, c: 46 } },  // 10. อสค. (4)
+    { s: { r: 0, c: 47 }, e: { r: 0, c: 49 } },  // 11. หมอครอบครัว (3)
+    { s: { r: 0, c: 50 }, e: { r: 1, c: 50 } },  // 12. อื่นๆ (1)
+  ];
+  ws["!merges"] = merges;
+
+  // Styles
+  const borderColor = { rgb: "000000" };
+  const headerStyle1 = {
+    font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
+    fill: { fgColor: { rgb: "7E32E2" } },
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+    border: { top: { style: "thin", color: borderColor }, bottom: { style: "thin", color: borderColor }, left: { style: "thin", color: borderColor }, right: { style: "thin", color: borderColor } },
+  };
+  const headerStyle2 = {
+    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" } },
+    fill: { fgColor: { rgb: "9333EA" } },
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+    border: { top: { style: "thin", color: borderColor }, bottom: { style: "thin", color: borderColor }, left: { style: "thin", color: borderColor }, right: { style: "thin", color: borderColor } },
+  };
+  const dataStyle = {
+    font: { sz: 10 },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: { top: { style: "thin", color: borderColor }, bottom: { style: "thin", color: borderColor }, left: { style: "thin", color: borderColor }, right: { style: "thin", color: borderColor } },
+  };
+
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  for (let R = range.s.r; R <= range.e.r; R++) {
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+      if (!ws[cellAddress]) continue;
+      if (R === 0) ws[cellAddress].s = headerStyle1;
+      else if (R === 1) ws[cellAddress].s = headerStyle2;
+      else ws[cellAddress].s = dataStyle;
+    }
+  }
+
+  ws["!rows"] = [{ hpx: 30 }, { hpx: 60 }];
+  XLSX.utils.book_append_sheet(wb, ws, "รายงาน อสม.1 กรุงเทพ");
+
+  const currentYear = new Date().getFullYear();
+  const filename = `OSMWork_Bangkok_${currentYear}.xlsx`;
+  XLSX.writeFile(wb, filename);
+};
+
 const PublicReportComp = () => {
   // Permission hooks
   const { user, scope, lockLevel, isLocked, getInitialFilters, loading: permissionLoading } = useUserPermission();
@@ -522,13 +992,16 @@ const PublicReportComp = () => {
   const BANGKOK_PROVINCE_CODE = "10"; // กรุงเทพมหานคร
 
   // Determine which tabs to show based on user permission
-  // Check if user's province is Bangkok
+  // Check if user's province or zone is Bangkok
   const isBangkokUser = useMemo(() => {
     if (!scope) return false;
     // Check if user's province is Bangkok
-    return scope.province_name_th === "กรุงเทพมหานคร" ||
+    const isProvinceBangkok = scope.province_name_th === "กรุงเทพมหานคร" ||
            scope.province_name_th?.includes("กรุงเทพ") ||
            scope.province === BANGKOK_PROVINCE_CODE;
+    // Check if user's zone is Bangkok zone (HA13)
+    const isZoneBangkok = scope.zone === BANGKOK_ZONE;
+    return isProvinceBangkok || isZoneBangkok;
   }, [scope]);
 
   // Only department level (สบส/กรม - country level) can see both tabs
@@ -947,8 +1420,12 @@ const PublicReportComp = () => {
           // Get province name for filtering (used to separate Bangkok from other provinces)
           const provinceName = item.province_name || item.province || item.name_th || item.name || "-";
 
+          // Check if this item is from Bangkok to use appropriate mapping function
+          const isBangkokItem = provinceName === "กรุงเทพมหานคร" || provinceName?.includes("กรุงเทพ");
+          const mappedRow = isBangkokItem ? mapApiDataToBangkokRow(item) : mapApiDataToTableRow(item);
+
           return {
-            ...mapApiDataToTableRow(item),
+            ...mappedRow,
             [locationKey]: locationName,
             province: provinceName, // Always include province for filtering
           };
@@ -1135,23 +1612,39 @@ const PublicReportComp = () => {
         // - If subdistrict selected: show all health services in that subdistrict (if no services, don't show)
         // - If service selected: show that service only
         if (activeTab === "bangkok") {
-          // Helper function to create empty row with 0 values
+          // Helper function to create empty row with 0 values for Bangkok (12 categories)
           const createEmptyRow = (locationName, locationKey) => ({
             [locationKey]: locationName,
             province: "กรุงเทพมหานคร",
             quota: 0,
             reporters: 0,
             percentage: 0,
-            // All activity columns with 0
-            hp_1: 0, hp_2: 0, hp_3: 0, hp_4: 0, hp_5: 0, hp_6: 0, hp_7: 0, hp_8: 0, hp_9: 0, hp_10: 0, hp_12: 0,
-            dp_2: 0, dp_3: 0, dp_4: 0, dp_5: 0, dp_6: 0, dp_7: 0,
-            hr_1: 0,
-            cp_1: 0,
-            ch_1: 0, ch_2: 0,
-            so_1: 0, so_2_1: 0, so_2_2: 0, so_2_3: 0,
-            rd_1: 0, rd_2: 0,
-            fd_2: 0, fd_3: 0, fd_4: 0,
-            oa_1: 0, oa_2: 0, oa_3: 0,
+            // Bangkok activity columns with 0 (12 categories)
+            // 1. การดูแลหญิงตั้งครรภ์
+            pw_1: 0, pw_2: 0, pw_3: 0, pw_4: 0, pw_5: 0, pw_6: 0, pw_7: 0,
+            // 2. การดูแลหญิงหลังคลอด
+            ppw_1: 0, ppw_2: 0,
+            // 3. การดูแลเด็กแรกเกิด - ๖ ปี
+            ch_1: 0, ch_2: 0, ch_3: 0, ch_4: 0, ch_5: 0, ch_6: 0,
+            // 4. การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ
+            sh_1: 0, sh_2: 0, sh_3: 0, sh_4: 0,
+            // 5. การดูแลผู้สูงอายุ
+            el_1: 0, el_2: 0, el_3: 0, el_4: 0, el_5: 0, el_6: 0, el_7: 0,
+            // 6. การดูแลคนพิการ
+            dis_1: 0, dis_2: 0, dis_3: 0, dis_4: 0, dis_5: 0, dis_6: 0,
+            // 7. การเฝ้าระวัง ป้องกัน และควบคุมโรค
+            dc_1: 0, dc_2: 0, dc_3: 0, dc_4: 0,
+            // 8. การฟื้นฟูสุขภาพ
+            rh_1: 0,
+            // 9. การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ
+            sc_1: 0, sc_2: 0,
+            // 10. การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)
+            fv_1: 0, fv_3: 0, fv_4: 0, fv_5: 0,
+            // 11. การเข้าร่วมทีมหมอครอบครัว
+            fd_1: 0, fd_2: 0, fd_3: 0,
+            // 12. งานอื่น ๆ ตามสภาพปัญหาชุมชน
+            ow_1: 0,
+            ow_1_notes: "",
           });
 
           // Create a map of existing data by location name
@@ -1206,6 +1699,19 @@ const PublicReportComp = () => {
             } else {
               filledBangkokData = [];
             }
+          } else if (displayLevel === "service" && service) {
+            // Show selected service only - เช็ค service ก่อน
+            if (bangkokItems.length > 0) {
+              filledBangkokData = bangkokItems;
+            } else {
+              // ไม่มีข้อมูล - แสดงหน่วยบริการที่เลือกพร้อมค่า 0
+              const selectedService = healthServices.find(hs =>
+                String(hs.id || hs.code) === String(service) ||
+                hs.code === service
+              );
+              const serviceName = selectedService?.name_th || selectedService?.name || selectedService?.service_name || service;
+              filledBangkokData = [createEmptyRow(serviceName, "service")];
+            }
           } else if (displayLevel === "service" && subdistrict) {
             // Show all health services in selected subdistrict
             // healthServices is already filtered by subdistrict when loaded
@@ -1245,20 +1751,36 @@ const PublicReportComp = () => {
                   quota: 0,
                   reporters: 0,
                   percentage: 0,
-                  hp_1: 0, hp_2: 0, hp_3: 0, hp_4: 0, hp_5: 0, hp_6: 0, hp_7: 0, hp_8: 0, hp_9: 0, hp_10: 0, hp_12: 0,
-                  dp_2: 0, dp_3: 0, dp_4: 0, dp_5: 0, dp_6: 0, dp_7: 0,
-                  hr_1: 0, cp_1: 0, ch_1: 0, ch_2: 0,
-                  so_1: 0, so_2_1: 0, so_2_2: 0, so_2_3: 0,
-                  rd_1: 0, rd_2: 0, fd_2: 0, fd_3: 0, fd_4: 0,
-                  oa_1: 0, oa_2: 0, oa_3: 0,
+                  // 1. งานดูแลหญิงตั้งครรภ์
+                  pw_1: 0, pw_2: 0, pw_3: 0, pw_4: 0, pw_5: 0, pw_6: 0, pw_7: 0,
+                  // 2. งานดูแลหญิงหลังคลอด
+                  ppw_1: 0, ppw_2: 0,
+                  // 3. งานเด็ก
+                  ch_1: 0, ch_2: 0, ch_3: 0, ch_4: 0, ch_5: 0, ch_6: 0,
+                  // 4. งานส่งเสริมสุขภาพทางเพศ
+                  sh_1: 0, sh_2: 0, sh_3: 0, sh_4: 0,
+                  // 5. งานดูแลผู้สูงอายุ
+                  el_1: 0, el_2: 0, el_3: 0, el_4: 0, el_5: 0, el_6: 0, el_7: 0,
+                  // 6. งานดูแลผู้พิการ
+                  dis_1: 0, dis_2: 0, dis_3: 0, dis_4: 0, dis_5: 0, dis_6: 0,
+                  // 7. งานควบคุมโรคติดเชื้อและโรคติดต่อ
+                  dc_1: 0, dc_2: 0, dc_3: 0, dc_4: 0,
+                  // 8. งานฟื้นฟูสมรรถภาพ
+                  rh_1: 0,
+                  // 9. งานส่งเสริมการเลิกบุหรี่
+                  sc_1: 0, sc_2: 0,
+                  // 10. การเข้าร่วมกิจกรรมอาสาสมัครหมู่บ้านพัฒนาคุณภาพชีวิต
+                  fv_1: 0, fv_3: 0, fv_4: 0, fv_5: 0,
+                  // 11. การเข้าร่วมทีมหมอครอบครัว
+                  fd_1: 0, fd_2: 0, fd_3: 0,
+                  // 12. งานอื่น ๆ ตามสภาพปัญหาชุมชน
+                  ow_1: 0,
+                  ow_1_notes: "",
                 }];
               } else {
                 filledBangkokData = [];
               }
             }
-          } else if (displayLevel === "service" && service) {
-            // Show selected service only
-            filledBangkokData = bangkokItems;
           } else {
             // For other cases, keep existing data
             filledBangkokData = bangkokItems;
@@ -1317,31 +1839,50 @@ const PublicReportComp = () => {
   };
 
   const handleExportExcel = () => {
-    exportToExcel(currentData, {
-      fiscalYear,
-      month,
-      zone,
-      province,
-      district,
-      subdistrict,
-      service,
-    }, getLocationLabel());
+    if (activeTab === "bangkok") {
+      exportToExcelBangkok(currentData, {
+        fiscalYear,
+        month,
+        zone,
+        province,
+        district,
+        subdistrict,
+        service,
+      }, getLocationLabel());
+    } else {
+      exportToExcel(currentData, {
+        fiscalYear,
+        month,
+        zone,
+        province,
+        district,
+        subdistrict,
+        service,
+      }, getLocationLabel());
+    }
   };
 
   // Calculate total columns for horizontal scroll
-  // 1 (No.) + 4 (Province, Quota, Reporters, %) + 11 + 6 + 1 + 1 + 2 + 4 + 2 + 4 + 3 = 39
-  const totalColumns = 1 + 4 + 11 + 6 + 1 + 1 + 2 + 4 + 2 + 4 + 3;
+  // All tab: 1 (No.) + 4 (Province, Quota, Reporters, %) + 11 + 6 + 1 + 1 + 2 + 4 + 2 + 4 + 3 = 39
+  // Bangkok tab: 1 (No.) + 3 (Province, Reporters, %) + 7 + 2 + 6 + 4 + 7 + 6 + 4 + 1 + 2 + 4 + 3 + 1 = 51 (ไม่มี Quota)
+  const totalColumns = useMemo(() => {
+    if (activeTab === "bangkok") {
+      return 1 + 3 + 7 + 2 + 6 + 4 + 7 + 6 + 4 + 1 + 2 + 4 + 3 + 1;
+    }
+    return 1 + 4 + 11 + 6 + 1 + 1 + 2 + 4 + 2 + 4 + 3;
+  }, [activeTab]);
 
-  // Dynamic table columns based on current level
+  // Dynamic table columns based on current level and active tab
   const dynamicTableColumns = useMemo(() => {
     const locationLabel = getLocationLabel();
-    return TABLE_COLUMNS.map(col => {
+    const columns = activeTab === "bangkok" ? TABLE_COLUMNS_BANGKOK : TABLE_COLUMNS;
+    return columns.map(col => {
       if (col.id === "province") {
         return { ...col, label: locationLabel };
       }
       return col;
     });
-  }, [currentLevel]);
+  }, [currentLevel, activeTab]);
 
   // Get current data based on active tab
   const currentData = useMemo(() => {
@@ -1480,7 +2021,7 @@ const PublicReportComp = () => {
             }`}
           >
             <Globe size={20} />
-            อาสาสมัครสารธารณะสุขประจำหมู่บ้าน
+            อาสาสมัครสาธารณะสุขประจำหมู่บ้าน
           </button>
         )}
         {showBangkokTab && (
@@ -1678,7 +2219,7 @@ const PublicReportComp = () => {
                   })}
                 </tr>
                 {/* Second header row - first level subColumns */}
-                {TABLE_COLUMNS.filter(col => col.subColumns).length > 0 && (
+                {dynamicTableColumns.filter(col => col.subColumns).length > 0 && (
                   <tr className="bg-[#9333ea] text-white">
                     {dynamicTableColumns.map((col) => {
                       if (col.subColumns) {
@@ -1725,7 +2266,7 @@ const PublicReportComp = () => {
                   </tr>
                 )}
                 {/* Third header row - for nested subColumns (e.g., under "มีกลุ่มในความดูแลรับผิดชอบ") */}
-                {TABLE_COLUMNS.some(col => col.subColumns?.some(sc => sc.subColumns)) && (
+                {dynamicTableColumns.some(col => col.subColumns?.some(sc => sc.subColumns)) && (
                   <tr className="bg-[#a855f7] text-white">
                     {dynamicTableColumns.flatMap((col) => {
                       if (!col.subColumns) return [];
@@ -1763,70 +2304,153 @@ const PublicReportComp = () => {
                     <td className="py-3 px-3 text-center text-gray-700 border border-gray-200 font-medium whitespace-nowrap">
                       {row[getLocationKey()] ?? "-"}
                     </td>
-                    <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                      {row.quota ?? "-"}
-                    </td>
+                    {/* จำนวนโควต้า - ซ่อนสำหรับ Bangkok */}
+                    {activeTab !== "bangkok" && (
+                      <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                        {row.quota ?? "-"}
+                      </td>
+                    )}
                     <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
                       {row.reporters ?? "-"}
                     </td>
                     <td className="py-3 px-3 text-center text-gray-700 border border-gray-200 font-medium">
                       {row.percentage ?? "-"}
                     </td>
-                    {/* Health Promotion columns */}
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12].map((i) => (
-                      <td key={`hp_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                        {row[`hp_${i}`] ?? "-"}
-                      </td>
-                    ))}
-                    {/* Disease Prevention columns */}
-                    {[2, 3, 4, 5, 6, 7].map((i) => (
-                      <td key={`dp_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                        {row[`dp_${i}`] ?? "-"}
-                      </td>
-                    ))}
-                    {/* Health Rehabilitation */}
-                    <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                      {row.hr_1 ?? "-"}
-                    </td>
-                    {/* Consumer Protection */}
-                    <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                      {row.cp_1 ?? "-"}
-                    </td>
-                    {/* Community Health */}
-                    {[1, 2].map((i) => (
-                      <td key={`ch_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                        {row[`ch_${i}`] ?? "-"}
-                      </td>
-                    ))}
-                    {/* Support OSM */}
-                    <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                      {row.so_1 ?? "-"}
-                    </td>
-                    {["2_1", "2_2", "2_3"].map((i) => (
-                      <td key={`so_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                        {row[`so_${i}`] ?? "-"}
-                      </td>
-                    ))}
-                    {/* Rational Drug Use */}
-                    {[1, 2].map((i) => (
-                      <td key={`rd_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                        {row[`rd_${i}`] ?? "-"}
-                      </td>
-                    ))}
-                    {/* Family Doctor Team */}
-                    {/* fd_1: "ไม่เป็นทีมหมอครอบครัว" - always show "-" */}
-                    <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">-</td>
-                    {[2, 3, 4].map((i) => (
-                      <td key={`fd_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                        {row[`fd_${i}`] ?? "-"}
-                      </td>
-                    ))}
-                    {/* Other Activities */}
-                    {[1, 2, 3].map((i) => (
-                      <td key={`oa_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
-                        {row[`oa_${i}`] ?? "-"}
-                      </td>
-                    ))}
+                    {activeTab === "bangkok" ? (
+                      // Bangkok columns - 12 categories
+                      <>
+                        {/* 1. งานดูแลหญิงตั้งครรภ์ (7 cols) */}
+                        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                          <td key={`pw_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`pw_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 2. งานดูแลหญิงหลังคลอด (2 cols) */}
+                        {[1, 2].map((i) => (
+                          <td key={`ppw_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`ppw_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 3. งานเด็ก (6 cols) */}
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                          <td key={`ch_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`ch_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 4. งานส่งเสริมสุขภาพทางเพศ (4 cols) */}
+                        {[1, 2, 3, 4].map((i) => (
+                          <td key={`sh_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`sh_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 5. งานดูแลผู้สูงอายุ (7 cols) */}
+                        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                          <td key={`el_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`el_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 6. งานดูแลผู้พิการ (6 cols) */}
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                          <td key={`dis_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`dis_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 7. งานควบคุมโรคติดเชื้อและโรคติดต่อ (4 cols) */}
+                        {[1, 2, 3, 4].map((i) => (
+                          <td key={`dc_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`dc_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 8. งานฟื้นฟูสมรรถภาพ (1 col) */}
+                        <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                          {row.rh_1 ?? "-"}
+                        </td>
+                        {/* 9. งานส่งเสริมการเลิกบุหรี่ (2 cols) */}
+                        {[1, 2].map((i) => (
+                          <td key={`sc_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`sc_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 10. การเข้าร่วมกิจกรรมอาสาสมัครหมู่บ้านพัฒนาคุณภาพชีวิต (4 cols: fv_1, fv_3, fv_4, fv_5) */}
+                        <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                          {row.fv_1 ?? "-"}
+                        </td>
+                        {[3, 4, 5].map((i) => (
+                          <td key={`fv_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`fv_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 11. การเข้าร่วมทีมหมอครอบครัว (3 cols) */}
+                        {[1, 2, 3].map((i) => (
+                          <td key={`fd_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`fd_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* 12. งานอื่น ๆ ตามสภาพปัญหาชุมชน (1 col) - แสดงจำนวน */}
+                        <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                          {row.ow_1 ?? "-"}
+                        </td>
+                      </>
+                    ) : (
+                      // Non-Bangkok columns - original structure
+                      <>
+                        {/* Health Promotion columns */}
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12].map((i) => (
+                          <td key={`hp_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`hp_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* Disease Prevention columns */}
+                        {[2, 3, 4, 5, 6, 7].map((i) => (
+                          <td key={`dp_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`dp_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* Health Rehabilitation */}
+                        <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                          {row.hr_1 ?? "-"}
+                        </td>
+                        {/* Consumer Protection */}
+                        <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                          {row.cp_1 ?? "-"}
+                        </td>
+                        {/* Community Health */}
+                        {[1, 2].map((i) => (
+                          <td key={`ch_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`ch_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* Support OSM */}
+                        <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                          {row.so_1 ?? "-"}
+                        </td>
+                        {["2_1", "2_2", "2_3"].map((i) => (
+                          <td key={`so_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`so_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* Rational Drug Use */}
+                        {[1, 2].map((i) => (
+                          <td key={`rd_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`rd_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* Family Doctor Team */}
+                        {/* fd_1: "ไม่เป็นทีมหมอครอบครัว" - always show "-" */}
+                        <td className="py-3 px-3 text-center text-gray-700 border border-gray-200">-</td>
+                        {[2, 3, 4].map((i) => (
+                          <td key={`fd_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`fd_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                        {/* Other Activities */}
+                        {[1, 2, 3].map((i) => (
+                          <td key={`oa_${i}`} className="py-3 px-3 text-center text-gray-700 border border-gray-200">
+                            {row[`oa_${i}`] ?? "-"}
+                          </td>
+                        ))}
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
