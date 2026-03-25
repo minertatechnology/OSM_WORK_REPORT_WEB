@@ -220,82 +220,75 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     // 1. การดูแลหญิงตั้งครรภ์
     { no: "1.", activity: "การดูแลหญิงตั้งครรภ์", unit: "", isMainCategory: true, category: "PREGNANT_WOMEN" },
     { no: "1.1", activity: "จำนวนหญิงตั้งครรภ์ในพื้นที่รับผิดชอบ", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_1" },
-    { no: "1.2", activity: "จำนวนหญิงตั้งครรภ์ที่ได้รับการดูแลติดตาม", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_2" },
-    { no: "1.3", activity: "จำนวนครั้งที่เยี่ยมบ้านหญิงตั้งครรภ์", unit: "ครั้ง", category: "PREGNANT_WOMEN", activityId: "pregnant_women_3" },
-    { no: "1.4", activity: "จำนวนหญิงตั้งครรภ์ที่ได้รับคำแนะนำการดูแลสุขภาพ", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_4" },
-    { no: "1.5", activity: "จำนวนหญิงตั้งครรภ์ที่คลอดแล้ว", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_5" },
+    { no: "1.2", activity: "ให้คำแนะนำหญิงตั้งครรภ์ในการปฏิบัติตัว", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_2" },
+    { no: "1.3", activity: "ให้คำแนะนำหญิงตั้งครรภ์ในการปฏิบัติตัว", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_3" },
+    { no: "1.4", activity: "จำนวนหญิงตั้งครรภ์ (รายใหม่) อายุมากกว่า ๒๐ ปี", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_4" },
+    { no: "1.5", activity: "อายุต่ำกว่า ๒๐ ปี", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_5" },
+    { no: "1.6", activity: "หญิงตั้งครรภ์รายใหม่ฝากครรภ์ครั้งแรกก่อนหรือเท่ากับ ๑๒ สัปดาห์", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_6" },
+    { no: "1.7", activity: "ส่งต่อหญิงตั้งครรภ์ที่มีอาการผิดปกติไปยังสถานบริการสาธารณสุข", unit: "คน", category: "PREGNANT_WOMEN", activityId: "pregnant_women_7" },
     // 2. การดูแลหญิงหลังคลอด
     { no: "2.", activity: "การดูแลหญิงหลังคลอด", unit: "", isMainCategory: true, category: "POSTPARTUM_WOMEN" },
     { no: "2.1", activity: "จำนวนหญิงหลังคลอดในพื้นที่รับผิดชอบ", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_1" },
-    { no: "2.2", activity: "จำนวนหญิงหลังคลอดที่ได้รับการดูแลติดตาม", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_2" },
-    { no: "2.3", activity: "จำนวนครั้งที่เยี่ยมบ้านหญิงหลังคลอด", unit: "ครั้ง", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_3" },
-    { no: "2.4", activity: "จำนวนหญิงหลังคลอดที่ได้รับคำแนะนำการดูแลสุขภาพ", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_4" },
-    { no: "2.5", activity: "จำนวนหญิงหลังคลอดที่ให้นมบุตร", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_5" },
+    { no: "2.2", activity: "เยี่ยมและให้คำแนะนำหญิงหลังคลอด", unit: "คน", category: "POSTPARTUM_WOMEN", activityId: "postpartum_women_2" },
     // 3. การดูแลเด็กแรกเกิด - ๖ ปี
     { no: "3.", activity: "การดูแลเด็กแรกเกิด - ๖ ปี", unit: "", isMainCategory: true, category: "CHILDREN" },
-    { no: "3.1", activity: "จำนวนเด็กแรกเกิด - ๖ ปี ในพื้นที่รับผิดชอบ", unit: "คน", category: "CHILDREN", activityId: "children_1" },
-    { no: "3.2", activity: "จำนวนเด็กที่ได้รับการดูแลติดตาม", unit: "คน", category: "CHILDREN", activityId: "children_2" },
-    { no: "3.3", activity: "จำนวนครั้งที่เยี่ยมบ้านเด็ก", unit: "ครั้ง", category: "CHILDREN", activityId: "children_3" },
-    { no: "3.4", activity: "จำนวนเด็กที่ได้รับการพัฒนาการเหมาะสม", unit: "คน", category: "CHILDREN", activityId: "children_4" },
-    { no: "3.5", activity: "จำนวนเด็กที่ได้รับวัคซีนครบถ้วน", unit: "คน", category: "CHILDREN", activityId: "children_5" },
+    { no: "3.1", activity: "จำนวนเด็กแรกเกิด ๖ เดือน", unit: "คน", category: "CHILDREN", activityId: "children_1" },
+    { no: "3.2", activity: "จำนวนเด็กแรกเกิด - ๖ ปี", unit: "คน", category: "CHILDREN", activityId: "children_2" },
+    { no: "3.3", activity: "เลี้ยงลูกด้วยนมแม่อย่างเดียว (เด็กแรกเกิด - ๖ เดือน)", unit: "คน", category: "CHILDREN", activityId: "children_3" },
+    { no: "3.4", activity: "ส่งเสริมการเล่านิทานให้เด็กแรกเกิด - ๖ ปี", unit: "คน", category: "CHILDREN", activityId: "children_4" },
+    { no: "3.5", activity: "จำนวนเด็กแรกเกิด - ๖ ปี ที่มีพัฒนาการไม่สมวัย", unit: "คน", category: "CHILDREN", activityId: "children_5" },
+    { no: "3.6", activity: "ให้คำแนะนำในการเลี้ยงดู", unit: "คน", category: "CHILDREN", activityId: "children_6" },
     // 4. การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ
     { no: "4.", activity: "การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ", unit: "", isMainCategory: true, category: "SEXUAL_HEALTH" },
-    { no: "4.1", activity: "จำนวนครั้งที่ให้คำแนะนำเรื่องสุขภาวะทางเพศ", unit: "ครั้ง", category: "SEXUAL_HEALTH", activityId: "sexual_health_1" },
-    { no: "4.2", activity: "จำนวนผู้รับคำแนะนำ (เด็กและเยาวชน)", unit: "คน", category: "SEXUAL_HEALTH", activityId: "sexual_health_2" },
-    { no: "4.3", activity: "จำนวนผู้รับคำแนะนำ (ผู้ปกครอง)", unit: "คน", category: "SEXUAL_HEALTH", activityId: "sexual_health_3" },
-    { no: "4.4", activity: "จำนวนครั้งที่ประสานงานกับโรงเรียน", unit: "ครั้ง", category: "SEXUAL_HEALTH", activityId: "sexual_health_4" },
+    { no: "4.1", activity: "จำนวนครัวเรือนที่มีบุตรหลานเป็นวัยรุ่น (อายุ ๑๐ - ๑๙ ปี)", unit: "ครัวเรือน", category: "SEXUAL_HEALTH", activityId: "sexual_health_1" },
+    { no: "4.2", activity: "จำนวนผู้ปกครองที่ดูแลบุตรหลานเป็นวัยรุ่น (อายุ ๑๐ - ๑๙ ปี)", unit: "คน", category: "SEXUAL_HEALTH", activityId: "sexual_health_2" },
+    { no: "4.3", activity: "จำนวนวัยรุ่น (อายุ ๑๐ - ๑๙ ปี)", unit: "คน", category: "SEXUAL_HEALTH", activityId: "sexual_health_3" },
+    { no: "4.4", activity: "จำนวนผู้ปกครองที่ อสส. แนะนำช่องทาง หรือสื่อในการสื่อสารสุขภาวะทางเพศ.", unit: "คน", category: "SEXUAL_HEALTH", activityId: "sexual_health_4" },
     // 5. การดูแลผู้สูงอายุ
     { no: "5.", activity: "การดูแลผู้สูงอายุ", unit: "", isMainCategory: true, category: "ELDERLY" },
-    { no: "5.1", activity: "จำนวนผู้สูงอายุในพื้นที่รับผิดชอบ (60 ปีขึ้นไป)", unit: "คน", category: "ELDERLY", activityId: "elderly_1" },
-    { no: "5.2", activity: "จำนวนผู้สูงอายุที่ได้รับการดูแลติดตาม", unit: "คน", category: "ELDERLY", activityId: "elderly_2" },
-    { no: "5.3", activity: "จำนวนครั้งที่เยี่ยมบ้านผู้สูงอายุ", unit: "ครั้ง", category: "ELDERLY", activityId: "elderly_3" },
-    { no: "5.4", activity: "จำนวนผู้สูงอายุที่ได้รับคำแนะนำการดูแลสุขภาพ", unit: "คน", category: "ELDERLY", activityId: "elderly_4" },
-    { no: "5.5", activity: "จำนวนผู้สูงอายุที่มีผู้ดูแล", unit: "คน", category: "ELDERLY", activityId: "elderly_5" },
+    { no: "5.1", activity: "จำนวนผู้สูงอายุในพื้นที่รับผิดชอบ", unit: "คน", category: "ELDERLY", activityId: "elderly_1" },
+    { no: "5.2", activity: "ป่วยเป็นโรคไม่ติดต่อเรื้อรัง", unit: "คน", category: "ELDERLY", activityId: "elderly_2" },
+    { no: "5.3", activity: "จำนวนผู้สูงอายุ สุขภาพกลุ่มที่ ๑", unit: "คน", category: "ELDERLY", activityId: "elderly_3" },
+    { no: "5.4", activity: "จำนวนผู้สูงอายุ กลุ่มที่ ๒", unit: "คน", category: "ELDERLY", activityId: "elderly_4" },
+    { no: "5.5", activity: "จำนวนผู้สูงอายุ กลุ่มที่ ๓", unit: "คน", category: "ELDERLY", activityId: "elderly_5" },
+    { no: "5.6", activity: "เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพผู้สูงอายุ", unit: "คน", category: "ELDERLY", activityId: "elderly_6" },
+    { no: "5.7", activity: "เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพผู้สูงอายุ", unit: "ครั้ง", category: "ELDERLY", activityId: "elderly_7" },
     // 6. การดูแลคนพิการ
     { no: "6.", activity: "การดูแลคนพิการ", unit: "", isMainCategory: true, category: "DISABLED" },
     { no: "6.1", activity: "จำนวนคนพิการในพื้นที่รับผิดชอบ", unit: "คน", category: "DISABLED", activityId: "disabled_1" },
-    { no: "6.2", activity: "จำนวนคนพิการที่ได้รับการดูแลติดตาม", unit: "คน", category: "DISABLED", activityId: "disabled_2" },
-    { no: "6.3", activity: "จำนวนครั้งที่เยี่ยมบ้านคนพิการ", unit: "ครั้ง", category: "DISABLED", activityId: "disabled_3" },
-    { no: "6.4", activity: "จำนวนคนพิการที่ได้รับคำแนะนำการดูแลสุขภาพ", unit: "คน", category: "DISABLED", activityId: "disabled_4" },
-    { no: "6.5", activity: "จำนวนคนพิการที่ได้รับการประสานงานบริการฟื้นฟู", unit: "คน", category: "DISABLED", activityId: "disabled_5" },
+    { no: "6.2", activity: "เยี่ยมบ้านให้คำแนะนำเรื่องการดูแลสุขภาพคนพิการ", unit: "คน", category: "DISABLED", activityId: "disabled_2" },
+    { no: "6.3", activity: "เยี่ยมบ้านให้คำแนะนำเรื่องการดูแลสุขภาพคนพิการ", unit: "ครั้ง", category: "DISABLED", activityId: "disabled_3" },
+    { no: "6.4", activity: "ทำกิจกรรมให้การสนับสนุนคนพิการ", unit: "คน", category: "DISABLED", activityId: "disabled_4" },
+    { no: "6.5", activity: "ทำกิจกรรมให้การสนับสนุนคนพิการ", unit: "ครั้ง", category: "DISABLED", activityId: "disabled_5" },
+    { no: "6.6", activity: "จำนวนคนพิการรายใหม่ที่ได้รับการขึ้นทะเบียน", unit: "คน", category: "DISABLED", activityId: "disabled_6" },
     // 7. การเฝ้าระวัง ป้องกัน และควบคุมโรค
     { no: "7.", activity: "การเฝ้าระวัง ป้องกัน และควบคุมโรค", unit: "", isMainCategory: true, category: "DISEASE_CONTROL" },
-    { no: "7.1", activity: "จำนวนครั้งที่เฝ้าระวังโรคติดเชื้อ", unit: "ครั้ง", category: "DISEASE_CONTROL", activityId: "disease_control_1" },
-    { no: "7.2", activity: "จำนวนครั้งที่ให้คำแนะนำการป้องกันโรค", unit: "ครั้ง", category: "DISEASE_CONTROL", activityId: "disease_control_2" },
-    { no: "7.3", activity: "จำนวนผู้ที่ได้รับการคัดกรองโรค", unit: "คน", category: "DISEASE_CONTROL", activityId: "disease_control_3" },
-    { no: "7.4", activity: "จำนวนผู้ป่วยที่ได้รับการติดตาม", unit: "คน", category: "DISEASE_CONTROL", activityId: "disease_control_4" },
-    { no: "7.5", activity: "จำนวนครั้งที่ประสานงานกับสถานบริการสาธารณสุข", unit: "ครั้ง", category: "DISEASE_CONTROL", activityId: "disease_control_5" },
+    { no: "7.1", activity: "เฝ้าระวัง ป้องกัน และควบคุมโรคไข้เลือดออก", unit: "ครัวเรือน", category: "DISEASE_CONTROL", activityId: "disease_control_1" },
+    { no: "7.2", activity: "เฝ้าระวัง ป้องกัน และควบคุมโรคไข้หวัดใหญ่", unit: "ครัวเรือน", category: "DISEASE_CONTROL", activityId: "disease_control_2" },
+    { no: "7.3", activity: "เฝ้าระวัง คัดกรอง และให้คำแนะนำกลุ่มเสี่ยงโรคไม่ติดต่อเรื้อรัง", unit: "คน", category: "DISEASE_CONTROL", activityId: "disease_control_3" },
+    { no: "7.4", activity: "เฝ้าระวัง คัดกรอง และค้นหากลุ่มเสี่ยงด้านสุขภาพจิต", unit: "คน", category: "DISEASE_CONTROL", activityId: "disease_control_4" },
     // 8. การฟื้นฟูสุขภาพ
     { no: "8.", activity: "การฟื้นฟูสุขภาพ", unit: "", isMainCategory: true, category: "REHABILITATION" },
-    { no: "8.1", activity: "จำนวนผู้ที่ได้รับการฟื้นฟูสุขภาพ", unit: "คน", category: "REHABILITATION", activityId: "rehabilitation_1" },
-    { no: "8.2", activity: "จำนวนครั้งที่ให้คำแนะนำการฟื้นฟูสุขภาพ", unit: "ครั้ง", category: "REHABILITATION", activityId: "rehabilitation_2" },
-    { no: "8.3", activity: "จำนวนผู้ที่ได้รับการฝึกทักษะการดำรงชีวิต", unit: "คน", category: "REHABILITATION", activityId: "rehabilitation_3" },
-    { no: "8.4", activity: "จำนวนครั้งที่ประสานงานกับศูนย์ฟื้นฟู", unit: "ครั้ง", category: "REHABILITATION", activityId: "rehabilitation_4" },
+    { no: "8.1", activity: "เยี่ยมบ้าน ให้คำแนะนำการดูแลผู้ป่วยโรคไม่ติดต่อเรื้อรัง (ทุกกลุ่มอายุ)", unit: "ครั้ง", category: "REHABILITATION", activityId: "rehabilitation_1" },
     // 9. การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ
     { no: "9.", activity: "การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ", unit: "", isMainCategory: true, category: "SMOKING_CESSATION" },
-    { no: "9.1", activity: "จำนวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าในพื้นที่รับผิดชอบ", unit: "คน", category: "SMOKING_CESSATION", activityId: "smoking_cessation_1" },
-    { no: "9.2", activity: "จำนวนครั้งที่ให้คำแนะนำการเลิกสูบ", unit: "ครั้ง", category: "SMOKING_CESSATION", activityId: "smoking_cessation_2" },
-    { no: "9.3", activity: "จำนวนผู้ที่สนใจเลิกสูบ", unit: "คน", category: "SMOKING_CESSATION", activityId: "smoking_cessation_3" },
-    { no: "9.4", activity: "จำนวนผู้ที่เลิกสูบได้", unit: "คน", category: "SMOKING_CESSATION", activityId: "smoking_cessation_4" },
-    { no: "9.5", activity: "จำนวนครั้งที่ประสานงานกับสถานบริการ", unit: "ครั้ง", category: "SMOKING_CESSATION", activityId: "smoking_cessation_5" },
+    { no: "9.1", activity: "เชิญชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบบุหรี่ จำนวน", unit: "คน", category: "SMOKING_CESSATION", activityId: "smoking_cessation_1" },
+    { no: "9.2", activity: "ผู้สูบบุหรี่/บุหรี่ไฟฟ้าที่เลิกสูบได้ (อย่างน้อย ๖ เดือน) จำนวน.", unit: "คน", category: "SMOKING_CESSATION", activityId: "smoking_cessation_2" },
     // 10. การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)
     { no: "10.", activity: "การสนับสนุนอาสาสมัครประจำครอบครัว (อสค.)", unit: "", isMainCategory: true, category: "FAMILY_VOLUNTEER" },
-    { no: "10.1", activity: "จำนวนอาสาสมัครประจำครอบครัว (อสค.) ในพื้นที่", unit: "คน", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_1" },
-    { no: "10.2", activity: "จำนวนครั้งที่ให้ความรู้แก่ อสค.", unit: "ครั้ง", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_2" },
-    { no: "10.3", activity: "จำนวนครัวเรือนที่ อสค. ดูแล", unit: "ครัวเรือน", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_3" },
-    { no: "10.4", activity: "จำนวนครั้งที่ อสค. รายงานข้อมูล", unit: "ครั้ง", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_4" },
+    { no: "10.1", activity: "จำนวน อสค. ที่ได้รับมอบหมายให้ดูแล", unit: "คน", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_1" },
+    { no: "10.2", activity: "ติดตามให้คำแนะนำ อสค. ในการดูแล อาหาร/ออกกำลังกาย/วิธีปฏิบัติการดูแล/การพยาบาล/การส่งต่อผู้ป่วยในครอบครัว", unit: "", category: "FAMILY_VOLUNTEER" },
+    { no: "", activity: "(๑) กลุ่มผู้สูงอายุที่มีปัญหาติดบ้าน ติดเตียง", unit: "คน", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_3" },
+    { no: "", activity: "(๒) กลุ่มผู้ป่วยโรคไม่ติดต่อเรื้อรัง", unit: "คน", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_4" },
+    { no: "", activity: "(๓) กลุ่มที่มีปัญหาโรคไต", unit: "คน", category: "FAMILY_VOLUNTEER", activityId: "family_volunteer_5" },
     // 11. การเข้าร่วมทีมหมอครอบครัว
     { no: "11.", activity: "การเข้าร่วมทีมหมอครอบครัว", unit: "", isMainCategory: true, category: "FAMILY_DOCTOR" },
-    { no: "11.1", activity: "จำนวนครั้งที่เข้าร่วมทีมหมอครอบครัว", unit: "ครั้ง", category: "FAMILY_DOCTOR", activityId: "family_doctor_1" },
-    { no: "11.2", activity: "จำนวนครัวเรือนที่ร่วมดูแล", unit: "ครัวเรือน", category: "FAMILY_DOCTOR", activityId: "family_doctor_2" },
-    { no: "11.3", activity: "จำนวนผู้ที่ได้รับการคัดกรอง", unit: "คน", category: "FAMILY_DOCTOR", activityId: "family_doctor_3" },
-    { no: "11.4", activity: "จำนวนครั้งที่ประสานงานกับทีมหมอครอบครัว", unit: "ครั้ง", category: "FAMILY_DOCTOR", activityId: "family_doctor_4" },
+    { no: "11.1", activity: "ร่วมเป็นทีมหมอครอบครัว ในการช่วยเหลือดูแลผู้ป่วย และครอบครัวในชุมชน", unit: "ครั้ง", category: "FAMILY_DOCTOR", activityId: "family_doctor_1" },
+    { no: "11.2", activity: "ช่วยปรับปรุงที่อยู่อาศัย และสิ่งแวดล้อมให้เอื้อต่อการดูแล/การพยาบาล", unit: "ครัวเรือน", category: "FAMILY_DOCTOR", activityId: "family_doctor_2" },
+    { no: "11.3", activity: "เสริมพลังและกำลังใจ และเทคนิคการดูแล การพยาบาลตามปัญหาสุขภาพ", unit: "ครัวเรือน", category: "FAMILY_DOCTOR", activityId: "family_doctor_3" },
     // 12. งานอื่น ๆ ตามสภาพปัญหาชุมชน
     { no: "12.", activity: "งานอื่น ๆ ตามสภาพปัญหาชุมชน", unit: "", isMainCategory: true, category: "OTHER" },
-    { no: "12.1", activity: "จำนวนกิจกรรมอื่นๆ ที่ทำในชุมชน", unit: "ครั้ง", category: "OTHER", activityId: "other_work_1" },
-    { no: "12.2", activity: "จำนวนครั้งที่ทำกิจกรรมอื่นๆ", unit: "ครั้ง", category: "OTHER", activityId: "other_work_2" },
-    { no: "12.3", activity: "จำนวนผู้ที่ได้รับบริการจากกิจกรรมอื่นๆ", unit: "คน", category: "OTHER", activityId: "other_work_3" },
-    { no: "12.4", activity: "จำนวนครั้งที่ประสานงานกับหน่วยงานอื่น", unit: "ครั้ง", category: "OTHER", activityId: "other_work_4" },
+    { no: "", activity: "จำนวนกิจกรรมอื่นๆ ที่ทำในชุมชน", unit: "ครั้ง", category: "OTHER", activityId: "other_work_1" },
   ], []);
 
   // โครงสร้างข้อมูลหัวข้อกิจกรรมตามเอกสาร PDF - แบบรายงานผลการปฏิบัติงานของ อสม. (67 จังหวัด)
@@ -954,7 +947,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
           doc.setFontSize(9);
           doc.setTextColor(30, 30, 30);
         } else if (isEmptyNo) {
-          doc.setFont("Sarabun", "italic");
+          doc.setFont("Sarabun", "normal");
           doc.setFontSize(9);
           doc.setTextColor(30, 30, 30);
         } else {
@@ -1153,14 +1146,10 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
         }
       });
 
-      // บันทึกไฟล์ - Format: OSM1{osm_code}_{DD-MM-YYYY}.pdf
-      const nowOSM1Detail = new Date();
-      const dayOSM1Detail = String(nowOSM1Detail.getDate()).padStart(2, '0');
-      const monthOSM1Detail = String(nowOSM1Detail.getMonth() + 1).padStart(2, '0');
-      const yearOSM1Detail = nowOSM1Detail.getFullYear();
-      const dateStrOSM1Detail = `${dayOSM1Detail}-${monthOSM1Detail}-${yearOSM1Detail}`;
+      // บันทึกไฟล์ - Format: OSM1{osm_code}_{year}.pdf หรือ OSM1_{year}.pdf (ถ้าไม่มี osm_code)
+      const currentYear = new Date().getFullYear();
       const code = osmCode || "";
-      doc.save(`OSM1_${code}_${dateStrOSM1Detail}.pdf`);
+      doc.save(`OSM1${code}_${currentYear}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("เกิดข้อผิดพลาดในการสร้าง PDF");
@@ -1264,10 +1253,10 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
                   noClass = "text-right pr-3 font-normal text-sm text-gray-800 pl-4";
                   activityClass = "text-sm text-gray-800 pl-4";
                 } else if (isEmptyNo) {
-                  // หัวข้อคำอธิบายพิเศษ - พื้นหลังสีฟ้าอ่อน
-                  rowClass = "bg-blue-50 border-b border-blue-100 py-2";
-                  noClass = "text-center text-sm text-blue-400";
-                  activityClass = "text-sm text-blue-700 italic";
+                  // หัวข้อย่อย (๑), (๒), (๓) - สีดำ ไม่เอียง
+                  rowClass = "bg-white border-b border-gray-100 py-1.5";
+                  noClass = "text-right pr-3 text-sm text-gray-800";
+                  activityClass = "text-sm text-gray-800 pl-4";
                 } else {
                   rowClass = "bg-white border-b border-gray-100 py-1.5";
                   noClass = "text-right pr-3 text-sm text-gray-800";
