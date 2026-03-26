@@ -108,58 +108,58 @@ const getPage1Body = (monthLabel, yearLabel) => `
   <div class="section">
     <div class="section-title">๑. การดูแลหญิงตั้งครรภ์</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑.๑ จำนวนหญิงตั้งครรภ์ในพื้นที่รับผิดชอบ ...................................................................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑.๒ ให้คำแนะนำหญิงตั้งครรภ์ในการปฏิบัติตัว ..............................................................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑.๓ จำนวนหญิงตั้งครรภ์ (รายใหม่) อายุมากกว่า ๒๐ ปี ................. คน อายุต่ำกว่า ๒๐ ปี .............................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑.๔ หญิงตั้งครรภ์รายใหม่ฝากครรภ์ครั้งแรกก่อนหรือเท่ากับ ๑๒ สัปดาห์ ......................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑.๕ ส่งต่อหญิงตั้งครรภ์ที่มีอาการผิดปกติไปยังสถานบริการสาธารณสุข ........................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>1.1 จำนวนหญิงตั้งครรภ์ในพื้นที่รับผิดชอบ ...................................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>1.2 ให้คำแนะนำหญิงตั้งครรภ์ในการปฏิบัติตัว ..............................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>1.3 จำนวนหญิงตั้งครรภ์ (รายใหม่) อายุมากกว่า 20 ปี ................. คน อายุต่ำกว่า 20 ปี .............................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>1.4 หญิงตั้งครรภ์รายใหม่ฝากครรภ์ครั้งแรกก่อนหรือเท่ากับ 12 สัปดาห์ ......................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>1.5 ส่งต่อหญิงตั้งครรภ์ที่มีอาการผิดปกติไปยังสถานบริการสาธารณสุข ........................................................................</span> <span>คน</span></div>
     </div>
   </div>
 
   <div class="section">
     <div class="section-title">๒. การดูแลหญิงหลังคลอด</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๒.๑ จำนวนหญิงหลังคลอดในพื้นที่รับผิดชอบ ................................................................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๒.๒ เยี่ยมและให้คำแนะนำหญิงหลังคลอด .....................................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>2.1 จำนวนหญิงหลังคลอดในพื้นที่รับผิดชอบ ................................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>2.2 เยี่ยมและให้คำแนะนำหญิงหลังคลอด .....................................................................................................................</span> <span>คน</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๓. การดูแลเด็กแรกเกิด - ๖ ปี <span style="font-weight: normal;">(จำนวนเด็กแรกเกิด ๖ เดือน ............ คน จำนวนเด็กแรกเกิด - ๖ ปี............คน)</span></div>
+    <div class="section-title">3. การดูแลเด็กแรกเกิด - 6 ปี <span style="font-weight: normal;">(จำนวนเด็กแรกเกิด 6 เดือน ............ คน จำนวนเด็กแรกเกิด - 6 ปี............คน)</span></div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๓.๑ เลี้ยงลูกด้วยนมแม่อย่างเดียว (เด็กแรกเกิด - ๖ เดือน) .............................................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๓.๒ ส่งเสริมการเล่านิทานให้เด็กแรกเกิด - ๖ ปี ..............................................................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๓.๓ จำนวนเด็กแรกเกิด - ๖ ปี ที่มีพัฒนาการไม่สมวัย.....................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>3.1 เลี้ยงลูกด้วยนมแม่อย่างเดียว (เด็กแรกเกิด - 6 เดือน) .............................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>3.2 ส่งเสริมการเล่านิทานให้เด็กแรกเกิด - 6 ปี ..............................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>3.3 จำนวนเด็กแรกเกิด - 6 ปี ที่มีพัฒนาการไม่สมวัย.....................................................................................................</span> <span>คน</span></div>
       <div class="item" style="display: flex; justify-content: flex-end;"><span>ให้คำแนะนำในการเลี้ยงดู ....................................................................... </span> <span> คน</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๔. การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ</div>
+    <div class="section-title">4. การให้คำแนะนำเรื่องการสื่อสารสุขภาวะทางเพศ</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๔.๑ จำนวนครัวเรือนที่มีบัตรหลานเป็นวัยรุ่น (อายุ ๑๐ - ๑๙ ปี)............................................................................</span> <span>ครัวเรือน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๔.๒ จำนวนผู้ปกครองที่ดูแลบัตรหลานเป็นวัยรุ่น (อายุ ๑๐ - ๑๙ ปี) ..............................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๔.๓ จำนวนวัยรุ่น (อายุ ๑๐ - ๑๙ ปี) ..............................................................................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๔.๔ จำนวนผู้ปกครองที่ อสส. แนะนำช่องทาง หรือสื่อในการสื่อสารสุขภาวะทางเพศ ....................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>4.1 จำนวนครัวเรือนที่มีบัตรหลานเป็นวัยรุ่น (อายุ 10 - 19 ปี)............................................................................</span> <span>ครัวเรือน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>4.2 จำนวนผู้ปกครองที่ดูแลบัตรหลานเป็นวัยรุ่น (อายุ 10 - 19 ปี) ..............................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>4.3 จำนวนวัยรุ่น (อายุ 10 - 19 ปี) ..............................................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>4.4 จำนวนผู้ปกครองที่ อสส. แนะนำช่องทาง หรือสื่อในการสื่อสารสุขภาวะทางเพศ ....................................................</span> <span>คน</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๕. การดูแลผู้สูงอายุ</div>
+    <div class="section-title">5. การดูแลผู้สูงอายุ</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๕.๑ จำนวนผู้สูงอายุในพื้นที่รับผิดชอบ .....................................คน ป่วยเป็นโรคไม่ติดต่อเรื้อรัง.....................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๕.๒ จำนวนผู้สูงอายุ สุขภาพกลุ่มที่ ๑.............................คน กลุ่มที่ ๒.............................คน กลุ่มที่ ๓............................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๕.๓ เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพผู้สูงอายุ..........................................คน ........................................</span> <span>ครั้ง</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>5.1 จำนวนผู้สูงอายุในพื้นที่รับผิดชอบ .....................................คน ป่วยเป็นโรคไม่ติดต่อเรื้อรัง.....................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>5.2 จำนวนผู้สูงอายุ สุขภาพกลุ่มที่ 1.............................คน กลุ่มที่ 2.............................คน กลุ่มที่ 3............................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>5.3 เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพผู้สูงอายุ..........................................คน ........................................</span> <span>ครั้ง</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๖. การดูแลคนพิการ</div>
+    <div class="section-title">6. การดูแลคนพิการ</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๖.๑ จำนวนคนพิการในพื้นที่รับผิดชอบ ........................................................................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๖.๒ เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพคนพิการ ....................................... คน .......................................</span> <span>ครั้ง</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๖.๓ ทำกิจกรรมให้การสนับสนุนคนพิการ .............................................................. คน ................................................</span> <span>ครั้ง</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๖.๔ จำนวนคนพิการรายใหม่ที่ได้รับการขึ้นทะเบียน .....................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>6.1 จำนวนคนพิการในพื้นที่รับผิดชอบ ........................................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>6.2 เยี่ยมบ้านและให้คำแนะนำเรื่องการดูแลสุขภาพคนพิการ ....................................... คน .......................................</span> <span>ครั้ง</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>6.3 ทำกิจกรรมให้การสนับสนุนคนพิการ .............................................................. คน ................................................</span> <span>ครั้ง</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>6.4 จำนวนคนพิการรายใหม่ที่ได้รับการขึ้นทะเบียน .....................................................................................................</span> <span>คน</span></div>
     </div>
   </div>
 `;
@@ -174,52 +174,52 @@ const getPage2Body = (monthLabel, yearLabel) => `
   </div>
 
   <div class="section">
-    <div class="section-title">๗. การเฝ้าระวัง ป้องกัน และควบคุมโรค</div>
+    <div class="section-title">7. การเฝ้าระวัง ป้องกัน และควบคุมโรค</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๗.๑ เฝ้าระวัง ป้องกัน และควบคุมโรคไข้เลือดออก...............................................................................................</span> <span>ครัวเรือน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๗.๒ เฝ้าระวัง ป้องกัน และควบคุมโรคไข้หวัดใหญ่................................................................................................</span> <span>ครัวเรือน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๗.๓ เฝ้าระวัง คัดกรอง และให้คำแนะนำกลุ่มเสี่ยงโรคไม่ติดต่อเรื้อรัง ...................................................................</span> <span>ครัวเรือน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๗.๔ เฝ้าระวัง คัดกรอง และค้นหากลุ่มเสี่ยงด้านสุขภาพจิต ..................................................................................</span> <span>ครัวเรือน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>7.1 เฝ้าระวัง ป้องกัน และควบคุมโรคไข้เลือดออก...............................................................................................</span> <span>ครัวเรือน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>7.2 เฝ้าระวัง ป้องกัน และควบคุมโรคไข้หวัดใหญ่................................................................................................</span> <span>ครัวเรือน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>7.3 เฝ้าระวัง คัดกรอง และให้คำแนะนำกลุ่มเสี่ยงโรคไม่ติดต่อเรื้อรัง ...................................................................</span> <span>ครัวเรือน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>7.4 เฝ้าระวัง คัดกรอง และค้นหากลุ่มเสี่ยงด้านสุขภาพจิต ..................................................................................</span> <span>ครัวเรือน</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๘. การจัดการสุขภาพชุมชนและการมีส่วนร่วมในแผนสุขภาพตำบล</div>
+    <div class="section-title">8. การจัดการสุขภาพชุมชนและการมีส่วนร่วมในแผนสุขภาพตำบล</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๘.๑ เยี่ยมบ้าน ให้คำแนะนำการดูแลผู้ป่วยโรคไม่ติดต่อเรื้อรัง (ทุกกลุ่มอายุ)..................................................................</span> <span>ครั้ง</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>8.1 เยี่ยมบ้าน ให้คำแนะนำการดูแลผู้ป่วยโรคไม่ติดต่อเรื้อรัง (ทุกกลุ่มอายุ)..................................................................</span> <span>ครั้ง</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๙. การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ</div>
+    <div class="section-title">9. การปฏิบัติงานชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบ</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๙.๑ เชิญชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบบุหรี่ จำนวน................................................................................................</span> <span>คน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๙.๒ ผู้สูบบุหรี่/บุหรี่ไฟฟ้าที่เลิกสูบได้ (อย่างน้อย ๖ เดือน) จำนวน..................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>9.1 เชิญชวนผู้สูบบุหรี่/บุหรี่ไฟฟ้าให้เลิกสูบบุหรี่ จำนวน................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>9.2 ผู้สูบบุหรี่/บุหรี่ไฟฟ้าที่เลิกสูบได้ (อย่างน้อย ๖ เดือน) จำนวน..................................................................................</span> <span>คน</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๑๐. การเข้าร่วมกับทีมหมอครอบครัว</div>
+    <div class="section-title">10. การเข้าร่วมกับทีมหมอครอบครัว</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑๐.๑ จำนวน อสค. ที่ได้รับมอบหมายให้ดูแล..................................................................................................................</span> <span>คน</span></div>
-      <div class="item">๑๐.๒ ติดตามให้คำแนะนำ อสค. ในการดูแล อาหาร/ออกกำลังกาย/วิธีปฏิบัติการดูแล/การพยาบาล/การส่งต่อผู้ป่วยในครอบครัว</div>
-      <div class="sub-item" style="display: flex; justify-content: space-between;"><span>(๑) กลุ่มผู้สูงอายุที่มีปัญหาติดบ้าน ติดเตียง................................................................................................................</span> <span>คน</span></div>
-      <div class="sub-item" style="display: flex; justify-content: space-between;"><span>(๒) กลุ่มผู้ป่วยโรคไม่ติดต่อเรื้อรัง...............................................................................................................................</span> <span>คน</span></div>
-      <div class="sub-item" style="display: flex; justify-content: space-between;"><span>(๓) กลุ่มที่มีปัญหาโรคไต............................................................................................................................................</span> <span>คน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>10.1 จำนวน อสค. ที่ได้รับมอบหมายให้ดูแล..................................................................................................................</span> <span>คน</span></div>
+      <div class="item">10.2 ติดตามให้คำแนะนำ อสค. ในการดูแล อาหาร/ออกกำลังกาย/วิธีปฏิบัติการดูแล/การพยาบาล/การส่งต่อผู้ป่วยในครอบครัว</div>
+      <div class="sub-item" style="display: flex; justify-content: space-between;"><span>(1) กลุ่มผู้สูงอายุที่มีปัญหาติดบ้าน ติดเตียง................................................................................................................</span> <span>คน</span></div>
+      <div class="sub-item" style="display: flex; justify-content: space-between;"><span>(2) กลุ่มผู้ป่วยโรคไม่ติดต่อเรื้อรัง...............................................................................................................................</span> <span>คน</span></div>
+      <div class="sub-item" style="display: flex; justify-content: space-between;"><span>(3) กลุ่มที่มีปัญหาโรคไต............................................................................................................................................</span> <span>คน</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๑๑. การเข้าร่วมทีมหมอครอบครัว</div>
+    <div class="section-title">11. การเข้าร่วมทีมหมอครอบครัว</div>
     <div class="section-content">
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑๑.๑ ร่วมเป็นทีมหมอครอบครัว ในการช่วยเหลือดูแลผู้ป่วย และครอบครัวในชุมชน....................................................</span> <span>ครั้ง</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑๑.๒ ช่วยปรับปรุงที่อยู่อาศัย และสิ่งแวดล้อมให้เอื้อต่อการดูแล/การพยาบาล.....................................................</span> <span>ครัวเรือน</span></div>
-      <div class="item" style="display: flex; justify-content: space-between;"><span>๑๑.๓ เสริมพลังและกำลังใจ และเทคนิคการดูแล การพยาบาลตามปัญหาสุขภาพ................................................</span> <span>ครัวเรือน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>11.1 ร่วมเป็นทีมหมอครอบครัว ในการช่วยเหลือดูแลผู้ป่วย และครอบครัวในชุมชน....................................................</span> <span>ครั้ง</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>11.2 ช่วยปรับปรุงที่อยู่อาศัย และสิ่งแวดล้อมให้เอื้อต่อการดูแล/การพยาบาล.....................................................</span> <span>ครัวเรือน</span></div>
+      <div class="item" style="display: flex; justify-content: space-between;"><span>11.3 เสริมพลังและกำลังใจ และเทคนิคการดูแล การพยาบาลตามปัญหาสุขภาพ................................................</span> <span>ครัวเรือน</span></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">๑๒. งานอื่น ๆ ตามสภาพปัญหาชุมชน</div>
+    <div class="section-title">12. งานอื่น ๆ ตามสภาพปัญหาชุมชน</div>
     <div class="section-content">
       <div class="item">.............................................................................................................................................................................................</div>
       <div class="item">.............................................................................................................................................................................................</div>
