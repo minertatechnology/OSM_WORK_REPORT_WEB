@@ -902,6 +902,7 @@ const PregnantReportComp = () => {
     isDistrictDisabled,
     isSubdistrictDisabled,
     isServiceDisabled,
+    filtersReady,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -975,11 +976,25 @@ const PregnantReportComp = () => {
 
   // ดึงจำนวน Unique Users
   useEffect(() => {
+    // รอให้ filters พร้อมก่อนเรียก API
+    if (!filtersReady) {
+      return;
+    }
+
     const fetchUniqueUsers = async () => {
       try {
+        // Get location names from the lookup data
+        const provinceObj = provinces.find(p => String(p.code || p.id) === String(province));
+        const districtObj = districts.find(d => String(d.code || d.id) === String(district));
+        const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
+
         const result = await getUniqueUsersCount({
           menu_type: "pregnant_women",
           year: year ? parseInt(year) : undefined,
+          month: month ? parseInt(month) : undefined,
+          province_name: provinceObj?.name_th,
+          district_name: districtObj?.name_th,
+          subdistrict_name: subdistrictObj?.name_th,
         });
         setUniqueUserCount(result?.unique_users || result?.count || 0);
       } catch (error) {
@@ -988,7 +1003,8 @@ const PregnantReportComp = () => {
       }
     };
     fetchUniqueUsers();
-  }, [year]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersReady, year, month, province, district, subdistrict]);
 
   // เก็บค่า date filters ล่าสุดเพื่อเช็คว่าเปลี่ยนหรือไม่
   const prevDateFiltersRef = useRef({ start_date: null, end_date: null });
@@ -996,21 +1012,37 @@ const PregnantReportComp = () => {
   // ดึงข้อมูลการประเมินหญิงตั้งครรภ์และข้อมูลผู้ใช้จาก API
   useEffect(() => {
     const fetchData = async () => {
+      // รอให้ filters พร้อมก่อนเรียก API
+      if (!filtersReady) {
+        return;
+      }
+
       setIsLoadingData(true);
       setIsLoadingUsers(true);
 
       try {
-        // 1. ดึงข้อมูลการประเมินทั้งหมด - ส่งเฉพาะ date filters
-        // Smart OSM API (pregnant-women-evaluations) ไม่รองรับ location filters
-        // เพราะข้อมูล location อยู่ใน OSM API, ไม่ใช่ใน evaluation data
-        // ดังนั้นจึงต้องดึงข้อมูลทั้งหมดมา แล้ว filter ด้วยข้อมูล OSM ใน frontend
-        const dateFilters = {
+        // 1. ดึงข้อมูลการประเมินทั้งหมด - ส่ง date filters และ location filters
+        // Get location names from the lookup data
+        const provinceObj = provinces.find(p => String(p.code || p.id) === String(province));
+        const districtObj = districts.find(d => String(d.code || d.id) === String(district));
+        const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
+
+        const apiFilters = {
           skip: 0,
           limit: 1000,
           start_date: apiParams.start_date,
           end_date: apiParams.end_date,
+          // ส่ง location filters เพื่อให้ API กรองข้อมูลตามสิทธิ์
+          ...(province && { province_id: province }),
+          ...(district && { district_id: district }),
+          ...(subdistrict && { subdistrict_id: subdistrict }),
+          ...(service && { health_service_id: service }),
+          // ส่งชื่อสถานที่ด้วย (สำหรับ API ที่รองรับ)
+          ...(provinceObj && { province: provinceObj.name_th }),
+          ...(districtObj && { district: districtObj.name_th }),
+          ...(subdistrictObj && { subdistrict: subdistrictObj.name_th }),
         };
-        const evaluations = await getAllPregnantWomenEvaluations(dateFilters);
+        const evaluations = await getAllPregnantWomenEvaluations(apiFilters);
         setAllEvaluations(evaluations); // เก็บข้อมูล evaluations ทั้งหมด
 
         // 1.1 สร้างรายการปีจาก created_at
@@ -1136,6 +1168,11 @@ const PregnantReportComp = () => {
     };
 
     // เช็คว่า date filters เปลี่ยนหรือไม่ ถ้าไม่เปลี่ยนไม่ต้องยิงซ้ำ
+    // และต้องรอให้ filtersReady ก่อน
+    if (!filtersReady) {
+      return;
+    }
+
     const currentDateFilters = {
       start_date: apiParams.start_date,
       end_date: apiParams.end_date,
@@ -1150,7 +1187,7 @@ const PregnantReportComp = () => {
       prevDateFiltersRef.current = currentDateFilters;
       fetchData();
     }
-  }, [apiParams]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
+  }, [apiParams, filtersReady, province, district, subdistrict, service]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
 
   // ดึงข้อมูล OSM ตามหน่วยบริการ
   useEffect(() => {
