@@ -824,7 +824,7 @@ const ReportMosquitoCompDataComp = () => {
   const searchParams = useSearchParams();
 
   // Use permission-based filters
-  const { isLocked } = useUserPermission();
+  const { isLocked, getPermissionLevel, scope, loading: permissionLoading } = useUserPermission();
   const {
     yearType,
     year,
@@ -906,34 +906,71 @@ const ReportMosquitoCompDataComp = () => {
         setError(null);
         setApiData([]);
 
-        // ✅ สร้าง API params object สำหรับส่ง filter ไป backend
-        const apiParams = {
-          skip: 0,
-          limit: 1000,
-        };
-
-        // ✅ ส่ง location filters ไป backend เป็น ID (เลข)
-        // กรองตามจังหวัด - ส่งเป็น province_id
-        if (province) {
-          apiParams.province_id = province;
+        // 🔐 รอให้ permission โหลดเสร็จก่อน
+        if (permissionLoading) {
+          console.log("⏳ [Mosquito] Waiting for permission to load...");
+          return;
         }
-        // กรองตามอำเภอ - ส่งเป็น district_id
+
+        // 🔐 Check permission level
+        const permissionLevel = getPermissionLevel();
+        const isCountryLevel = permissionLevel === 'country';
+
+        // 🏙️ Check if Bangkok user
+        const isBangkok = scope.province === '10' ||
+                          scope.province_name_th?.includes('กรุงเทพ') ||
+                          province === '10';
+
+        console.log("🔐 [Mosquito] Permission check:", {
+          permissionLevel,
+          isCountryLevel,
+          isBangkok,
+          scope,
+        });
+
+        // 🚀 Build query params (เริ่มจาก object ว่าง - เหมือน Reportosm1DataComp)
+        const queryParams = {};
+
+        // 🎯 Set filters based on permission level
+        if (isCountryLevel) {
+          // กรม → can see all data (no filter required)
+          console.log("🏛️ [Mosquito] Country level - can see all data");
+        } else if (isBangkok) {
+          // กรุงเทพ → see only Bangkok
+          console.log("🏙️ [Mosquito] Bangkok level - filtering Bangkok only");
+          queryParams.province_id = '10';
+        } else {
+          // Others → need at least 1 filter
+          const hasFilter = zone || province || district || subdistrict || service;
+          if (!hasFilter) {
+            console.log("⚠️ [Mosquito] No filter selected, skipping API call");
+            setApiData([]);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Add location filters
+        if (zone) {
+          queryParams.health_region = zone;
+        }
+        if (province && !queryParams.province_id) {
+          queryParams.province_id = province;
+        }
         if (district) {
-          apiParams.district_id = district;
+          queryParams.district_id = district;
         }
-        // กรองตามตำบล - ส่งเป็น subdistrict_id
         if (subdistrict) {
-          apiParams.subdistrict_id = subdistrict;
+          queryParams.subdistrict_id = subdistrict;
         }
-        // กรองตามหน่วยบริการ (health_service_id)
         if (service) {
-          apiParams.health_service_id = service;
+          queryParams.health_service_id = service;
         }
 
-        console.log("📤 [Mosquito] Sending filters to API:", apiParams);
+        console.log("📥 [Mosquito] Fetching with filters:", queryParams);
 
         // ✅ ส่ง filter ไป backend
-        const data = await fetchMosquitoLarvaeReports(apiParams);
+        const data = await fetchMosquitoLarvaeReports(queryParams);
 
         console.log("📥 [Mosquito] Reports from backend:", {
           totalReports: data.length,
@@ -1109,7 +1146,7 @@ const ReportMosquitoCompDataComp = () => {
 
     loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, householdId, service, year, month, yearType, province, district, subdistrict]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
+  }, [userId, householdId, service, year, month, yearType, province, district, subdistrict, permissionLoading]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
 
