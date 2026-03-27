@@ -383,6 +383,7 @@ const OsmHealthComp = () => {
     isDistrictDisabled,
     isSubdistrictDisabled,
     isServiceDisabled,
+    filtersReady,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -446,10 +447,34 @@ const OsmHealthComp = () => {
 
   // Fetch health records on mount
   useEffect(() => {
+    // รอให้ filters พร้อมก่อนเรียก API
+    if (!filtersReady) {
+      return;
+    }
+
     const fetchHealthRecords = async () => {
       try {
         setIsLoading(true);
-        const data = await getHealthRecords({ limit: 1000 });
+
+        // Get location names from the lookup data
+        const provinceObj = provinces.find(p => String(p.code || p.id) === String(province));
+        const districtObj = districts.find(d => String(d.code || d.id) === String(district));
+        const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
+
+        // ส่ง location filters เพื่อให้ API กรองข้อมูลตามสิทธิ์
+        const apiFilters = {
+          limit: 1000,
+          ...(province && { province_id: province }),
+          ...(district && { district_id: district }),
+          ...(subdistrict && { subdistrict_id: subdistrict }),
+          ...(service && { health_service_id: service }),
+          // ส่งชื่อสถานที่ด้วย (สำหรับ API ที่รองรับ)
+          ...(provinceObj && { province: provinceObj.name_th }),
+          ...(districtObj && { district: districtObj.name_th }),
+          ...(subdistrictObj && { subdistrict: subdistrictObj.name_th }),
+        };
+
+        const data = await getHealthRecords(apiFilters);
         setHealthRecords(data || []);
       } catch (error) {
         console.error("Failed to fetch health records:", error);
@@ -459,7 +484,7 @@ const OsmHealthComp = () => {
       }
     };
     fetchHealthRecords();
-  }, [year, month, yearType]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน (ใช้ค่า stable แทน apiParams)
+  }, [filtersReady, year, month, yearType, province, district, subdistrict, service]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
 
