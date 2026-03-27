@@ -10,6 +10,8 @@ export const getUsersList = async ({
   district_code = '',
   subdistrict_code = '',
   health_service_code = '',
+  health_area_id = '',  // ✅ เพิ่ม health_area_id (zone) filter
+  province_codes = '',  // ✅ เพิ่ม province_codes สำหรับ zone filtering (comma-separated)
   token // ไม่ต้องใช้แล้ว เพราะ apiSmartOsm จัดการให้
 }) => {
   try {
@@ -24,6 +26,8 @@ export const getUsersList = async ({
     if (district_code) params.district_code = district_code;
     if (subdistrict_code) params.subdistrict_code = subdistrict_code;
     if (health_service_code) params.health_service_code = health_service_code;
+    if (health_area_id) params.health_area_id = health_area_id;  // ✅ เพิ่ม health_area_id
+    if (province_codes) params.province_codes = province_codes;  // ✅ เพิ่ม province_codes
 
     const response = await apiSmartOsm.get('/auth/users', { params });
     return response.data;

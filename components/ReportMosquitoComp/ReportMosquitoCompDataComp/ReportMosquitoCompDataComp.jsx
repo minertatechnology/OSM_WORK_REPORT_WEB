@@ -33,7 +33,6 @@ import {
 } from "@services/mosquitoLarvaeService/mosquitoLarvaeService";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ArrowLeft } from "lucide-react";
-import { getOsmByHealthService } from "@services/lookupService";
 // Lookup services now handled by usePermissionFilters hook
 import {
   getCurrentFiscalYear,
@@ -886,7 +885,6 @@ const ReportMosquitoCompDataComp = () => {
   const [selectedUserData, setSelectedUserData] = useState(null); // เก็บข้อมูล OSM user ที่เลือก
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
 
   // Get current view from URL params
   const userId = searchParams.get("user_id");
@@ -908,28 +906,34 @@ const ReportMosquitoCompDataComp = () => {
         setError(null);
         setApiData([]);
 
-        // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
-        let osmData = [];
-        if (service) {
-          try {
-            osmData = await getOsmByHealthService(service);
-            setOsmDataByService(osmData);
-          } catch (err) {
-            console.error("Error fetching OSM data:", err);
-            setOsmDataByService([]);
-          }
-        } else {
-          setOsmDataByService([]);
-        }
-
-        // Fetch all reports - ไม่ส่ง location filters ไป backend เพื่อให้ frontend กรองเอง
-        // Backend กรองตามพื้นที่อาจจะมีปัญหา ให้ fetch ทั้งหมดแล้วมากรองบน frontend
-        const data = await fetchMosquitoLarvaeReports({
+        // ✅ สร้าง API params object สำหรับส่ง filter ไป backend
+        const apiParams = {
           skip: 0,
           limit: 1000,
-          // ไม่ส่ง location filters (zone, province, district, subdistrict) ไป backend
-          // ให้ frontend กรองเองจาก user_location
-        });
+        };
+
+        // ✅ ส่ง location filters ไป backend เป็น ID (เลข)
+        // กรองตามจังหวัด - ส่งเป็น province_id
+        if (province) {
+          apiParams.province_id = province;
+        }
+        // กรองตามอำเภอ - ส่งเป็น district_id
+        if (district) {
+          apiParams.district_id = district;
+        }
+        // กรองตามตำบล - ส่งเป็น subdistrict_id
+        if (subdistrict) {
+          apiParams.subdistrict_id = subdistrict;
+        }
+        // กรองตามหน่วยบริการ (health_service_id)
+        if (service) {
+          apiParams.health_service_id = service;
+        }
+
+        console.log("📤 [Mosquito] Sending filters to API:", apiParams);
+
+        // ✅ ส่ง filter ไป backend
+        const data = await fetchMosquitoLarvaeReports(apiParams);
 
         console.log("📥 [Mosquito] Reports from backend:", {
           totalReports: data.length,
@@ -1104,11 +1108,14 @@ const ReportMosquitoCompDataComp = () => {
     };
 
     loadData();
-  }, [userId, householdId, service, year, month, yearType]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน (ใช้ค่า stable แทน apiParams)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, householdId, service, year, month, yearType, province, district, subdistrict]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
 
   // Filter and search
+  // ✅ ปัจจุบันนี้ Backend กรอง location ให้แล้ว (province, district, subdistrict, service)
+  // Frontend กรองแค่ keyword search และ date/time filtering
   const filteredRows = useMemo(() => {
     const result = apiData.filter((row) => {
       // Keyword search - สำหรับ View 1 (รายชื่อผู้รับผิดชอบ) เท่านั้น
@@ -1172,188 +1179,14 @@ const ReportMosquitoCompDataComp = () => {
         }
       }
 
-      // Filter ตามหน่วยบริการ (เฉพาะบริการสุขภาพอสม.)
-      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
-      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
-      if (service && osmDataByService.length > 0) {
-        // สร้าง Set ของ OSM IDs เพื่อให้การ lookup เร็วขึ้น
-        const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
-
-        // Filter เฉพาะที่มี external_user_id อยู่ใน osmIdSet
-        const match = row.external_user_id && osmIdSet.has(row.external_user_id);
-
-        if (!match) {
-          return false;
-        }
-
-        // ถ้าเลือกหน่วยบริการแล้ว ให้ skip filter ตามพื้นที่ทิ้ง
-        return true;
-      }
-
-      // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
-      // ใช้ข้อมูลที่อยู่ของ อสม. ในการกรอง (user_location)
-      const userLocation = row.user_location;
-
-      // Debug: แสดงข้อมูลเมื่อกรอง
-      if (zone || province || district || subdistrict || service) {
-        console.log("🔍 [Mosquito] Filtering row:", {
-          rowName: row.name,
-          rowId: row.id,
-          hasUserLocation: !!userLocation,
-          userLocation: userLocation ? {
-            province_id: userLocation.province_id,
-            province_name_th: userLocation.province_name_th,
-            district_id: userLocation.district_id,
-            district_name_th: userLocation.district_name_th,
-            subdistrict_id: userLocation.subdistrict_id,
-            subdistrict_name_th: userLocation.subdistrict_name_th,
-            health_service_id: userLocation.health_service_id,
-            health_service_name_th: userLocation.health_service_name_th,
-          } : null,
-          filter: { zone, province, district, subdistrict, service },
-          selectedItems: {
-            province: provinces.find(p => p.code === province),
-            district: districts.find(d => d.code === district),
-            subdistrict: subdistricts.find(s => s.code === subdistrict),
-            service: healthServices.find(h => h.code === service),
-          },
-        });
-      }
-
-      // ถ้าไม่มี user_location แต่มีการเลือก filter location ให้ skip row นี้
-      if (!userLocation && (zone || province || district || subdistrict)) {
-        console.log("❌ [Mosquito] No user_location, filtering out");
-        return false;
-      }
-
-      if (userLocation) {
-        // Filter by health area (เขตสุขภาพ)
-        if (zone) {
-          const selectedHealthArea = healthAreas.find(h => h.code === zone);
-          if (selectedHealthArea && selectedHealthArea.provinces) {
-            const provinceInHealthArea = selectedHealthArea.provinces.find(
-              p => p.name_th === userLocation.province_name_th
-            );
-            if (!provinceInHealthArea) {
-              return false;
-            }
-          }
-        }
-
-        // Filter by province
-        if (province) {
-          const selectedProvince = provinces.find(p => p.code === province);
-          if (selectedProvince && userLocation.province_name_th !== selectedProvince.name_th) {
-            console.log("❌ [Mosquito] Province mismatch:", {
-              user: userLocation.province_name_th,
-              selected: selectedProvince.name_th,
-            });
-            return false;
-          }
-        }
-
-        // Filter by district
-        if (district) {
-          const selectedDistrict = districts.find(d => d.code === district);
-          if (selectedDistrict && userLocation.district_name_th !== selectedDistrict.name_th) {
-            console.log("❌ [Mosquito] District mismatch:", {
-              user: userLocation.district_name_th,
-              selected: selectedDistrict.name_th,
-            });
-            return false;
-          }
-        }
-
-        // Filter by subdistrict
-        if (subdistrict) {
-          const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
-          if (selectedSubdistrict && userLocation.subdistrict_name_th !== selectedSubdistrict.name_th) {
-            console.log("❌ [Mosquito] Subdistrict mismatch:", {
-              user: userLocation.subdistrict_name_th,
-              selected: selectedSubdistrict.name_th,
-            });
-            return false;
-          }
-        }
-
-        // Filter by village - เทียบ village ที่เลือกกับข้อมูล user
-        // selected village จะเป็น code เช่น "63050111" หรือ village_code
-        // user มี village_no ซึ่งอาจเป็นรหัสหมู่บ้าน (เช่น "31011") หรือเลขหมู่ (เช่น "3")
-        if (village) {
-          const userVillageNo = userLocation.village_no;
-          const userVillageCode = userLocation.village_code;
-
-          // หา village object จาก villages array เพื่อเทียบหลายแบบ
-          const selectedVillage = villages.find(v =>
-            (v.code && String(v.code) === String(village)) ||
-            (v.village_code && String(v.village_code) === String(village)) ||
-            String(v.village_no) === String(village)
-          );
-
-          // เทียบหลายรูปแบบ:
-          // 1. เทียบ village_no ของ user กับ selected village code
-          // 2. เทียบ village_no ของ user กับ village_no ของ selected village
-          // 3. เทียบ village_code ของ user กับ selected village code
-          let villageMatch = false;
-
-          if (userVillageNo) {
-            // ถ้า userVillageNo ตรงกับ selected village (code หรือ village_no)
-            if (String(userVillageNo) === String(village)) {
-              villageMatch = true;
-            } else if (selectedVillage && String(userVillageNo) === String(selectedVillage.village_no)) {
-              villageMatch = true;
-            } else if (selectedVillage?.code && String(userVillageNo) === String(selectedVillage.code)) {
-              villageMatch = true;
-            }
-          }
-
-          if (userVillageCode) {
-            if (String(userVillageCode) === String(village)) {
-              villageMatch = true;
-            }
-          }
-
-          if (!villageMatch) {
-            return false;
-          }
-        }
-
-        // Filter by health service - เทียบ health_service_id ของ user กับ service ที่เลือก
-        if (service) {
-          const userHealthServiceId = userLocation.health_service_id;
-          console.log("🔍 [Mosquito] Health Service Filter:", {
-            userHealthServiceId,
-            selectedService: service,
-            match: String(userHealthServiceId) === String(service),
-          });
-          // เทียบ health_service_id โดยตรง
-          if (userHealthServiceId) {
-            if (String(userHealthServiceId) !== String(service)) {
-              console.log("❌ [Mosquito] Health Service mismatch");
-              return false;
-            }
-          } else {
-            // ถ้าไม่มี health_service_id ให้ไม่ผ่าน filter
-            console.log("❌ [Mosquito] No health_service_id");
-            return false;
-          }
-        }
-      }
+      // ✅ ลบ location filtering ออก เพราะ Backend กรองให้แล้ว
+      // (zone, province, district, subdistrict, service ถูกส่งไป API แล้ว)
 
       return true;
     });
 
-    // Debug: แสดงสรุปผลการกรอง
-    if (zone || province || district || subdistrict || service) {
-      console.log("📊 [Mosquito] Filter Summary:", {
-        totalRows: apiData.length,
-        filteredRows: result.length,
-        filters: { zone, province, district, subdistrict, service },
-      });
-    }
-
     return result;
-  }, [userId, householdId, keyword, searchHouseNumber, searchVillageNumber, year, yearType, month, week, apiData, zone, province, district, subdistrict, village, service, osmDataByService, healthAreas, provinces, districts, subdistricts, villages, healthServices]); // เพิ่ม searchHouseNumber, searchVillageNumber
+  }, [userId, householdId, keyword, searchHouseNumber, searchVillageNumber, year, yearType, month, week, apiData]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(

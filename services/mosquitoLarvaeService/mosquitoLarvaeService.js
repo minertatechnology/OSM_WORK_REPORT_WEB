@@ -63,7 +63,10 @@ export const fetchMosquitoLarvaeReports = async ({
   district_id,
   subdistrict,
   subdistrict_id,
-  health_service_id
+  health_service_id,
+  month,
+  year,
+  week_number
 } = {}) => {
   try {
     const token = getAccessToken();
@@ -88,6 +91,13 @@ export const fetchMosquitoLarvaeReports = async ({
     if (subdistrict) params.subdistrict = subdistrict;
     if (subdistrict_id) params.subdistrict_id = subdistrict_id;
     if (health_service_id) params.health_service_id = health_service_id;
+
+    // Add time filters
+    if (month) params.month = parseInt(month);
+    if (year) params.year = parseInt(year);
+    if (week_number) params.week_number = parseInt(week_number);
+
+    console.log("📡 [MosquitoLarvae] API Request params:", params);
 
     const response = await axios.get(`${MOSQUITO_API_BASE_URL}/mosquito-larvae/reportsall`, {
       params,
