@@ -658,7 +658,7 @@ const Reportosm1DataComp = () => {
   const detailId = searchParams.get("detail");
 
   // Use permission-based filters
-  const { isLocked } = useUserPermission();
+  const { isLocked, getPermissionLevel, scope } = useUserPermission();
   const {
     yearType,
     year,
@@ -734,43 +734,63 @@ const Reportosm1DataComp = () => {
     fetchHealthServices();
   }, [province, district, subdistrict]);
 
-  // Fetch data from API (2 sources: 76 provinces + Bangkok)
+  // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // 🚀 Build query string with location filters - กรองที่ API แทน frontend
+        // 🔐 Check permission level
+        const permissionLevel = getPermissionLevel();
+        const isCountryLevel = permissionLevel === 'country';
+
+        // 🏙️ Check if Bangkok user
+        const isBangkok = scope.province === '10' ||
+                          scope.province_name_th?.includes('กรุงเทพ') ||
+                          province === '10';
+
+        console.log("🔐 [OSM1] Permission check:", {
+          permissionLevel,
+          isCountryLevel,
+          isBangkok,
+          scope,
+        });
+
+        // 🚀 Build query params
         const queryParams = {};
 
-        // ⚠️ ต้องเลือกอย่างน้อย 1 filter ถึงจะดึงข้อมูล
-        const hasFilter = zone || province || district || subdistrict || service;
-
-        if (!hasFilter) {
-          console.log("⚠️ [OSM1] No filter selected, skipping API call");
-          setApiData([]);
-          setLoading(false);
-          return;
+        // 🎯 Set filters based on permission level
+        if (isCountryLevel) {
+          // กรม → can see all data (no filter required)
+          console.log("🏛️ [OSM1] Country level - can see all data");
+        } else if (isBangkok) {
+          // กรุงเทพ → see only Bangkok
+          console.log("🏙️ [OSM1] Bangkok level - filtering Bangkok only");
+          queryParams.province_id = '10';
+        } else {
+          // Others → need at least 1 filter
+          const hasFilter = zone || province || district || subdistrict || service;
+          if (!hasFilter) {
+            console.log("⚠️ [OSM1] No filter selected, skipping API call");
+            setApiData([]);
+            setLoading(false);
+            return;
+          }
         }
 
-        // เพิ่ม location filters - ส่งรหัส (ID) เพื่อให้ API กรองได้
-        // เขตสุขภาพ
+        // Add location filters
         if (zone) {
           queryParams.health_area_id = zone;
         }
-        // จังหวัด
-        if (province) {
+        if (province && !queryParams.province_id) {
           queryParams.province_id = province;
         }
-        // อำเภอ
         if (district) {
           queryParams.district_id = district;
         }
-        // ตำบล
         if (subdistrict) {
           queryParams.subdistrict_id = subdistrict;
         }
-        // หน่วยบริการ
         if (service) {
           queryParams.health_service_id = service;
         }
@@ -786,24 +806,59 @@ const Reportosm1DataComp = () => {
           headers.Authorization = `Bearer ${token}`;
         }
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`,
-          { headers }
-        );
-
-        // ✅ Parse JSON response
         let data = [];
 
-        if (response.ok) {
-          const json = await response.json();
-          // รองรับทั้ง array โดยตรง และ { data: [...] }
-          data = Array.isArray(json) ? json : (json.data || []);
+        if (isCountryLevel) {
+          // 🏛️ กรม → ยิงทั้ง 2 API (76 จังหวัด + กรุงเทพ)
+          console.log("🏛️ [OSM1] Fetching from both APIs for country level");
+
+          const [provincesRes, bangkokRes] = await Promise.all([
+            fetch(
+              `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`,
+              { headers }
+            ),
+            fetch(
+              `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1-bangkok/submissionsall?${queryString}`,
+              { headers }
+            ),
+          ]);
+
+          let provincesData = [];
+          let bangkokData = [];
+
+          if (provincesRes.ok) {
+            const json = await provincesRes.json();
+            provincesData = Array.isArray(json) ? json : (json.data || []);
+          }
+
+          if (bangkokRes.ok) {
+            const json = await bangkokRes.json();
+            bangkokData = Array.isArray(json) ? json : (json.data || []);
+          }
+
+          data = [...provincesData, ...bangkokData];
+
+          console.log("📥 [OSM1] Combined data:", {
+            provinces: provincesData.length,
+            bangkok: bangkokData.length,
+            total: data.length,
+          });
         } else {
-          console.error("❌ [OSM1] API failed:", response.status);
+          // อื่นๆ → ยิงแค่ API เดียว
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`,
+            { headers }
+          );
+
+          if (response.ok) {
+            const json = await response.json();
+            data = Array.isArray(json) ? json : (json.data || []);
+          } else {
+            console.error("❌ [OSM1] API failed:", response.status);
+          }
         }
 
         console.log("📥 [OSM1] Reports from backend:", {
-          status: response.status,
           totalReports: data.length,
           filters: queryParams,
           sampleData: data[0] || null,
@@ -907,38 +962,45 @@ const Reportosm1DataComp = () => {
   }, [apiData]);
 
   const filteredRows = useMemo(() => {
+    // 🔐 Check permission level
+    const permissionLevel = getPermissionLevel();
+    const isCountryLevel = permissionLevel === 'country';
+
     return ALL_ROWS.filter((row) => {
-      // 🔄 Frontend location filtering (fallback กรณี backend ไม่กรอง)
-      const userLocation = row.user_location;
+      // ⚠️ กรม (country level) ข้าม frontend location filtering เพราะเห็นทั้งหมด
+      if (!isCountryLevel) {
+        // 🔄 Frontend location filtering (fallback กรณี backend ไม่กรอง)
+        const userLocation = row.user_location;
 
-      // Filter by province
-      if (province && userLocation) {
-        if (userLocation.province_id !== province && userLocation.province_name_th !== province) {
-          return false;
+        // Filter by province
+        if (province && userLocation) {
+          if (userLocation.province_id !== province && userLocation.province_name_th !== province) {
+            return false;
+          }
         }
-      }
 
-      // Filter by district
-      if (district && userLocation) {
-        if (userLocation.district_id !== district && userLocation.district_name_th !== district) {
-          return false;
+        // Filter by district
+        if (district && userLocation) {
+          if (userLocation.district_id !== district && userLocation.district_name_th !== district) {
+            return false;
+          }
         }
-      }
 
-      // Filter by subdistrict
-      if (subdistrict && userLocation) {
-        if (userLocation.subdistrict_id !== subdistrict && userLocation.subdistrict_name_th !== subdistrict) {
-          return false;
+        // Filter by subdistrict
+        if (subdistrict && userLocation) {
+          if (userLocation.subdistrict_id !== subdistrict && userLocation.subdistrict_name_th !== subdistrict) {
+            return false;
+          }
         }
-      }
 
-      // Filter by service (health_service_id)
-      if (service && userLocation?.health_services) {
-        const serviceMatch = userLocation.health_services.some(
-          hs => hs.health_service_id === service || hs.code === service
-        );
-        if (!serviceMatch) {
-          return false;
+        // Filter by service (health_service_id)
+        if (service && userLocation?.health_services) {
+          const serviceMatch = userLocation.health_services.some(
+            hs => hs.health_service_id === service || hs.code === service
+          );
+          if (!serviceMatch) {
+            return false;
+          }
         }
       }
 
@@ -978,7 +1040,7 @@ const Reportosm1DataComp = () => {
 
       return true;
     });
-  }, [keyword, year, yearType, month, ALL_ROWS, province, district, subdistrict, service]);
+  }, [keyword, year, yearType, month, ALL_ROWS, province, district, subdistrict, service, getPermissionLevel]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(
