@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Search, Download, RotateCcw, Loader2, FileText, MapPin, Building2, Home, Calendar, FileSpreadsheet, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown, Landmark, Globe } from "lucide-react";
 import { getHealthAreas, getProvinces, getDistricts, getSubdistricts, getHealthServices } from "@services/lookupService";
-import { getPublicOsm1SummaryByLocation } from "@services/publicReportService/publicReportService";
+import { getPublicOsm1SummaryByLocation, getPublicOsm1BangkokSummaryByLocation } from "@services/publicReportService/publicReportService";
 import { generateBangkokPDF, downloadBangkokPDF } from "@services/publicReportService/generateBangkokPDF";
 import CustomSelect from "@services/customSelectService/customSelectService";
 import { HEALTHZONE_PROVINCES } from "@utils/healthzone-province-data";
@@ -1384,8 +1384,14 @@ const PublicReportComp = () => {
 
         console.log('API Request params:', params);
 
-        // Call real API
-        const apiData = await getPublicOsm1SummaryByLocation(params);
+        // Check if this is Bangkok (province_code = "10" or zone_code starts with "HA")
+        const isBangkok = province === "10" || (zone && zone.startsWith("HA"));
+        console.log('🔍 Is Bangkok:', isBangkok, { province, zone });
+
+        // Call appropriate API based on location
+        const apiData = isBangkok
+          ? await getPublicOsm1BangkokSummaryByLocation(params)
+          : await getPublicOsm1SummaryByLocation(params);
 
         // Handle different response formats
         let dataArray = [];

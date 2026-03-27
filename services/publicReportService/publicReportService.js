@@ -16,7 +16,7 @@ const publicReportAxios = axios.create({
 });
 
 /**
- * ดึงข้อมูลรายงาน อสม.1 สรุปตามสถานที่
+ * ดึงข้อมูลรายงาน อสม.1 สรุปตามสถานที่ (สำหรับต่างจังหวัด)
  * GET /report-osm1/summary/by-location
  * @param {Object} params - Filter parameters
  * @param {string} params.fiscal_year - ปีงบประมาณ (เช่น "2568")
@@ -70,6 +70,62 @@ export const getPublicOsm1SummaryByLocation = async (params = {}) => {
     }
     // Log other errors but still return empty array to prevent UI errors
     console.error("Error fetching OSM1 summary by location:", error.response?.status, error.response?.data);
+    return [];
+  }
+};
+
+/**
+ * ดึงข้อมูลรายงาน อสม.1 สรุปตามสถานที่ (สำหรับกรุงเทพมหานคร)
+ * GET /report-osm1-bangkok/summary/by-location
+ * @param {Object} params - Filter parameters
+ * @param {string} params.fiscal_year - ปีงบประมาณ (เช่น "2569")
+ * @param {string} params.month - เดือน (1-12)
+ * @param {string} params.district_code - รหัสอำเภอ/เขต
+ * @param {string} params.subdistrict_code - รหัสตำบล/แขวง
+ * @returns {Promise} - Promise containing report data
+ */
+export const getPublicOsm1BangkokSummaryByLocation = async (params = {}) => {
+  try {
+    const searchParams = new URLSearchParams();
+
+    // Map params to query parameters matching API expectation
+    if (params.fiscal_year) {
+      searchParams.append('fiscal_year', parseInt(params.fiscal_year));
+    }
+    if (params.month) {
+      searchParams.append('report_month', parseInt(params.month));
+    }
+    if (params.province_code) {
+      searchParams.append('province_id', params.province_code);
+    }
+    if (params.district_code) {
+      searchParams.append('district_id', params.district_code);
+    }
+    if (params.subdistrict_code) {
+      searchParams.append('subdistrict_id', params.subdistrict_code);
+    }
+    if (params.zone_code) {
+      searchParams.append('health_area_id', params.zone_code);
+    }
+    if (params.health_service_code) {
+      searchParams.append('health_service_id', params.health_service_code);
+    }
+
+    const queryString = searchParams.toString();
+    const url = queryString
+      ? `/report-osm1-bangkok/summary/by-location?${queryString}`
+      : `/report-osm1-bangkok/summary/by-location`;
+
+    const response = await publicReportAxios.get(url);
+
+    return response.data;
+  } catch (error) {
+    // Silently handle 404 errors (no data found) - don't log or alert
+    if (error.response?.status === 404) {
+      return [];
+    }
+    // Log other errors but still return empty array to prevent UI errors
+    console.error("Error fetching OSM1 Bangkok summary by location:", error.response?.status, error.response?.data);
     return [];
   }
 };
@@ -153,4 +209,5 @@ export default {
   getPublicReportData,
   getPublicOsm1Summary,
   getPublicOsm1SummaryByLocation,
+  getPublicOsm1BangkokSummaryByLocation,
 };
