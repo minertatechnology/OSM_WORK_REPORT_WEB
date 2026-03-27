@@ -738,6 +738,8 @@ const NcdsScreeningComp = () => {
     isDistrictDisabled,
     isSubdistrictDisabled,
     isServiceDisabled,
+    scope,
+    filtersReady,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -762,8 +764,13 @@ const NcdsScreeningComp = () => {
   // Note: Location data loading is handled by usePermissionFilters hook
   // Note: usePermissionFilters already sets the default year, so no need for separate initialization
 
-  // ดึงข้อมูลจาก API
+  // ดึงข้อมูลจาก API - รอให้ filters พร้อมก่อน (ทั้ง permission และ initial values)
   useEffect(() => {
+    // รอให้ filters พร้อมก่อนเรียก API (รวมถึงการ set ค่าเริ่มต้นจาก permission)
+    if (!filtersReady) {
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -782,7 +789,29 @@ const NcdsScreeningComp = () => {
           setOsmDataByService([]);
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?skip=0&limit=100`);
+        // Build query parameters based on permission filters
+        const queryParams = new URLSearchParams({
+          skip: '0',
+          limit: '100',
+        });
+
+        // Add location filters based on user permissions
+        // Using province_id, district_id, subdistrict_id to match API's location_data_resolved structure
+        if (province) queryParams.append('province_id', province);
+        if (district) queryParams.append('district_id', district);
+        if (subdistrict) queryParams.append('subdistrict_id', subdistrict);
+        if (service) queryParams.append('health_service_id', service);
+
+        console.log('[NcdsScreeningComp] Fetching data with params:', {
+          province,
+          district,
+          subdistrict,
+          service,
+          scope,
+          url: `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?${queryParams.toString()}`
+        });
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?${queryParams.toString()}`);
         const data = await response.json();
 
         // แปลงข้อมูลจาก API ให้เป็นรูปแบบที่ใช้แสดงในตาราง
@@ -809,16 +838,37 @@ const NcdsScreeningComp = () => {
     };
 
     fetchData();
-  }, [service]); // เฉพาะ service เท่านั้นที่ต้องดึงข้อมูลใหม่ (ไม่ใช้ currentBuddhistYear เพราะ API ไม่ได้กรองตามปี)
+  }, [filtersReady, province, district, subdistrict, service, scope]); // ดึงข้อมูลใหม่เมื่อตัวกรองสถานที่เปลี่ยน
 
-  // ดึงจำนวน Unique Users
+  // ดึงจำนวน Unique Users - รอให้ filters พร้อมก่อน
   useEffect(() => {
+    // รอให้ filters พร้อมก่อนเรียก API (รวมถึงการ set ค่าเริ่มต้นจาก permission)
+    if (!filtersReady) {
+      return;
+    }
+
     const fetchUniqueUsers = async () => {
       try {
+        // Get location names from the lookup data
+        const provinceObj = provinces.find(p => String(p.code || p.id) === String(province));
+        const districtObj = districts.find(d => String(d.code || d.id) === String(district));
+        const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
+
+        console.log('[NcdsScreeningComp] Fetching unique users with params:', {
+          year,
+          month,
+          province_name: provinceObj?.name_th,
+          district_name: districtObj?.name_th,
+          subdistrict_name: subdistrictObj?.name_th,
+        });
+
         const result = await getUniqueUsersCount({
           menu_type: "ncds",
           year: year ? parseInt(year) : undefined,
           month: month ? parseInt(month) : undefined,
+          province_name: provinceObj?.name_th,
+          district_name: districtObj?.name_th,
+          subdistrict_name: subdistrictObj?.name_th,
         });
         setUniqueUserCount(result?.unique_users || result?.count || 0);
       } catch (error) {
@@ -827,7 +877,8 @@ const NcdsScreeningComp = () => {
       }
     };
     fetchUniqueUsers();
-  }, [year, month]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersReady, year, month, province, district, subdistrict]);
 
   // Note: Location data loading is now handled by usePermissionFilters hook
 

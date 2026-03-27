@@ -570,6 +570,10 @@ export const usePermissionFilters = (options = {}) => {
     // Permission data
     scope,
     permissionLoading,
+
+    // ✅ Filter initialization state - use this to wait before making API calls
+    initialValuesSet,
+    filtersReady: !permissionLoading && initialValuesSet,
   };
 };
 

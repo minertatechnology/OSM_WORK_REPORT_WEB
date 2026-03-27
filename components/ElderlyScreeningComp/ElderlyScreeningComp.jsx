@@ -771,6 +771,7 @@ const ElderlyScreeningComp = () => {
     isDistrictDisabled,
     isSubdistrictDisabled,
     isServiceDisabled,
+    filtersReady,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -806,6 +807,11 @@ const ElderlyScreeningComp = () => {
   }, [currentBuddhistYear, year, availableYears.length]);
 
   const fetchElderly = useCallback(async () => {
+    // รอให้ filters พร้อมก่อนเรียก API (รวมถึงการ set ค่าเริ่มต้นจาก permission)
+    if (!filtersReady) {
+      return;
+    }
+
     setLoading(true);
     setError("");
     try {
@@ -823,8 +829,7 @@ const ElderlyScreeningComp = () => {
         setOsmDataByService([]);
       }
 
-      // ดึงข้อมูลผู้สูงอายุทั้งหมด - ส่งเฉพาะ date filters (ไม่ส่ง location filters)
-      // Smart OSM API ไม่รองรับ location filters, จะกรองตามพื้นที่ใน frontend ด้วย OSM data
+      // ดึงข้อมูลผู้สูงอายุทั้งหมด - ส่ง date filters และ location filters
       let start_date, end_date;
       if (year && month) {
         const buddhistYear = parseInt(year);
@@ -841,13 +846,27 @@ const ElderlyScreeningComp = () => {
         end_date = new Date(adjustedYear, monthNum, 0, 23, 59, 59).toISOString();
       }
 
-      const dateFilters = {
+      // Get location names from the lookup data
+      const provinceObj = provinces.find(p => String(p.code || p.id) === String(province));
+      const districtObj = districts.find(d => String(d.code || d.id) === String(district));
+      const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
+
+      const apiFilters = {
         skip: 0,
         limit: 1000,
         start_date,
         end_date,
+        // ส่ง location filters เพื่อให้ API กรองข้อมูลตามสิทธิ์
+        ...(province && { province_id: province }),
+        ...(district && { district_id: district }),
+        ...(subdistrict && { subdistrict_id: subdistrict }),
+        ...(service && { health_service_id: service }),
+        // ส่งชื่อสถานที่ด้วย (สำหรับ API ที่รองรับ)
+        ...(provinceObj && { province: provinceObj.name_th }),
+        ...(districtObj && { district: districtObj.name_th }),
+        ...(subdistrictObj && { subdistrict: subdistrictObj.name_th }),
       };
-      const data = await elderlyScreeningService.getAll(dateFilters);
+      const data = await elderlyScreeningService.getAll(apiFilters);
 
       if (data.length === 0) {
         // ไม่พบข้อมูลที่ตรงกับเงื่อนไข - ไม่ใช่ error ของระบบ
@@ -908,7 +927,7 @@ const ElderlyScreeningComp = () => {
     } finally {
       setLoading(false);
     }
-  }, [year, month, yearType]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน (ใช้ค่า stable แทน apiParams)
+  }, [filtersReady, year, month, yearType, province, district, subdistrict, service]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -922,11 +941,25 @@ const ElderlyScreeningComp = () => {
 
   // ดึงจำนวน Unique Users
   useEffect(() => {
+    // รอให้ filters พร้อมก่อนเรียก API
+    if (!filtersReady) {
+      return;
+    }
+
     const fetchUniqueUsers = async () => {
       try {
+        // Get location names from the lookup data
+        const provinceObj = provinces.find(p => String(p.code || p.id) === String(province));
+        const districtObj = districts.find(d => String(d.code || d.id) === String(district));
+        const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
+
         const result = await getUniqueUsersCount({
           menu_type: "elderly_screening",
           year: year ? parseInt(year) : undefined,
+          month: month ? parseInt(month) : undefined,
+          province_name: provinceObj?.name_th,
+          district_name: districtObj?.name_th,
+          subdistrict_name: subdistrictObj?.name_th,
         });
         setUniqueUserCount(result?.unique_users || result?.count || 0);
       } catch (error) {
@@ -935,7 +968,8 @@ const ElderlyScreeningComp = () => {
       }
     };
     fetchUniqueUsers();
-  }, [year]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersReady, year, month, province, district, subdistrict]);
 
   useEffect(() => {
     // อ่าน detailId ทันทีเมื่อ searchParams เปลี่ยน (ไม่ต้องรอ hydrated)
