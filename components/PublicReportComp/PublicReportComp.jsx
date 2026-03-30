@@ -1384,9 +1384,10 @@ const PublicReportComp = () => {
 
         console.log('API Request params:', params);
 
-        // Check if this is Bangkok (province_code = "10" or zone_code starts with "HA")
-        const isBangkok = province === "10" || (zone && zone.startsWith("HA"));
-        console.log('🔍 Is Bangkok:', isBangkok, { province, zone });
+        // Check if this is Bangkok based on activeTab, province_code = "10", or zone_code = "HA13"
+        // IMPORTANT: Only zone "HA13" is Bangkok, not all "HA*" zones!
+        const isBangkok = activeTab === "bangkok" || province === "10" || zone === BANGKOK_ZONE;
+        console.log('🔍 Is Bangkok:', isBangkok, { activeTab, province, zone, BANGKOK_ZONE });
 
         // Call appropriate API based on location
         const apiData = isBangkok
