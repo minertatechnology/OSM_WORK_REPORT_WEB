@@ -15,7 +15,7 @@ import {
 import NewsCompService from "@services/Table/NewsCompService";
 import NewsAddPopup from "@components/NewsComp/NewsAddPopup";
 import CustomSelect from "@services/customSelectService/customSelectService";
-import ToastManager, { showToast } from "@components/Toast/ToastManager";
+import Swal from "sweetalert2";
 import {
   fetchNotifications,
   createNotification,
@@ -35,6 +35,39 @@ import {
 
 // Dummy auth สำหรับตัวอย่าง
 const dummyAuth = { roles: ["สบส."] };
+
+const THEME_COLOR = "#7e32e2";
+
+// SweetAlert ธีมม่วงของระบบ — ยก z-index ให้อยู่เหนือ popup แจ้งเตือน (z-index 9999)
+const fireAlert = (options = {}) =>
+  Swal.fire({
+    confirmButtonColor: THEME_COLOR,
+    confirmButtonText: "ตกลง",
+    ...options,
+    didOpen: (popup) => {
+      const container = Swal.getContainer();
+      if (container) container.style.zIndex = "10050";
+      if (options.didOpen) options.didOpen(popup);
+    },
+  });
+
+const showLoadingAlert = (title) =>
+  fireAlert({
+    title,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    didOpen: () => Swal.showLoading(),
+  });
+
+const getApiErrorMessage = (error, fallback) => {
+  const status = error?.response?.status;
+  if (status === 401) return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง";
+  if (status === 403) return "คุณไม่มีสิทธิ์ดำเนินการกับแจ้งเตือนนี้ (ลบได้เฉพาะผู้ที่สร้างแจ้งเตือน)";
+  if (status === 404) return "ไม่พบแจ้งเตือนนี้ อาจถูกลบไปแล้ว";
+  if (status === 422) return "ข้อมูลไม่ครบถ้วน กรุณาตรวจสอบหัวข้อและรายละเอียด";
+  return fallback;
+};
 
 // เดือน options (ปกติ - เริ่มต้นเดือนมกราคม)
 const MONTHS = [
@@ -360,7 +393,11 @@ const NewsCompContent = () => {
       setFilteredNews(notifications);
     } catch (error) {
       console.error("Failed to load notifications:", error);
-      showToast("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง", "error");
+      fireAlert({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: getApiErrorMessage(error, "ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง"),
+      });
     } finally {
       setLoading(false);
     }
@@ -462,17 +499,30 @@ const NewsCompContent = () => {
         author_name: dummyAuth.roles[0] || "Admin",
       };
 
+      showLoadingAlert("กำลังบันทึกแจ้งเตือน...");
+
       // เรียก API สร้าง notification
       await createNotification(notificationData);
+
+      setShowAddPopup(false);
+      Swal.close();
 
       // โหลดข้อมูลใหม่ทันทีเพื่อแสดงผล real-time
       await loadNotifications();
 
-      setShowAddPopup(false);
-      showToast("เพิ่มแจ้งเตือนสำเร็จ!", "success");
+      fireAlert({
+        icon: "success",
+        title: "เพิ่มแจ้งเตือนสำเร็จ",
+        timer: 1500,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error("Failed to create notification:", error);
-      showToast("ไม่สามารถเพิ่มแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง", "error");
+      fireAlert({
+        icon: "error",
+        title: "เพิ่มแจ้งเตือนไม่สำเร็จ",
+        text: getApiErrorMessage(error, "ไม่สามารถเพิ่มแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง"),
+      });
     }
   };
 
@@ -484,20 +534,43 @@ const NewsCompContent = () => {
 
   // ลบข้อมูล
   const handleDeleteDetail = async (item) => {
-    if (!confirm("ต้องการลบแจ้งเตือนนี้?")) return;
+    if (!item?.id) return;
 
+    const result = await fireAlert({
+      icon: "warning",
+      title: "ต้องการลบแจ้งเตือนนี้หรือไม่?",
+      text: `"${item.title || "-"}" จะถูกลบถาวรและไม่สามารถกู้คืนได้`,
+      showCancelButton: true,
+      confirmButtonText: "ลบแจ้งเตือน",
+      cancelButtonText: "ยกเลิก",
+      cancelButtonColor: "#9ca3af",
+      reverseButtons: true,
+      focusCancel: true,
+    });
+    if (!result.isConfirmed) return;
+
+    showLoadingAlert("กำลังลบแจ้งเตือน...");
     try {
       await deleteNotification(item.id);
 
-      // โหลดข้อมูลใหม่
-      await loadNotifications();
+      // เอาออกจากรายการในหน้าจอเลย ไม่ต้องโหลดใหม่ (ผลการค้นหาที่กรองไว้จะยังอยู่)
+      setRawNewsList((prev) => prev.filter((n) => n.id !== item.id));
+      setFilteredNews((prev) => prev.filter((n) => n.id !== item.id));
+      handleCloseDetailPopup();
 
-      setShowDetailPopup(false);
-      setDetailData(null);
-      showToast("ลบแจ้งเตือนสำเร็จ!", "success");
+      fireAlert({
+        icon: "success",
+        title: "ลบแจ้งเตือนสำเร็จ",
+        timer: 1500,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error("Failed to delete notification:", error);
-      showToast("ไม่สามารถลบแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง", "error");
+      fireAlert({
+        icon: "error",
+        title: "ลบแจ้งเตือนไม่สำเร็จ",
+        text: getApiErrorMessage(error, "ไม่สามารถลบแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง"),
+      });
     }
   };
 
@@ -580,7 +653,11 @@ const NewsCompContent = () => {
       setFilteredNews(notifications);
     } catch (error) {
       console.error("Failed to search notifications:", error);
-      showToast("ไม่สามารถค้นหาข้อมูลได้ กรุณาลองใหม่อีกครั้ง", "error");
+      fireAlert({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: getApiErrorMessage(error, "ไม่สามารถค้นหาข้อมูลได้ กรุณาลองใหม่อีกครั้ง"),
+      });
     } finally {
       setLoading(false);
     }
@@ -779,7 +856,6 @@ const NewsCompContent = () => {
         onDelete={handleDeleteDetail}
         auth={dummyAuth}
       />
-      <ToastManager />
     </div>
   );
 };

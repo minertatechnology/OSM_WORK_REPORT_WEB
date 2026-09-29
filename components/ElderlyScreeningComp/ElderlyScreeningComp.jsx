@@ -1097,7 +1097,8 @@ const ElderlyScreeningComp = () => {
       const districtMatch = !district || locationResolved.district_id === district;
 
       // กรองตามตำบล (ใช้ subdistrict_id จาก location_data_resolved)
-      const subdistrictMatch = !subdistrict || locationResolved.subdistrict_id === subdistrict;
+      // สำหรับ รพ.สต. (มี service): ข้ามตำบล เพราะหน่วยบริการครอบคลุมหลายตำบล
+      const subdistrictMatch = !!service || !subdistrict || locationResolved.subdistrict_id === subdistrict;
 
       // กรองตาม keyword
       const keywordMatch = !keywordLower || (

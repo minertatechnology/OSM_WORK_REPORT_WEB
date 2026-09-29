@@ -36,3 +36,25 @@ export const getUsersList = async ({
     throw error;
   }
 };
+
+// ✅ เส้นใหม่ /admin/users — กรอง/แบ่งหน้า/สถิติที่ backend และมีชื่อ-พื้นที่มาในตัว
+// (ไม่ต้องดึงทุกคนมากรองที่หน้าบ้าน และไม่ต้องยิง /osm/batch ของตัวกลางเอง)
+const cleanParams = (params) =>
+  Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  );
+
+export const getAdminUsers = async (params = {}) => {
+  const response = await apiSmartOsm.get('/admin/users', { params: cleanParams(params) });
+  return response.data;
+};
+
+export const getAdminUsersStats = async (params = {}) => {
+  const response = await apiSmartOsm.get('/admin/users/stats', { params: cleanParams(params) });
+  return response.data;
+};
+
+export const syncAdminUserProfiles = async (limit = 2000) => {
+  const response = await apiSmartOsm.post('/admin/users/sync-profiles', null, { params: { limit } });
+  return response.data;
+};

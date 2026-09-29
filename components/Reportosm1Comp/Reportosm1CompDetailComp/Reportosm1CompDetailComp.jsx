@@ -4,6 +4,7 @@ import { ArrowLeft, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
+import { getUserByExternalId } from "@services/oauth2Service";
 
 const Reportosm1CompDetailComp = ({ reportData }) => {
   const router = useRouter();
@@ -15,12 +16,27 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
   // ถ้าไม่มีข้อมูล ให้ใช้ค่า default
   const year = reportData?.year || "2568";
   const month = reportData?.month || "มิถุนายน";
-  const name = reportData?.name || "นางสาวชบุษบก ผดุงจิตร";
   const date = reportData?.date || "";
   const externalUserId = reportData?.rawData?.external_user_id;
+
+  // ถ้าหน้า list หาชื่อไม่เจอ ให้ลองดึงชื่อจาก OSM/Officer API เองอีกครั้ง
+  const [resolvedName, setResolvedName] = useState(null);
+  const passedName = reportData?.name;
+  const needsNameLookup = !passedName || passedName === "ไม่ระบุชื่อ" || passedName === "ไม่พบข้อมูล";
+  useEffect(() => {
+    if (!needsNameLookup || !externalUserId) return;
+    let cancelled = false;
+    getUserByExternalId(externalUserId).then((user) => {
+      const lookedUpName = `${user?.prefix_name_th || ""}${user?.first_name || ""} ${user?.last_name || ""}`.trim();
+      if (!cancelled && lookedUpName) setResolvedName(lookedUpName);
+    });
+    return () => { cancelled = true; };
+  }, [externalUserId, needsNameLookup]);
+
+  const name = resolvedName || passedName || "ไม่ระบุชื่อ";
   // ดึง first_name จาก name (format: "prefix + first_name + space + last_name")
   // เช่น "นางAtthaphon Songpoon" -> "Atthaphon"
-  const fullName = reportData?.name || "";
+  const fullName = name;
   const thaiPrefixes = ["นาย", "นาง", "นางสาว", "เด็กชาย", "เด็กหญิง"];
   let firstName = "";
   if (fullName) {
@@ -213,7 +229,7 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
     };
 
     fetchActivityData();
-  }, [externalUserId, fiscalYear, reportMonth, name, reportData, isBangkok]);
+  }, [externalUserId, fiscalYear, reportMonth, reportData, isBangkok]);
 
   // โครงสร้างข้อมูล 12 หมวดสำหรับกรุงเทพ (ตรงกับ database report_activities_bangkok)
   const ACTIVITY_STRUCTURE_BANGKOK = React.useMemo(() => [

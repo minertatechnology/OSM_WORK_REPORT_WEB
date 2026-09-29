@@ -1278,7 +1278,8 @@ const PregnantReportComp = () => {
       const districtMatch = !district || row.location_data_resolved?.district_id === district;
 
       // กรองตามตำบล (ใช้ subdistrict_id จาก location_data_resolved)
-      const subdistrictMatch = !subdistrict || row.location_data_resolved?.subdistrict_id === subdistrict;
+      // สำหรับ รพ.สต. (มี service): ข้ามตำบล เพราะหน่วยบริการครอบคลุมหลายตำบล
+      const subdistrictMatch = !!service || !subdistrict || row.location_data_resolved?.subdistrict_id === subdistrict;
 
       // กรองตาม keyword (ชื่อ-นามสกุล)
       const nameKeywordMatch = !keyword || (

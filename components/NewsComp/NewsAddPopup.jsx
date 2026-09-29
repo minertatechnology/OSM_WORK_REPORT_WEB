@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import InputService from "@services/inputService/inputService";
 import ButtonService from "@services/buttonService/buttonService";
+import { X, Calendar, User, MapPin, Trash2 } from "lucide-react";
 import {
   getHealthAreas,
   getProvinces,
@@ -133,7 +134,6 @@ export default function NewsAddPopup({
     }
     : getInitialState(auth)
   );
-  const [showConfirm, setShowConfirm] = useState(false);
 
   // States สำหรับข้อมูลจาก API
   const [healthZones, setHealthZones] = useState([{ value: "", label: "เลือกเขตสุขภาพ" }, { value: "all", label: "ทั้งหมด" }]);
@@ -183,10 +183,10 @@ export default function NewsAddPopup({
       }
     };
 
-    if (open) {
+    if (open && mode === "add") {
       loadInitialData();
     }
-  }, [open]);
+  }, [open, mode]);
 
   // เมื่อเขตสุขภาพเป็น "all" ให้ตั้งค่าระดับด้านล่างเป็น "all" ด้วย
   useEffect(() => {
@@ -337,7 +337,6 @@ export default function NewsAddPopup({
     } else {
       setForm(getInitialState(auth));
     }
-    setShowConfirm(false); // reset confirm on open/close/change
   }, [auth, open, mode, data]);
 
   const {
@@ -417,6 +416,8 @@ export default function NewsAddPopup({
 
   function isCanSubmit() {
     if (mode === "detail") return false;
+    // API บังคับ title และ message (min_length=1)
+    if (!title.trim() || !detail.trim()) return false;
     if (isSobos && (!healthZone || healthZone === "")) return false;
     if (healthZone === "all") return true;
     if (province === "all") return true;
@@ -436,7 +437,6 @@ export default function NewsAddPopup({
   function handleClose() {
     setForm(getInitialState(auth));
     setRoleType(getRoleType(auth));
-    setShowConfirm(false);
     if (onClose) onClose();
   }
 
@@ -479,31 +479,114 @@ export default function NewsAddPopup({
         subdistrictData: selectedSubdistrict ? { code: selectedSubdistrict.value, name_th: selectedSubdistrict.label } : null,
         serviceUnit: serviceUnit,
         serviceUnitData: selectedServiceUnit ? { id: selectedServiceUnit.value, name_th: selectedServiceUnit.label } : null,
-        title,
-        detail
+        title: title.trim(),
+        detail: detail.trim()
       });
     }
-
-    setTimeout(() => {
-      setForm(getInitialState(auth));
-      setRoleType(getRoleType(auth));
-    }, 0);
-  }
-
-  // เพิ่ม popup confirm ลบ
-  function handleDelete() {
-    setShowConfirm(true);
-  }
-  function handleConfirmDelete() {
-    setShowConfirm(false);
-    if (onDelete) onDelete(data);
-    handleClose();
-  }
-  function handleCancelDelete() {
-    setShowConfirm(false);
+    // ไม่ reset form ที่นี่ ถ้าบันทึกไม่สำเร็จผู้ใช้จะได้ไม่ต้องกรอกใหม่
+    // (บันทึกสำเร็จ parent จะปิด popup และ useEffect [open] จะ reset ให้เอง)
   }
 
   if (!open) return null;
+
+  if (mode === "detail") {
+    const loc = data?.target_location || {};
+    const areaRows = [
+      ["เขตสุขภาพ", loc.health_zone],
+      ["จังหวัด", loc.province],
+      ["อำเภอ", loc.district],
+      ["ตำบล", loc.subdistrict],
+      ["หน่วยบริการ", loc.service_unit],
+    ].filter(([, v]) => v && (v.id || v.name));
+
+    return (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 p-4"
+        onClick={handleClose}
+      >
+        <div
+          className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="bg-gradient-to-r from-[#7e32e2] via-[#9333ea] to-[#a855f7] px-6 py-5 text-white flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-white/80 text-sm">รายละเอียดแจ้งเตือน</p>
+              <h2 className="text-xl font-bold break-words">{data?.title || "-"}</h2>
+            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              aria-label="ปิด"
+              className="p-1.5 rounded-lg hover:bg-white/20 transition shrink-0"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
+              <span className="flex items-center gap-1.5">
+                <Calendar size={16} className="text-purple-600" />
+                {data?.date || "-"} {data?.time || ""}
+              </span>
+              {data?.author_name && (
+                <span className="flex items-center gap-1.5">
+                  <User size={16} className="text-purple-600" />
+                  {data.author_name}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">รายละเอียด</h3>
+              <p className="whitespace-pre-wrap break-words text-gray-700 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
+                {data?.detail || "-"}
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
+                <MapPin size={16} className="text-purple-600" />
+                พื้นที่เป้าหมาย
+              </h3>
+              {areaRows.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {areaRows.map(([label, v]) => (
+                    <div key={label} className="rounded-xl border border-purple-100 px-3 py-2">
+                      <p className="text-xs text-gray-500">{label}</p>
+                      <p className="text-sm font-medium text-gray-800 break-words">
+                        {v.id === "all" ? "ทั้งหมด" : v.name || v.id}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">ทุกพื้นที่</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3 px-6 py-4 border-t border-purple-100">
+            <button
+              type="button"
+              onClick={() => onDelete && onDelete(data)}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-red-200 text-red-600 font-semibold hover:bg-red-50 hover:border-red-300 transition"
+            >
+              <Trash2 size={18} />
+              ลบแจ้งเตือน
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold shadow hover:shadow-md transition"
+            >
+              ปิด
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -518,99 +601,6 @@ export default function NewsAddPopup({
       alignItems: "center",
       justifyContent: "center",
     }}>
-      {/* Confirm Delete Popup */}
-      {showConfirm && (
-        <div style={{
-          position: "fixed",
-          left: 0, top: 0,
-          width: "100vw", height: "100vh",
-          background: "rgba(30, 20, 40, 0.25)",
-          zIndex: 10001,
-          display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{
-            background: "#fff",
-            borderRadius: 16,
-            boxShadow: "0 8px 32px #ffd2d8",
-            minWidth: 340,
-            maxWidth: 400,
-            padding: "36px 32px 24px 32px",
-            textAlign: "center",
-            border: `2px solid ${red}`,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}>
-            <div style={{ marginBottom: 18 }}>
-              <span style={{
-                display: "inline-block",
-                background: "#fff",
-                borderRadius: "50%",
-                border: `4px solid ${red}`,
-                width: 64,
-                height: 64,
-                marginBottom: 10,
-                lineHeight: "64px",
-              }}>
-                <span style={{
-                  display: "inline-block",
-                  fontSize: 36,
-                  color: red,
-                  verticalAlign: "middle",
-                  marginTop: 8,
-                  fontWeight: "bold"
-                }}>!</span>
-              </span>
-            </div>
-            <div style={{ fontWeight: 700, fontSize: 20, color: red, marginBottom: 8 }}>
-              คุณต้องการลบข้อมูลหรือไม่?
-            </div>
-            <div style={{ fontWeight: 500, fontSize: 15, color: "#a72a2a", marginBottom: 16 }}>
-              ข้อมูลนี้จะถูกลบอย่างถาวรและไม่สามารถกู้คืนได้
-            </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 10 }}>
-              <ButtonService
-                type="button"
-                variant="secondary"
-                size="md"
-                style={{
-                  background: "#fff",
-                  color: red,
-                  fontWeight: 600,
-                  fontSize: 17,
-                  borderRadius: 10,
-                  border: `1.5px solid #dadada`,
-                  padding: "8px 32px",
-                  boxShadow: "0 2px 8px #ffd2d8",
-                  cursor: "pointer"
-                }}
-                onClick={handleCancelDelete}
-              >
-                ปิด
-              </ButtonService>
-              <ButtonService
-                type="button"
-                variant="danger"
-                size="md"
-                style={{
-                  background: red,
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 17,
-                  borderRadius: 10,
-                  border: "none",
-                  padding: "8px 32px",
-                  boxShadow: "0 2px 8px #ffd2d8",
-                  cursor: "pointer"
-                }}
-                onClick={handleConfirmDelete}
-              >
-                ยืนยันการลบ
-              </ButtonService>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Main Popup */}
       <form
         style={{
@@ -623,7 +613,7 @@ export default function NewsAddPopup({
           width: "100%",
           fontFamily: "Prompt, 'Kanit', 'Roboto', sans-serif"
         }}
-        onSubmit={mode === "add" ? handleSubmit : e => e.preventDefault()}
+        onSubmit={handleSubmit}
       >
         <div style={{
           fontWeight: 800,
@@ -633,7 +623,7 @@ export default function NewsAddPopup({
           textAlign: "left",
           letterSpacing: "0.5px"
         }}>
-          {mode === "add" ? "เพิ่มแจ้งเตือน" : "รายละเอียดแจ้งเตือน"}
+          เพิ่มแจ้งเตือน
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 18px", marginBottom: 0 }}>
           {/* เขตสุขภาพ */}
@@ -785,7 +775,7 @@ export default function NewsAddPopup({
             fontWeight: 600, fontSize: 16, marginBottom: 6,
             color: labelColor(title, allDisabled || isDisableTitle, errorTitle)
           }}>
-            หัวข้อ {errorTitle && <span style={{ color: red, fontSize: 13 }}> * ต้องกรอก</span>}
+            หัวข้อ <span style={{ color: red }}>*</span>
           </div>
           <InputService
             type="text"
@@ -813,7 +803,7 @@ export default function NewsAddPopup({
             fontWeight: 600, fontSize: 16, marginBottom: 6,
             color: labelColor(detail, false, false)
           }}>
-            รายละเอียด
+            รายละเอียด <span style={{ color: red }}>*</span>
           </div>
           <InputService
             type="text"
@@ -841,89 +831,46 @@ export default function NewsAddPopup({
           gap: 24,
           marginTop: 38,
         }}>
-          {mode === "add" ? (
-            <>
-              <ButtonService
-                type="button"
-                variant="secondary"
-                size="md"
-                style={{
-                  background: "#fff",
-                  color: purple,
-                  fontWeight: 700,
-                  fontSize: 19,
-                  borderRadius: 12,
-                  border: `1.5px solid ${purple}`,
-                  padding: "10px 44px",
-                  boxShadow: "0 2px 8px #e3d7fa",
-                  cursor: "pointer"
-                }}
-                onClick={handleClose}
-              >
-                ปิด
-              </ButtonService>
-              <ButtonService
-                type="submit"
-                variant="primary"
-                size="md"
-                disabled={!isCanSubmit()}
-                style={{
-                  background: !isCanSubmit() ? "#eee" : purple,
-                  color: !isCanSubmit() ? "#aaa" : "#fff",
-                  fontWeight: 700,
-                  fontSize: 19,
-                  borderRadius: 12,
-                  border: "none",
-                  padding: "10px 44px",
-                  boxShadow: "0 2px 8px #e3d7fa",
-                  cursor: !isCanSubmit() ? "not-allowed" : "pointer"
-                }}
-              >
-                เพิ่มแจ้งเตือน
-              </ButtonService>
-            </>
-          ) : (
-            <>
-              <ButtonService
-                type="button"
-                variant="danger"
-                size="md"
-                style={{
-                  background: "#fff",
-                  color: red,
-                  fontWeight: 700,
-                  fontSize: 19,
-                  borderRadius: 12,
-                  border: `1.5px solid ${red}`,
-                  padding: "10px 44px",
-                  boxShadow: "0 2px 8px #ffd2d8",
-                  cursor: "pointer"
-                }}
-                onClick={handleDelete}
-              >
-                ลบข้อมูล
-              </ButtonService>
-              <ButtonService
-                type="button"
-                variant="secondary"
-                size="md"
-                style={{
-                  background: "#fff",
-                  color: purple,
-                  fontWeight: 700,
-                  fontSize: 19,
-                  borderRadius: 12,
-                  border: `1.5px solid ${purple}`,
-                  padding: "10px 44px",
-                  boxShadow: "0 2px 8px #e3d7fa",
-                  cursor: "pointer"
-                }}
-                onClick={handleClose}
-              >
-                ปิด
-              </ButtonService>
-            </>
-          )}
+          <>
+            <ButtonService
+              type="button"
+              variant="secondary"
+              size="md"
+              style={{
+                background: "#fff",
+                color: purple,
+                fontWeight: 700,
+                fontSize: 19,
+                borderRadius: 12,
+                border: `1.5px solid ${purple}`,
+                padding: "10px 44px",
+                boxShadow: "0 2px 8px #e3d7fa",
+                cursor: "pointer"
+              }}
+              onClick={handleClose}
+            >
+              ปิด
+            </ButtonService>
+            <ButtonService
+              type="submit"
+              variant="primary"
+              size="md"
+              disabled={!isCanSubmit()}
+              style={{
+                background: !isCanSubmit() ? "#eee" : purple,
+                color: !isCanSubmit() ? "#aaa" : "#fff",
+                fontWeight: 700,
+                fontSize: 19,
+                borderRadius: 12,
+                border: "none",
+                padding: "10px 44px",
+                boxShadow: "0 2px 8px #e3d7fa",
+                cursor: !isCanSubmit() ? "not-allowed" : "pointer"
+              }}
+            >
+              เพิ่มแจ้งเตือน
+            </ButtonService>
+          </>
         </div>
       </form>
     </div>

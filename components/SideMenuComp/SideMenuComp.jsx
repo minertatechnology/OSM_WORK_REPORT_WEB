@@ -671,7 +671,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
             <button
               type="button"
               className={`
-                group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+                group w-full flex items-center gap-2 rounded-md px-3 py-2.5 text-[17px] font-medium
                 transition-all duration-200 will-change-transform
                 ${
                   subActive
@@ -691,7 +691,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                 <span
                   className={`
                     flex items-center justify-center rounded-md
-                    h-6 w-6 text-[11px]
+                    h-8 w-8 text-[13px]
                     ${
                       subActive
                         ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
@@ -719,7 +719,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                     <button
                       key={sub.url}
                       className={`
-                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
+                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-[16px] font-medium
                         transition-all
                         ${
                           isActive(sub.url)
@@ -758,7 +758,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
             <button
               type="button"
               className={`
-                group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+                group w-full flex items-center gap-2 rounded-md px-3 py-2.5 text-[17px] font-medium
                 transition-all duration-200 will-change-transform
                 ${
                   subActive
@@ -778,7 +778,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                 <span
                   className={`
                     flex items-center justify-center rounded-md
-                    h-6 w-6 text-[11px]
+                    h-8 w-8 text-[13px]
                     ${
                       subActive
                         ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
@@ -806,7 +806,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                     <button
                       key={sub.url}
                       className={`
-                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
+                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-[16px] font-medium
                         transition-all
                         ${
                           isActive(sub.url)
@@ -844,7 +844,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
             <button
               type="button"
               className={`
-                group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+                group w-full flex items-center gap-2 rounded-md px-3 py-2.5 text-[17px] font-medium
                 transition-all duration-200 will-change-transform
                 ${
                   subActive
@@ -864,7 +864,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                 <span
                   className={`
                     flex items-center justify-center rounded-md
-                    h-6 w-6 text-[11px]
+                    h-8 w-8 text-[13px]
                     ${
                       subActive
                         ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
@@ -892,7 +892,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                     <button
                       key={sub.url}
                       className={`
-                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
+                        flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-[16px] font-medium
                         transition-all
                         ${
                           isActive(sub.url)
@@ -929,7 +929,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
           <button
             type="button"
             className={`
-              group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+              group w-full flex items-center gap-2 rounded-md px-3 py-2.5 text-[17px] font-medium
               transition-all duration-200 will-change-transform
               ${
                 subActive
@@ -949,7 +949,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
               <span
                 className={`
                   flex items-center justify-center rounded-md
-                  h-6 w-6 text-[11px]
+                  h-8 w-8 text-[13px]
                   ${
                     subActive
                       ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
@@ -977,7 +977,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
                   <button
                     key={sub.code || sub.url}
                     className={`
-                      flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-sm font-medium
+                      flex items-center px-2 py-1.5 rounded-md mb-1 last:mb-0 text-[16px] font-medium
                       transition-all
                       ${
                         isActive(sub.url)
@@ -1007,7 +1007,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
         <button
           onClick={() => go(item)}
           className={`
-            group w-full flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium
+            group w-full flex items-center gap-2 rounded-md px-3 py-2.5 text-[17px] font-medium
             transition-all duration-200 will-change-transform
             ${
               active
@@ -1026,7 +1026,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
             <span
               className={`
                 flex items-center justify-center rounded-md
-                h-6 w-6 text-[11px]
+                h-8 w-8 text-[13px]
                 ${
                   active
                     ? "bg-gradient-to-br from-[#7d33ca] to-[#b08ae7] text-white shadow-inner shadow-white/20"
@@ -1040,7 +1040,7 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
           </span>
           <span
             className={`flex-1 text-left tracking-[0.1px] ${
-              active ? "text-[13px]" : ""
+              active ? "text-[17px]" : ""
             }`}
           >
             {isApiMenu ? (item.name_th || item.name) : item.name}
@@ -1058,14 +1058,14 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
 
   if (!roleType) {
     // SSR phase หรือรอ client hydration, render placeholder
-    return <div style={{ width: 240, minHeight: "100vh" }} />;
+    return <div style={{ width: 320, minHeight: "100vh" }} />;
   }
 
   return (
     <aside
       className={`
         relative flex flex-col
-        ${isMobile ? "h-screen w-60" : "min-h-screen w-60"}
+        ${isMobile ? "h-screen w-80" : "min-h-screen w-80"}
         shadow-sm
         side-menu-gradient
       `}
@@ -1117,9 +1117,9 @@ const SideMenuComp = ({ onMenuClick = () => {}, onClose, isMobile }) => {
       <div className="relative mt-auto px-3 pb-4">
         <button
           onClick={handleLogout}
-          className="group w-full flex items-center gap-2 text-[12.5px] font-medium text-[rgba(64,40,97,0.75)] hover:text-rose-600 rounded-md px-2 py-2 transition-colors"
+          className="group w-full flex items-center gap-2 text-[16px] font-medium text-[rgba(64,40,97,0.75)] hover:text-rose-600 rounded-md px-2 py-2 transition-colors"
         >
-          <span className="flex items-center justify-center h-6 w-6 rounded-md border border-white/60 bg-white/70 text-[rgba(110,40,183,0.8)] group-hover:border-rose-200 group-hover:text-rose-600">
+          <span className="flex items-center justify-center h-8 w-8 rounded-md border border-white/60 bg-white/70 text-[rgba(110,40,183,0.8)] group-hover:border-rose-200 group-hover:text-rose-600">
             <LogOut className="w-4 h-4" />
           </span>
           <span>ออกจากระบบ</span>

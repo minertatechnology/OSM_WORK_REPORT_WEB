@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   Search,
@@ -40,17 +40,17 @@ import {
 } from "lucide-react";
 import Swal from "sweetalert2";
 import CustomSelect from "@services/customSelectService/customSelectService";
-import { getUsersList } from "@services/userService/userService";
-import { getAuthToken } from "@utils/tokenHelper";
-import { getUsersBatch } from "@services/oauth2Service";
-import { getOsmByHealthService } from "@services/lookupService";
+import {
+  getAdminUsers,
+  getAdminUsersStats,
+  syncAdminUserProfiles,
+} from "@services/userService/userService";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx-js-style";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
-import { getHealthAreaNameWithFallback } from "@utils/healthZoneHelper";
 
 // Mock data for select options (ลบ ZONES, PROVINCES, DISTRICTS, SUBDISTRICTS เพราะใช้จาก usePermissionFilters แทน)
 const PER_PAGE_OPTIONS = [
@@ -83,6 +83,25 @@ const maskCID = (cid, showFull = false) => {
     9
   )}-XX-XX`;
 };
+
+const GENDER_TH = { male: "ชาย", female: "หญิง" };
+const POSITION_BY_KIND = { osm: "อสม.", officer: "เจ้าหน้าที่" };
+
+// แปลง row จาก /admin/users เป็นรูปแบบที่ตาราง/modal/export ใช้
+const mapAdminUser = (user) => ({
+  ...user,
+  name: user.name || "ไม่ระบุชื่อ",
+  cid: user.citizen_id || "-",
+  position: POSITION_BY_KIND[user.user_kind] || "ไม่ระบุตำแหน่ง",
+  position_name: user.position_name,
+  gender: GENDER_TH[user.gender] || user.gender || "-",
+  hospital: user.health_service_name || "-",
+  province: user.province_name || "-",
+  district: user.district_name || "-",
+  subdistrict: user.subdistrict_name || "-",
+  phone: user.phone || "-",
+  status: user.is_active ? "active" : "deleted",
+});
 
 // Modal for user details
 function UserDetailModal({
@@ -533,19 +552,15 @@ function exportUserListExcel(data) {
 }
 
 // Download Modal
-function DownloadModal({ open, onClose, totalItems, filters, filteredUsers }) {
+function DownloadModal({ open, onClose, totalItems, fetchAllUsers }) {
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
 
-  // ใช้ filteredUsers ที่ส่งมาจากหน้าหลักแทนการดึงข้อมูลใหม่
-  // เพราะการกรองใน Frontend และ API ให้ผลลัพธ์ต่างกัน
-  const prepareDataForExport = () => {
-    if (!filteredUsers || filteredUsers.length === 0) {
-      return [];
-    }
-
-    return filteredUsers.map(user => ({
+  // ดึงทุกหน้าตาม filter ปัจจุบันจาก backend (หน้าจอถือไว้แค่หน้าเดียว)
+  const prepareDataForExport = async () => {
+    const allUsers = await fetchAllUsers();
+    return allUsers.map(user => ({
       name: user.name || "ไม่ระบุชื่อ",
       cid: user.cid || "-",
       position: user.position || "ไม่ระบุตำแหน่ง",
@@ -575,8 +590,7 @@ function DownloadModal({ open, onClose, totalItems, filters, filteredUsers }) {
         },
       });
 
-      // ใช้ filteredUsers ที่ส่งมาจากหน้าหลักแทนการเรียก API
-      const allUsers = prepareDataForExport();
+      const allUsers = await prepareDataForExport();
       Swal.close();
       exportUserListPDF(allUsers);
     } catch (error) {
@@ -614,8 +628,7 @@ function DownloadModal({ open, onClose, totalItems, filters, filteredUsers }) {
         },
       });
 
-      // ใช้ filteredUsers ที่ส่งมาจากหน้าหลักแทนการเรียก API
-      const allUsers = prepareDataForExport();
+      const allUsers = await prepareDataForExport();
       Swal.close();
       exportUserListExcel(allUsers);
     } catch (error) {
@@ -903,516 +916,165 @@ const UserListComp = () => {
   const [modalType, setModalType] = useState("detail");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(null); // สำหรับแสดง progress กรณีดึงข้อมูลเยอะๆ
-  const [osmDataByService, setOsmDataByService] = useState([]); // เก็บ OSM ตามหน่วยบริการ
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statistics, setStatistics] = useState(null);
+  const [debouncedKeyword, setDebouncedKeyword] = useState("");
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [syncProgress, setSyncProgress] = useState(null); // { done, remaining } ระหว่าง sync โปรไฟล์
 
   // CID visibility state - track which rows show full CID
   const [cidVisibility, setCidVisibility] = useState({});
 
-  // ✅ Prevent multiple API calls on initial mount
-  const isFetching = useRef(false);
-  const prevFiltersRef = useRef({ zone: '', province: '', district: '', subdistrict: '', service: '' });
-
-
-  // Fetch users from API
+  // หน่วงการค้นหาด้วย keyword เพื่อไม่ยิง API ทุกตัวอักษร
   useEffect(() => {
-    // ✅ รอให้ permission loading เสร็จก่อน
-    if (permissionLoading) {
-      return;
-    }
+    const timer = setTimeout(() => setDebouncedKeyword(keyword.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [keyword]);
 
-    // ✅ สำหรับ non-country level: รอให้ locked filters ถูก set ก่อน
-    // เช็คว่าถ้า lockLevel เป็น province ต้องมี province value, เป็น district ต้องมี district value, etc.
-    const requiredFilterReady = (() => {
-      if (lockLevel === 'none' || lockLevel === 'zone') return true; // zone level ต้องการแค่ zone ซึ่ง set เร็ว
-      if (lockLevel === 'province') return province !== '' || !isLocked('province');
-      if (lockLevel === 'district') return district !== '' || !isLocked('district');
-      if (lockLevel === 'subdistrict') return subdistrict !== '' || !isLocked('subdistrict');
-      if (lockLevel === 'service') return service !== '' || !isLocked('service');
-      return true;
-    })();
+  // ✅ รอให้ locked filters ของสิทธิ์ถูก set ก่อน (backend บังคับขอบเขตพื้นที่ซ้ำอีกชั้น)
+  const filtersReady = useMemo(() => {
+    if (permissionLoading) return false;
+    if (lockLevel === "province") return province !== "" || !isLocked("province");
+    if (lockLevel === "district") return district !== "" || !isLocked("district");
+    if (lockLevel === "subdistrict") return subdistrict !== "" || !isLocked("subdistrict");
+    if (lockLevel === "service") return service !== "" || !isLocked("service");
+    return true;
+  }, [permissionLoading, lockLevel, province, district, subdistrict, service, isLocked]);
 
-    if (!requiredFilterReady) {
-      console.log('⏳ Waiting for locked filters to be set...', { lockLevel, zone, province, district, subdistrict, service });
-      return;
-    }
+  // ✅ filter ที่ส่งไป backend - priority: user selection > permission locked
+  const apiFilters = useMemo(() => {
+    if (!filtersReady) return null;
+    const initialFilters = getInitialFilters();
+    return {
+      is_active: tab === "active",
+      keyword: debouncedKeyword || undefined,
+      health_area_id: zone || initialFilters.zone || undefined,
+      province_code: province || initialFilters.province || undefined,
+      district_code: district || initialFilters.district || undefined,
+      subdistrict_code: subdistrict || initialFilters.subdistrict || undefined,
+      health_service_code: service || initialFilters.service || undefined,
+      // สิทธิ์อื่นที่ไม่ใช่ระดับกรม: แสดงเฉพาะ อสม. (ไม่รวมเจ้าหน้าที่และผู้ที่ไม่พบข้อมูล)
+      user_kind: isCountryLevel() ? undefined : "osm",
+    };
+  }, [filtersReady, tab, debouncedKeyword, zone, province, district, subdistrict, service, isCountryLevel]);
 
-    // ✅ ป้องกันการ fetch ซ้ำเมื่อ filter ไม่ได้เปลี่ยน (รอบแรกต้องยิง)
-    const currentFilters = { zone, province, district, subdistrict, service, tab };
-    const filtersChanged = JSON.stringify(prevFiltersRef.current) !== JSON.stringify(currentFilters);
+  // เปลี่ยน filter แล้วกลับไปหน้าแรก
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [apiFilters]);
 
-    if (isFetching.current && !filtersChanged) {
-      return;
-    }
-
-    prevFiltersRef.current = currentFilters;
+  // ดึงรายชื่อเฉพาะหน้าปัจจุบัน (ตารางแสดงเฉพาะผู้ที่ออนไลน์)
+  useEffect(() => {
+    if (!apiFilters) return;
+    let cancelled = false;
 
     const fetchUsers = async () => {
-      isFetching.current = true;
       setLoading(true);
       try {
-        // Get token from auth helper
-        const token = getAuthToken();
-
-        if (!token) {
-          throw new Error("No authentication token found. Please login again.");
-        }
-
-        // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือก)
-        let osmData = [];
-        if (service) {
-          try {
-            osmData = await getOsmByHealthService(service);
-            setOsmDataByService(osmData);
-          } catch (err) {
-            console.error("Error fetching OSM data:", err);
-            setOsmDataByService([]);
-          }
-        } else {
-          setOsmDataByService([]);
-        }
-
-        // ดึงข้อมูลทั้งหมดเพื่อกรองใน frontend (ทุกสิทธิ์ต้องกรองเหมือนกัน)
-        const shouldFetchAll = true;
-
-        let allUsers = [];
-        let allUserCount = 0;
-        let allExternalUserIds = []; // เก็บ IDs ทั้งหมดก่อน
-        let batchUsersMap = {};
-
-        if (shouldFetchAll) {
-          // ดึงข้อมูลทีละ 100 รายการ จนกว่าจะครบ (จำกัดสูงสุด 10,000 รายการ)
-          let page = 1;
-          const perPage = 100;
-          const maxPages = 100; // จำกัดสูงสุด 10,000 รายการ
-          let hasMore = true;
-
-          // ✅ ดึง initial filters จาก permission (สำหรับ locked values)
-          const initialFilters = getInitialFilters();
-
-          // ✅ กำหนด filter parameters - priority: user selection > permission locked
-          const filterProvince = province || initialFilters.province || "";
-          const filterDistrict = district || initialFilters.district || "";
-          const filterSubdistrict = subdistrict || initialFilters.subdistrict || "";
-          const filterService = service || initialFilters.service || "";
-          const filterZone = zone || initialFilters.zone || "";
-
-          console.log("🔍 API Filter Parameters:", {
-            zone: filterZone,
-            province: filterProvince,
-            district: filterDistrict,
-            subdistrict: filterSubdistrict,
-            service: filterService,
-          });
-
-          while (hasMore && page <= maxPages) {
-            // อัพเดท progress
-            setLoadingProgress({ page, total: allUserCount });
-
-            // ✅ ส่ง filter parameters ไป API (กรองที่ API แทน frontend)
-            const response = await getUsersList({
-              page: page,
-              per_page: perPage,
-              keyword: keyword || undefined, // ✅ ส่ง keyword ไป API
-              is_active: tab === "active" ? true : false,
-              // ✅ ส่ง filter parameters ไป API
-              province_code: filterProvince || undefined,
-              district_code: filterDistrict || undefined,
-              subdistrict_code: filterSubdistrict || undefined,
-              health_service_code: filterService || undefined,
-              health_area_id: filterZone || undefined, // ✅ ส่ง zone (HA1-HA13)
-              token: token
-            });
-
-            allUsers = [...allUsers, ...response.users];
-            allUserCount = response.total;
-
-            // เก็บ external_user_ids ไว้ยิง batch API ทีเดียวทีหลัง
-            const pageExternalIds = response.users
-              .map(user => user.external_user_id)
-              .filter(id => id);
-            allExternalUserIds = [...allExternalUserIds, ...pageExternalIds];
-
-            // เช็คว่ายังมีข้อมูลอีกไหม
-            if (response.users.length < perPage || allUsers.length >= response.total) {
-              hasMore = false;
-            } else {
-              page++;
-            }
-          }
-
-          setLoadingProgress(null); // เคลียร์ progress เมื่อโหลดเสร็จ
-
-          // ยิง batch API ครั้งเดียวด้วย IDs ทั้งหมด
-          if (allExternalUserIds.length > 0) {
-            batchUsersMap = await getUsersBatch(allExternalUserIds);
-          }
-        }
-
-        // 4. รวมข้อมูลจาก user list และ batch OAuth2
-        const usersWithDetails = allUsers.map(user => {
-          if (!user.external_user_id) {
-            // ถ้าไม่มี external_user_id ให้ใช้ข้อมูล base
-            return {
-              external_user_id: user.external_user_id,
-              name: "ไม่ระบุชื่อ",
-              cid: user.citizen_id || "-",
-              position: "ไม่ระบุตำแหน่ง",
-              gender: "-",
-              hospital: "-",
-              province: user.province_name || "-",
-              district: user.district_name || "-",
-              subdistrict: user.subdistrict_name || "-",
-              // Health Area: คำนวณจาก province_name ถ้าเป็นไปได้
-              health_area_name_th: getHealthAreaNameWithFallback({ province_name_th: user.province_name }) || "-",
-              status: user.is_active ? "active" : "deleted",
-              email: user.email,
-              phone: user.phone || "-",
-              last_active_at: user.last_active_at, // เพิ่ม last_active_at
-            };
-          }
-
-          // ดึงข้อมูลจาก batch results
-          const oauthData = batchUsersMap[user.external_user_id];
-
-          // Helper function to safely get value with fallback
-          const getWithFallback = (oauthVal, userVal, defaultVal = "-") => {
-            return oauthVal || userVal || defaultVal;
-          };
-
-          // ถ้าไม่มีข้อมูลจาก batch API ให้ fallback ไปใช้ข้อมูลจาก user API
-          if (!oauthData) {
-            const prefix = user.prefix || "";
-            const firstName = user.first_name || "";
-            const lastName = user.last_name || "";
-            const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
-
-            const rawGender = user.gender;
-            const gender = rawGender === "male" ? "ชาย" :
-                          rawGender === "female" ? "หญิง" :
-                          rawGender || "-";
-
-            return {
-              external_user_id: user.external_user_id,
-              name: fullName,
-              cid: user.citizen_id || "-",
-              position: user.user_type || "ไม่ระบุตำแหน่ง",
-              gender: gender,
-              hospital: user.hospital || "-",
-              province: user.province_name || "-",
-              district: user.district_name || "-",
-              subdistrict: user.subdistrict_name || "-",
-              // Health Area: คำนวณจาก province_name ถ้าเป็นไปได้
-              health_area_name_th: getHealthAreaNameWithFallback({ province_name_th: user.province_name }) || "-",
-              status: user.is_active ? "active" : "deleted",
-              email: user.email,
-              phone: user.phone || "-",
-              last_active_at: user.last_active_at, // สำหรับ online status
-              prefix: prefix,
-              first_name: firstName,
-              last_name: lastName,
-            };
-          }
-
-          // สร้างชื่อเต็ม จาก OAuth2 (ใช้ prefix_name_th แทน prefix)
-          const prefix = oauthData?.prefix_name_th || user.prefix || "";
-          const firstName = oauthData?.first_name || user.first_name || "";
-          const lastName = oauthData?.last_name || user.last_name || "";
-          const fullName = `${prefix} ${firstName} ${lastName}`.trim() || "ไม่ระบุชื่อ";
-
-          // แปลง gender
-          const rawGender = oauthData?.gender || user.gender;
-          const gender = rawGender === "male" ? "ชาย" :
-                        rawGender === "female" ? "หญิง" :
-                        rawGender || "-";
-
-          // แปลง marital_status
-          const rawMaritalStatus = oauthData?.marital_status;
-          const maritalStatus = rawMaritalStatus === "single" ? "โสด" :
-                               rawMaritalStatus === "married" ? "สมรส" :
-                               rawMaritalStatus === "divorced" ? "หย่าร้าง" :
-                               rawMaritalStatus === "widowed" ? "หม้าย" :
-                               rawMaritalStatus || "-";
-
-          // แปลง volunteer_status
-          const rawVolunteerStatus = oauthData?.volunteer_status;
-          const volunteerStatus = rawVolunteerStatus === "already_volunteer" ? "เป็น อสม. แล้ว" :
-                                 rawVolunteerStatus === "want_to_be_volunteer" ? "ต้องการเป็น อสม." :
-                                 rawVolunteerStatus === "not_volunteer" ? "ไม่เป็น อสม." :
-                                 rawVolunteerStatus || "-";
-
-          // Merge ข้อมูลจาก 2 sources โดยให้ OAuth2 เป็น priority
-          return {
-            // Base user data
-            external_user_id: user.external_user_id,
-            email: getWithFallback(oauthData?.email, user.email),
-            is_active: user.is_active,
-            osm_code: user.osm_code,
-            last_login: user.last_login,
-            last_active_at: user.last_active_at, // สำหรับ online status
-            created_at: user.created_at,
-
-            // Personal info (OAuth2 เป็น priority, fallback ไป user API)
-            name: fullName,
-            cid: getWithFallback(oauthData?.citizen_id, user.citizen_id),
-            position: oauthData?.position_level || getWithFallback(oauthData?.permission_level, user.user_type, "ไม่ระบุตำแหน่ง"),
-            gender: gender,
-            hospital: getWithFallback(oauthData?.health_service_name_th, user.hospital),
-            phone: getWithFallback(oauthData?.phone, user.phone),
-
-            // Location data - prefer OAuth2 with Thai names
-            province: oauthData?.province_name_th || user.province_name || "-",
-            district: oauthData?.district_name_th || user.district_name || "-",
-            subdistrict: oauthData?.subdistrict_name_th || user.subdistrict_name || "-",
-            // Health Area: ใช้ค่าจาก OAuth2 หรือคำนวณจาก lookup ถ้าไม่มี
-            health_area_name_th: getHealthAreaNameWithFallback(oauthData) || "-",
-
-            // Status
-            status: user.is_active ? "active" : "deleted",
-
-            // Keep original fields
-            prefix: prefix,
-            prefix_name_th: oauthData?.prefix_name_th,
-            prefix_id: oauthData?.prefix_id,
-            first_name: firstName,
-            last_name: lastName,
-
-            // NEW: Demographics from OAuth2
-            birth_date: oauthData?.birth_date,
-            marital_status: maritalStatus,
-            number_of_children: oauthData?.number_of_children,
-            blood_type: oauthData?.blood_type,
-            osm_year: oauthData?.osm_year,
-
-            // NEW: Occupation & Education
-            occupation_id: oauthData?.occupation_id,
-            occupation_name_th: oauthData?.occupation_name_th,
-            education_id: oauthData?.education_id,
-            education_name_th: oauthData?.education_name_th,
-
-            // NEW: Health Service & Bank
-            health_service_id: oauthData?.health_service_id,
-            health_service_name_th: oauthData?.health_service_name_th,
-            bank_id: oauthData?.bank_id,
-            bank_name_th: oauthData?.bank_name_th,
-            bank_account_number: oauthData?.bank_account_number,
-
-            // NEW: Volunteer & Device Status
-            volunteer_status: volunteerStatus,
-            rawVolunteerStatus: rawVolunteerStatus, // เก็บค่าดิบไว้ใช้กรอง
-            is_smartphone_owner: oauthData?.is_smartphone_owner,
-
-            // NEW: Detailed Address
-            address_number: oauthData?.address_number,
-            alley: oauthData?.alley,
-            street: oauthData?.street,
-            village_no: oauthData?.village_no,
-            village_name: oauthData?.village_name,
-            village_code: oauthData?.village_code,
-            province_id: oauthData?.province_id,
-            district_id: oauthData?.district_id,
-            subdistrict_id: oauthData?.subdistrict_id,
-            postal_code: oauthData?.postal_code,
-
-            // NEW: Approval Status
-            approval_status: oauthData?.approval_status,
-            approval_by: oauthData?.approval_by,
-            approval_date: oauthData?.approval_date,
-
-            // NEW: Created/Updated Info
-            created_by: oauthData?.created_by,
-            created_by_name: oauthData?.created_by_name,
-            created_by_position_name: oauthData?.created_by_position_name,
-            created_by_scope_level: oauthData?.created_by_scope_level,
-            created_by_scope_label: oauthData?.created_by_scope_label,
-            updated_by: oauthData?.updated_by,
-            updated_by_name: oauthData?.updated_by_name,
-            updated_by_position_name: oauthData?.updated_by_position_name,
-            updated_by_scope_level: oauthData?.updated_by_scope_level,
-            updated_by_scope_label: oauthData?.updated_by_scope_label,
-            updated_at: oauthData?.updated_at,
-
-            // NEW: Related Data Objects
-            spouse: oauthData?.spouse,
-            children: oauthData?.children,
-            official_positions: oauthData?.official_positions,
-            special_skills: oauthData?.special_skills,
-            club_positions: oauthData?.club_positions,
-            trainings: oauthData?.trainings,
-
-            // Health data จาก OAuth2
-            chronic_diseases: oauthData?.chronic_diseases,
-            drug_allergies: oauthData?.drug_allergies,
-            food_allergies: oauthData?.food_allergies,
-            blood_pressure_systolic: oauthData?.blood_pressure_systolic,
-            blood_pressure_diastolic: oauthData?.blood_pressure_diastolic,
-            weight: oauthData?.weight,
-            height: oauthData?.height,
-            bmi: oauthData?.bmi,
-            waist: oauthData?.waist,
-
-            // Additional OAuth2 fields
-            family_history_cancer: oauthData?.family_history_cancer,
-            family_history_diabetes: oauthData?.family_history_diabetes,
-            family_history_hypertension: oauthData?.family_history_hypertension,
-            family_history_cvd: oauthData?.family_history_cvd,
-            family_history_stroke: oauthData?.family_history_stroke,
-            bse_result: oauthData?.bse_result,
-            cv_risk_score: oauthData?.cv_risk_score,
-            stress_level: oauthData?.stress_level,
-            depression_2q: oauthData?.depression_2q,
-            fasting_blood_sugar: oauthData?.fasting_blood_sugar,
-            stool_result: oauthData?.stool_result,
-            fit_result: oauthData?.fit_result,
-            hpv_result: oauthData?.hpv_result,
-            living_with_care: oauthData?.living_with_care,
-            house_safety: oauthData?.house_safety,
-            income_sufficiency: oauthData?.income_sufficiency,
-            time_up_go_test: oauthData?.time_up_go_test,
-            fall_history_6m: oauthData?.fall_history_6m,
-            swallow_problem_3m: oauthData?.swallow_problem_3m,
-            vision_problem: oauthData?.vision_problem,
-            hearing_status: oauthData?.hearing_status,
-            depression_2w: oauthData?.depression_2w,
-            urinary_incontinence: oauthData?.urinary_incontinence,
-            adl_status: oauthData?.adl_status,
-            oral_chewing_difficulty: oauthData?.oral_chewing_difficulty,
-            oral_pain: oauthData?.oral_pain,
-            cognitive_status: oauthData?.cognitive_status,
-            latitude: oauthData?.latitude,
-            longitude: oauthData?.longitude,
-          };
+        const response = await getAdminUsers({
+          ...apiFilters,
+          online_only: true,
+          page: currentPage,
+          per_page: itemsPerPage,
         });
-
-        // ✅ กรองที่ API แล้ว - ไม่ต้องกรองซ้ำใน frontend
-        // เซ็ต users จาก API response โดยตรง
-        setUsers(usersWithDetails);
+        if (cancelled) return;
+        setUsers(response.users.map(mapAdminUser));
+        setTotalItems(response.total);
+        setTotalPages(response.total_pages || 1);
       } catch (error) {
+        if (cancelled) return;
         console.error("Error fetching users:", error);
-
-        // Clear users on error
         setUsers([]);
+        setTotalItems(0);
+        setTotalPages(1);
 
-        // Show appropriate error message
-        let errorMessage = "ไม่สามารถดึงข้อมูลผู้ใช้งานได้ กรุณาลองใหม่อีกครั้ง";
-
-        if (error.message.includes("authentication token")) {
-          errorMessage = "ไม่พบ Token กรุณาเข้าสู่ระบบใหม่อีกครั้ง";
-        } else if (error.message.includes("403")) {
-          errorMessage = "คุณไม่มีสิทธิ์ในการเข้าถึงข้อมูลนี้";
-        }
-
+        const status = error.response?.status;
         Swal.fire({
           icon: "error",
           title: "เกิดข้อผิดพลาด",
-          text: errorMessage,
-          confirmButtonColor: "#7e32e2"
+          text:
+            status === 401
+              ? "ไม่พบ Token กรุณาเข้าสู่ระบบใหม่อีกครั้ง"
+              : status === 403
+              ? "คุณไม่มีสิทธิ์ในการเข้าถึงข้อมูลนี้"
+              : "ไม่สามารถดึงข้อมูลผู้ใช้งานได้ กรุณาลองใหม่อีกครั้ง",
+          confirmButtonColor: "#7e32e2",
         });
       } finally {
-        setLoading(false);
-        isFetching.current = false;
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchUsers();
-  }, [itemsPerPage, tab, zone, province, district, subdistrict, service, isCountryLevel, permissionLoading, lockLevel, isLocked]);
+    return () => {
+      cancelled = true;
+    };
+  }, [apiFilters, currentPage, itemsPerPage, refreshTick]);
 
-  // Auto-refresh online status ทุก 30 วินาที
-  const [, forceUpdate] = useState({});
+  // สถิติ (นับที่ backend ตาม filter เดียวกัน)
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Force re-render เพื่ออัพเดทการคำนวณ online/offline status
-      forceUpdate({});
-    }, 30 * 1000); // 30 วินาที
+    if (!apiFilters) return;
+    let cancelled = false;
+    getAdminUsersStats(apiFilters)
+      .then((stats) => {
+        if (!cancelled) setStatistics(stats);
+      })
+      .catch((error) => console.error("Error fetching user stats:", error));
+    return () => {
+      cancelled = true;
+    };
+  }, [apiFilters, refreshTick]);
 
+  // Auto-refresh รายชื่อผู้ออนไลน์และสถิติทุก 60 วินาที
+  useEffect(() => {
+    const interval = setInterval(() => setRefreshTick((t) => t + 1), 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Helper function to check if user is online
-  const isUserOnline = (user) => {
-    if (user.status !== "active") return false;
-    const lastActiveAt = user.last_active_at ? new Date(user.last_active_at) : null;
-    if (!lastActiveAt) return false;
-    const now = new Date();
-    const minutesSinceActive = (now.getTime() - lastActiveAt.getTime()) / (1000 * 60);
-    return minutesSinceActive <= 5;
+  // ดึงโปรไฟล์ของผู้ใช้ที่ยังไม่มีข้อมูลจากตัวกลาง (ทีละรอบจนครบ)
+  const handleSyncProfiles = async () => {
+    setSyncProgress({ done: 0, remaining: statistics?.unsynced || 0 });
+    try {
+      let done = 0;
+      let remaining = Infinity;
+      while (remaining > 0) {
+        const result = await syncAdminUserProfiles(2000);
+        done += result.requested;
+        remaining = result.requested === 0 ? 0 : result.remaining;
+        setSyncProgress({ done, remaining });
+      }
+      setRefreshTick((t) => t + 1);
+    } catch (error) {
+      console.error("Error syncing user profiles:", error);
+      Swal.fire({
+        icon: "error",
+        title: "ซิงค์ข้อมูลไม่สำเร็จ",
+        text: "ไม่สามารถดึงข้อมูลผู้ใช้จากระบบตัวกลางได้ กรุณาลองใหม่อีกครั้ง",
+        confirmButtonColor: "#7e32e2",
+      });
+    } finally {
+      setSyncProgress(null);
+    }
   };
 
-  // กรองผู้ใช้และทำ frontend pagination
-  const { displayUsers, filteredUsers, filteredTotalItems, filteredTotalPages, statistics } = useMemo(() => {
-    let filtered = users;
+  // ดึงรายชื่อออนไลน์ทั้งหมดตาม filter ปัจจุบันสำหรับ export
+  const fetchAllUsersForExport = async () => {
+    const all = [];
+    let page = 1;
+    let pages = 1;
+    do {
+      const response = await getAdminUsers({ ...apiFilters, online_only: true, page, per_page: 100 });
+      all.push(...response.users.map(mapAdminUser));
+      pages = response.total_pages || 1;
+      page++;
+    } while (page <= pages);
+    return all;
+  };
 
-    if (!isCountryLevel()) {
-      // สิทธิ์อื่นๆ: แสดงทุกคนยกเว้น "เจ้าหน้าที่" และ "ไม่ระบุชื่อ"
-      filtered = filtered.filter(user => {
-        return user.position !== "เจ้าหน้าที่" && user.name !== "ไม่ระบุชื่อ";
-      });
-    }
-
-    // กรองด้วย keyword (ชื่อหรือเลขประจำตัวประชาชน)
-    if (keyword && keyword.trim()) {
-      const searchTerm = keyword.trim();
-      const searchTermNoSpace = searchTerm.replace(/\s/g, ""); // เอา space ออก
-      filtered = filtered.filter(user => {
-        // ค้นหาด้วยชื่อเต็ม (ไม่สนใจ space)
-        const fullNameNoSpace = (user.name || "").replace(/\s/g, "");
-        const nameMatch = fullNameNoSpace.includes(searchTermNoSpace) ||
-                         (user.name && user.name.includes(searchTerm));
-
-        // ค้นหาด้วยชื่อจริง
-        const firstNameMatch = user.first_name &&
-          (user.first_name.includes(searchTerm) || user.first_name.replace(/\s/g, "").includes(searchTermNoSpace));
-
-        // ค้นหาด้วยนามสกุล
-        const lastNameMatch = user.last_name &&
-          (user.last_name.includes(searchTerm) || user.last_name.replace(/\s/g, "").includes(searchTermNoSpace));
-
-        // ค้นหาด้วยเลขประจำตัวประชาชน (ทั้งแบบมีขีดและไม่มีขีด)
-        const cidRaw = (user.cid || "").replace(/[^0-9]/g, ""); // เอาเฉพาะตัวเลข
-        const searchRaw = searchTerm.replace(/[^0-9]/g, ""); // เอาเฉพาะตัวเลขจากคำค้นหา
-        const cidMatch = searchRaw && cidRaw.includes(searchRaw);
-
-        return nameMatch || firstNameMatch || lastNameMatch || cidMatch;
-      });
-    }
-
-    // คำนวณสถิติจาก filtered users ทั้งหมด (ก่อนกรอง online)
-    // Officers = เจ้าหน้าที่ (position contains "เจ้าหน้าที่" or permission_level is officer-type)
-    // OSM = อสม. (not officer)
-    const stats = {
-      total: filtered.length,
-      online: filtered.filter(user => isUserOnline(user)).length,
-      offline: filtered.filter(user => user.status === "active" && !isUserOnline(user)).length,
-      officers: filtered.filter(user => {
-        const pos = (user.position || "").toLowerCase();
-        return pos.includes("เจ้าหน้าที่") || pos.includes("officer") || user.permission_level === "officer";
-      }).length,
-      osm: filtered.filter(user => {
-        const pos = (user.position || "").toLowerCase();
-        const isOfficer = pos.includes("เจ้าหน้าที่") || pos.includes("officer") || user.permission_level === "officer";
-        // OSM = not officer (includes unknown names)
-        return !isOfficer;
-      }).length,
-      // OSM กรุงเทพ (province_id === "10" และไม่ใช่ officer)
-      osmBangkok: filtered.filter(user => {
-        const pos = (user.position || "").toLowerCase();
-        const isOfficer = pos.includes("เจ้าหน้าที่") || pos.includes("officer") || user.permission_level === "officer";
-        const isBangkok = String(user.province_id || "") === "10";
-        return !isOfficer && isBangkok;
-      }).length,
-    };
-
-    // กรองเฉพาะ online สำหรับแสดงในตาราง
-    filtered = filtered.filter(user => isUserOnline(user));
-
-    // Frontend pagination: slice ตาม currentPage และ itemsPerPage
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedUsers = filtered.slice(startIndex, endIndex);
-
-    const filteredPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-    return { displayUsers: paginatedUsers, filteredUsers: filtered, filteredTotalItems: filtered.length, filteredTotalPages: filteredPages, statistics: stats };
-  }, [users, isCountryLevel, currentPage, itemsPerPage, keyword]);
+  const displayUsers = users;
+  const filteredTotalItems = totalItems;
+  const filteredTotalPages = totalPages;
 
   const handleRestoreUser = () => {
     if (!selectedUser) return;
@@ -1504,15 +1166,7 @@ const UserListComp = () => {
         open={downloadModalOpen}
         onClose={() => setDownloadModalOpen(false)}
         totalItems={filteredTotalItems}
-        filteredUsers={filteredUsers}
-        filters={{
-          keyword,
-          tab,
-          province,
-          district,
-          subdistrict,
-          service,
-        }}
+        fetchAllUsers={fetchAllUsersForExport}
       />
 
       {/* Header Section */}
@@ -1764,7 +1418,7 @@ const UserListComp = () => {
                 <div>
                   <div className="text-white/80 text-sm">อสม. กรุงเทพ</div>
                   <div className="text-2xl font-bold text-white">
-                    {statistics?.osmBangkok?.toLocaleString("th-TH") || 0}
+                    {statistics?.osm_bangkok?.toLocaleString("th-TH") || 0}
                   </div>
                 </div>
               </div>
@@ -1772,17 +1426,30 @@ const UserListComp = () => {
           )}
         </div>
 
-        {/* Loading Progress Indicator */}
-        {loadingProgress && (
+        {/* ผู้ใช้ที่ยังไม่มีข้อมูลโปรไฟล์จากตัวกลาง (จะไม่ถูกนับเมื่อกรองด้วยพื้นที่) */}
+        {isCountryLevel() && (syncProgress || statistics?.unsynced > 0) && (
           <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4">
-            <div className="flex items-center gap-3">
-              <Loader2 size={24} className="text-purple-600 animate-spin" />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {syncProgress && <Loader2 size={24} className="text-purple-600 animate-spin" />}
               <div className="flex-1">
-                <p className="text-purple-800 font-semibold">กำลังดึงข้อมูล...</p>
+                <p className="text-purple-800 font-semibold">
+                  {syncProgress ? "กำลังซิงค์ข้อมูลผู้ใช้จากระบบตัวกลาง..." : "มีผู้ใช้ที่ยังไม่มีข้อมูลชื่อ/พื้นที่"}
+                </p>
                 <p className="text-purple-600 text-sm">
-                  หน้า {loadingProgress.page} (ดึงข้อมูลแล้ว {Math.min(loadingProgress.page * 100, loadingProgress.total)} จากทั้งหมด {loadingProgress.total} รายการ)
+                  {syncProgress
+                    ? `ซิงค์แล้ว ${syncProgress.done.toLocaleString("th-TH")} รายการ (เหลือ ${syncProgress.remaining.toLocaleString("th-TH")} รายการ)`
+                    : `${statistics.unsynced.toLocaleString("th-TH")} รายการ ยังไม่ถูกนับเมื่อกรองตามพื้นที่`}
                 </p>
               </div>
+              {!syncProgress && (
+                <button
+                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7e32e2] to-[#a855f7] text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
+                  onClick={handleSyncProfiles}
+                >
+                  <RefreshCcw size={16} />
+                  ซิงค์ข้อมูล
+                </button>
+              )}
             </div>
           </div>
         )}

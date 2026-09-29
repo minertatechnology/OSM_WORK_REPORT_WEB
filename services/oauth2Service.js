@@ -33,6 +33,49 @@ oauth2Api.interceptors.request.use(
 // Cache สำหรับเก็บข้อมูลผู้ใช้ที่ดึงมาแล้ว
 const userCache = new Map();
 
+// จำนวน ids ต่อ 1 request ของ batch API และจำนวน request ที่ยิงพร้อมกัน
+// API จำกัดสูงสุด 200 ids/request (เกินจะได้ 422 ทั้งก้อน ทำให้ไม่ได้ข้อมูลเลย)
+// และใช้เวลาประมาณ 50ms ต่อ id จึงแบ่งก้อนเล็กแล้วยิงขนานกันแทน
+const BATCH_CHUNK_SIZE = 100;
+const BATCH_CONCURRENCY = 10;
+// จำนวน ids สูงสุดที่จะยอมยิงทีละคน เมื่อ batch ไม่คืนข้อมูลของ id นั้น
+const INDIVIDUAL_FALLBACK_LIMIT = 300;
+
+/**
+ * ยิง batch API แบบแบ่งเป็นก้อน ๆ แล้วรวมผลลัพธ์
+ * ถ้าก้อนไหนล้มเหลวจะข้ามไป ไม่ทำให้ก้อนอื่นหายไปด้วย
+ * @param {string} endpoint - เช่น '/osm/batch'
+ * @param {Array<string>} ids - UUID ที่ผ่านการตรวจสอบแล้ว
+ * @returns {Promise<Array<Object>>} รายการข้อมูลผู้ใช้จากทุกก้อน
+ */
+const postBatchInChunks = async (endpoint, ids) => {
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += BATCH_CHUNK_SIZE) {
+    chunks.push(ids.slice(i, i + BATCH_CHUNK_SIZE));
+  }
+
+  const results = [];
+  for (let i = 0; i < chunks.length; i += BATCH_CONCURRENCY) {
+    const group = chunks.slice(i, i + BATCH_CONCURRENCY);
+    const responses = await Promise.allSettled(
+      group.map((chunk) => oauth2Api.post(endpoint, { ids: chunk }))
+    );
+
+    responses.forEach((res, idx) => {
+      if (res.status === "fulfilled" && Array.isArray(res.value?.data?.data)) {
+        results.push(...res.value.data.data);
+      } else {
+        console.error(
+          `Error fetching ${endpoint} chunk ${i + idx + 1}/${chunks.length}:`,
+          res.reason?.response?.status || res.reason?.message || "No data in batch response"
+        );
+      }
+    });
+  }
+
+  return results;
+};
+
 /**
  * ดึงข้อมูลผู้ใช้จาก Third-party OAuth2 ด้วย external_user_id
  * @param {string} externalUserId - UUID ของผู้ใช้
@@ -195,15 +238,8 @@ export const getOSMsBatch = async (ids) => {
       return {};
     }
 
-    // ยิง POST /osm/batch พร้อม body { ids: [...] }
-    const response = await oauth2Api.post('/osm/batch', { ids: validIds });
-
-    // API จะส่งข้อมูลกลับมาเป็น array ใน response.data.data
-    if (!response.data || !response.data.data) {
-      throw new Error("No data in batch response");
-    }
-
-    const usersArray = response.data.data;
+    // ยิง POST /osm/batch พร้อม body { ids: [...] } แบ่งเป็นก้อนละ BATCH_CHUNK_SIZE
+    const usersArray = await postBatchInChunks('/osm/batch', validIds);
 
     // แปลง array เป็น object โดยใช้ external_user_id (หรือ id) เป็น key
     const usersMap = {};
@@ -277,15 +313,8 @@ export const getOfficersBatch = async (ids) => {
       return {};
     }
 
-    // ยิง POST /officer/batch พร้อม body { ids: [...] }
-    const response = await oauth2Api.post('/officer/batch', { ids: validIds });
-
-    // API จะส่งข้อมูลกลับมาเป็น array ใน response.data.data
-    if (!response.data || !response.data.data) {
-      throw new Error("No data in batch response");
-    }
-
-    const usersArray = response.data.data;
+    // ยิง POST /officer/batch พร้อม body { ids: [...] } แบ่งเป็นก้อนละ BATCH_CHUNK_SIZE
+    const usersArray = await postBatchInChunks('/officer/batch', validIds);
 
     // แปลง array เป็น object โดยใช้ external_user_id (หรือ id) เป็น key
     const usersMap = {};
@@ -354,7 +383,27 @@ export const getUsersBatch = async (externalUserIds) => {
     }
 
     // 4. รวมผลลัพธ์จากทั้ง 2 endpoints
-    return { ...osmResults, ...officerResults };
+    const results = { ...osmResults, ...officerResults };
+
+    // 5. ids ที่ batch ยังไม่คืนข้อมูล (เช่น ก้อนนั้น error ทั้งก้อน) ให้ลองดึงทีละคน
+    // จำกัดจำนวนไว้ เพื่อไม่ให้ยิง request เยอะเกินไปถ้า batch ล่มทั้งหมด
+    const stillMissingIds = uniqueIds.filter(id => !results[id]);
+    if (stillMissingIds.length > 0 && stillMissingIds.length <= INDIVIDUAL_FALLBACK_LIMIT) {
+      for (let i = 0; i < stillMissingIds.length; i += BATCH_CONCURRENCY) {
+        const group = stillMissingIds.slice(i, i + BATCH_CONCURRENCY);
+        const users = await Promise.all(group.map(id => getUserByExternalId(id)));
+        users.forEach((user, idx) => {
+          // getUserByExternalId คืน fallback ที่ไม่มีชื่อถ้าหาไม่เจอ → ไม่นับว่าเจอ
+          if (user && (user.first_name || user.last_name)) {
+            results[group[idx]] = user;
+          }
+        });
+      }
+    } else if (stillMissingIds.length > INDIVIDUAL_FALLBACK_LIMIT) {
+      console.warn(`⚠️ getUsersBatch: ${stillMissingIds.length} ids not found in batch, skipping individual fallback`);
+    }
+
+    return results;
   } catch (error) {
     console.error("Error in getUsersBatch:", error);
     // ถ้า batch API ล้มเหลวทั้งหมด ให้ return empty object

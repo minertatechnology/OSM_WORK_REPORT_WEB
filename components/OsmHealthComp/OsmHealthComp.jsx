@@ -16,19 +16,21 @@ import {
   MapPin,
 } from "lucide-react";
 import CustomSelect from "@services/customSelectService/customSelectService";
-import { getHealthRecords } from "@services/healthRecordService";
+import {
+  getHealthRecordsAdminPage,
+  getHealthRecordsAdminSummary,
+  getAllHealthRecordsAdmin,
+} from "@services/healthRecordService";
 import { exportHealthRecordToPDF } from "./OsmHealthDetail/OsmHealthDetail";
-import { getOsmByHealthService } from "@services/lookupService";
 import oauth2Service from "@services/oauth2Service";
 import XLSX from "xlsx-js-style";
 import {
   getCurrentFiscalYear,
   generateFiscalYearOptions,
-  isInFiscalYear,
-  isInCalendarYear,
-  parseThaiDate,
-  isInMonth,
   getCurrentMonth,
+  getFiscalYearRange,
+  getCalendarYearRange,
+  getDisplayYearForFiscalMonth,
 } from "@utils/fiscalYearHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
@@ -96,6 +98,39 @@ const formatThaiDate = (dateString) => {
   return `${day} ${month} ${year}`;
 };
 
+/**
+ * คำนวณช่วงวันที่ (ISO) สำหรับส่งให้ API กรองตาม created_at
+ * @param {string} year - ปี พ.ศ.
+ * @param {string} yearType - "fiscal" | "calendar"
+ * @param {string} month - "01"-"12" (ว่าง = ทั้งปี)
+ * @returns {{start_date?: string, end_date?: string}}
+ */
+function getDateRange(year, yearType, month) {
+  if (!year) return {};
+  const yearNum = parseInt(year);
+
+  if (month) {
+    const monthNum = parseInt(month);
+    const buddhistYear = yearType === "fiscal"
+      ? getDisplayYearForFiscalMonth(yearNum, month)
+      : yearNum;
+    const gregorianYear = buddhistYear - 543;
+    return {
+      start_date: new Date(gregorianYear, monthNum - 1, 1).toISOString(),
+      end_date: new Date(gregorianYear, monthNum, 0, 23, 59, 59, 999).toISOString(),
+    };
+  }
+
+  const { startDate, endDate } = yearType === "fiscal"
+    ? getFiscalYearRange(yearNum)
+    : getCalendarYearRange(yearNum);
+  endDate.setHours(23, 59, 59, 999);
+  return {
+    start_date: startDate.toISOString(),
+    end_date: endDate.toISOString(),
+  };
+}
+
 // Health zone mapping - maps province_id to health_region (เขตสุขภาพ)
 // ใช้ province_id (code) เพื่อหาว่าจังหวัดนั้นอยู่ในเขตสุขภาพไหน
 // อ้างอิงจาก /lookups/health-areas API
@@ -129,13 +164,16 @@ const HEALTH_ZONE_MAP = {
 };
 
 /**
- * ตรวจสอบว่า province_id อยู่ใน health_zone ที่ระบุหรือไม่
+ * รหัสจังหวัดทั้งหมดในเขตสุขภาพ (รองรับรหัสเขตแบบ "HA1" หรือ "1")
  */
-function isInHealthZone(provinceId, healthZone) {
-  if (!provinceId || !healthZone) return true;
-  const zone = HEALTH_ZONE_MAP[String(provinceId)];
-  return zone === healthZone;
+function getProvinceIdsInZone(zoneCode) {
+  const zoneNumber = parseInt(String(zoneCode).replace(/\D/g, ""));
+  if (!zoneNumber) return [];
+  return Object.keys(HEALTH_ZONE_MAP).filter((code) => HEALTH_ZONE_MAP[code] === zoneNumber);
 }
+
+// Excel export: จำกัดจำนวนแถวต่อไฟล์ (ข้อมูลทั้งประเทศระดับล้านรายการ export ใน browser ไม่ไหว)
+const EXPORT_MAX_ROWS = 20000;
 
 /**
  * ค้นหา district_id จากชื่ออำเภอภาษาไทย
@@ -390,9 +428,15 @@ const OsmHealthComp = () => {
     defaultMonth: getCurrentMonth(),
   });
 
-  // Data state
+  // Data state - เก็บเฉพาะหน้าปัจจุบัน (pagination ทำที่ server)
   const [healthRecords, setHealthRecords] = useState([]);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [yearlyTotal, setYearlyTotal] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const lastQueryKeyRef = useRef(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -415,9 +459,6 @@ const OsmHealthComp = () => {
     if (!citizenId || citizenId.length < 4) return citizenId || "-";
     return citizenId.slice(0, -4) + "****";
   };
-
-  // State for OSM data (for service filtering)
-  const [osmDataByService, setOsmDataByService] = useState([]);
 
   // แปลงข้อมูล location เป็น options สำหรับ CustomSelect (ใช้เฉพาะชื่อภาษาไทย)
   const healthAreaOptions = healthAreas.map(ha => ({
@@ -445,209 +486,115 @@ const OsmHealthComp = () => {
     value: hs.id
   }));
 
-  // Fetch health records on mount
+  // Filter ที่ส่งให้ API (ทุกเงื่อนไขกรองที่ SQL)
+  const locationParams = React.useMemo(() => {
+    const zoneProvinceIds = zone ? getProvinceIdsInZone(zone) : [];
+
+    // หน่วยบริการ 1 แห่งครอบคลุมหลายตำบล: ส่งตำบลที่รับผิดชอบไปด้วย
+    // เพื่อให้เจอ record ที่ location_data_resolved เป็น null
+    const selectedService = service
+      ? healthServices.find((hs) => String(hs.id) === String(service))
+      : null;
+    const serviceAreaCodes = selectedService
+      ? [
+          selectedService.subdistrict?.code,
+          ...(selectedService.service_areas || []).map((area) => area.subdistrict_code),
+        ].filter(Boolean)
+      : [];
+
+    return {
+      ...(province
+        ? { province_id: province }
+        : zoneProvinceIds.length > 0 && { province_ids: zoneProvinceIds.join(",") }),
+      ...(district && { district_id: district }),
+      ...(subdistrict && { subdistrict_id: subdistrict }),
+      ...(service && { health_service_id: service }),
+      ...(serviceAreaCodes.length > 0 && {
+        service_area_codes: [...new Set(serviceAreaCodes)].join(","),
+      }),
+    };
+  }, [zone, province, district, subdistrict, service, healthServices]);
+
+  const monthParams = React.useMemo(
+    () => ({ ...locationParams, ...getDateRange(year, yearType, month) }),
+    [locationParams, year, yearType, month]
+  );
+  const yearParams = React.useMemo(
+    () => ({ ...locationParams, ...getDateRange(year, yearType, "") }),
+    [locationParams, year, yearType]
+  );
+  const monthQueryKey = JSON.stringify(monthParams);
+  const yearQueryKey = JSON.stringify(yearParams);
+
+  // ดึงข้อมูลหน้าปัจจุบัน - นับ total ใหม่เฉพาะตอน filter เปลี่ยน (เปลี่ยนหน้าไม่ต้องนับซ้ำ)
   useEffect(() => {
-    // รอให้ filters พร้อมก่อนเรียก API
-    if (!filtersReady) {
+    if (!filtersReady) return;
+
+    const filtersChanged = lastQueryKeyRef.current !== monthQueryKey;
+    if (filtersChanged && currentPage !== 1) {
+      setCurrentPage(1); // effect จะรันใหม่ด้วย page 1
       return;
     }
+    lastQueryKeyRef.current = monthQueryKey;
 
-    const fetchHealthRecords = async () => {
+    let cancelled = false;
+    const fetchPage = async () => {
+      setIsLoading(true);
+      setLoadError(null);
       try {
-        setIsLoading(true);
-
-        // Get location names from the lookup data
-        const provinceObj = provinces.find(p => String(p.code || p.id) === String(province));
-        const districtObj = districts.find(d => String(d.code || d.id) === String(district));
-        const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
-
-        // ส่ง location filters เพื่อให้ API กรองข้อมูลตามสิทธิ์
-        const apiFilters = {
-          limit: 1000,
-          ...(province && { province_id: province }),
-          ...(district && { district_id: district }),
-          ...(subdistrict && { subdistrict_id: subdistrict }),
-          ...(service && { health_service_id: service }),
-          // ส่งชื่อสถานที่ด้วย (สำหรับ API ที่รองรับ)
-          ...(provinceObj && { province: provinceObj.name_th }),
-          ...(districtObj && { district: districtObj.name_th }),
-          ...(subdistrictObj && { subdistrict: subdistrictObj.name_th }),
-        };
-
-        const data = await getHealthRecords(apiFilters);
-        setHealthRecords(data || []);
+        const data = await getHealthRecordsAdminPage({
+          ...monthParams,
+          page: currentPage,
+          page_size: itemsPerPage,
+          include_total: filtersChanged,
+        });
+        if (cancelled) return;
+        setHealthRecords(data?.items || []);
+        if (filtersChanged) setTotalRecords(data?.total ?? 0);
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to fetch health records:", error);
         setHealthRecords([]);
+        setTotalRecords(0);
+        lastQueryKeyRef.current = null; // ให้นับ total ใหม่รอบหน้า
+        setLoadError("โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
-    fetchHealthRecords();
-  }, [filtersReady, year, month, yearType, province, district, subdistrict, service]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchPage();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersReady, monthQueryKey, currentPage, itemsPerPage, refreshKey]);
 
-
-  // Fetch OSM data when service is selected
+  // สรุปรายปี (นับที่ server ไม่ต้องโหลดข้อมูล)
   useEffect(() => {
-    const fetchOsmData = async () => {
-      if (service) {
-        try {
-          const osmData = await getOsmByHealthService(service);
-          setOsmDataByService(osmData || []);
-        } catch (error) {
-          console.error("Error fetching OSM data:", error);
-          setOsmDataByService([]);
-        }
-      } else {
-        setOsmDataByService([]);
-      }
+    if (!filtersReady) return;
+
+    let cancelled = false;
+    getHealthRecordsAdminSummary(yearParams)
+      .then((summary) => {
+        if (!cancelled) setYearlyTotal(summary?.total_records ?? null);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch health record summary:", error);
+        if (!cancelled) setYearlyTotal(null);
+      });
+    return () => {
+      cancelled = true;
     };
-    fetchOsmData();
-  }, [service]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersReady, yearQueryKey, refreshKey]);
 
   // เลือกรายการเดือนตามประเภทปี
   const monthOptions = React.useMemo(() => {
     return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
   }, [yearType]);
 
-  // Filter health records based on year, month, and location
-  const filteredRecords = React.useMemo(() => {
-    if (!healthRecords.length) return [];
-
-    return healthRecords.filter((record) => {
-      if (!record.updated_at) return false;
-
-      const date = new Date(record.updated_at);
-
-      // Year filtering
-      if (year) {
-        const yearNum = parseInt(year);
-        const matchesYear = yearType === "fiscal"
-          ? isInFiscalYear(date, yearNum)
-          : isInCalendarYear(date, yearNum);
-
-        if (!matchesYear) {
-          return false;
-        }
-      }
-
-      // Month filtering
-      if (month) {
-        if (!isInMonth(date, month)) {
-          return false;
-        }
-      }
-
-      // Service filtering (เฉพาะบริการสุขภาพอสม.)
-      // ถ้าเลือกหน่วยบริการ ให้ filter เฉพาะตามหน่วยบริการเท่านั้น (สำคัญสุด)
-      // ไม่สน filter อื่นๆ เช่น จังหวัด/อำเภอ/ตำบล
-      if (service && osmDataByService.length > 0) {
-        const osmIdSet = new Set(osmDataByService.map(osm => osm.id));
-        if (!record.external_user_id || !osmIdSet.has(record.external_user_id)) {
-          return false;
-        }
-      } else {
-        // ใช้ location_data_resolved จาก health record เท่านั้น
-        const resolvedData = record.location_data_resolved;
-
-        // ถ้าไม่มี location_data_resolved ให้ return false (ไม่มีข้อมูลตำแหน่ง ไม่สามารถกรองได้)
-        if (!resolvedData) {
-          return false;
-        }
-
-        // Debug: แสดงข้อมูลเมื่อกรอง
-        if (zone || province || district || subdistrict) {
-          console.log("🔍 Filtering record:", {
-            external_user_id: record.external_user_id,
-            locationData: {
-              district: resolvedData.district,
-              subdistrict: resolvedData.subdistrict,
-              province: resolvedData.province,
-              district_id: resolvedData.district_id,
-              subdistrict_id: resolvedData.subdistrict_id,
-              province_id: resolvedData.province_id,
-              health_area: resolvedData.health_area,
-              health_area_id: resolvedData.health_area_id,
-            },
-            filter: { zone, province, district, subdistrict },
-          });
-        }
-
-        // ใช้ข้อมูลจาก location_data_resolved เท่านั้น
-        const provinceName = resolvedData.province;
-        const districtName = resolvedData.district;
-        const subdistrictName = resolvedData.subdistrict;
-        const provinceId = resolvedData.province_id;
-        const districtId = resolvedData.district_id;
-        const subdistrictId = resolvedData.subdistrict_id;
-
-        // Debug: แสดงผลลัพธ์การดึงชื่อ
-        if (zone || province || district || subdistrict) {
-          console.log("📍 Extracted Names:", {
-            from: "location_data_resolved",
-            provinceName,
-            districtName,
-            subdistrictName,
-            ids: { provinceId, districtId, subdistrictId },
-            filter: { zone, province, district, subdistrict },
-            selectedItems: {
-              province: provinces.find(p => p.code === province),
-              district: districts.find(d => d.code === district),
-              subdistrict: subdistricts.find(s => s.code === subdistrict),
-            },
-          });
-        }
-
-        // Zone filtering - ใช้ provinceId ที่แปลงได้จากชื่อจังหวัด
-        if (zone) {
-          const zoneNumber = parseInt(String(zone).replace(/\D/g, ''));
-          if (provinceId) {
-            const provinceInZone = isInHealthZone(provinceId, zoneNumber);
-            if (!provinceInZone) {
-              return false;
-            }
-          } else {
-            // ถ้าไม่สามารถแปลงชื่อจังหวัดเป็น ID ได้ ให้ return false
-            return false;
-          }
-        }
-
-        // Province filtering - เปรียบเทียบชื่อโดยตรง
-        if (province) {
-          const selectedProvince = provinces.find(p => p.code === province);
-          if (!selectedProvince || provinceName !== selectedProvince.name_th) {
-            return false;
-          }
-        }
-
-        // District filtering - เปรียบเทียบชื่อโดยตรง (ใช้ resolvedData.district)
-        if (district) {
-          const selectedDistrict = districts.find(d => d.code === district);
-          if (!selectedDistrict || districtName !== selectedDistrict.name_th) {
-            return false;
-          }
-        }
-
-        // Subdistrict filtering - เปรียบเทียบชื่อโดยตรง (ใช้ resolvedData.subdistrict)
-        if (subdistrict) {
-          const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
-          if (!selectedSubdistrict || subdistrictName !== selectedSubdistrict.name_th) {
-            return false;
-          }
-        }
-      }
-
-      return true;
-    });
-  }, [healthRecords, year, month, yearType, service, osmDataByService, zone, province, district, subdistrict, provinces, districts, subdistricts]);
-
   // Pagination calculation
-  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
-  const paginatedData = filteredRecords.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil(totalRecords / itemsPerPage);
 
   // Close dropdown on click outside
   React.useEffect(() => {
@@ -667,9 +614,10 @@ const OsmHealthComp = () => {
     setCurrentPage(1);
   };
 
-  // Handle search
+  // Handle search - ดึงข้อมูลล่าสุดใหม่ (filter ยิง API อัตโนมัติอยู่แล้ว)
   const handleSearch = () => {
-    setCurrentPage(1);
+    lastQueryKeyRef.current = null;
+    setRefreshKey((key) => key + 1);
   };
 
   // Handle download PDF for single record
@@ -684,14 +632,26 @@ const OsmHealthComp = () => {
 
   // Handle download Excel for all filtered records
   const handleDownloadExcel = async () => {
+    if (isExporting) return;
     try {
-      if (filteredRecords.length === 0) {
+      if (totalRecords === 0) {
         alert("ไม่มีข้อมูลที่จะดาวน์โหลด");
         return;
       }
 
-      // แสดง loading
-      const loadingMsg = alert("กำลังเตรียมข้อมูล... กรุณารอสักครู่");
+      if (
+        totalRecords > EXPORT_MAX_ROWS &&
+        !confirm(
+          `ข้อมูลมี ${totalRecords.toLocaleString("th-TH")} รายการ ดาวน์โหลดได้สูงสุด ${EXPORT_MAX_ROWS.toLocaleString("th-TH")} รายการล่าสุดต่อไฟล์\n` +
+          "ต้องการข้อมูลครบ กรุณาเลือกพื้นที่ให้แคบลง (จังหวัด/อำเภอ/ตำบล)\n\nดาวน์โหลดต่อหรือไม่?"
+        )
+      ) {
+        return;
+      }
+
+      setIsExporting(true);
+      setOpen(false);
+      const filteredRecords = await getAllHealthRecordsAdmin(monthParams, EXPORT_MAX_ROWS);
 
       // ฟังก์ชันคำนวณอายุ
       const calculateAge = (birthDate) => {
@@ -985,10 +945,11 @@ const OsmHealthComp = () => {
 
       // ดาวน์โหลดไฟล์
       XLSX.writeFile(wb, fileName);
-      setOpen(false);
     } catch (error) {
       console.error("Failed to export Excel:", error);
       alert("เกิดข้อผิดพลาดในการสร้างไฟล์ Excel กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -1022,7 +983,7 @@ const OsmHealthComp = () => {
               <div>
                 <p className="text-sm text-gray-500">จำนวนผู้ตรวจทั้งหมดรายเดือน</p>
                 <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
-                  {isLoading ? "..." : filteredRecords.length}
+                  {isLoading ? "..." : totalRecords.toLocaleString("th-TH")}
                 </p>
               </div>
             </div>
@@ -1035,7 +996,7 @@ const OsmHealthComp = () => {
               <div>
                 <p className="text-sm text-gray-500">ข้อมูลทั้งหมดรายปี</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {isLoading ? "..." : healthRecords.length}
+                  {isLoading ? "..." : (yearlyTotal ?? healthRecords.length).toLocaleString("th-TH")}
                 </p>
               </div>
             </div>
@@ -1153,18 +1114,21 @@ const OsmHealthComp = () => {
                 ตารางข้อมูลผลตรวจสุขภาพ อสม.
               </h2>
               <span className="text-sm text-gray-500">
-                ({isLoading ? "..." : filteredRecords.length} รายการ)
+                ({isLoading ? "..." : totalRecords.toLocaleString("th-TH")} รายการ)
               </span>
             </div>
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setOpen((s) => !s)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-wait"
               >
                 <Download size={18} />
-                <span className="hidden sm:inline">ดาวน์โหลดเอกสาร</span>
-                <span className="sm:hidden">ดาวน์โหลด</span>
+                <span className="hidden sm:inline">
+                  {isExporting ? "กำลังเตรียมไฟล์..." : "ดาวน์โหลดเอกสาร"}
+                </span>
+                <span className="sm:hidden">{isExporting ? "กำลังเตรียม..." : "ดาวน์โหลด"}</span>
                 <ChevronDown
                   size={18}
                   className={`transition-transform ${open ? "rotate-180" : ""}`}
@@ -1230,14 +1194,20 @@ const OsmHealthComp = () => {
                       </div>
                     </td>
                   </tr>
-                ) : paginatedData.length === 0 ? (
+                ) : loadError ? (
+                  <tr>
+                    <td colSpan="4" className="py-8 text-center text-red-500">
+                      {loadError}
+                    </td>
+                  </tr>
+                ) : healthRecords.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="py-8 text-center text-gray-500">
                       ไม่พบข้อมูล
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((record, idx) => {
+                  healthRecords.map((record, idx) => {
                     const fullName = `${record.prefix || ""}${record.first_name || ""} ${record.last_name || ""}`.trim() || "ไม่ระบุชื่อ";
                     const recordId = record.id || idx;
                     const isCitizenIdVisible = visibleCitizenIds.get(recordId) || false;
@@ -1278,7 +1248,7 @@ const OsmHealthComp = () => {
                           </div>
                         </td>
                         <td className="py-3 px-3 text-center text-gray-600 text-sm">
-                          {formatThaiDate(record.updated_at)}
+                          {formatThaiDate(record.created_at || record.updated_at)}
                         </td>
                         <td className="py-3 px-3 text-center">
                           <button
@@ -1304,7 +1274,7 @@ const OsmHealthComp = () => {
             totalPages={totalPages}
             itemsPerPage={itemsPerPage}
             setItemsPerPage={setItemsPerPage}
-            totalItems={filteredRecords.length}
+            totalItems={totalRecords}
           />
         </div>
       </div>

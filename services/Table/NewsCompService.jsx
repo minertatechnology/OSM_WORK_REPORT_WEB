@@ -37,6 +37,11 @@ const NewsCompService = ({ rows = [], onDetail }) => {
         <div>จัดการข้อมูล</div>
       </div>
       {/* Table Body */}
+      {rows.length === 0 && (
+        <div style={{ padding: "36px 0", textAlign: "center", color: "#9ca3af", fontSize: 16 }}>
+          ไม่พบรายการแจ้งเตือน
+        </div>
+      )}
       {rows.map((item, idx) => (
         <div
           key={item.id || idx}

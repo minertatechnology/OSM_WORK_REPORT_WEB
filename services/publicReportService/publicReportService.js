@@ -75,6 +75,40 @@ export const getPublicOsm1SummaryByLocation = async (params = {}) => {
 };
 
 /**
+ * ดึงข้อมูลรายงาน อสม.1 แยกเป็นกลุ่มตามพื้นที่ (สำหรับต่างจังหวัด)
+ * GET /report-osm1/summary/by-location/groups
+ * แต่ละกลุ่มมีรหัสพื้นที่ (ถ้า resolve ได้) หรือชื่อพื้นที่จาก GPS พร้อมผลรวมกิจกรรม { activity_id: value }
+ * @param {Object} params - Filter parameters
+ * @param {string} params.fiscal_year - ปีงบประมาณ (เช่น "2569")
+ * @param {string} params.month - เดือน (1-12)
+ * @returns {Promise<Array>} - รายการกลุ่มพื้นที่
+ */
+export const getPublicOsm1SummaryGroups = async (params = {}) => {
+  try {
+    const searchParams = new URLSearchParams();
+
+    if (params.fiscal_year) {
+      searchParams.append('fiscal_year', parseInt(params.fiscal_year));
+    }
+    if (params.month) {
+      searchParams.append('report_month', parseInt(params.month));
+    }
+
+    const queryString = searchParams.toString();
+    const url = queryString
+      ? `/report-osm1/summary/by-location/groups?${queryString}`
+      : `/report-osm1/summary/by-location/groups`;
+
+    const response = await publicReportAxios.get(url);
+
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error("Error fetching OSM1 summary groups:", error.response?.status, error.response?.data);
+    return [];
+  }
+};
+
+/**
  * ดึงข้อมูลรายงาน อสม.1 สรุปตามสถานที่ (สำหรับกรุงเทพมหานคร)
  * GET /report-osm1-bangkok/summary/by-location
  * @param {Object} params - Filter parameters
@@ -209,5 +243,6 @@ export default {
   getPublicReportData,
   getPublicOsm1Summary,
   getPublicOsm1SummaryByLocation,
+  getPublicOsm1SummaryGroups,
   getPublicOsm1BangkokSummaryByLocation,
 };

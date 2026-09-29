@@ -884,10 +884,10 @@ const Reportosm1DataComp = () => {
           const userData = usersMap[item.external_user_id];
           const locationResolved = item.location_data_resolved || {};
 
-          // สร้างชื่อเต็มจาก OSM batch API
-          const fullName = userData
+          // สร้างชื่อเต็มจาก OSM batch API (ห้าม fallback เป็น UUID เพราะจะไปโชว์ในตารางและหน้ารายละเอียด)
+          const fullName = (userData
             ? `${userData.prefix_name_th || ""}${userData.first_name || ""} ${userData.last_name || ""}`.trim()
-            : item.external_user_id || "ไม่ระบุชื่อ";
+            : "") || "ไม่ระบุชื่อ";
 
           // ดึง province_id จาก OSM batch API (สำคัญสุด - ใช้ตัดสินใจว่าเป็นกรุงเทพหรือไม่)
           const osmProvinceId = userData?.province_id || null;
@@ -987,13 +987,15 @@ const Reportosm1DataComp = () => {
         }
 
         // Filter by subdistrict
-        if (subdistrict && userLocation) {
+        // สำหรับ รพ.สต. (มี service): กรองด้วยหน่วยบริการเท่านั้น ข้ามตำบล
+        // เพราะ 1 หน่วยบริการครอบคลุมหลายตำบล → ห้ามล็อกตำบลเดียว
+        if (!service && subdistrict && userLocation) {
           if (userLocation.subdistrict_id !== subdistrict && userLocation.subdistrict_name_th !== subdistrict) {
             return false;
           }
         }
 
-        // Filter by service (health_service_id)
+        // Filter by service (health_service_id) — ใช้ตัวนี้เป็นหลักสำหรับ รพ.สต.
         if (service && userLocation?.health_services) {
           const serviceMatch = userLocation.health_services.some(
             hs => hs.health_service_id === service || hs.code === service
