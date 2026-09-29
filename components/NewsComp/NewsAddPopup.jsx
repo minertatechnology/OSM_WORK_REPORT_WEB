@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import InputService from "@services/inputService/inputService";
 import ButtonService from "@services/buttonService/buttonService";
-import { X, Calendar, User, MapPin, Trash2 } from "lucide-react";
+import { X, Calendar, User, MapPin, Trash2, Phone, Mail } from "lucide-react";
 import {
   getHealthAreas,
   getProvinces,
@@ -498,6 +498,8 @@ export default function NewsAddPopup({
       ["ตำบล", loc.subdistrict],
       ["หน่วยบริการ", loc.service_unit],
     ].filter(([, v]) => v && (v.id || v.name));
+    const creator = data?.creator;
+    const creatorName = creator?.name || data?.author_name || "ไม่ทราบชื่อผู้ประกาศ";
 
     return (
       <div
@@ -524,17 +526,46 @@ export default function NewsAddPopup({
           </div>
 
           <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <Calendar size={16} className="text-purple-600" />
-                {data?.date || "-"} {data?.time || ""}
-              </span>
-              {data?.author_name && (
-                <span className="flex items-center gap-1.5">
-                  <User size={16} className="text-purple-600" />
-                  {data.author_name}
-                </span>
-              )}
+            <div className="flex items-center gap-1.5 text-sm text-gray-600">
+              <Calendar size={16} className="text-purple-600" />
+              ประกาศเมื่อ {data?.date || "-"} {data?.time || ""}
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
+                <User size={16} className="text-purple-600" />
+                ผู้ประกาศ
+              </h3>
+              <div className="rounded-xl border border-purple-100 px-4 py-3 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-gray-800 break-words">{creatorName}</span>
+                  {creator?.type && (
+                    <span className="text-xs font-medium text-purple-700 bg-purple-100 rounded-full px-2 py-0.5">
+                      {creator.type}
+                    </span>
+                  )}
+                  {data?.isOwner && (
+                    <span className="text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
+                      คุณ
+                    </span>
+                  )}
+                </div>
+                {creator?.phone && (
+                  <a href={`tel:${creator.phone}`} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-purple-700">
+                    <Phone size={14} className="text-purple-500" />
+                    {creator.phone}
+                  </a>
+                )}
+                {creator?.email && (
+                  <a href={`mailto:${creator.email}`} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-purple-700 break-all">
+                    <Mail size={14} className="text-purple-500" />
+                    {creator.email}
+                  </a>
+                )}
+                {!creator && data?.external_user_id && (
+                  <p className="text-xs text-gray-400 break-all">รหัสผู้ใช้: {data.external_user_id}</p>
+                )}
+              </div>
             </div>
 
             <div>

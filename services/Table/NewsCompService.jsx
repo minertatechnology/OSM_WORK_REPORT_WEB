@@ -24,7 +24,7 @@ const NewsCompService = ({ rows = [], onDetail }) => {
           background: purple_light,
           padding: "17px 0 17px 0",
           display: "grid",
-          gridTemplateColumns: "1.2fr 2fr 1.3fr",
+          gridTemplateColumns: "1.1fr 1.8fr 1.5fr 1.2fr",
           fontWeight: 700,
           fontSize: 17,
           color: purple,
@@ -34,6 +34,7 @@ const NewsCompService = ({ rows = [], onDetail }) => {
       >
         <div style={{ paddingLeft: 32 }}>วันที่</div>
         <div>หัวข้อ</div>
+        <div>ผู้ประกาศ</div>
         <div>จัดการข้อมูล</div>
       </div>
       {/* Table Body */}
@@ -47,7 +48,7 @@ const NewsCompService = ({ rows = [], onDetail }) => {
           key={item.id || idx}
           style={{
             display: "grid",
-            gridTemplateColumns: "1.2fr 2fr 1.3fr",
+            gridTemplateColumns: "1.1fr 1.8fr 1.5fr 1.2fr",
             alignItems: "center",
             fontSize: 16,
             fontWeight: 500,
@@ -58,7 +59,10 @@ const NewsCompService = ({ rows = [], onDetail }) => {
           }}
         >
           <div style={{ paddingLeft: 32 }}>{item.date}</div>
-          <div>{item.title}</div>
+          <div style={{ paddingRight: 16, wordBreak: "break-word" }}>{item.title}</div>
+          <div style={{ paddingRight: 16, wordBreak: "break-word" }}>
+            {item.creator?.name || item.author_name || "-"}
+          </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start" }}>
             <button
               type="button"

@@ -22,6 +22,8 @@ import {
   deleteNotification,
   transformNotificationData,
 } from "@services/notificationService/notificationService";
+import { getUsersBatch } from "@services/oauth2Service";
+import { getAccessToken } from "@utils/tokenStorage";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 import {
@@ -60,10 +62,47 @@ const showLoadingAlert = (title) =>
     didOpen: () => Swal.showLoading(),
   });
 
+// external_user_id ของผู้ใช้ปัจจุบัน (claim "sub" ใน access token) — ใช้แสดงป้าย "คุณ" ในหน้ารายละเอียด
+const getCurrentUserId = () => {
+  try {
+    const payload = getAccessToken()?.split(".")[1];
+    if (!payload) return null;
+    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).sub || null;
+  } catch {
+    return null;
+  }
+};
+
+const getFullName = (u) =>
+  [u?.prefix_name_th || u?.prefix, u?.first_name, u?.last_name].filter(Boolean).join(" ").trim();
+
+// เติมข้อมูลผู้ประกาศจริง (จาก external_user_id) และสิทธิ์ลบให้แต่ละแจ้งเตือน
+const attachCreators = async (notifications) => {
+  const ids = [...new Set(notifications.map((n) => n.external_user_id).filter(Boolean))];
+  const users = ids.length > 0 ? await getUsersBatch(ids) : {};
+  const currentUserId = getCurrentUserId();
+
+  return notifications.map((n) => {
+    const u = users[n.external_user_id];
+    return {
+      ...n,
+      creator: u
+        ? {
+            name: u.name,
+            type: u.position_level || null,
+            phone: u.phone || u.mobile || null,
+            email: u.email || null,
+          }
+        : null,
+      isOwner: currentUserId ? n.external_user_id === currentUserId : null,
+    };
+  });
+};
+
 const getApiErrorMessage = (error, fallback) => {
   const status = error?.response?.status;
   if (status === 401) return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง";
-  if (status === 403) return "คุณไม่มีสิทธิ์ดำเนินการกับแจ้งเตือนนี้ (ลบได้เฉพาะผู้ที่สร้างแจ้งเตือน)";
+  if (status === 403) return "คุณไม่มีสิทธิ์ดำเนินการนี้";
   if (status === 404) return "ไม่พบแจ้งเตือนนี้ อาจถูกลบไปแล้ว";
   if (status === 422) return "ข้อมูลไม่ครบถ้วน กรุณาตรวจสอบหัวข้อและรายละเอียด";
   return fallback;
@@ -296,7 +335,7 @@ const NewsCompContent = () => {
   const YEARS = generateFiscalYearOptions(currentFiscalYear - 4, currentFiscalYear);
 
   // Use permission-based filters
-  const { isLocked } = useUserPermission();
+  const { isLocked, user: currentUser } = useUserPermission();
   const {
     yearType,
     year,
@@ -383,8 +422,8 @@ const NewsCompContent = () => {
       console.log("API Response:", response);
       console.log("Notifications:", response.notifications);
 
-      const notifications = transformNotificationData(
-        response.notifications || []
+      const notifications = await attachCreators(
+        transformNotificationData(response.notifications || [])
       );
 
       console.log("Transformed notifications:", notifications);
@@ -496,7 +535,7 @@ const NewsCompContent = () => {
         is_active: true,
         is_pinned: false,
         priority: 0,
-        author_name: dummyAuth.roles[0] || "Admin",
+        author_name: getFullName(currentUser) || dummyAuth.roles[0],
       };
 
       showLoadingAlert("กำลังบันทึกแจ้งเตือน...");
@@ -600,7 +639,9 @@ const NewsCompContent = () => {
         service_unit_id: service || null,
       });
 
-      let notifications = transformNotificationData(response.notifications || []);
+      let notifications = await attachCreators(
+        transformNotificationData(response.notifications || [])
+      );
 
       // กรองตามวันที่ที่ client-side (Backend ยังไม่รองรับ)
       if (year || month || week) {

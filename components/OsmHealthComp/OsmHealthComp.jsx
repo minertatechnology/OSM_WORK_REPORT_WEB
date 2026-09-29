@@ -557,7 +557,10 @@ const OsmHealthComp = () => {
         setHealthRecords([]);
         setTotalRecords(0);
         lastQueryKeyRef.current = null; // ให้นับ total ใหม่รอบหน้า
-        setLoadError("โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        const detail = error?.response?.data?.detail;
+        setLoadError(
+          typeof detail === "string" ? detail : "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+        );
       } finally {
         if (!cancelled) setIsLoading(false);
       }

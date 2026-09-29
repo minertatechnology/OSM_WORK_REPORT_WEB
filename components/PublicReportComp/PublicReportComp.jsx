@@ -271,8 +271,19 @@ const generateYearOptions = () => {
   return years;
 };
 
+// ปีงบ/เดือนปัจจุบัน (ปีงบเริ่มเดือนตุลาคม) ใช้เป็นค่าเริ่มต้นของตัวกรองทั้ง 2 tab
+const getCurrentFiscalPeriod = () => {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  return {
+    fiscalYear: String(now.getFullYear() + 543 + (month >= 10 ? 1 : 0)),
+    month: String(month), // ต้องตรงกับ value ใน FISCAL_MONTH_OPTIONS (ไม่เติม 0)
+  };
+};
+
 // Fiscal month options (Thai budget year: October - September)
 const FISCAL_MONTH_OPTIONS = [
+  { label: "ทุกเดือน", value: "" },
   { label: "ตุลาคม", value: "10" },
   { label: "พฤศจิกายน", value: "11" },
   { label: "ธันวาคม", value: "12" },
@@ -1104,8 +1115,8 @@ const PublicReportComp = () => {
   const { user, scope, lockLevel, isLocked, getInitialFilters, loading: permissionLoading } = useUserPermission();
 
   // Filter states - initialize with empty values (permission filters will be applied via useEffect for locked fields only)
-  const [fiscalYear, setFiscalYear] = useState(String(new Date().getFullYear() + 543));
-  const [month, setMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
+  const [fiscalYear, setFiscalYear] = useState(() => getCurrentFiscalPeriod().fiscalYear);
+  const [month, setMonth] = useState(() => getCurrentFiscalPeriod().month);
   const [zone, setZone] = useState("");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
@@ -1904,8 +1915,9 @@ const PublicReportComp = () => {
   };
 
   const handleReset = () => {
-    setFiscalYear(String(new Date().getFullYear() + 543));
-    setMonth("");
+    const currentPeriod = getCurrentFiscalPeriod();
+    setFiscalYear(currentPeriod.fiscalYear);
+    setMonth(currentPeriod.month);
 
     // For proactive health volunteers (bangkok tab), keep zone locked, reset only child filters
     if (activeTab === "bangkok") {
