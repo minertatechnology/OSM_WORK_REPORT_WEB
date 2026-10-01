@@ -38,6 +38,7 @@ import {
   generateFiscalYearOptions,
   getCurrentMonth,
 } from "@utils/fiscalYearHelper";
+import { addDateFilters } from "@utils/filterParamsHelper";
 
 // เดือน options (ปกติ - เริ่มต้นเดือนมกราคม)
 const MONTHS = [
@@ -591,27 +592,10 @@ const DashboardSobos = () => {
     try {
       const filters = {};
 
-      // เพิ่ม filter ตามช่วงเวลา
-      if (year && month) {
-        const buddhistYear = parseInt(year);
-        const gregorianYear = buddhistYear - 543;
-        const monthNum = parseInt(month);
-
-        const startDate = new Date(gregorianYear, monthNum - 1, 1);
-        const endDate = new Date(gregorianYear, monthNum, 0, 23, 59, 59);
-
-        filters.start_date = startDate.toISOString();
-        filters.end_date = endDate.toISOString();
-      } else if (year) {
-        const buddhistYear = parseInt(year);
-        const gregorianYear = buddhistYear - 543;
-
-        const startDate = new Date(gregorianYear, 0, 1);
-        const endDate = new Date(gregorianYear, 11, 31, 23, 59, 59);
-
-        filters.start_date = startDate.toISOString();
-        filters.end_date = endDate.toISOString();
-      }
+      // เพิ่ม filter ตามช่วงเวลา — ต้องดู yearType ด้วย
+      // ปีงบประมาณ 2570 = 1 ต.ค. 2569 - 30 ก.ย. 2570 (เดือน ต.ค.-ธ.ค. อยู่ในปีปฏิทินก่อนหน้า)
+      // เดิมคิดแบบปีปฏิทินเสมอ → เลือก ต.ค. ปีงบ 2570 ได้ ต.ค. 2570 (อนาคต) ข้อมูลว่าง
+      Object.assign(filters, addDateFilters({}, year, month, yearType));
 
       filters.limit = 10000;
 
@@ -1569,6 +1553,7 @@ const DashboardSobos = () => {
     service,
     year,
     month,
+    yearType,
     selectedReportType,
     lockLevel,
     getInitialFilters,
