@@ -54,6 +54,37 @@ export const getAdminUsersStats = async (params = {}) => {
   return response.data;
 };
 
+// ข้อมูลสำหรับดาวน์โหลดรายงาน: เรียกซ้ำด้วย after = next_cursor จนกว่า next_cursor เป็น null
+export const exportAdminUsers = async (params = {}) => {
+  const response = await apiSmartOsm.get('/admin/users/export', {
+    params: cleanParams(params),
+    timeout: 120000,
+  });
+  return response.data;
+};
+
+// Excel รายงานผู้ใช้งาน: server สร้างไฟล์เป็นงานเบื้องหลัง (รองรับหลักล้านแถว)
+// สั่งงาน → poll สถานะจน completed → ดาวน์โหลด
+export const createAdminUsersExportJob = async (params = {}) => {
+  const response = await apiSmartOsm.post('/admin/users/export-jobs', null, {
+    params: cleanParams(params),
+  });
+  return response.data;
+};
+
+export const getAdminUsersExportJob = async (jobId) => {
+  const response = await apiSmartOsm.get(`/admin/users/export-jobs/${jobId}`);
+  return response.data;
+};
+
+export const downloadAdminUsersExportJob = async (jobId) => {
+  const response = await apiSmartOsm.get(`/admin/users/export-jobs/${jobId}/download`, {
+    responseType: 'blob',
+    timeout: 600000,
+  });
+  return response.data;
+};
+
 export const syncAdminUserProfiles = async (limit = 2000) => {
   const response = await apiSmartOsm.post('/admin/users/sync-profiles', null, { params: { limit } });
   return response.data;

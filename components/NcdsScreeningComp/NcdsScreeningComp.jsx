@@ -40,6 +40,7 @@ import {
   parseThaiDate,
   isInMonth
 } from "@utils/fiscalYearHelper";
+import { addDateFilters } from "@utils/filterParamsHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 
@@ -854,9 +855,15 @@ const NcdsScreeningComp = () => {
         const districtObj = districts.find(d => String(d.code || d.id) === String(district));
         const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
 
+        // ส่งเป็นช่วงวันที่แทน year/month — API ตีความ year เป็นปีปฏิทิน
+        // ปีงบ 2570 + ต.ค.-ธ.ค. ต้องเป็นปี 2569 ในฐาน (addDateFilters จัดการให้)
+        const dateFilters = addDateFilters({}, year, month, yearType);
+
         console.log('[NcdsScreeningComp] Fetching unique users with params:', {
+          yearType,
           year,
           month,
+          ...dateFilters,
           province_name: provinceObj?.name_th,
           district_name: districtObj?.name_th,
           subdistrict_name: subdistrictObj?.name_th,
@@ -864,8 +871,7 @@ const NcdsScreeningComp = () => {
 
         const result = await getUniqueUsersCount({
           menu_type: "ncds",
-          year: year ? parseInt(year) : undefined,
-          month: month ? parseInt(month) : undefined,
+          ...dateFilters,
           province_name: provinceObj?.name_th,
           district_name: districtObj?.name_th,
           subdistrict_name: subdistrictObj?.name_th,
@@ -878,7 +884,7 @@ const NcdsScreeningComp = () => {
     };
     fetchUniqueUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersReady, year, month, province, district, subdistrict]);
+  }, [filtersReady, yearType, year, month, province, district, subdistrict]);
 
   // Note: Location data loading is now handled by usePermissionFilters hook
 

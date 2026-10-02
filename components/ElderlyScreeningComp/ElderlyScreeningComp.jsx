@@ -45,6 +45,7 @@ import {
   parseThaiDate,
   isInMonth,
 } from "@utils/fiscalYearHelper";
+import { addDateFilters } from "@utils/filterParamsHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 
@@ -953,10 +954,11 @@ const ElderlyScreeningComp = () => {
         const districtObj = districts.find(d => String(d.code || d.id) === String(district));
         const subdistrictObj = subdistricts.find(s => String(s.code || s.id) === String(subdistrict));
 
+        // ส่งเป็นช่วงวันที่แทน year/month — API ตีความ year เป็นปีปฏิทิน
+        // ปีงบ 2570 + ต.ค.-ธ.ค. ต้องเป็นปี 2569 ในฐาน (addDateFilters จัดการให้)
         const result = await getUniqueUsersCount({
           menu_type: "elderly_screening",
-          year: year ? parseInt(year) : undefined,
-          month: month ? parseInt(month) : undefined,
+          ...addDateFilters({}, year, month, yearType),
           province_name: provinceObj?.name_th,
           district_name: districtObj?.name_th,
           subdistrict_name: subdistrictObj?.name_th,
@@ -969,7 +971,7 @@ const ElderlyScreeningComp = () => {
     };
     fetchUniqueUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersReady, year, month, province, district, subdistrict]);
+  }, [filtersReady, yearType, year, month, province, district, subdistrict]);
 
   useEffect(() => {
     // อ่าน detailId ทันทีเมื่อ searchParams เปลี่ยน (ไม่ต้องรอ hydrated)

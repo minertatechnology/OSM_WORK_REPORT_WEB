@@ -524,6 +524,7 @@ const DashboardSobos = () => {
     isDistrictDisabled,
     isSubdistrictDisabled,
     isServiceDisabled,
+    filtersReady,
   } = usePermissionFilters({
     defaultYear: String(currentFiscalYear),
     defaultYearType: "fiscal",
@@ -583,9 +584,13 @@ const DashboardSobos = () => {
     return yearType === "fiscal" ? FISCAL_MONTHS : MONTHS;
   }, [yearType]);
 
+  // นับลำดับ request เพื่อทิ้งผลลัพธ์ของ request เก่าที่ตอบกลับช้ากว่า (filter เปลี่ยนเร็วๆ)
+  const requestIdRef = useRef(0);
+
   // ฟังก์ชันดึงข้อมูลจาก API (ใช้ /reports/geo-summary แบบ dynamic)
   const fetchData = useCallback(async () => {
     console.log("🔍 [DEBUG] fetchData called");
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
 
@@ -730,6 +735,9 @@ const DashboardSobos = () => {
       // ดึงข้อมูลจาก API /reports/map-data (ใช้ map-data แทน geo-summary เพื่อให้ได้ข้อมูล location)
       const mapDataResponse =
         await reportsMapService.getReportsMapData(filters);
+
+      // มี request ใหม่กว่าแล้ว → ทิ้งผลลัพธ์นี้
+      if (requestId !== requestIdRef.current) return;
 
       console.log("🔍 [DEBUG] API Response:", {
         total_reports: mapDataResponse.total_reports,
@@ -1540,9 +1548,13 @@ const DashboardSobos = () => {
       console.error("❌ [DEBUG] Error in fetchData:", err);
       console.error("❌ [DEBUG] Error message:", err.message);
       console.error("❌ [DEBUG] Error stack:", err.stack);
-      setError("เกิดข้อผิดพลาดในการดึงข้อมูล");
+      if (requestId === requestIdRef.current) {
+        setError("เกิดข้อผิดพลาดในการดึงข้อมูล");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1559,15 +1571,13 @@ const DashboardSobos = () => {
     getInitialFilters,
   ]);
 
-  // ✅ Track whether initial data has been loaded (ป้องกันการยิง API ซ้ำ)
-  const hasInitialLoadedRef = useRef(false);
-
-  // ค้นหาอัตโนมัติเมื่อ filter เปลี่ยน - ✅ แต่ต้องรอให้ permission พร้อมก่อน
+  // ค้นหาอัตโนมัติเมื่อ filter เปลี่ยน (ปี/เดือน/พื้นที่/ประเภทรายงาน) เหมือนหน้ารายงาน อสม.1
+  // เดิมยิงแค่ครั้งแรกครั้งเดียว → เปลี่ยนปี/เดือนแล้วข้อมูลไม่เปลี่ยน
+  // และเดิมรอ lockLevel !== undefined ซึ่งไม่เคยเกิด (ค่าเริ่มต้นคือ 'none') → ยิงก่อนค่าพื้นที่ที่ถูกล็อคจะถูก set
   useEffect(() => {
-    // ✅ รอให้ lockLevel พร้อม (ไม่ใช่ undefined) ก่อนยิง API
-    // ป้องกันการยิง API แบบไม่มี filter ก่อน
-    if (lockLevel === undefined) {
-      console.log("⏳ [DEBUG] Waiting for permission (lockLevel) to be ready...");
+    // ✅ รอให้ permission + ค่าพื้นที่ที่ถูกล็อค set เสร็จก่อน
+    if (!filtersReady) {
+      console.log("⏳ [DEBUG] Waiting for permission filters to be ready...");
       return;
     }
 
@@ -1578,30 +1588,13 @@ const DashboardSobos = () => {
       return;
     }
 
-    // ✅ ป้องกันการยิงซ้ำใน initial load
-    if (hasInitialLoadedRef.current) {
-      console.log("⏭️ [DEBUG] Already loaded, skipping duplicate fetch");
-      return;
-    }
+    // debounce กันยิงซ้ำตอน filter เปลี่ยนต่อเนื่อง (เช่น เปลี่ยนเขต → reset จังหวัด/อำเภอ)
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 300);
 
-    console.log("🚀 [DEBUG] All conditions ready, fetching data with filters:", {
-      lockLevel,
-      healthAreas: healthAreas.length,
-      provinces: provinces.length
-    });
-
-    hasInitialLoadedRef.current = true;
-    fetchData();
-  }, [fetchData, lockLevel, healthAreas.length, provinces.length]);
-
-  // ✅ ลบ useEffect ซ้ำออก - ไม่ต้องมี useEffect ที่ยิง fetchData อีกครั้ง
-
-  // Update flag when we get valid data
-  useEffect(() => {
-    if (provinceSummary && provinceSummary.map_items && provinceSummary.map_items.length > 0) {
-      hasInitialLoadedRef.current = true;
-    }
-  }, [provinceSummary]);
+    return () => clearTimeout(timer);
+  }, [fetchData, filtersReady, healthAreas.length, provinces.length]);
 
   // กดค้นหา (เผื่อผู้ใช้ต้องการกดค้นหาเอง)
   const handleSearch = useCallback(() => {
@@ -1618,9 +1611,10 @@ const DashboardSobos = () => {
       }
       // หา zone code
       handleZoneChange(String(data.zone));
-      handleSearch();
+      // ไม่ต้องเรียก handleSearch() — useEffect ค้นหาอัตโนมัติจะยิงด้วยค่า filter ใหม่เอง
+      // (เรียกตรงนี้จะได้ fetchData ตัวเก่าที่ยังเป็น filter เดิม)
     },
-    [handleSearch, provinces, handleProvinceChange, handleZoneChange],
+    [provinces, handleProvinceChange, handleZoneChange],
   );
 
   // สร้างข้อมูล Pie Chart แบบ Dynamic ตาม map_level (ใช้ map_items จาก backend)

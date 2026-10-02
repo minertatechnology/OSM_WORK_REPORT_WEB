@@ -43,12 +43,16 @@ import CustomSelect from "@services/customSelectService/customSelectService";
 import {
   getAdminUsers,
   getAdminUsersStats,
+  exportAdminUsers,
+  createAdminUsersExportJob,
+  getAdminUsersExportJob,
+  downloadAdminUsersExportJob,
   syncAdminUserProfiles,
 } from "@services/userService/userService";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
 import jsPDF from "jspdf";
-import * as XLSX from "xlsx-js-style";
+import { saveAs } from "file-saver";
 import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
 import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 
@@ -60,7 +64,77 @@ const PER_PAGE_OPTIONS = [
   { label: "100", value: 100 },
 ];
 
-// Old getPageNumbers removed
+// ประเภทรายงานที่ดาวน์โหลดได้ (ตรงกับการ์ดสถิติ) — statKey คือ field จาก /admin/users/stats
+const EXPORT_CATEGORIES = [
+  { key: "all", label: "ทั้งหมด", statKey: "total", icon: Users, color: "text-violet-600 bg-violet-100" },
+  { key: "online", label: "ออนไลน์", statKey: "online", icon: Wifi, color: "text-emerald-600 bg-emerald-100" },
+  { key: "officer", label: "เจ้าหน้าที่", statKey: "officers", icon: Shield, color: "text-sky-600 bg-sky-100" },
+  { key: "osm", label: "อสม.", statKey: "osm", icon: HeartPulse, color: "text-rose-600 bg-rose-100" },
+  { key: "osm_bangkok", label: "อสม. กรุงเทพ", statKey: "osm_bangkok", icon: Landmark, color: "text-orange-600 bg-orange-100" },
+];
+const EXPORT_CHUNK_SIZE = 5000;
+// ไม่ยิงต่อเนื่องจนแย่ง server กับผู้ใช้แอป: เว้นระยะระหว่างรอบ และถ้า server ไม่ว่าง/error ให้รอนานขึ้นเรื่อยๆ ก่อนลองใหม่
+const EXPORT_CHUNK_DELAY_MS = 200;
+const EXPORT_MAX_ATTEMPTS = 5;
+// PDF ทำในเบราว์เซอร์ 20 รายการ/หน้า เกินนี้ไฟล์ใหญ่และค้างมาก ให้ใช้ Excel แทน
+const PDF_MAX_ROWS = 10000;
+// Excel สร้างที่ server: poll ถี่ช่วงแรก แล้วห่างขึ้น (งานล้านแถวใช้ราว 2 นาที บวกเวลารอคิว)
+const EXPORT_JOB_FAST_POLLS = 30;
+const EXPORT_JOB_FAST_POLL_MS = 2000;
+const EXPORT_JOB_SLOW_POLL_MS = 5000;
+const EXPORT_JOB_MAX_WAIT_MS = 40 * 60 * 1000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// 429 (server ไม่ว่าง), 5xx, timeout/network → รอ 1, 2, 4, 8 วินาทีแล้วลองใหม่
+const withRetry = async (request) => {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await request();
+    } catch (error) {
+      const status = error.response?.status;
+      const retryable = !status || status === 429 || status >= 500;
+      if (!retryable || attempt >= EXPORT_MAX_ATTEMPTS) throw error;
+      await sleep(1000 * 2 ** (attempt - 1));
+    }
+  }
+};
+
+// Excel: server สร้างไฟล์เป็นงานเบื้องหลัง (แบบหน้ารายชื่อ อสม. ของ Thai PHC) เบราว์เซอร์แค่โหลดไฟล์ที่เสร็จแล้ว
+// จึงไม่ค้างแม้หลักล้านแถว — คืนจำนวนแถวในไฟล์ (0 = ไม่มีข้อมูล ไม่ดาวน์โหลด)
+const exportExcelViaJob = async (filters, category, onStatus) => {
+  let job = await withRetry(() =>
+    createAdminUsersExportJob({ ...filters, category: category.key })
+  );
+  const startedAt = Date.now();
+  for (let polls = 0; job.status !== "completed"; polls++) {
+    if (job.status === "failed") {
+      throw Object.assign(new Error(job.error), { userMessage: job.error });
+    }
+    if (Date.now() - startedAt > EXPORT_JOB_MAX_WAIT_MS) {
+      throw Object.assign(new Error("export job timeout"), {
+        userMessage: "ใช้เวลานานเกินไป กรุณากดดาวน์โหลดอีกครั้งภายหลัง",
+      });
+    }
+    onStatus(job);
+    await sleep(polls < EXPORT_JOB_FAST_POLLS ? EXPORT_JOB_FAST_POLL_MS : EXPORT_JOB_SLOW_POLL_MS);
+    const jobId = job.job_id;
+    job = await withRetry(() => getAdminUsersExportJob(jobId));
+  }
+
+  if (job.rows_written === 0) return 0;
+  onStatus(job);
+  const blob = await withRetry(() => downloadAdminUsersExportJob(job.job_id));
+  saveAs(blob, exportFileName(category, "xlsx"));
+  return job.rows_written;
+};
+
+const exportFileName = (category, ext) => {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `User_${category.key}_${day}-${month}-${now.getFullYear()}.${ext}`;
+};
 
 // Function to mask CID for PDPA compliance
 // Mask last 4 digits (show first 9 digits)
@@ -337,7 +411,7 @@ function UserDetailModal({
 }
 
 // Export PDF function - แสดงเฉพาะคอลัมน์ที่แสดงในตาราง
-function exportUserListPDF(data) {
+function exportUserListPDF(data, category) {
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -364,7 +438,7 @@ function exportUserListPDF(data) {
     doc.setFontSize(18);
     doc.setFont("Sarabun", "bold");
     doc.setTextColor(0, 0, 0);
-    doc.text("รายชื่อผู้ใช้งานแอปพลิเคชัน", 105, 20, { align: "center" });
+    doc.text(`รายชื่อผู้ใช้งานแอปพลิเคชัน (${category.label})`, 105, 20, { align: "center" });
     doc.setFontSize(11);
     doc.setFont("Sarabun", "normal");
     doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 28, { align: "center" });
@@ -452,128 +526,73 @@ function exportUserListPDF(data) {
     rowCountOnPage++;
   });
 
-  // Save PDF - Format: User_{DD-MM-YYYY}.pdf
-  const now = new Date();
-  const day = String(now.getDate()).padStart(2, '0');
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const year = now.getFullYear();
-  const dateStr = `${day}-${month}-${year}`;
-  doc.save(`User_${dateStr}.pdf`);
+  // Save PDF - Format: User_{ประเภท}_{DD-MM-YYYY}.pdf
+  doc.save(exportFileName(category, "pdf"));
 }
 
-// Export Excel function - ใช้ xlsx library สำหรับสร้างไฟล์ Excel ที่ถูกต้อง
-function exportUserListExcel(data) {
-  // สร้าง worksheet data
-  const wsData = [
-    ["ลำดับ", "ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", "ระดับตำแหน่ง"],
-  ];
-
-  data.forEach((row, idx) => {
-    const maskedCid = maskCID(row.cid, false);
-    wsData.push([
-      idx + 1,
-      row.name || "-",
-      maskedCid,
-      row.position || "-",
-    ]);
-  });
-
-  // สร้าง workbook และ worksheet
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-  // ตั้งค่าความกว้างคอลัมน์
-  ws["!cols"] = [
-    { wch: 8 },   // ลำดับ
-    { wch: 30 },  // ชื่อ-นามสกุล
-    { wch: 20 },  // เลขประจำตัวประชาชน
-    { wch: 20 },  // ระดับตำแหน่ง
-  ];
-
-  // กำหนด style สำหรับ borders
-  const borderStyle = {
-    top: { style: "thin", color: { rgb: "000000" } },
-    bottom: { style: "thin", color: { rgb: "000000" } },
-    left: { style: "thin", color: { rgb: "000000" } },
-    right: { style: "thin", color: { rgb: "000000" } },
-  };
-
-  // Header style - พื้นหลังสีม่วงอ่อน ตัวหนา
-  const headerStyle = {
-    border: borderStyle,
-    fill: { fgColor: { rgb: "E8D5F9" } },
-    font: { bold: true, sz: 11 },
-    alignment: { horizontal: "center", vertical: "center" },
-  };
-
-  // Data cell style - มี borders
-  const dataStyle = {
-    border: borderStyle,
-    alignment: { vertical: "center" },
-  };
-
-  // Data cell style สำหรับคอลัมน์ที่ต้องง center
-  const dataCenterStyle = {
-    border: borderStyle,
-    alignment: { horizontal: "center", vertical: "center" },
-  };
-
-  // ใส่ style ให้ทุก cell
-  const range = XLSX.utils.decode_range(ws["!ref"]);
-  for (let R = range.s.r; R <= range.e.r; ++R) {
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-      if (!ws[cellAddress]) continue;
-
-      if (R === 0) {
-        // Header row
-        ws[cellAddress].s = headerStyle;
-      } else {
-        // Data rows - คอลัมน์ 0, 2, 3 center, คอลัมน์ 1 left
-        if (C === 1) {
-          ws[cellAddress].s = dataStyle;
-        } else {
-          ws[cellAddress].s = dataCenterStyle;
-        }
-      }
-    }
-  }
-
-  // เพิ่ม worksheet เข้า workbook
-  XLSX.utils.book_append_sheet(wb, ws, "รายชื่อผู้ใช้งาน");
-
-  // บันทึกไฟล์ Excel - Format: User_{DD-MM-YYYY}.xlsx
-  const now = new Date();
-  const day = String(now.getDate()).padStart(2, '0');
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const year = now.getFullYear();
-  const dateStr = `${day}-${month}-${year}`;
-  XLSX.writeFile(wb, `User_${dateStr}.xlsx`);
-}
-
-// Download Modal
-function DownloadModal({ open, onClose, totalItems, fetchAllUsers }) {
+// Download Modal - ดาวน์โหลดรายงานแยกตามการ์ดสถิติ (ทั้งหมด / ออนไลน์ / เจ้าหน้าที่ / อสม. / อสม. กรุงเทพ)
+function DownloadModal({ open, onClose, categories, fetchAllUsers, exportExcel }) {
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
 
-  // ดึงทุกหน้าตาม filter ปัจจุบันจาก backend (หน้าจอถือไว้แค่หน้าเดียว)
-  const prepareDataForExport = async () => {
-    const allUsers = await fetchAllUsers();
-    return allUsers.map(user => ({
-      name: user.name || "ไม่ระบุชื่อ",
-      cid: user.cid || "-",
-      position: user.position || "ไม่ระบุตำแหน่ง",
-      status: user.status || "active",
-    }));
+  const setLoadingText = (text) => {
+    const el = Swal.getHtmlContainer();
+    if (el) el.textContent = text;
   };
 
-  const handleExportPDF = async () => {
-    if (totalItems === 0) {
+  const showNoData = () =>
+    Swal.fire({
+      icon: "warning",
+      title: "ไม่มีข้อมูล",
+      text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
+      confirmButtonColor: "#7e32e2",
+    });
+
+  const exportExcelFile = async (category) => {
+    const rows = await exportExcel(category, (job) => {
+      if (job.status === "queued") {
+        setLoadingText("รอคิว — มีรายงานอื่นกำลังสร้างอยู่");
+      } else if (job.status === "completed") {
+        setLoadingText(`กำลังดาวน์โหลดไฟล์ ${job.rows_written.toLocaleString("th-TH")} รายการ`);
+      } else {
+        const total = Math.max(category.count || 0, job.rows_written);
+        setLoadingText(
+          `กำลังสร้างไฟล์ ${job.rows_written.toLocaleString("th-TH")} / ${total.toLocaleString("th-TH")} รายการ`
+        );
+      }
+    });
+    if (rows === 0) {
+      showNoData();
+      return;
+    }
+    Swal.close();
+  };
+
+  const exportPdfFile = async (category) => {
+    const users = await fetchAllUsers(category, (loaded, total) => {
+      setLoadingText(
+        `กำลังดึงข้อมูล${category.label} ${loaded.toLocaleString("th-TH")} / ${total.toLocaleString("th-TH")} รายการ`
+      );
+    });
+    if (users.length === 0) {
+      showNoData();
+      return;
+    }
+
+    // สร้างไฟล์เป็นงาน sync ที่ block หน้าจอ — รอให้ข้อความแสดงก่อน
+    setLoadingText(`กำลังสร้างไฟล์ ${users.length.toLocaleString("th-TH")} รายการ`);
+    await sleep(50);
+    exportUserListPDF(users, category);
+    Swal.close();
+  };
+
+  const handleExport = async (category, format) => {
+    if (format === "pdf" && category.count > PDF_MAX_ROWS) {
       Swal.fire({
         icon: "warning",
-        title: "ไม่มีข้อมูล",
-        text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
+        title: "ข้อมูลมากเกินไปสำหรับ PDF",
+        text: `PDF รองรับไม่เกิน ${PDF_MAX_ROWS.toLocaleString("th-TH")} รายการ กรุณาดาวน์โหลดเป็น Excel หรือเลือกพื้นที่ให้แคบลง`,
         confirmButtonColor: "#7e32e2",
       });
       return;
@@ -583,60 +602,27 @@ function DownloadModal({ open, onClose, totalItems, fetchAllUsers }) {
     try {
       Swal.fire({
         title: "กำลังเตรียมข้อมูล...",
-        text: `กำลังดึงข้อมูลทั้งหมด ${totalItems} รายการ`,
+        text: `กำลังดึงข้อมูล${category.label}`,
         allowOutsideClick: false,
         didOpen: () => {
           Swal.showLoading();
         },
       });
 
-      const allUsers = await prepareDataForExport();
-      Swal.close();
-      exportUserListPDF(allUsers);
+      if (format === "pdf") {
+        await exportPdfFile(category);
+      } else {
+        await exportExcelFile(category);
+      }
     } catch (error) {
-      console.error("Export PDF error:", error);
+      console.error(`Export ${format} error:`, error);
+      const detail = error.response?.data?.detail;
       Swal.fire({
         icon: "error",
         title: "เกิดข้อผิดพลาด",
-        text: "ไม่สามารถดึงข้อมูลสำหรับดาวน์โหลดได้",
-        confirmButtonColor: "#7e32e2",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleExportExcel = async () => {
-    if (totalItems === 0) {
-      Swal.fire({
-        icon: "warning",
-        title: "ไม่มีข้อมูล",
-        text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
-        confirmButtonColor: "#7e32e2",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      Swal.fire({
-        title: "กำลังเตรียมข้อมูล...",
-        text: `กำลังดึงข้อมูลทั้งหมด ${totalItems} รายการ`,
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
-
-      const allUsers = await prepareDataForExport();
-      Swal.close();
-      exportUserListExcel(allUsers);
-    } catch (error) {
-      console.error("Export Excel error:", error);
-      Swal.fire({
-        icon: "error",
-        title: "เกิดข้อผิดพลาด",
-        text: "ไม่สามารถดึงข้อมูลสำหรับดาวน์โหลดได้",
+        text:
+          error.userMessage ||
+          (typeof detail === "string" ? detail : "ไม่สามารถดึงข้อมูลสำหรับดาวน์โหลดได้ กรุณาลองใหม่อีกครั้ง"),
         confirmButtonColor: "#7e32e2",
       });
     } finally {
@@ -646,47 +632,78 @@ function DownloadModal({ open, onClose, totalItems, fetchAllUsers }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-[#ece1f7] w-full max-w-2xl p-6 relative">
+      <div className="bg-white rounded-2xl shadow-2xl border border-[#ece1f7] w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
         <div className="text-[20px] font-bold text-[#7e32e2] mb-5">
           ดาวน์โหลดเอกสาร
         </div>
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
-            <div className="flex-1 text-[16px] text-[#231d37] font-semibold">
-              รายชื่อผู้ใช้งาน ({totalItems} รายการ)
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleExportPDF}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="flex flex-col gap-3 mb-4">
+          {categories.map((category) => {
+            const Icon = category.icon;
+            const noData = category.count === 0;
+            const pdfTooLarge = category.count > PDF_MAX_ROWS;
+            return (
+              <div
+                key={category.key}
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3"
               >
-                <Image
-                  src="/pdf.png"
-                  alt="pdf"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6"
-                />
-                เอกสาร PDF
-              </button>
-              <button
-                onClick={handleExportExcel}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Image
-                  src="/xlsx.png"
-                  alt="excel"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6"
-                />
-                เอกสาร Excel
-              </button>
-            </div>
-          </div>
+                <div className="flex flex-1 items-center gap-3 min-w-0">
+                  <div className={`p-2 rounded-xl ${category.color}`}>
+                    <Icon size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[16px] text-[#231d37] font-semibold">
+                      {category.label}
+                    </div>
+                    <div className="text-[13px] text-gray-500">
+                      {category.count == null
+                        ? "-"
+                        : `${category.count.toLocaleString("th-TH")} รายการ`}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleExport(category, "pdf")}
+                    disabled={loading || noData || pdfTooLarge}
+                    title={
+                      pdfTooLarge
+                        ? `PDF รองรับไม่เกิน ${PDF_MAX_ROWS.toLocaleString("th-TH")} รายการ`
+                        : undefined
+                    }
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Image
+                      src="/pdf.png"
+                      alt="pdf"
+                      width={24}
+                      height={24}
+                      className="w-6 h-6"
+                    />
+                    PDF
+                  </button>
+                  <button
+                    onClick={() => handleExport(category, "excel")}
+                    disabled={loading || noData}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Image
+                      src="/xlsx.png"
+                      alt="excel"
+                      width={24}
+                      height={24}
+                      className="w-6 h-6"
+                    />
+                    Excel
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
+        <p className="text-[13px] text-gray-500 mb-5">
+          * PDF รองรับไม่เกิน {PDF_MAX_ROWS.toLocaleString("th-TH")} รายการ
+          หากมากกว่านี้กรุณาดาวน์โหลดเป็น Excel หรือเลือกพื้นที่ให้แคบลง
+        </p>
         <div className="flex justify-end">
           <button
             className="px-6 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[16px] shadow hover:bg-[#f6eeff] transition"
@@ -1058,17 +1075,26 @@ const UserListComp = () => {
     }
   };
 
-  // ดึงรายชื่อออนไลน์ทั้งหมดตาม filter ปัจจุบันสำหรับ export
-  const fetchAllUsersForExport = async () => {
+  // การ์ด เจ้าหน้าที่ / อสม. กรุงเทพ แสดงเฉพาะบางสิทธิ์ (ใช้ทั้งการ์ดสถิติและรายงานดาวน์โหลด)
+  const showOfficers = isCountryLevel();
+  const showOsmBangkok = isCountryLevel() || scope?.province === "10";
+  const exportCategories = EXPORT_CATEGORIES.filter(
+    (c) => (c.key !== "officer" || showOfficers) && (c.key !== "osm_bangkok" || showOsmBangkok)
+  ).map((c) => ({ ...c, count: statistics ? statistics[c.statKey] ?? 0 : null }));
+
+  // ดึงรายชื่อของประเภทที่เลือกตาม filter ปัจจุบันสำหรับทำ PDF (ทีละ EXPORT_CHUNK_SIZE ทีละรอบ)
+  // ลำดับเดียวกับไฟล์ Excel ที่ server สร้าง
+  const fetchAllUsersForExport = async (category, onProgress) => {
     const all = [];
-    let page = 1;
-    let pages = 1;
+    let after;
     do {
-      const response = await getAdminUsers({ ...apiFilters, online_only: true, page, per_page: 100 });
-      all.push(...response.users.map(mapAdminUser));
-      pages = response.total_pages || 1;
-      page++;
-    } while (page <= pages);
+      if (after) await sleep(EXPORT_CHUNK_DELAY_MS);
+      const params = { ...apiFilters, category: category.key, after, limit: EXPORT_CHUNK_SIZE };
+      const response = await withRetry(() => exportAdminUsers(params));
+      for (const user of response.users) all.push(mapAdminUser(user));
+      onProgress?.(all.length, Math.max(category.count || 0, all.length));
+      after = response.next_cursor;
+    } while (after);
     return all;
   };
 
@@ -1165,8 +1191,9 @@ const UserListComp = () => {
       <DownloadModal
         open={downloadModalOpen}
         onClose={() => setDownloadModalOpen(false)}
-        totalItems={filteredTotalItems}
+        categories={exportCategories}
         fetchAllUsers={fetchAllUsersForExport}
+        exportExcel={(category, onStatus) => exportExcelViaJob(apiFilters, category, onStatus)}
       />
 
       {/* Header Section */}
@@ -1192,8 +1219,9 @@ const UserListComp = () => {
             </div>
             <div className="flex w-full lg:w-auto justify-end">
               <button
-                className="bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition"
+                className="bg-white text-[#7e32e2] font-semibold rounded-2xl px-4 py-3 shadow-lg border border-white/50 hover:-translate-y-0.5 transition disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 onClick={() => setDownloadModalOpen(true)}
+                disabled={!apiFilters}
               >
                 <Download size={18} className="inline mr-2" /> ดาวน์โหลดรายงาน
               </button>
@@ -1379,7 +1407,7 @@ const UserListComp = () => {
             </div>
           </div>
           {/* Officers - แสดงเฉพาะสิทธิกรม */}
-          {isCountryLevel() && (
+          {showOfficers && (
             <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl p-4 shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-xl">
@@ -1409,7 +1437,7 @@ const UserListComp = () => {
             </div>
           </div>
           {/* OSM กรุงเทพ - แสดงเฉพาะสิทธิกรม หรือ user ที่อยู่ในกรุงเทพ */}
-          {(isCountryLevel() || scope?.province === "10") && (
+          {showOsmBangkok && (
             <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl p-4 shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-xl">
