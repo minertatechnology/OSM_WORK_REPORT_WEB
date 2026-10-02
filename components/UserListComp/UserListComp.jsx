@@ -51,10 +51,8 @@ import {
 } from "@services/userService/userService";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
-import jsPDF from "jspdf";
+import * as XLSX from "xlsx-js-style";
 import { saveAs } from "file-saver";
-import { font as sarabunFont } from "../../styles/Sarabun-Regular-normal";
-import { fontbold as sarabunBoldFont } from "../../styles/Sarabun-Regular-bold";
 
 // Mock data for select options (ลบ ZONES, PROVINCES, DISTRICTS, SUBDISTRICTS เพราะใช้จาก usePermissionFilters แทน)
 const PER_PAGE_OPTIONS = [
@@ -76,8 +74,12 @@ const EXPORT_CHUNK_SIZE = 5000;
 // ไม่ยิงต่อเนื่องจนแย่ง server กับผู้ใช้แอป: เว้นระยะระหว่างรอบ และถ้า server ไม่ว่าง/error ให้รอนานขึ้นเรื่อยๆ ก่อนลองใหม่
 const EXPORT_CHUNK_DELAY_MS = 200;
 const EXPORT_MAX_ATTEMPTS = 5;
-// PDF ทำในเบราว์เซอร์ 20 รายการ/หน้า เกินนี้ไฟล์ใหญ่และค้างมาก ให้ใช้ Excel แทน
-const PDF_MAX_ROWS = 10000;
+// "browser": หน้าเว็บสร้าง Excel เอง ใช้ได้ทันทีโดยไม่ต้องตั้งค่า server เพิ่ม (ไหวถึงราว 500,000 แถว)
+// "server": server สร้างไฟล์เป็นงานเบื้องหลัง รองรับหลักล้านแถว — เปิดได้เมื่อ backend ต่อดิสก์กลาง
+//   (uploads-pvc ที่ /app/export_files) แล้วเท่านั้น ไม่งั้นแต่ละ pod มองไม่เห็นงานของกัน → "ไม่พบงานดาวน์โหลดนี้"
+const EXCEL_EXPORT_MODE = "browser";
+// ใส่เส้นขอบทุก cell เฉพาะรายงานไม่ใหญ่มาก (style ทุก cell ของหลักแสนแถวใช้หน่วยความจำหลาย GB)
+const EXCEL_STYLED_MAX_ROWS = 20000;
 // Excel สร้างที่ server: poll ถี่ช่วงแรก แล้วห่างขึ้น (งานล้านแถวใช้ราว 2 นาที บวกเวลารอคิว)
 const EXPORT_JOB_FAST_POLLS = 30;
 const EXPORT_JOB_FAST_POLL_MS = 2000;
@@ -410,128 +412,51 @@ function UserDetailModal({
   );
 }
 
-// Export PDF function - แสดงเฉพาะคอลัมน์ที่แสดงในตาราง
-function exportUserListPDF(data, category) {
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4",
-  });
-
-  // เพิ่มฟอนต์ไทย Sarabun
-  doc.addFileToVFS("Sarabun-Regular.ttf", sarabunFont);
-  doc.addFont("Sarabun-Regular.ttf", "Sarabun", "normal");
-  doc.addFileToVFS("Sarabun-Bold.ttf", sarabunBoldFont);
-  doc.addFont("Sarabun-Bold.ttf", "Sarabun", "bold");
-  doc.setFont("Sarabun");
-
-  // ตั้งค่าตาราง
-  const startX = 10; // ขยับไปทางซ้าย
-  const rowHeight = 10;
-  const colWidths = [15, 85, 55, 40]; // ลำดับ, ชื่อ-นามสกุล, เลขประจำตัวประชาชน, ระดับตำแหน่ง
-  const headers = ["ลำดับ", "ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", "ระดับตำแหน่ง"];
-  const rowsPerPage = 20; // แบ่งหน้าทุก 20 รายการ
-
-  // ฟังก์ชันวาดหัวเอกสารและ header ตาราง
-  const drawPageHeader = (pageNum, totalPages) => {
-    // หัวเอกสาร
-    doc.setFontSize(18);
-    doc.setFont("Sarabun", "bold");
-    doc.setTextColor(0, 0, 0);
-    doc.text(`รายชื่อผู้ใช้งานแอปพลิเคชัน (${category.label})`, 105, 20, { align: "center" });
-    doc.setFontSize(11);
-    doc.setFont("Sarabun", "normal");
-    doc.text(`วันที่ส่งออก: ${new Date().toLocaleDateString("th-TH")}`, 105, 28, { align: "center" });
-    doc.text(`จำนวนทั้งหมด: ${data.length} รายการ`, 105, 35, { align: "center" });
-
-    // วาด header ตาราง
-    let xPos = startX;
-    const headerY = 45;
-    doc.setDrawColor(0, 0, 0); // เส้นขอบสีดำ
-    doc.setLineWidth(0.3);
-
-    headers.forEach((header, i) => {
-      doc.rect(xPos, headerY, colWidths[i], rowHeight, "S"); // แค่เส้นขอบ ไม่มีพื้นหลัง
-      doc.setFont("Sarabun", "normal");
-      doc.setFontSize(11); // ขนาดเท่ากับข้อมูล
-      doc.setTextColor(0, 0, 0); // สีดำ
-      doc.text(header, xPos + colWidths[i] / 2, headerY + 7, { align: "center" });
-      xPos += colWidths[i];
-    });
-
-    return headerY + rowHeight; // คืนค่า Y position สำหรับแถวถัดไป
-  };
-
-  // คำนวณจำนวนหน้าทั้งหมด
-  const totalPages = Math.ceil(data.length / rowsPerPage);
-
-  // วาดหน้าแรก
-  let currentPage = 1;
-  let yPos = drawPageHeader(currentPage, totalPages);
-  let rowCountOnPage = 0;
-
+// Export Excel ในเบราว์เซอร์ - ใช้ xlsx library สำหรับสร้างไฟล์ Excel ที่ถูกต้อง
+function exportUserListExcel(data, category) {
+  const wsData = [
+    ["ลำดับ", "ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", "ระดับตำแหน่ง"],
+  ];
   data.forEach((row, idx) => {
-    // ถ้าครบ 20 รายการ ให้ขึ้นหน้าใหม่
-    if (rowCountOnPage >= rowsPerPage) {
-      doc.addPage();
-      currentPage++;
-      yPos = drawPageHeader(currentPage, totalPages);
-      rowCountOnPage = 0;
-    }
-
-    let xPos = startX;
-
-    // Mask CID สำหรับ export (ปกป้องข้อมูลส่วนบุคคล)
-    const maskedCid = maskCID(row.cid, false);
-
-    const rowData = [
-      String(idx + 1),
-      row.name || "-",
-      maskedCid,
-      row.position || "-",
-    ];
-
-    doc.setFont("Sarabun", "normal");
-    doc.setFontSize(10);
-
-    rowData.forEach((text, i) => {
-      // วาดเส้นขอบสีดำ ไม่มีพื้นหลัง
-      doc.setDrawColor(0, 0, 0);
-      doc.rect(xPos, yPos, colWidths[i], rowHeight, "S");
-
-      // ตั้งสีข้อความเป็นสีดำ
-      doc.setTextColor(0, 0, 0);
-
-      // ตัดข้อความถ้ายาวเกินไป
-      const maxWidth = colWidths[i] - 4;
-      let displayText = text;
-      if (doc.getTextWidth(text) > maxWidth) {
-        while (doc.getTextWidth(displayText + "...") > maxWidth && displayText.length > 0) {
-          displayText = displayText.slice(0, -1);
-        }
-        displayText += "...";
-      }
-
-      if (i === 0 || i === 2 || i === 3) {
-        // Center align: ลำดับ, เลขประจำตัวประชาชน, ระดับตำแหน่ง
-        doc.text(displayText, xPos + colWidths[i] / 2, yPos + 7, { align: "center" });
-      } else {
-        // Left align: ชื่อ-นามสกุล
-        doc.text(displayText, xPos + 2, yPos + 7);
-      }
-      xPos += colWidths[i];
-    });
-
-    yPos += rowHeight;
-    rowCountOnPage++;
+    wsData.push([idx + 1, row.name || "-", maskCID(row.cid, false), row.position || "-"]);
   });
 
-  // Save PDF - Format: User_{ประเภท}_{DD-MM-YYYY}.pdf
-  doc.save(exportFileName(category, "pdf"));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws["!cols"] = [{ wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
+
+  const borderStyle = {
+    top: { style: "thin", color: { rgb: "000000" } },
+    bottom: { style: "thin", color: { rgb: "000000" } },
+    left: { style: "thin", color: { rgb: "000000" } },
+    right: { style: "thin", color: { rgb: "000000" } },
+  };
+  const headerStyle = {
+    border: borderStyle,
+    fill: { fgColor: { rgb: "E8D5F9" } },
+    font: { bold: true, sz: 11 },
+    alignment: { horizontal: "center", vertical: "center" },
+  };
+  const dataStyle = { border: borderStyle, alignment: { vertical: "center" } };
+  const dataCenterStyle = { border: borderStyle, alignment: { horizontal: "center", vertical: "center" } };
+
+  // ใส่เส้นขอบทุก cell เฉพาะรายงานไม่ใหญ่มาก (รายงานใหญ่ใส่เฉพาะหัวตาราง ไม่งั้นเบราว์เซอร์กินแรมหลาย GB)
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  const lastStyledRow = data.length <= EXCEL_STYLED_MAX_ROWS ? range.e.r : 0;
+  for (let R = range.s.r; R <= lastStyledRow; ++R) {
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (!cell) continue;
+      cell.s = R === 0 ? headerStyle : C === 1 ? dataStyle : dataCenterStyle;
+    }
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, "รายชื่อผู้ใช้งาน");
+  XLSX.writeFile(wb, exportFileName(category, "xlsx"), { compression: true });
 }
 
-// Download Modal - ดาวน์โหลดรายงานแยกตามการ์ดสถิติ (ทั้งหมด / ออนไลน์ / เจ้าหน้าที่ / อสม. / อสม. กรุงเทพ)
-function DownloadModal({ open, onClose, categories, fetchAllUsers, exportExcel }) {
+// Download Modal - ดาวน์โหลด Excel แยกตามการ์ดสถิติ (ทั้งหมด / ออนไลน์ / เจ้าหน้าที่ / อสม. / อสม. กรุงเทพ)
+function DownloadModal({ open, onClose, categories, exportExcel }) {
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
@@ -541,63 +466,7 @@ function DownloadModal({ open, onClose, categories, fetchAllUsers, exportExcel }
     if (el) el.textContent = text;
   };
 
-  const showNoData = () =>
-    Swal.fire({
-      icon: "warning",
-      title: "ไม่มีข้อมูล",
-      text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
-      confirmButtonColor: "#7e32e2",
-    });
-
-  const exportExcelFile = async (category) => {
-    const rows = await exportExcel(category, (job) => {
-      if (job.status === "queued") {
-        setLoadingText("รอคิว — มีรายงานอื่นกำลังสร้างอยู่");
-      } else if (job.status === "completed") {
-        setLoadingText(`กำลังดาวน์โหลดไฟล์ ${job.rows_written.toLocaleString("th-TH")} รายการ`);
-      } else {
-        const total = Math.max(category.count || 0, job.rows_written);
-        setLoadingText(
-          `กำลังสร้างไฟล์ ${job.rows_written.toLocaleString("th-TH")} / ${total.toLocaleString("th-TH")} รายการ`
-        );
-      }
-    });
-    if (rows === 0) {
-      showNoData();
-      return;
-    }
-    Swal.close();
-  };
-
-  const exportPdfFile = async (category) => {
-    const users = await fetchAllUsers(category, (loaded, total) => {
-      setLoadingText(
-        `กำลังดึงข้อมูล${category.label} ${loaded.toLocaleString("th-TH")} / ${total.toLocaleString("th-TH")} รายการ`
-      );
-    });
-    if (users.length === 0) {
-      showNoData();
-      return;
-    }
-
-    // สร้างไฟล์เป็นงาน sync ที่ block หน้าจอ — รอให้ข้อความแสดงก่อน
-    setLoadingText(`กำลังสร้างไฟล์ ${users.length.toLocaleString("th-TH")} รายการ`);
-    await sleep(50);
-    exportUserListPDF(users, category);
-    Swal.close();
-  };
-
-  const handleExport = async (category, format) => {
-    if (format === "pdf" && category.count > PDF_MAX_ROWS) {
-      Swal.fire({
-        icon: "warning",
-        title: "ข้อมูลมากเกินไปสำหรับ PDF",
-        text: `PDF รองรับไม่เกิน ${PDF_MAX_ROWS.toLocaleString("th-TH")} รายการ กรุณาดาวน์โหลดเป็น Excel หรือเลือกพื้นที่ให้แคบลง`,
-        confirmButtonColor: "#7e32e2",
-      });
-      return;
-    }
-
+  const handleExport = async (category) => {
     setLoading(true);
     try {
       Swal.fire({
@@ -609,13 +478,19 @@ function DownloadModal({ open, onClose, categories, fetchAllUsers, exportExcel }
         },
       });
 
-      if (format === "pdf") {
-        await exportPdfFile(category);
-      } else {
-        await exportExcelFile(category);
+      const rows = await exportExcel(category, setLoadingText);
+      if (rows === 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "ไม่มีข้อมูล",
+          text: "ไม่มีข้อมูลสำหรับดาวน์โหลด",
+          confirmButtonColor: "#7e32e2",
+        });
+        return;
       }
+      Swal.close();
     } catch (error) {
-      console.error(`Export ${format} error:`, error);
+      console.error("Export excel error:", error);
       const detail = error.response?.data?.detail;
       Swal.fire({
         icon: "error",
@@ -636,11 +511,9 @@ function DownloadModal({ open, onClose, categories, fetchAllUsers, exportExcel }
         <div className="text-[20px] font-bold text-[#7e32e2] mb-5">
           ดาวน์โหลดเอกสาร
         </div>
-        <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-col gap-3 mb-6">
           {categories.map((category) => {
             const Icon = category.icon;
-            const noData = category.count === 0;
-            const pdfTooLarge = category.count > PDF_MAX_ROWS;
             return (
               <div
                 key={category.key}
@@ -661,49 +534,24 @@ function DownloadModal({ open, onClose, categories, fetchAllUsers, exportExcel }
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleExport(category, "pdf")}
-                    disabled={loading || noData || pdfTooLarge}
-                    title={
-                      pdfTooLarge
-                        ? `PDF รองรับไม่เกิน ${PDF_MAX_ROWS.toLocaleString("th-TH")} รายการ`
-                        : undefined
-                    }
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-white text-[#d32f2f] font-semibold text-[15px] shadow-sm hover:bg-red-50 hover:border-red-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Image
-                      src="/pdf.png"
-                      alt="pdf"
-                      width={24}
-                      height={24}
-                      className="w-6 h-6"
-                    />
-                    PDF
-                  </button>
-                  <button
-                    onClick={() => handleExport(category, "excel")}
-                    disabled={loading || noData}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Image
-                      src="/xlsx.png"
-                      alt="excel"
-                      width={24}
-                      height={24}
-                      className="w-6 h-6"
-                    />
-                    Excel
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleExport(category)}
+                  disabled={loading || category.count === 0}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-200 bg-white text-[#388e3c] font-semibold text-[15px] shadow-sm hover:bg-green-50 hover:border-green-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Image
+                    src="/xlsx.png"
+                    alt="excel"
+                    width={24}
+                    height={24}
+                    className="w-6 h-6"
+                  />
+                  Excel
+                </button>
               </div>
             );
           })}
         </div>
-        <p className="text-[13px] text-gray-500 mb-5">
-          * PDF รองรับไม่เกิน {PDF_MAX_ROWS.toLocaleString("th-TH")} รายการ
-          หากมากกว่านี้กรุณาดาวน์โหลดเป็น Excel หรือเลือกพื้นที่ให้แคบลง
-        </p>
         <div className="flex justify-end">
           <button
             className="px-6 py-2 rounded-xl border border-[#7e32e2] text-[#7e32e2] bg-white font-semibold text-[16px] shadow hover:bg-[#f6eeff] transition"
@@ -1082,8 +930,7 @@ const UserListComp = () => {
     (c) => (c.key !== "officer" || showOfficers) && (c.key !== "osm_bangkok" || showOsmBangkok)
   ).map((c) => ({ ...c, count: statistics ? statistics[c.statKey] ?? 0 : null }));
 
-  // ดึงรายชื่อของประเภทที่เลือกตาม filter ปัจจุบันสำหรับทำ PDF (ทีละ EXPORT_CHUNK_SIZE ทีละรอบ)
-  // ลำดับเดียวกับไฟล์ Excel ที่ server สร้าง
+  // ดึงรายชื่อของประเภทที่เลือกตาม filter ปัจจุบัน (ทีละ EXPORT_CHUNK_SIZE ทีละรอบ) สำหรับสร้าง Excel ในเบราว์เซอร์
   const fetchAllUsersForExport = async (category, onProgress) => {
     const all = [];
     let after;
@@ -1096,6 +943,28 @@ const UserListComp = () => {
       after = response.next_cursor;
     } while (after);
     return all;
+  };
+
+  // คืนจำนวนแถวในไฟล์ (0 = ไม่มีข้อมูล ไม่ได้ดาวน์โหลด) — setText แสดงความคืบหน้า
+  const exportExcel = async (category, setText) => {
+    const count = (n) => n.toLocaleString("th-TH");
+    if (EXCEL_EXPORT_MODE === "server") {
+      return exportExcelViaJob(apiFilters, category, (job) => {
+        if (job.status === "queued") setText("รอคิว — มีรายงานอื่นกำลังสร้างอยู่");
+        else if (job.status === "completed") setText(`กำลังดาวน์โหลดไฟล์ ${count(job.rows_written)} รายการ`);
+        else setText(`กำลังสร้างไฟล์ ${count(job.rows_written)} / ${count(Math.max(category.count || 0, job.rows_written))} รายการ`);
+      });
+    }
+
+    const exportUsers = await fetchAllUsersForExport(category, (loaded, total) => {
+      setText(`กำลังดึงข้อมูล${category.label} ${count(loaded)} / ${count(total)} รายการ`);
+    });
+    if (exportUsers.length === 0) return 0;
+    // สร้างไฟล์เป็นงาน sync ที่ block หน้าจอ — รอให้ข้อความแสดงก่อน
+    setText(`กำลังสร้างไฟล์ ${count(exportUsers.length)} รายการ`);
+    await sleep(50);
+    exportUserListExcel(exportUsers, category);
+    return exportUsers.length;
   };
 
   const displayUsers = users;
@@ -1192,8 +1061,7 @@ const UserListComp = () => {
         open={downloadModalOpen}
         onClose={() => setDownloadModalOpen(false)}
         categories={exportCategories}
-        fetchAllUsers={fetchAllUsersForExport}
-        exportExcel={(category, onStatus) => exportExcelViaJob(apiFilters, category, onStatus)}
+        exportExcel={exportExcel}
       />
 
       {/* Header Section */}
