@@ -103,7 +103,7 @@ const withRetry = async (request) => {
 };
 
 // Excel: server สร้างไฟล์เป็นงานเบื้องหลัง (แบบหน้ารายชื่อ อสม. ของ Thai PHC) เบราว์เซอร์แค่โหลดไฟล์ที่เสร็จแล้ว
-// จึงไม่ค้างแม้หลักล้านแถว — คืนจำนวนแถวในไฟล์ (0 = ไม่มีข้อมูล ไม่ดาวน์โหลด)
+// จึงไม่ค้างแม้หลักล้านแถว — คืน { rows, blob } (rows = 0 คือไม่มีข้อมูล)
 const exportExcelViaJob = async (filters, category, onStatus) => {
   let job = await withRetry(() =>
     createAdminUsersExportJob({ ...filters, category: category.key })
@@ -124,11 +124,10 @@ const exportExcelViaJob = async (filters, category, onStatus) => {
     job = await withRetry(() => getAdminUsersExportJob(jobId));
   }
 
-  if (job.rows_written === 0) return 0;
+  if (job.rows_written === 0) return { rows: 0, blob: null };
   onStatus(job);
   const blob = await withRetry(() => downloadAdminUsersExportJob(job.job_id));
-  saveAs(blob, exportFileName(category, "xlsx"));
-  return job.rows_written;
+  return { rows: job.rows_written, blob };
 };
 
 const exportFileName = (category, ext) => {
@@ -413,7 +412,7 @@ function UserDetailModal({
 }
 
 // Export Excel ในเบราว์เซอร์ - ใช้ xlsx library สำหรับสร้างไฟล์ Excel ที่ถูกต้อง
-function exportUserListExcel(data, category) {
+function buildUserListExcel(data) {
   const wsData = [
     ["ลำดับ", "ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", "ระดับตำแหน่ง"],
   ];
@@ -452,7 +451,11 @@ function exportUserListExcel(data, category) {
   }
 
   XLSX.utils.book_append_sheet(wb, ws, "รายชื่อผู้ใช้งาน");
-  XLSX.writeFile(wb, exportFileName(category, "xlsx"), { compression: true });
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array", compression: true });
+  const blob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  return blob;
 }
 
 // Download Modal - ดาวน์โหลด Excel แยกตามการ์ดสถิติ (ทั้งหมด / ออนไลน์ / เจ้าหน้าที่ / อสม. / อสม. กรุงเทพ)
@@ -478,7 +481,7 @@ function DownloadModal({ open, onClose, categories, exportExcel }) {
         },
       });
 
-      const rows = await exportExcel(category, setLoadingText);
+      const { rows, blob } = await exportExcel(category, setLoadingText);
       if (rows === 0) {
         Swal.fire({
           icon: "warning",
@@ -488,7 +491,18 @@ function DownloadModal({ open, onClose, categories, exportExcel }) {
         });
         return;
       }
-      Swal.close();
+      // ดาวน์โหลดตอนผู้ใช้กดปุ่มเท่านั้น: Chrome บล็อกการดาวน์โหลดที่เกิดหลังคลิกไปนานแล้ว (รอดึงข้อมูล) แบบเงียบๆ
+      Swal.fire({
+        icon: "success",
+        title: "ไฟล์พร้อมแล้ว",
+        text: `${category.label} ${rows.toLocaleString("th-TH")} รายการ`,
+        confirmButtonText: "ดาวน์โหลดไฟล์",
+        confirmButtonColor: "#7e32e2",
+        showCancelButton: true,
+        cancelButtonText: "ปิด",
+        allowOutsideClick: false,
+        preConfirm: () => saveAs(blob, exportFileName(category, "xlsx")),
+      });
     } catch (error) {
       console.error("Export excel error:", error);
       const detail = error.response?.data?.detail;
@@ -945,7 +959,7 @@ const UserListComp = () => {
     return all;
   };
 
-  // คืนจำนวนแถวในไฟล์ (0 = ไม่มีข้อมูล ไม่ได้ดาวน์โหลด) — setText แสดงความคืบหน้า
+  // คืน { rows, blob } (rows = 0 คือไม่มีข้อมูล) — setText แสดงความคืบหน้า
   const exportExcel = async (category, setText) => {
     const count = (n) => n.toLocaleString("th-TH");
     if (EXCEL_EXPORT_MODE === "server") {
@@ -959,12 +973,11 @@ const UserListComp = () => {
     const exportUsers = await fetchAllUsersForExport(category, (loaded, total) => {
       setText(`กำลังดึงข้อมูล${category.label} ${count(loaded)} / ${count(total)} รายการ`);
     });
-    if (exportUsers.length === 0) return 0;
+    if (exportUsers.length === 0) return { rows: 0, blob: null };
     // สร้างไฟล์เป็นงาน sync ที่ block หน้าจอ — รอให้ข้อความแสดงก่อน
     setText(`กำลังสร้างไฟล์ ${count(exportUsers.length)} รายการ`);
     await sleep(50);
-    exportUserListExcel(exportUsers, category);
-    return exportUsers.length;
+    return { rows: exportUsers.length, blob: buildUserListExcel(exportUsers) };
   };
 
   const displayUsers = users;
