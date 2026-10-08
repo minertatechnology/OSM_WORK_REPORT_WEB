@@ -3,7 +3,7 @@ import { Users } from "lucide-react";
 import { getUniqueUsersCount } from "@services/analyticsService";
 
 const ReportMosquitoComp = () => {
-  const [uniqueUserCount, setUniqueUserCount] = useState(0);
+  const [uniqueUserCount, setUniqueUserCount] = React.useState(0);
 
   React.useEffect(() => {
     const fetchUniqueUsers = async () => {

@@ -24,8 +24,6 @@ export const HEALTHZONE_PROVINCES = [
       "สุโขทัย",
       "เพชรบูรณ์",
       "ตาก",
-      "กำแพงเพชร",
-      "พิจิตร",
       "อุตรดิตถ์",
     ],
   },
@@ -34,6 +32,8 @@ export const HEALTHZONE_PROVINCES = [
     zoneName: "เขตสุขภาพที่ 3",
     provinces: [
       "นครสวรรค์",
+      "กำแพงเพชร",
+      "พิจิตร",
       "ชัยนาท",
       "อุทัยธานี",
     ],

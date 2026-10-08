@@ -411,18 +411,28 @@ function UserDetailModal({
   );
 }
 
+// แอปส่ง heartbeat (POST /auth/heartbeat → last_active_at) เมื่อเข้าใช้งานได้จริง
+// มีบัญชีใน Smart แต่ไม่เคยมี heartbeat = login แล้วแต่ยังไม่ได้เข้าใช้แอป
+const appLoginStatus = (lastActiveAt) => (lastActiveAt ? "ใช้งานสำเร็จ" : "ยังไม่ใช้งาน");
+
 // Export Excel ในเบราว์เซอร์ - ใช้ xlsx library สำหรับสร้างไฟล์ Excel ที่ถูกต้อง
 function buildUserListExcel(data) {
   const wsData = [
-    ["ลำดับ", "ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", "ระดับตำแหน่ง"],
+    ["ลำดับ", "ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", "ระดับตำแหน่ง", "สถานะการเข้าระบบแอปพลิเคชัน"],
   ];
   data.forEach((row, idx) => {
-    wsData.push([idx + 1, row.name || "-", maskCID(row.cid, false), row.position || "-"]);
+    wsData.push([
+      idx + 1,
+      row.name || "-",
+      maskCID(row.cid, false),
+      row.position || "-",
+      appLoginStatus(row.last_active_at),
+    ]);
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws["!cols"] = [{ wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
+  ws["!cols"] = [{ wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 28 }];
 
   const borderStyle = {
     top: { style: "thin", color: { rgb: "000000" } },

@@ -60,12 +60,12 @@ const PROVINCE_TO_ZONE = {
   สุโขทัย: 2, Sukhothai: 2,
   เพชรบูรณ์: 2, Phetchabun: 2,
   ตาก: 2, Tak: 2,
-  กำแพงเพชร: 2, "Kamphaeng Phet": 2,
-  พิจิตร: 2, Phichit: 2,
   อุตรดิตถ์: 2, Uttaradit: 2,
 
   // เขต 3 (ภาคกลางตอนบน - นครสวรรค์ และปริมณฑล)
   นครสวรรค์: 3, "Nakhon Sawan": 3,
+  กำแพงเพชร: 3, "Kamphaeng Phet": 3,
+  พิจิตร: 3, Phichit: 3,
   ชัยนาท: 3, "Chai Nat": 3,
   อุทัยธานี: 3, "Uthai Thani": 3,
 
