@@ -22,6 +22,7 @@ import {
   parseThaiDate,
 } from "@utils/fiscalYearHelper";
 import styles from "./GisComp.module.css";
+import { getAccessToken } from "@utils/tokenStorage";
 
 const normalizeLookupValue = (value) => {
   if (value === undefined || value === null) {
@@ -1422,12 +1423,18 @@ const GisComp = () => {
           limit: 5000,
         }).toString();
 
+        // API ต้อง login แล้ว → แนบ token
+        const accessToken = getAccessToken();
+        const authHeaders = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+
         const [provincesRes, bangkokRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`, {
             signal: controller.signal,
+            headers: authHeaders,
           }),
           fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1-bangkok/submissionsall?${queryString}`, {
             signal: controller.signal,
+            headers: authHeaders,
           }),
         ]);
 

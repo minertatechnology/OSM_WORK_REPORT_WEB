@@ -5,6 +5,7 @@ import jsPDF from "jspdf";
 import { font as SarabunFont } from "../../../styles/Sarabun-Regular-normal";
 import { fontbold as SarabunBoldFont } from "../../../styles/Sarabun-Regular-bold";
 import { getUserByExternalId } from "@services/oauth2Service";
+import { getAccessToken } from "@utils/tokenStorage";
 
 const Reportosm1CompDetailComp = ({ reportData }) => {
   const router = useRouter();
@@ -130,7 +131,11 @@ const Reportosm1CompDetailComp = ({ reportData }) => {
 
         console.log("🔍 [OSM1 Detail] Fetching from API:", { isBangkok, apiUrl, externalUserId, fiscalYear, reportMonth });
 
-        const response = await fetch(apiUrl);
+        // API ต้อง login แล้ว → แนบ token
+        const accessToken = getAccessToken();
+        const response = await fetch(apiUrl, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        });
         const data = await response.json();
 
         console.log("📥 [OSM1 Detail] API Response:", {
