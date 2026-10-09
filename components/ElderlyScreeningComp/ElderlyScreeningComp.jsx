@@ -858,6 +858,7 @@ const ElderlyScreeningComp = () => {
         start_date,
         end_date,
         // ส่ง location filters เพื่อให้ API กรองข้อมูลตามสิทธิ์
+        ...(zone && { health_region: zone }),
         ...(province && { province_id: province }),
         ...(district && { district_id: district }),
         ...(subdistrict && { subdistrict_id: subdistrict }),
@@ -928,7 +929,7 @@ const ElderlyScreeningComp = () => {
     } finally {
       setLoading(false);
     }
-  }, [filtersReady, year, month, yearType, province, district, subdistrict, service]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
+  }, [filtersReady, year, month, yearType, zone, province, district, subdistrict, service]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
   useEffect(() => {

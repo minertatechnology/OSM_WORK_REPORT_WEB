@@ -362,7 +362,7 @@ const GisComp = () => {
   // Convert arrays to options format for CustomSelect
   const healthRegionOptions = getHealthRegionsList().map((region) => ({
     value: region,
-    label: region.replace(/\s*\d+/g, ''),
+    label: region,
   }));
 
   const provinceOptions = (

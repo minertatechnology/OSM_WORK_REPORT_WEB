@@ -1034,6 +1034,7 @@ const PregnantReportComp = () => {
           start_date: apiParams.start_date,
           end_date: apiParams.end_date,
           // ส่ง location filters เพื่อให้ API กรองข้อมูลตามสิทธิ์
+          ...(zone && { health_region: zone }),
           ...(province && { province_id: province }),
           ...(district && { district_id: district }),
           ...(subdistrict && { subdistrict_id: subdistrict }),
@@ -1188,7 +1189,7 @@ const PregnantReportComp = () => {
       prevDateFiltersRef.current = currentDateFilters;
       fetchData();
     }
-  }, [apiParams, filtersReady, province, district, subdistrict, service]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
+  }, [apiParams, filtersReady, zone, province, district, subdistrict, service]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
 
   // ดึงข้อมูล OSM ตามหน่วยบริการ
   useEffect(() => {

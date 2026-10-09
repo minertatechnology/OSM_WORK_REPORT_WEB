@@ -43,6 +43,7 @@ import {
 import { addDateFilters } from "@utils/filterParamsHelper";
 import { usePermissionFilters } from "@hooks/usePermissionFilters";
 import { useUserPermission } from "@context/UserPermissionProvider";
+import { getAccessToken } from "@utils/tokenStorage";
 
 // Mock Data
 const MONTHS = [
@@ -793,11 +794,12 @@ const NcdsScreeningComp = () => {
         // Build query parameters based on permission filters
         const queryParams = new URLSearchParams({
           skip: '0',
-          limit: '100',
+          limit: '1000',
         });
 
         // Add location filters based on user permissions
         // Using province_id, district_id, subdistrict_id to match API's location_data_resolved structure
+        if (zone) queryParams.append('health_area_id', zone);
         if (province) queryParams.append('province_id', province);
         if (district) queryParams.append('district_id', district);
         if (subdistrict) queryParams.append('subdistrict_id', subdistrict);
@@ -812,7 +814,12 @@ const NcdsScreeningComp = () => {
           url: `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?${queryParams.toString()}`
         });
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?${queryParams.toString()}`);
+        const token = getAccessToken();
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?${queryParams.toString()}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
+        if (!response.ok) throw new Error(`ncd-screeningsall ${response.status}`);
         const data = await response.json();
 
         // แปลงข้อมูลจาก API ให้เป็นรูปแบบที่ใช้แสดงในตาราง
@@ -839,7 +846,7 @@ const NcdsScreeningComp = () => {
     };
 
     fetchData();
-  }, [filtersReady, province, district, subdistrict, service, scope]); // ดึงข้อมูลใหม่เมื่อตัวกรองสถานที่เปลี่ยน
+  }, [filtersReady, zone, province, district, subdistrict, service, scope]); // ดึงข้อมูลใหม่เมื่อตัวกรองสถานที่เปลี่ยน
 
   // ดึงจำนวน Unique Users - รอให้ filters พร้อมก่อน
   useEffect(() => {
@@ -957,34 +964,9 @@ const NcdsScreeningComp = () => {
         return keywordMatch;
       }
 
-      // ไม่ได้เลือกหน่วยบริการ หรือไม่มีข้อมูล OSM ให้ filter ตามพื้นที่ตามปกติ
-      // กรองตาม location_data (แมพ code จาก dropdown กับชื่อใน location_data)
+      // พื้นที่ (เขต/จังหวัด/อำเภอ/ตำบล) กรองที่ API ด้วยรหัสแล้ว
+      // เดิมกรองซ้ำที่นี่ด้วยชื่อจาก GPS (location_data) ซึ่งมักไม่ตรงกับชื่อใน dropdown → แถวหาย
       const locationData = row.location_data || {};
-
-      // กรองตามเขตสุขภาพ
-      if (zone) {
-        const selectedHealthArea = healthAreas.find(h => h.code === zone);
-        if (selectedHealthArea && selectedHealthArea.provinces) {
-          const provinceInHealthArea = selectedHealthArea.provinces.find(
-            p => p.name_th === locationData.region
-          );
-          if (!provinceInHealthArea) {
-            return false;
-          }
-        }
-      }
-
-      // หาชื่อจังหวัดจาก code ที่เลือก (ใช้ name_th)
-      const selectedProvince = provinces.find(p => p.code === province);
-      const provinceMatch = !province || locationData.region === selectedProvince?.name_th;
-
-      // หาชื่ออำเภอจาก code ที่เลือก (ใช้ name_th)
-      const selectedDistrict = districts.find(d => d.code === district);
-      const districtMatch = !district || locationData.city === selectedDistrict?.name_th;
-
-      // หาชื่อตำบลจาก code ที่เลือก (ใช้ name_th)
-      const selectedSubdistrict = subdistricts.find(s => s.code === subdistrict);
-      const subdistrictMatch = !subdistrict || locationData.district === selectedSubdistrict?.name_th;
 
       // กรองตาม keyword
       const keywordMatch = !keyword || (
@@ -997,7 +979,7 @@ const NcdsScreeningComp = () => {
         locationData.district?.includes(keyword)
       );
 
-      return provinceMatch && districtMatch && subdistrictMatch && keywordMatch;
+      return keywordMatch;
     });
   }, [keyword, allRows, year, yearType, month, zone, province, district, subdistrict, service, osmDataByService, healthAreas, provinces, districts, subdistricts]); // เพิ่ม service และ osmDataByService
 
