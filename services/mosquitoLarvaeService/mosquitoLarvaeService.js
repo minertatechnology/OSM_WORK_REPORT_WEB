@@ -44,9 +44,11 @@ export const fetchMosquitoOsmSummary = async ({
   district_id,
   subdistrict_id,
   health_service_id,
+  offset,
 } = {}) => {
   const token = getAccessToken();
   const params = {};
+  if (offset) params.offset = offset;
   if (health_region) params.health_region = health_region;
   if (province_id) params.province_id = province_id;
   if (district_id) params.district_id = district_id;

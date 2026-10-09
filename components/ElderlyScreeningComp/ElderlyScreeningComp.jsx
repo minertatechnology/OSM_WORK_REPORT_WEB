@@ -880,7 +880,17 @@ const ElderlyScreeningComp = () => {
       // เดิมดึง /elderly-screeningsall ได้สูงสุด 1,000 แถวมารวมในเบราว์เซอร์ → ระดับจังหวัดขึ้นไปนับไม่ครบ
       // เรียกไม่สำเร็จ (เช่น API ยังไม่อัปเดต) → ใช้วิธีเดิมด้านล่าง
       try {
+        // ข้อมูลเกินเพดานต่อครั้ง (ระดับประเทศ) → โหลดชุดถัดไปจนครบ (API เก่าไม่มี next_offset จะหยุดที่ชุดแรก)
         const summary = await elderlyScreeningService.getOsmSummary(apiFilters);
+        for (let round = 1; round < 20 && typeof summary.next_offset === "number"; round++) {
+          setCapNotice(`กำลังโหลดข้อมูลทั้งหมด... ${summary.items.length.toLocaleString()} คน`);
+          const next = await elderlyScreeningService.getOsmSummary({ ...apiFilters, offset: summary.next_offset });
+          summary.items = summary.items.concat(next.items);
+          summary.next_offset = next.next_offset;
+          summary.truncated = next.truncated;
+        }
+        summary.total = summary.items.length;
+        setCapNotice("");
         const items = summary.items;
         setRecords([]);
         setAggregatedData(items.map((item) => ({

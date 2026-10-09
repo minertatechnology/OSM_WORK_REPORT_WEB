@@ -828,13 +828,27 @@ const Reportosm1DataComp = () => {
           try {
             const params = { ...queryParams };
             delete params.limit;
-            const res = await fetch(
-              `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/admin/latest-by-osm?${new URLSearchParams(params).toString()}`,
-              { headers }
-            );
-            if (!res.ok) throw new Error(`latest-by-osm ${res.status}`);
-            const json = await res.json();
-            if (!Array.isArray(json?.items)) throw new Error("latest-by-osm: unexpected response");
+            const fetchLatest = async (offset) => {
+              const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/admin/latest-by-osm?${new URLSearchParams(offset ? { ...params, offset } : params).toString()}`,
+                { headers }
+              );
+              if (!res.ok) throw new Error(`latest-by-osm ${res.status}`);
+              const body = await res.json();
+              if (!Array.isArray(body?.items)) throw new Error("latest-by-osm: unexpected response");
+              return body;
+            };
+            // ข้อมูลเกินเพดานต่อครั้ง (ระดับประเทศ) → โหลดชุดถัดไปจนครบ (API เก่าไม่มี next_offset จะหยุดที่ชุดแรก)
+            const json = await fetchLatest(0);
+            for (let round = 1; round < 20 && typeof json.next_offset === "number"; round++) {
+              setCapNotice(`กำลังโหลดข้อมูลทั้งหมด... ${json.items.length.toLocaleString()} คน`);
+              const next = await fetchLatest(json.next_offset);
+              json.items = json.items.concat(next.items);
+              json.next_offset = next.next_offset;
+              json.truncated = next.truncated;
+            }
+            json.total = json.items.length;
+            setCapNotice("");
             if (json.truncated) {
               const total = json.total;
               setCapNotice(`ข้อมูลมากกว่า ${total.toLocaleString()} รายการ แสดงเฉพาะส่วนล่าสุด กรุณาเลือกพื้นที่ให้แคบลง (เช่น เขต/จังหวัด) เพื่อดูครบทุกรายการ`);

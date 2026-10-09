@@ -981,7 +981,17 @@ const ReportMosquitoCompDataComp = () => {
         // เรียกไม่สำเร็จ (เช่น API ยังไม่อัปเดต) → ใช้วิธีเดิมด้านล่าง
         if (!userId) {
           try {
+            // ข้อมูลเกินเพดานต่อครั้ง (ระดับประเทศ) → โหลดชุดถัดไปจนครบ (API เก่าไม่มี next_offset จะหยุดที่ชุดแรก)
             const summary = await fetchMosquitoOsmSummary(queryParams);
+            for (let round = 1; round < 20 && typeof summary.next_offset === "number"; round++) {
+              setCapNotice(`กำลังโหลดข้อมูลทั้งหมด... ${summary.items.length.toLocaleString()} คน`);
+              const next = await fetchMosquitoOsmSummary({ ...queryParams, offset: summary.next_offset });
+              summary.items = summary.items.concat(next.items);
+              summary.next_offset = next.next_offset;
+              summary.truncated = next.truncated;
+            }
+            summary.total = summary.items.length;
+            setCapNotice("");
             const missingNameIds = summary.items
               .filter((row) => !row.first_name && !row.last_name)
               .map((row) => row.external_user_id);

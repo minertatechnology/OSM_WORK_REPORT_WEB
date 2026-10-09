@@ -847,9 +847,22 @@ const NcdsScreeningComp = () => {
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
         if (!response.ok) throw new Error(`ncd-screeningsall ${response.status}`);
-        const data = await response.json();
-        if (Array.isArray(data) && data.length >= NCD_LIMIT) {
-          const total = NCD_LIMIT;
+        let data = await response.json();
+        // ข้อมูลเกินเพดานต่อครั้ง (ระดับประเทศ) → โหลดชุดถัดไปจนครบ (API เก่าไม่มี next_offset จะหยุดที่ชุดแรก)
+        for (let round = 1; round < 20 && Array.isArray(data) && data.length === round * NCD_LIMIT; round++) {
+          setCapNotice(`กำลังโหลดข้อมูลทั้งหมด... ${data.length.toLocaleString()} รายการ`);
+          queryParams.set('skip', String(round * NCD_LIMIT));
+          const nextRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/ncd-screeningsall?${queryParams.toString()}`,
+            { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+          );
+          if (!nextRes.ok) break;
+          const nextData = await nextRes.json();
+          if (!Array.isArray(nextData) || nextData.length === 0) break;
+          data = data.concat(nextData);
+        }
+        if (Array.isArray(data) && data.length >= 20 * NCD_LIMIT) {
+          const total = data.length;
           setCapNotice(`ข้อมูลมากกว่า ${total.toLocaleString()} รายการ แสดงเฉพาะส่วนล่าสุด กรุณาเลือกพื้นที่ให้แคบลง (เช่น เขต/จังหวัด) เพื่อดูครบทุกรายการ`);
         } else {
           setCapNotice("");

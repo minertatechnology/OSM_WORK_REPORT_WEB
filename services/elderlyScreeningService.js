@@ -204,8 +204,10 @@ export const getElderlyOsmSummary = async ({
   district_id,
   subdistrict_id,
   health_service_id,
+  offset,
 } = {}) => {
   const params = {};
+  if (offset) params.offset = offset;
   if (start_date) params.start_date = start_date;
   if (end_date) params.end_date = end_date;
   if (health_region) params.health_region = health_region;
