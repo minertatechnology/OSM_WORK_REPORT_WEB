@@ -35,6 +35,36 @@ export const fetchMosquitoLarvaeHouseholds = async ({ skip = 0, limit = 1000 } =
 };
 
 /**
+ * สรุปรายงานลูกน้ำรายผู้รับผิดชอบ (อสม.) — API นับครบใน SQL (ไม่จำกัด 1,000 รายงานเหมือน /reportsall)
+ * @returns {Promise<{items: Array, total: number, truncated: boolean}>}
+ */
+export const fetchMosquitoOsmSummary = async ({
+  health_region,
+  province_id,
+  district_id,
+  subdistrict_id,
+  health_service_id,
+} = {}) => {
+  const token = getAccessToken();
+  const params = {};
+  if (health_region) params.health_region = health_region;
+  if (province_id) params.province_id = province_id;
+  if (district_id) params.district_id = district_id;
+  if (subdistrict_id) params.subdistrict_id = subdistrict_id;
+  if (health_service_id) params.health_service_id = health_service_id;
+
+  const response = await axios.get(`${MOSQUITO_API_BASE_URL}/mosquito-larvae/admin/osm-summary`, {
+    params,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    timeout: 120000,
+  });
+  if (!response.data || !Array.isArray(response.data.items)) {
+    throw new Error("osm-summary: unexpected response");
+  }
+  return response.data;
+};
+
+/**
  * Fetch all mosquito larvae reports
  * @param {Object} params - Query parameters
  * @param {number} params.skip - Number of records to skip
@@ -66,7 +96,8 @@ export const fetchMosquitoLarvaeReports = async ({
   health_service_id,
   month,
   year,
-  week_number
+  week_number,
+  external_user_id
 } = {}) => {
   try {
     const token = getAccessToken();
@@ -91,6 +122,7 @@ export const fetchMosquitoLarvaeReports = async ({
     if (subdistrict) params.subdistrict = subdistrict;
     if (subdistrict_id) params.subdistrict_id = subdistrict_id;
     if (health_service_id) params.health_service_id = health_service_id;
+    if (external_user_id) params.external_user_id = external_user_id;
 
     // Add time filters
     if (month) params.month = parseInt(month);

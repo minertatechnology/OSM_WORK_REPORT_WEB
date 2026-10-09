@@ -1419,7 +1419,7 @@ const GisComp = () => {
         // 🔥 ดึงข้อมูลจาก 2 API: 76 จังหวัด + กรุงเทพ (เหมือน Data component)
         const queryString = new URLSearchParams({
           skip: 0,
-          limit: 1000,
+          limit: 5000,
         }).toString();
 
         const [provincesRes, bangkokRes] = await Promise.all([

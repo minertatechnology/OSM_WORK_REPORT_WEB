@@ -30,6 +30,7 @@ import { fontbold as sarabunBoldFont } from "../../../styles/Sarabun-Regular-bol
 import ReportMosquitoCompDetailComp from "../ReportMosquitoCompDetailComp/ReportMosquitoCompDetailComp";
 import {
   fetchMosquitoLarvaeReports,
+  fetchMosquitoOsmSummary,
 } from "@services/mosquitoLarvaeService/mosquitoLarvaeService";
 import { formatThaiDate } from "@utils/dateFormatter";
 import { ArrowLeft } from "lucide-react";
@@ -881,6 +882,10 @@ const ReportMosquitoCompDataComp = () => {
 
   // API data states
   const [apiData, setApiData] = useState([]);
+  // แจ้งเมื่อข้อมูลเกินเพดานที่ API คืนได้ (ระดับประเทศ)
+  const [capNotice, setCapNotice] = useState("");
+  // เวลาที่คำนวณภาพรวม (ทั้งประเทศ/ทั้งเขตอ่านจากตารางสรุปล่วงหน้า ไม่ใช่ realtime)
+  const [asOfNote, setAsOfNote] = useState("");
   const [selectedUserName, setSelectedUserName] = useState("");
   const [selectedUserData, setSelectedUserData] = useState(null); // เก็บข้อมูล OSM user ที่เลือก
   const [loading, setLoading] = useState(true);
@@ -905,6 +910,8 @@ const ReportMosquitoCompDataComp = () => {
         setLoading(true);
         setError(null);
         setApiData([]);
+        setCapNotice("");
+        setAsOfNote("");
 
         // 🔐 รอให้ permission โหลดเสร็จก่อน
         if (permissionLoading) {
@@ -968,6 +975,67 @@ const ReportMosquitoCompDataComp = () => {
         }
 
         console.log("📥 [Mosquito] Fetching with filters:", queryParams);
+
+        // View 1: สรุปรายผู้รับผิดชอบจาก API (นับครบใน SQL)
+        // เดิมดึง /reportsall ได้สูงสุด 1,000 รายงานล่าสุดมารวมในเบราว์เซอร์ → ระดับจังหวัดขึ้นไปนับไม่ครบ
+        // เรียกไม่สำเร็จ (เช่น API ยังไม่อัปเดต) → ใช้วิธีเดิมด้านล่าง
+        if (!userId) {
+          try {
+            const summary = await fetchMosquitoOsmSummary(queryParams);
+            const missingNameIds = summary.items
+              .filter((row) => !row.first_name && !row.last_name)
+              .map((row) => row.external_user_id);
+            const usersMap = missingNameIds.length > 0 ? await getUsersBatch(missingNameIds) : {};
+
+            const transformedData = summary.items.map((row, idx) => {
+              const userData = usersMap[row.external_user_id];
+              const profileName = `${row.prefix || ""}${row.first_name || ""} ${row.last_name || ""}`.trim();
+              const batchName = userData
+                ? `${userData.prefix_name_th || ""}${userData.first_name || ""} ${userData.last_name || ""}`.trim()
+                : "";
+              return {
+                id: row.external_user_id,
+                external_user_id: row.external_user_id,
+                index: idx + 1,
+                name: profileName || batchName || row.external_user_id || "ไม่ระบุชื่อ",
+                lastReportDate: row.last_report_date,
+                date: row.last_report_date ? formatThaiDate(row.last_report_date) : "-",
+                amount: row.households,
+                user_location: {
+                  province_id: row.province_id,
+                  province_name_th: row.province,
+                  district_id: row.district_id,
+                  district_name_th: row.district,
+                  subdistrict_id: row.subdistrict_id,
+                  subdistrict_name_th: row.subdistrict,
+                  health_area_id: row.health_area_id,
+                  health_area_name: row.health_area,
+                  health_service_id: row.health_service_id || userData?.health_service_id,
+                  health_service_name_th: row.health_service_name || userData?.health_service_name_th,
+                },
+              };
+            });
+
+            if (summary.truncated) {
+              const total = summary.total;
+              setCapNotice(`ข้อมูลมากกว่า ${total.toLocaleString()} รายการ แสดงเฉพาะส่วนล่าสุด กรุณาเลือกพื้นที่ให้แคบลง (เช่น เขต/จังหวัด) เพื่อดูครบทุกรายการ`);
+            }
+            if (summary.as_of) {
+              const asOf = new Date(summary.as_of).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+              setAsOfNote(`ข้อมูลภาพรวม ณ เวลา ${asOf} น. (คำนวณใหม่ทุก 10 นาที — เลือกจังหวัดเพื่อดูข้อมูลล่าสุด)`);
+            }
+            setApiData(transformedData);
+            return;
+          } catch (summaryError) {
+            console.warn("[Mosquito] osm-summary ใช้ไม่ได้ → ใช้ /reportsall แบบเดิม", summaryError);
+          }
+        }
+
+        // View 2: ดึงเฉพาะรายงานของผู้รับผิดชอบคนนี้ (เดิมกรองจาก 1,000 รายงานล่าสุดของทั้งพื้นที่ → บ้านหาย)
+        if (userId) {
+          queryParams.external_user_id = userId;
+          queryParams.limit = 5000;
+        }
 
         // ✅ ส่ง filter ไป backend
         const data = await fetchMosquitoLarvaeReports(queryParams);
@@ -1146,7 +1214,7 @@ const ReportMosquitoCompDataComp = () => {
 
     loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, householdId, service, year, month, yearType, province, district, subdistrict, permissionLoading]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
+  }, [userId, householdId, service, year, month, yearType, zone, province, district, subdistrict, permissionLoading]); // ดึงข้อมูลใหม่เมื่อ filter เปลี่ยน
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
 
@@ -1363,6 +1431,12 @@ const ReportMosquitoCompDataComp = () => {
           </div>
         </div>
 
+        {asOfNote && <div className="mb-2 text-xs text-gray-500">{asOfNote}</div>}
+        {capNotice && (
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+            {capNotice}
+          </div>
+        )}
         <div className="bg-white border border-[#eee5ff] shadow-xl rounded-2xl p-5 sm:p-6">
           <div className="overflow-x-auto">
             <table

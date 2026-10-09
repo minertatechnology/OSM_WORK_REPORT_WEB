@@ -699,6 +699,8 @@ const Reportosm1DataComp = () => {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [apiData, setApiData] = useState([]);
+  // แจ้งเมื่อข้อมูลเกินเพดานที่ API คืนได้ (ระดับประเทศ)
+  const [capNotice, setCapNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [filteredHealthServices, setFilteredHealthServices] = useState([]); // เก็บข้อมูลหน่วยบริการที่กรองตามพื้นที่
 
@@ -795,6 +797,8 @@ const Reportosm1DataComp = () => {
           queryParams.health_service_id = service;
         }
 
+        // API คืนได้สูงสุด 5,000 คนต่อครั้ง (ค่าเริ่มต้น 1,000 ทำให้ระดับจังหวัดขึ้นไปไม่ครบ)
+        queryParams.limit = 5000;
         const queryString = new URLSearchParams(queryParams).toString();
 
         console.log("📥 [OSM1] Fetching with filters:", queryParams);
@@ -807,34 +811,49 @@ const Reportosm1DataComp = () => {
         }
 
         let data = [];
+        setCapNotice("");
+
+        // รายงานล่าสุดรายคน + ชื่อจาก API (ครบทุกคน ไม่ต้องดึงชื่อจาก Thai PHC ทีละชุด)
+        // เรียกไม่สำเร็จ (เช่น API ยังไม่อัปเดต) → ใช้ /submissionsall แบบเดิม
+        const fetchSubmissionsAll = async (path) => {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}${path}/submissionsall?${queryString}`, { headers });
+          if (!res.ok) {
+            console.error("❌ [OSM1] API failed:", path, res.status);
+            return [];
+          }
+          const json = await res.json();
+          return Array.isArray(json) ? json : (json.data || []);
+        };
+        const fetchProvinceReports = async () => {
+          try {
+            const params = { ...queryParams };
+            delete params.limit;
+            const res = await fetch(
+              `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/admin/latest-by-osm?${new URLSearchParams(params).toString()}`,
+              { headers }
+            );
+            if (!res.ok) throw new Error(`latest-by-osm ${res.status}`);
+            const json = await res.json();
+            if (!Array.isArray(json?.items)) throw new Error("latest-by-osm: unexpected response");
+            if (json.truncated) {
+              const total = json.total;
+              setCapNotice(`ข้อมูลมากกว่า ${total.toLocaleString()} รายการ แสดงเฉพาะส่วนล่าสุด กรุณาเลือกพื้นที่ให้แคบลง (เช่น เขต/จังหวัด) เพื่อดูครบทุกรายการ`);
+            }
+            return json.items;
+          } catch (latestError) {
+            console.warn("[OSM1] latest-by-osm ใช้ไม่ได้ → ใช้ /submissionsall แบบเดิม", latestError);
+            return fetchSubmissionsAll("/report-osm1");
+          }
+        };
 
         if (isCountryLevel) {
           // 🏛️ กรม → ยิงทั้ง 2 API (76 จังหวัด + กรุงเทพ)
           console.log("🏛️ [OSM1] Fetching from both APIs for country level");
 
-          const [provincesRes, bangkokRes] = await Promise.all([
-            fetch(
-              `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`,
-              { headers }
-            ),
-            fetch(
-              `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1-bangkok/submissionsall?${queryString}`,
-              { headers }
-            ),
+          const [provincesData, bangkokData] = await Promise.all([
+            fetchProvinceReports(),
+            fetchSubmissionsAll("/report-osm1-bangkok"),
           ]);
-
-          let provincesData = [];
-          let bangkokData = [];
-
-          if (provincesRes.ok) {
-            const json = await provincesRes.json();
-            provincesData = Array.isArray(json) ? json : (json.data || []);
-          }
-
-          if (bangkokRes.ok) {
-            const json = await bangkokRes.json();
-            bangkokData = Array.isArray(json) ? json : (json.data || []);
-          }
 
           data = [...provincesData, ...bangkokData];
 
@@ -844,18 +863,8 @@ const Reportosm1DataComp = () => {
             total: data.length,
           });
         } else {
-          // อื่นๆ → ยิงแค่ API เดียว
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_BASE_SMART_OSM_URL}/report-osm1/submissionsall?${queryString}`,
-            { headers }
-          );
-
-          if (response.ok) {
-            const json = await response.json();
-            data = Array.isArray(json) ? json : (json.data || []);
-          } else {
-            console.error("❌ [OSM1] API failed:", response.status);
-          }
+          // อื่นๆ → ยิงแค่ API เดียว (กทม. ใช้ /submissionsall แบบเดิม)
+          data = isBangkok ? await fetchSubmissionsAll("/report-osm1") : await fetchProvinceReports();
         }
 
         console.log("📥 [OSM1] Reports from backend:", {
@@ -868,7 +877,20 @@ const Reportosm1DataComp = () => {
         const externalUserIds = data.map(item => item.external_user_id).filter(Boolean);
 
         // ดึงข้อมูลผู้ใช้จาก OSM batch API เพื่อเอาชื่อ
-        const usersMap = await getUsersBatch(externalUserIds);
+        // ชื่อจาก API (user_profile_cache ที่ sync จาก Thai PHC) ก่อน ดึงจาก Thai PHC เฉพาะคนที่ยังไม่มีชื่อ
+        const profileUsers = {};
+        data.forEach((item) => {
+          if (item.profile_first_name || item.profile_last_name) {
+            profileUsers[item.external_user_id] = {
+              prefix_name_th: item.profile_prefix || "",
+              first_name: item.profile_first_name || "",
+              last_name: item.profile_last_name || "",
+              province_id: item.profile_province_id || null,
+            };
+          }
+        });
+        const missingIds = externalUserIds.filter((id) => !profileUsers[id]);
+        const usersMap = { ...(missingIds.length > 0 ? await getUsersBatch(missingIds) : {}), ...profileUsers };
 
         // Debug: แสดงข้อมูล OSM แรก
         if (externalUserIds.length > 0) {
@@ -1227,6 +1249,11 @@ const Reportosm1DataComp = () => {
         </div>
       </div>
 
+      {capNotice && (
+        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          {capNotice}
+        </div>
+      )}
       <div className="bg-white border border-[#eee5ff] shadow-xl rounded-2xl p-5 sm:p-6">
         <div className="overflow-x-auto">
           <table

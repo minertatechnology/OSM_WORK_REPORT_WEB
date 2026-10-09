@@ -698,6 +698,26 @@ function PaginationWithPerPage({
   );
 }
 
+
+// ช่วงวันที่ประเมิน (YYYY-MM-DD) ของปี พ.ศ./ประเภทปี/เดือนที่เลือก — ไม่เลือกปี = ทุกช่วงเวลา
+const toIsoDate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+function ncdAssessmentRange(year, yearType, month) {
+  if (!year) return {};
+  const gregorianYear = parseInt(year, 10) - 543;
+  if (!gregorianYear) return {};
+  if (month) {
+    const m = parseInt(month, 10);
+    const y = yearType === "fiscal" && m >= 10 ? gregorianYear - 1 : gregorianYear;
+    return { assessment_start: toIsoDate(new Date(y, m - 1, 1)), assessment_end: toIsoDate(new Date(y, m, 0)) };
+  }
+  if (yearType === "fiscal") {
+    return { assessment_start: `${gregorianYear - 1}-10-01`, assessment_end: `${gregorianYear}-09-30` };
+  }
+  return { assessment_start: `${gregorianYear}-01-01`, assessment_end: `${gregorianYear}-12-31` };
+}
+
 const NcdsScreeningComp = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -759,6 +779,8 @@ const NcdsScreeningComp = () => {
 
   // State สำหรับเก็บข้อมูลจาก API
   const [allRows, setAllRows] = useState([]);
+  // แจ้งเมื่อข้อมูลเกินเพดานที่ API คืนได้
+  const [capNotice, setCapNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [osmDataByService, setOsmDataByService] = useState([]); // เก็บข้อมูล OSM ตามหน่วยบริการ
   const [uniqueUserCount, setUniqueUserCount] = useState(0); // จำนวน อสม. ที่ส่งรายงาน
@@ -792,10 +814,15 @@ const NcdsScreeningComp = () => {
         }
 
         // Build query parameters based on permission filters
+        // ส่งช่วงวันที่ประเมินตามปี/เดือนที่เลือกให้ API กรอง (เดิมดึงทุกปีมากรองในเบราว์เซอร์ → เกินเพดานแล้วข้อมูลหาย)
+        const NCD_LIMIT = 20000;
         const queryParams = new URLSearchParams({
           skip: '0',
-          limit: '1000',
+          limit: String(NCD_LIMIT),
         });
+        const range = ncdAssessmentRange(year, yearType, month);
+        if (range.assessment_start) queryParams.append('assessment_start', range.assessment_start);
+        if (range.assessment_end) queryParams.append('assessment_end', range.assessment_end);
 
         // Add location filters based on user permissions
         // Using province_id, district_id, subdistrict_id to match API's location_data_resolved structure
@@ -821,6 +848,12 @@ const NcdsScreeningComp = () => {
         );
         if (!response.ok) throw new Error(`ncd-screeningsall ${response.status}`);
         const data = await response.json();
+        if (Array.isArray(data) && data.length >= NCD_LIMIT) {
+          const total = NCD_LIMIT;
+          setCapNotice(`ข้อมูลมากกว่า ${total.toLocaleString()} รายการ แสดงเฉพาะส่วนล่าสุด กรุณาเลือกพื้นที่ให้แคบลง (เช่น เขต/จังหวัด) เพื่อดูครบทุกรายการ`);
+        } else {
+          setCapNotice("");
+        }
 
         // แปลงข้อมูลจาก API ให้เป็นรูปแบบที่ใช้แสดงในตาราง
         const transformedData = data.map((item, index) => ({
@@ -846,7 +879,7 @@ const NcdsScreeningComp = () => {
     };
 
     fetchData();
-  }, [filtersReady, zone, province, district, subdistrict, service, scope]); // ดึงข้อมูลใหม่เมื่อตัวกรองสถานที่เปลี่ยน
+  }, [filtersReady, zone, province, district, subdistrict, service, scope, year, yearType, month]); // ดึงข้อมูลใหม่เมื่อตัวกรองสถานที่/ปี/เดือนเปลี่ยน
 
   // ดึงจำนวน Unique Users - รอให้ filters พร้อมก่อน
   useEffect(() => {
@@ -1247,6 +1280,11 @@ const NcdsScreeningComp = () => {
         </div>
       </div>
 
+      {capNotice && (
+        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          {capNotice}
+        </div>
+      )}
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] overflow-hidden">
         <div className="overflow-x-auto">
           <table

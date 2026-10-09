@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -807,6 +807,11 @@ const ElderlyScreeningComp = () => {
     }
   }, [currentBuddhistYear, year, availableYears.length]);
 
+  // ช่วงวันที่ของการค้นหาล่าสุด (ใช้ดึงรายการของผู้ประเมินในหน้ารายละเอียด)
+  const lastDateRangeRef = useRef({});
+  // แจ้งเมื่อข้อมูลเกินเพดานที่ API คืนได้ (ระดับประเทศ)
+  const [capNotice, setCapNotice] = useState("");
+
   const fetchElderly = useCallback(async () => {
     // รอให้ filters พร้อมก่อนเรียก API (รวมถึงการ set ค่าเริ่มต้นจาก permission)
     if (!filtersReady) {
@@ -815,6 +820,7 @@ const ElderlyScreeningComp = () => {
 
     setLoading(true);
     setError("");
+    setCapNotice("");
     try {
       // ดึงข้อมูล OSM ตามหน่วยบริการ (ถ้าเลือกหน่วยบริการ)
       let osmData = [];
@@ -868,6 +874,52 @@ const ElderlyScreeningComp = () => {
         ...(districtObj && { district: districtObj.name_th }),
         ...(subdistrictObj && { subdistrict: subdistrictObj.name_th }),
       };
+      lastDateRangeRef.current = { start_date, end_date };
+
+      // สรุปรายผู้ประเมินจาก API (นับครบใน SQL)
+      // เดิมดึง /elderly-screeningsall ได้สูงสุด 1,000 แถวมารวมในเบราว์เซอร์ → ระดับจังหวัดขึ้นไปนับไม่ครบ
+      // เรียกไม่สำเร็จ (เช่น API ยังไม่อัปเดต) → ใช้วิธีเดิมด้านล่าง
+      try {
+        const summary = await elderlyScreeningService.getOsmSummary(apiFilters);
+        const items = summary.items;
+        setRecords([]);
+        setAggregatedData(items.map((item) => ({
+          external_user_id: item.external_user_id,
+          count: item.count,
+          latest_date: item.latest_date,
+          location_data_resolved: item.location_data_resolved || {},
+          screenings: [],
+          _fromSummary: true,
+        })));
+
+        const yearsList = Array.from(new Set(
+          items.filter((item) => item.latest_date)
+            .map((item) => String(new Date(item.latest_date).getFullYear() + 543))
+        )).sort((a, b) => b - a);
+        setAvailableYears(yearsList.length > 0 ? yearsList : [currentBuddhistYear?.toString() || "2568"]);
+
+        const users = {};
+        const missingIds = [];
+        items.forEach((item) => {
+          if (item.name) {
+            users[item.external_user_id] = { name: item.name, citizen_id: item.citizen_id, osm_code: item.osm_code };
+          } else {
+            missingIds.push(item.external_user_id);
+          }
+        });
+        if (missingIds.length > 0) {
+          Object.assign(users, await oauth2Service.getBatch(missingIds));
+        }
+        if (summary.truncated) {
+          const total = summary.total;
+          setCapNotice(`ข้อมูลมากกว่า ${total.toLocaleString()} รายการ แสดงเฉพาะส่วนล่าสุด กรุณาเลือกพื้นที่ให้แคบลง (เช่น เขต/จังหวัด) เพื่อดูครบทุกรายการ`);
+        }
+        setUserDataMap(users);
+        return;
+      } catch (summaryError) {
+        console.warn("[Elderly] osm-summary ใช้ไม่ได้ → ใช้ /elderly-screeningsall แบบเดิม", summaryError);
+      }
+
       const data = await elderlyScreeningService.getAll(apiFilters);
 
       if (data.length === 0) {
@@ -935,6 +987,29 @@ const ElderlyScreeningComp = () => {
   useEffect(() => {
     fetchElderly();
   }, [fetchElderly]);
+
+  // หน้ารายละเอียด: ข้อมูลจาก osm-summary ไม่มีรายการคัดกรอง → ดึงเฉพาะของผู้ประเมินคนนี้
+  useEffect(() => {
+    if (!detailId) return;
+    const assessor = aggregatedData.find((item) => item.external_user_id === detailId);
+    if (!assessor || !assessor._fromSummary || assessor._screeningsLoaded) return;
+
+    let cancelled = false;
+    const markLoaded = (screenings) => {
+      if (cancelled) return;
+      setAggregatedData((prev) => prev.map((item) => (
+        item.external_user_id === detailId ? { ...item, screenings, _screeningsLoaded: true } : item
+      )));
+    };
+    elderlyScreeningService
+      .getAll({ skip: 0, limit: 1000, external_user_id: detailId, ...lastDateRangeRef.current })
+      .then(markLoaded)
+      .catch((err) => {
+        console.error("[Elderly] โหลดรายการของผู้ประเมินไม่สำเร็จ", err);
+        markLoaded([]);
+      });
+    return () => { cancelled = true; };
+  }, [detailId, aggregatedData]);
 
   useEffect(() => {
     // รอให้ component mount เสร็จก่อนถึงจะ hydrate
@@ -1165,7 +1240,8 @@ const ElderlyScreeningComp = () => {
     });
 
     // ถ้ายังโหลดข้อมูล หรือไม่พบข้อมูล ให้แสดง loading
-    if (loading || aggregatedData.length === 0 || !assessorData || !userData) {
+    if (loading || aggregatedData.length === 0 || !assessorData || !userData
+        || (assessorData._fromSummary && !assessorData._screeningsLoaded)) {
       console.log("⏳ Showing loading spinner...");
       return <ComponentLoadingSpinner />;
     }
@@ -1384,6 +1460,11 @@ const ElderlyScreeningComp = () => {
         </div>
       </div>
 
+      {capNotice && (
+        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          {capNotice}
+        </div>
+      )}
       <div className="bg-white rounded-2xl shadow-lg border border-[#ece1f7] overflow-hidden">
         <div className="overflow-x-auto">
           <table

@@ -34,10 +34,12 @@ export const getAllElderlyScreenings = async ({
   district_id,
   subdistrict,
   subdistrict_id,
-  health_service_id
+  health_service_id,
+  external_user_id
 } = {}) => {
   try {
     const params = { skip, limit };
+    if (external_user_id) params.external_user_id = external_user_id;
 
     // Add date filters if provided
     if (start_date) params.start_date = start_date;
@@ -190,6 +192,35 @@ export const exportElderlyScreenings = async (params = {}) => {
  * @param {Array} screenings - รายการผู้สูงอายุทั้งหมด
  * @returns {Array} รายการผู้ประเมินพร้อมจำนวนผู้สูงอายุที่ประเมิน
  */
+/**
+ * สรุปรายผู้ประเมิน (อสม.) จาก API — นับครบใน SQL (ไม่จำกัด 1,000 แถวเหมือน getAll)
+ * @returns {Promise<{items: Array, total: number, truncated: boolean}>}
+ */
+export const getElderlyOsmSummary = async ({
+  start_date,
+  end_date,
+  health_region,
+  province_id,
+  district_id,
+  subdistrict_id,
+  health_service_id,
+} = {}) => {
+  const params = {};
+  if (start_date) params.start_date = start_date;
+  if (end_date) params.end_date = end_date;
+  if (health_region) params.health_region = health_region;
+  if (province_id) params.province_id = province_id;
+  if (district_id) params.district_id = district_id;
+  if (subdistrict_id) params.subdistrict_id = subdistrict_id;
+  if (health_service_id) params.health_service_id = health_service_id;
+
+  const response = await apiSmartOsm.get("/elderly-screeningsall/osm-summary", { params, timeout: 120000 });
+  if (!response.data || !Array.isArray(response.data.items)) {
+    throw new Error("elderly osm-summary: unexpected response");
+  }
+  return response.data;
+};
+
 export const aggregateByAssessor = (screenings) => {
   if (!Array.isArray(screenings) || screenings.length === 0) {
     return [];
@@ -263,5 +294,6 @@ export default {
   search: searchElderlyScreenings,
   export: exportElderlyScreenings,
   aggregateByAssessor,
+  getOsmSummary: getElderlyOsmSummary,
   getByAssessor: getElderlyByAssessor,
 };
